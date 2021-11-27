@@ -3,6 +3,9 @@ subroutine ext_force(exdvxdt)
 !=======================================================================
 
 use param
+use globvar
+use physical_constants
+
 implicit none
 integer:: i,j,k,d
 real(8),intent(out):: exdvxdt(dim,ntotal+nvirt)

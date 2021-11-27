@@ -3,6 +3,7 @@ subroutine time_integration( )
 !=======================================================================================================
 
 use param
+use globvar
 implicit none     
 integer:: i,j,k,d,n
 real(8):: t1,t2

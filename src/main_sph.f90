@@ -24,6 +24,7 @@
 program SPH
 
 use param
+use globvar
 implicit none
 real(8):: Hmax
 

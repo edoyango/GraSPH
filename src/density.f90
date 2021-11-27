@@ -3,6 +3,7 @@ subroutine con_density(ki,drhoi)
 !=================================================================================
 
 use param
+use globvar
 implicit none
 integer,intent(in):: ki
 real(8),intent(out):: drhoi(ntotal+nvirt)

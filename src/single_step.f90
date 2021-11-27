@@ -3,7 +3,7 @@ subroutine single_step(ki,dvxdti,drhoi)
 !=============================================================================================================
 
 use param
-
+use globvar
 implicit none
 integer,intent(in):: ki
 real(8),intent(out):: dvxdti(dim,ntotal),drhoi(dim,ntotal+nvirt)

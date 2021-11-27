@@ -2,6 +2,7 @@
 subroutine kernel(r,dx,thsml,tw,tdwdx)   
 !==================================
 use param
+use physical_constants
 implicit none
 real(8),intent(in):: dx(dim),r,thsml
 real(8),intent(out):: tdwdx(dim),tw

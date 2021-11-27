@@ -3,7 +3,10 @@ set obj_dir=./obj/
 ifort ^
 /object:%obj_dir% /module:%obj_dir% ^
 /traceback /O3 /Qxhost /Qipo ^
+%src_dir%constants.f90 ^
 %src_dir%param.f90 ^
+%src_dir%datatypes.f90 ^
+%src_dir%globvar.f90 ^
 %src_dir%arrayAlloc.f90 ^
 %src_dir%art_visc.f90 ^
 %src_dir%density.f90 ^

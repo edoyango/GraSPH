@@ -2,6 +2,7 @@
 subroutine virt_part( )
 !=============================================================
 use param
+use globvar
 implicit none
 integer:: i,k,d,n
 real(8):: xl,xmin,xmax,ymin,ymax,dx,dy,v_inf
@@ -59,8 +60,8 @@ parts(ntotal+1:ntotal+nvirt)%rho = irho
 parts(ntotal+1:ntotal+nvirt)%p = 0d0
 parts(ntotal+1:ntotal+nvirt)%itype = -1
 
-open(1,file="output_data/xv_vp.dat")
-open(2,file="output_data/state_vp.dat")
+open(1,file="C:\Users\edwar\Documents\outputdata/xv_vp.dat")
+open(2,file="C:\Users\edwar\Documents\outputdata/state_vp.dat")
 	  	
 do i = ntotal+1, n         
   write(1,1001) i, parts(i)%x(:), parts(i)%vx(:)           

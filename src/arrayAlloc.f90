@@ -1,6 +1,7 @@
 subroutine allocateGlobalArrays( )
 
 use param
+use globvar
 implicit none
 
 allocate( parts(ntotal+nvirt) )
@@ -13,6 +14,7 @@ end
 subroutine deallocateGlobalArrays( )
 
 use param
+use globvar
 implicit none
 
 deallocate( parts )

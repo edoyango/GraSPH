@@ -3,6 +3,7 @@ subroutine art_visc(ardvxdt)
 !======================================================================================
 
 use param
+use globvar
 implicit none
 integer:: i,j,k,d
 real(8):: dx(dim),piv(dim),muv,vr,rr,h,mrho

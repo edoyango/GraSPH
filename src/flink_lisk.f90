@@ -2,6 +2,7 @@ subroutine flink_list( )
 ! subroutine to search for particle interactions using cell-linked list.
 
 use param
+use globvar
 implicit none
 type particleincellarray
   type(particles),pointer:: p
@@ -85,7 +86,7 @@ end subroutine flink_list
 subroutine check_if_interact(p_i,p_j)
 ! subroutine to chekc if two particles are interacting and consequently adding to pair list
 use param
-
+use globvar
 implicit none
 type(particles),intent(in),target:: p_i,p_j
 real(8):: dxiac(dim),r
@@ -108,7 +109,7 @@ end subroutine check_if_interact
 subroutine print_interact_info
 ! subroutine to print interaction summary data
 use param
-
+use globvar
 implicit none
 integer,allocatable:: ns(:)
 integer:: maxp,minp,sumiac,maxiac,miniac,noiac,i,j,k,d

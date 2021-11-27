@@ -3,6 +3,7 @@ subroutine int_force(indvxdt)
 !==============================================================================================
 
 use param
+use globvar
 implicit none
 integer:: i,j,k,d
 real(8):: h(dim)

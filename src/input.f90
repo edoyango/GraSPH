@@ -3,12 +3,13 @@ subroutine input( )
 !==========================================================
 
 use param
+use globvar
 implicit none
 integer:: i,d,im
 
-open(10,file="output_data/ini_xv.dat")
-open(20,file="output_data/ini_state.dat")
-open(30,file="output_data/ini_stress.dat") 
+open(10,file="C:\Users\edwar\Documents\outputdata/ini_xv.dat")
+open(20,file="C:\Users\edwar\Documents\outputdata/ini_state.dat")
+open(30,file="C:\Users\edwar\Documents\outputdata/ini_stress.dat") 
 
 call model_fluid( )
 do i = 1, ntotal 
@@ -35,6 +36,7 @@ end
 subroutine model_fluid( )
 !===============================================================
 use param
+use globvar
 implicit none
 integer:: i,j,d,n
 real(8):: xl,yl,xi,yi,dx,dy
