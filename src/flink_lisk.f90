@@ -1,4 +1,5 @@
 subroutine flink_list( )
+! subroutine to search for particle interactions using cell-linked list.
 
 use param
 implicit none
@@ -79,9 +80,10 @@ if (mod(itimestep,print_step)==0) then
 endif    
 
 end subroutine flink_list
+
 !--------------------------------------------------------------------------------------------------
 subroutine check_if_interact(p_i,p_j)
-
+! subroutine to chekc if two particles are interacting and consequently adding to pair list
 use param
 
 implicit none
@@ -101,9 +103,10 @@ if (r < hsml*scale_k) then
 	end if
 end if
 end subroutine check_if_interact
+
 !--------------------------------------------------------------------------------------------------
 subroutine print_interact_info
-
+! subroutine to print interaction summary data
 use param
 
 implicit none
