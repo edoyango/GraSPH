@@ -12,11 +12,6 @@ module param
 	!    = 2, Gauss kernel   (Gingold and Monaghan 1981) 
 	integer,parameter:: skf = 1
 	
-	!Period of data writing (time steps).
-	!print_step: Print summary data to terminal
-	!save_step : Write output data to file
-	integer,parameter:: print_step = 100, save_step = 100
-	
 	!spacing and kernel radii parameters
 	real(8),parameter:: dxo = 0.5d0, kappa = 1.2d0, v_max = 22.15d0
 	
@@ -25,5 +20,12 @@ module param
 	
 	!derived parameters. c: speed of sound, hsml: smoothing length, dt: time-step size, mass: mass per particle
 	real(8),parameter:: c = 10d0*v_max,hsml = kappa*dxo, dt = 1.5d0*hsml/c,mass=irho*dxo**dim
+	
+	integer,parameter:: mp = 125, np = 125, op = 375, pp = 200
+	
+	character(len=200),parameter:: output_directory = "C:\Users\edwar\Documents\outputdata\"
+	
+	logical,parameter:: output_phys(2) = (/.true.,.true./)
+	logical,parameter:: output_virt(2) = (/.true.,.false./)
 
 end

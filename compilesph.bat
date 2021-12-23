@@ -1,5 +1,18 @@
-set src_dir=./src/
-set obj_dir=./obj/
+@echo off
+
+set src_dir=.\src\
+set obj_dir=.\obj\
+
+REM checking if debug is passed to script if so, compile with /check option
+set debugoption=
+:loop
+	if "%1"=="debug" (
+		set debugoption=/check )
+	if "%1"=="clean" (
+		goto clean )
+shift
+if not "%~1"=="" goto loop
+
 ifort ^
 /object:%obj_dir% /module:%obj_dir% ^
 /traceback /O3 /Qxhost /Qipo ^
@@ -22,3 +35,9 @@ ifort ^
 %src_dir%time_print.f90 ^
 %src_dir%virt_part.f90 ^
 /exe:./runsph.exe
+
+goto:eof
+
+:clean
+del %obj_dir%\*.obj
+del %obj_dir%\*.mod
