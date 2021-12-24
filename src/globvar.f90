@@ -11,16 +11,37 @@ module globvar
 	
 	!global 1D variables
 	integer:: ntotal,nvirt
-	integer:: mp,np,op,pp,maxn,maxinter,maxnsend
+	integer:: maxn,maxinter
 	integer:: niac
-	integer:: nstart,current_ts,maxtimestep,itimestep,yesorno
+	integer:: itimestep,maxtimestep,save_step,print_step
+	real(8):: time
 	
 	real(8):: scale_k
 	
-	!diagnostics
-	integer:: nvalid
-	
 	!timing
-	real(8):: cputime,s1,s2,time,testtime(20)
+	real(8):: cputime,output_time,test_time
+	
+	contains
+	
+		subroutine allocateGlobalArrays
+		
+			implicit none
+			
+			maxn = ntotal+nvirt
+			maxinter = 12*maxn
+			
+			allocate( parts(maxn) )
+			allocate( pairs(maxinter) )
+			
+		end subroutine allocateGlobalArrays
+		
+		subroutine deallocateGlobalArrays
+		
+			implicit none
+			
+			deallocate( parts )
+			deallocate( pairs )
+			
+		end subroutine deallocateGlobalArrays
 	
 end module globvar

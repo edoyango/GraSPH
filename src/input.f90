@@ -22,14 +22,12 @@ subroutine input(generate)
 			n = 0
 			do i = 1, mp
 				do j = 1, np
-					xi = i*dx - dx/2.d0
-					yi = j*dy - dy/2.d0
 					n = n + 1
 					parts(n)%ind = n
-					parts(n)%x(1) = xi
-					parts(n)%x(2) = yi
+					parts(n)%x(1) = (i-0.5d0)*dx
+					parts(n)%x(2) = (j-0.5d0)*dy
 					parts(n)%vx(:) = 0d0
-					parts(n)%itype = 2
+					parts(n)%itype = 1
 					parts(n)%rho = irho
 					parts(n)%p = 0d0
 				enddo
@@ -51,18 +49,16 @@ subroutine write_ini_config
 	implicit none
 	integer:: i,d,im
 
-	open(10,file="C:\Users\edwar\Documents\outputdata/ini_xv.dat")
-	open(20,file="C:\Users\edwar\Documents\outputdata/ini_state.dat")
-	open(30,file="C:\Users\edwar\Documents\outputdata/ini_stress.dat")
+	open(1,file=trim(output_directory)//"/ini_xv.dat")
+	open(2,file=trim(output_directory)//"/ini_state.dat")
+	open(3,file=trim(output_directory)//"/ini_stress.dat")
 	
 	do i = 1, ntotal 
-		write(10,1001) i, parts(i)%x(:), parts(i)%vx(:)
-		write(20,1002) i, parts(i)%itype, hsml, mass, parts(i)%rho, parts(i)%p
+		write(1,1001) i, parts(i)%itype, parts(i)%x(:), parts(i)%vx(:)
+		write(2,1001) i, parts(i)%itype, parts(i)%rho, parts(i)%p
 	end do
 	
-	1001 format(1x, I5, 6(2x, e14.7)) 
-	1002 format(1x, I5, 2x, I2, 8(2x, e14.7)) 
-	1003 format(1x, I5, 2x, I2, 2x, e14.7) 
+	1001 format(1x, I6, 1x, I2, 6(2x, e24.17))
 	
 	close(1)
 	close(2) 

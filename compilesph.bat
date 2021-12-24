@@ -4,23 +4,23 @@ set src_dir=.\src\
 set obj_dir=.\obj\
 
 REM checking if debug is passed to script if so, compile with /check option
-set debugoption=
+set compoption=/traceback /O3 /Qxhost /Qipo
 :loop
 	if "%1"=="debug" (
-		set debugoption=/check )
+		set compoption=/traceback /O3 /Qxhost /Qipo /check:all )
 	if "%1"=="clean" (
 		goto clean )
+	if "%1"=="defaultoption" (
+		set compoption= )
 shift
 if not "%~1"=="" goto loop
 
 ifort ^
-/object:%obj_dir% /module:%obj_dir% ^
-/traceback /O3 /Qxhost /Qipo ^
+/object:%obj_dir% /module:%obj_dir% %compoption% ^
 %src_dir%constants.f90 ^
 %src_dir%param.f90 ^
 %src_dir%datatypes.f90 ^
 %src_dir%globvar.f90 ^
-%src_dir%arrayAlloc.f90 ^
 %src_dir%art_visc.f90 ^
 %src_dir%density.f90 ^
 %src_dir%ext_force.f90 ^
@@ -32,6 +32,7 @@ ifort ^
 %src_dir%main_sph.f90 ^
 %src_dir%output.f90 ^
 %src_dir%single_step.f90 ^
+%src_dir%summary.f90 ^
 %src_dir%time_print.f90 ^
 %src_dir%virt_part.f90 ^
 /exe:./runsph.exe

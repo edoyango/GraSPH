@@ -13,7 +13,7 @@ module param
 	integer,parameter:: skf = 1
 	
 	!spacing and kernel radii parameters
-	real(8),parameter:: dxo = 0.5d0, kappa = 1.2d0, v_max = 22.15d0
+	real(8),parameter:: dxo = 0.2d0, kappa = 1.2d0, v_max = 22.15d0
 	
 	!material density (per particle)
 	real(8),parameter:: irho = 1000d0
