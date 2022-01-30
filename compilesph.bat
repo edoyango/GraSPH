@@ -11,7 +11,7 @@ set compoption=/traceback /O3 /Qxhost /Qipo
 	if "%1"=="clean" (
 		goto clean )
 	if "%1"=="defaultoption" (
-		set compoption= )
+		set compoption=/traceback )
 shift
 if not "%~1"=="" goto loop
 
@@ -21,6 +21,7 @@ ifort ^
 %src_dir%param.f90 ^
 %src_dir%datatypes.f90 ^
 %src_dir%globvar.f90 ^
+%src_dir%summary_m.f90 ^
 %src_dir%art_visc.f90 ^
 %src_dir%density.f90 ^
 %src_dir%ext_force.f90 ^
@@ -32,8 +33,6 @@ ifort ^
 %src_dir%main_sph.f90 ^
 %src_dir%output.f90 ^
 %src_dir%single_step.f90 ^
-%src_dir%summary.f90 ^
-%src_dir%time_print.f90 ^
 %src_dir%virt_part.f90 ^
 /exe:./runsph.exe
 

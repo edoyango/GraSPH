@@ -17,11 +17,11 @@ path = 'C:\Users\edwar\Documents\outputdata';
 scrsz  = get(0,'ScreenSize');
 hf     = figure;
 set(gcf,'Color',[1,1,1]);
-set(gca,'Position',[0.05 0.0 0.9 1.0]); % Full axes figure
+set(gca,'Position',[0.05 0.05 0.9 1.0]); % Full axes figure
 
 %Program starts
 
-for i=2
+for i=6
       
 % ****** Plot real particle ******
     [index,msg]=sprintf('%04d',i); 
@@ -31,9 +31,10 @@ for i=2
 % ****** Plot velocity changed color ******
     b = scatter(a(:,3),a(:,4),25,a1(:,4),'.'); % density
 %     b = scatter(a(:,2),a(:,3),25,a1(:,4),'.'); % Pressure   
-%     b = scatter(a(:,3),a(:,4),25,sqrt(a(:,5).^2+a(:,6).^2),'.'); % Velocity
-
+%     b = scatter(a(:,3),a(:,4),25,sqrt(a(:,5).^2+a(:,6).^2),'.'); %
+%     Velocity
     axis equal; hold on; 
+    b = scatter(a(15505,3),a(15505,4),100,[0,0,0],'.')
 %     caxis([970 1030])
     bar = colorbar;
     colormap('jet')
