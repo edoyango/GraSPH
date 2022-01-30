@@ -5,6 +5,8 @@ subroutine time_integration( )
 	use globvar
 	use param
 	
+	use summary_m
+	
 	implicit none     
 	integer:: i,j,k,d,n
 	real(8):: t1,t2
@@ -79,7 +81,6 @@ subroutine time_integration( )
 		
 		! write output data
 		if (mod(itimestep,save_step).eq.0) then
-			n = itimestep / save_step
 			call output( )	
 		end if 
 

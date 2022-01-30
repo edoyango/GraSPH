@@ -1,30 +1,9 @@
-!-----------------------------------------------------------------------------------------!
-!    mmmmmmmmm 	      mmmmmmmmmmmm	  mmmm	   mmmm	   mmmmm          mmmmmmmmm           !
-!   mmmmmmmmmm        mmmmmmmmmmmmm	  mmmm	   mmmm	   mmmmmmm        mmmmmmmmmm          !
-!   mmmmmmmmm         mmmm	   mmmm	  mmmm	   mmmm	        mmmm      mmmm   mmmm         !
-!     mmmmmmmm        mmmm	   mmmm	  mmmm	   mmmm	        mmmm      mmmm    mmmm        !
-!       mmmmmmmm      mmmmmmmmmmmm	  mmmmmmmmmmmmm       mmmmm       mmmm    mmmm        !
-!         mmmmmmmm    mmmmmmmmm		  mmmmmmmmmmmmm      mmmmm        mmmm    mmmm        !
-!         mmmmmmmm    mmmmm			  mmmm	   mmmm	    mmmm          mmmm    mmmm        !
-!        mmmmmmmmm    mmmmm			  mmmm	   mmmm	   mmmmm          mmmm   mmmm         !
-!      mmmmmmmmm      mmmmm			  mmmm	   mmmm	   mmmmmmmmm      mmmmmmmmmm          !
-!   mmmmmmmmm         mmmmm			  mmmm	   mmmm	   mmmmmmmmm      mmmmmmmm            !
-!-----------------------------------------------------------------------------------------!
-! ATTENTION:
-! The copy right reserved. No part of this program may be reproduced, stored in a retrieval
-! system, or transmitted in any form or by any means without the prior permission of:     !
-!									BUI HONG HA                                           !
-!					Monash Computational Geomechanics (MCG) Lab							  !
-!				Department of Civil Engineering, Monash University						  !
-!			    R132, 23 College Walk, Clayton, Vic3800, Australia						  !
-!				  Tel: + 61 3 9905 2599  I  Fax: +61 3 9905 4944						  !
-!				  Email: Ha.Bui@monash.edu I Web: www.monash.edu.au						  !
-!---------------------------------- JANUARY 2012 -----------------------------------------!
-
 program SPH
 
 	use globvar
 	use param
+	
+	use summary_m
 
 	implicit none
 	

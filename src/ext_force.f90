@@ -33,6 +33,7 @@ subroutine ext_force(ki,exdvxdt)
 				exdvxdt(:,pairs(k)%i%ind) = exdvxdt(:,pairs(k)%i%ind) + dd*dx(:)*f
 				exdvxdt(:,pairs(k)%j%ind) = exdvxdt(:,pairs(k)%j%ind) - dd*dx(:)*f
 			endif
+			
 		endif
 	enddo
 

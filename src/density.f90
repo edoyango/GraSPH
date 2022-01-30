@@ -23,7 +23,7 @@ subroutine con_density(ki,cdrhodt)
 			
 			cdrhodt(pairs(k)%i%ind) = cdrhodt(pairs(k)%i%ind) + mass*vcc
 			cdrhodt(pairs(k)%j%ind) = cdrhodt(pairs(k)%j%ind) + mass*vcc       
-		
+			if ((pairs(k)%i%ind==15505 .or. pairs(k)%j%ind==15505) .and. itimestep==1723) write(*,'(3(I6,1x),9(e14.7,1x))') ki,pairs(k)%i%ind,pairs(k)%j%ind,pairs(k)%i%vx,pairs(k)%j%vx,pairs(k)%dwdx
 		endif
 	
 	enddo
