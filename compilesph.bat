@@ -3,6 +3,8 @@
 set src_dir=.\src\
 set obj_dir=.\obj\
 
+if not exist %obj_dir% mkdir %obj_dir%
+
 REM checking if debug is passed to script if so, compile with /check option
 set compoption=/traceback /O3 /Qxhost /Qipo
 :loop
@@ -16,7 +18,8 @@ shift
 if not "%~1"=="" goto loop
 
 ifort ^
-/object:%obj_dir% /module:%obj_dir% %compoption% ^
+/object:%obj_dir% /module:%obj_dir% ^
+%compoption% ^
 %src_dir%constants.f90 ^
 %src_dir%param.f90 ^
 %src_dir%datatypes.f90 ^
