@@ -19,14 +19,16 @@ main.o \
 
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
-$(ODIR)/%.o: $(SDIR)/%.f90
+# $(ODIR)/%.o: $(SDIR)/%.f90
+	
+	# $(FC) -c -o $@ $< $(OPTIONS)
+
+sph: $(OBJ)
+	$(FC) $(OPTIONS) -o $@ $^
+	
 	if [ ! -d $(ODIR) ]; then\
 		mkdir $(ODIR);\
 	fi
-	$(FC) -c -o $@ $< $(OPTIONS)
-
-sph: $(OBJ)
-	$(FC) -o $@ $^ $(OPTIONS)
 
 clean:
 	rm ./obj/*.o
