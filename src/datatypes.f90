@@ -1,4 +1,4 @@
-module derived_types
+module datatypes
 	
 	use param
 	implicit none
@@ -16,4 +16,4 @@ module derived_types
 		real(8):: w,dwdx(dim)
 	end type interactions
 	
-end module derived_types
+end module datatypes

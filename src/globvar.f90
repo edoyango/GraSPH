@@ -1,6 +1,7 @@
 module globvar
 	
-	use derived_types
+	use datatypes
+	
 	implicit none
 	
 	! particle array
@@ -20,28 +21,31 @@ module globvar
 	
 	!timing
 	real(8):: cputime,output_time,test_time
+
+! subroutines to allocate and deallocate global arrays
+contains
 	
-	contains
+	!==============================================================================================================================
+	subroutine allocateGlobalArrays
 	
-		subroutine allocateGlobalArrays
+		implicit none
 		
-			implicit none
-			
-			maxn = ntotal+nvirt
-			maxinter = 12*maxn
-			
-			allocate( parts(maxn) )
-			allocate( pairs(maxinter) )
-			
-		end subroutine allocateGlobalArrays
+		maxn = ntotal+nvirt
+		maxinter = 12*maxn
 		
-		subroutine deallocateGlobalArrays
+		allocate( parts(maxn) )
+		allocate( pairs(maxinter) )
 		
-			implicit none
-			
-			deallocate( parts )
-			deallocate( pairs )
-			
-		end subroutine deallocateGlobalArrays
+	end subroutine allocateGlobalArrays
+	
+	!==============================================================================================================================
+	subroutine deallocateGlobalArrays
+	
+		implicit none
+		
+		deallocate( parts )
+		deallocate( pairs )
+		
+	end subroutine deallocateGlobalArrays
 	
 end module globvar

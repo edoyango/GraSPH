@@ -3,7 +3,10 @@ program SPH
 	use globvar
 	use param
 	
+	use input_m
+	use kernel_m
 	use summary_m
+	use time_integration_m
 
 	implicit none
 	
@@ -11,16 +14,7 @@ program SPH
 	call preamble
 	
 	! setting k parameter for kernel radius (r = kh)
-	select case (skf)
-		case (1)
-			scale_k = 2d0
-		case (2)
-			scale_k = 3d0
-		case (3)
-			scale_k = 2d0
-		case (4)
-			scale_k = 2d0
-	end select
+	scale_k = kernel_k(skf)
 	
 	call input(.false.)
 	call virt_part(.false.)
