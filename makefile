@@ -24,7 +24,7 @@ sph: $(OBJ)
 	$(FC) -o $@ $^ $(OPTIONS)
 
 clean:
-	rm $(ODIR)/*(*.o|*.obj|*.mod)
+	@rm $(ODIR)/*(*.o|*.obj|*.mod)
 
 $(ODIR)/%.o: $(SDIR)/%.f90
 	@if [ ! -d $(ODIR) ]; then \
