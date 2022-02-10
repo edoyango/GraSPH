@@ -27,7 +27,7 @@ contains
 		indvxdt(:,1:ntotal) = 0d0
 		ardvxdt(:,1:ntotal) = 0d0
 		exdvxdt(1,1:ntotal) = 0d0
-		exdvdxt(2,1:ntotal) = -g
+		exdvxdt(2,1:ntotal) = -g
 		
 		do k = 1,niac
 			

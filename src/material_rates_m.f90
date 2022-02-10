@@ -14,7 +14,6 @@ contains
 		type(interactions),intent(in):: pair
 		real(8),intent(inout):: ardvxdt(dim,ntotal+nvirt)
 		real(8):: dx(dim),piv(dim),muv,vr,rr,h,mrho
-		real(8),parameter:: alpha = 0.01d0, beta = 0.d0, etq = 0.1d0
 		
 		dx(:) = pair%i%x(:) - pair%j%x(:)
 		vr = MIN(0d0,DOT_PRODUCT(pair%i%vx(:) - pair%j%vx(:),dx(:)))
@@ -38,8 +37,6 @@ contains
 		type(interactions),intent(in):: pair
 		real(8),intent(inout):: exdvxdt(dim,ntotal+nvirt)
 		real(8):: dx(dim),rr,f
-		real(8),parameter:: rr0 = dxo,dd = 5d0*g*25d0
-		integer,parameter:: p1=4,p2=2
 		
 		dx(:) = pair%i%x(:) - pair%j%x(:)
 		rr = SQRT(SUM(dx(:)*dx(:)))

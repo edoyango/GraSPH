@@ -39,6 +39,7 @@ contains
 			do i = 1,ntotal
 				v_min(:,i) = parts(i)%vx(:)
 				rho_min(i) = parts(i)%rho
+				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1d0)/gamma
 			end do
 			
 			! calculating forces (k1)
@@ -48,6 +49,7 @@ contains
 			do i = 1,ntotal
 				parts(i)%vx(:) = v_min(:,i) + 0.5d0*dt*dvxdt(:,i,1)
 				parts(i)%rho = rho_min(i) + 0.5d0*dt*drho(i,1)
+				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1d0)/gamma
 			end do
 			
 			! calculating forces (k2)
@@ -57,6 +59,7 @@ contains
 			do i = 1,ntotal
 				parts(i)%vx(:) = v_min(:,i) + 0.5d0*dt*dvxdt(:,i,2)
 				parts(i)%rho = rho_min(i) + 0.5d0*dt*drho(i,2)
+				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1d0)/gamma
 			end do
 			
 			! calculating forces (k3)
@@ -66,6 +69,7 @@ contains
 			do i = 1,ntotal
 				parts(i)%vx(:) = v_min(:,i) + dt*dvxdt(:,i,3)
 				parts(i)%rho = rho_min(i) + dt*drho(i,3)
+				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1d0)/gamma
 			end do
 			
 			call single_step(4,dvxdt(:,:,4),drho(:,4))
@@ -77,6 +81,8 @@ contains
 				parts(i)%rho = rho_min(i) + dt/6d0*(drho(i,1) + 2d0*drho(i,2) + 2d0*drho(i,3) + drho(i,4))
 							
 				parts(i)%x(:) = parts(i)%x(:) + dt*parts(i)%vx(:)
+				
+				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1d0)/gamma
 			end do
 			
 			time = time + dt
