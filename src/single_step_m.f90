@@ -22,18 +22,34 @@ contains
 				ardvxdt(dim,ntotal+nvirt),&
 				exdvxdt(dim,ntotal+nvirt),&
 				cdrhodt(ntotal+nvirt) )
+				
+		cdrhodt(1:ntotal) = 0d0
+		indvxdt(:,1:ntotal) = 0d0
+		ardvxdt(:,1:ntotal) = 0d0
+		exdvxdt(1,1:ntotal) = 0d0
+		exdvdxt(2,1:ntotal) = -g
 		
-		!Density approximation or change rate
-		call con_density(ki,cdrhodt)
+		do k = 1,niac
+			
+			if (pairs(k)%i%itype > 0 .and. pairs(k)%j%itype > 0) then
+			
+				!Density approximation or change rate
+				call con_density(ki,pairs(k),cdrhodt)
+				
+				!Internal force due to pressure
+				call int_force(ki,pairs(k),indvxdt)
+				
+				!Artificial viscosity:
+				call art_visc(ki,pairs(k),ardvxdt)
+				
+			elseif (pairs(k)%i%itype> 0 .or. pairs(k)%j%itype > 0) then
+			
+				!External forces:
+				call ext_force(ki,pairs(k),exdvxdt)
+			
+			end if
 		
-		!Internal force due to pressure
-		call int_force(ki,indvxdt)
-		
-		!Artificial viscosity:
-		call art_visc(ki,ardvxdt)
-		
-		!External forces:
-		call ext_force(ki,exdvxdt)
+		end do
 		
 		!Convert velocity, force, and energy to f and dfdt
 		dvxdti(1:dim,1:ntotal) = indvxdt(1:dim,1:ntotal) + exdvxdt(1:dim,1:ntotal) + ardvxdt(1:dim,1:ntotal)
