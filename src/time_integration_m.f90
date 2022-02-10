@@ -1,12 +1,14 @@
 module time_integration_m
 
-	use globvar
-	use param
+	use globvar, only: time,cputime,output_time,test_time,ntotal,parts,print_step,save_step,itimestep,maxtimestep
+	use param, only: f,dim,rh0,gamma,c,dt
 	
-	use flink_list_m
-	use output_m
-	use single_step_m
-	use summary_m
+	use flink_list_m, only: flink_list
+	use output_m, only: output
+	use single_step_m, only: single_step
+	use summary_m, only: print_update
+	
+	public:: time_integration
 
 contains
 
@@ -16,8 +18,8 @@ contains
 	
 		implicit none     
 		integer:: i,j,k,d,n
-		real(8):: t1,t2
-		real(8),allocatable:: v_min(:,:),rho_min(:),dvxdt(:,:,:),drho(:,:)
+		real(f):: t1,t2
+		real(f),allocatable:: v_min(:,:),rho_min(:),dvxdt(:,:,:),drho(:,:)
 		
 		! Initializing diagnistics/timing information
 		time = 0.d0

@@ -1,9 +1,9 @@
 module output_m
 	
-	use globvar
-	use param
+	use globvar, only: ntotal,nvirt,parts
+	use param, only: output_directory
 	
-	integer:: i,d
+	integer,private:: i,d
 
 contains
 

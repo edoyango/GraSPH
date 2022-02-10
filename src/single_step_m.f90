@@ -1,4 +1,7 @@
 module single_step_m
+
+	public:: single_step
+	
 contains
 
 	!==============================================================================================================================
@@ -6,17 +9,18 @@ contains
 	! Container subroutine for all the rate-of-change calculations. Rate-of-changes are calculated seperately and then summed as
 	! required
 	
-		use globvar
-		use param
+		use constants, only: g
+		use globvar, only: ntotal,nvirt,niac,pairs
+		use param, only: dim,f
 		
 		use material_rates_m
 		
 		implicit none
 		integer,intent(in):: ki
-		real(8),intent(out):: dvxdti(dim,ntotal),drhoi(ntotal)
+		real(f),intent(out):: dvxdti(dim,ntotal),drhoi(ntotal)
 		integer:: i,j,k,d
-		real(8):: t1,t2
-		real(8),allocatable:: indvxdt(:,:),ardvxdt(:,:),exdvxdt(:,:),cdrhodt(:)
+		real(f):: t1,t2
+		real(f),allocatable:: indvxdt(:,:),ardvxdt(:,:),exdvxdt(:,:),cdrhodt(:)
 		
 		allocate( indvxdt(dim,ntotal+nvirt),&
 				ardvxdt(dim,ntotal+nvirt),&
@@ -29,6 +33,7 @@ contains
 		exdvxdt(1,1:ntotal) = 0d0
 		exdvxdt(2,1:ntotal) = -g
 		
+		! looping through interaction pairs to calculate forces/density change
 		do k = 1,niac
 			
 			if (pairs(k)%i%itype > 0 .and. pairs(k)%j%itype > 0) then

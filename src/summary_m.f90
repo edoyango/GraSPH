@@ -1,7 +1,8 @@
 module summary_m
 
-	use globvar
-	use param
+	use globvar, only: ntotal,nvirt,niac,pairs,parts,maxtimestep,print_step,save_step,cputime,output_time,itimestep,time
+	
+	public:: time_print,preamble,print_summary,print_update
 	
 contains
 	
@@ -68,8 +69,8 @@ contains
 		integer:: i,j,k,d
 		
 		write (*,*)'================================= TIME SUMMARY ================================'
-		write (*,*)'Average Total CPU time = ', cputime
-		write (*,*)'Average Output time =    ', output_time
+		write (*,*)'Average CPU compute time = ', cputime
+		write (*,*)'Average Output time =      ', output_time
 	
 	end subroutine print_summary
 	

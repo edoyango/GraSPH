@@ -1,12 +1,12 @@
 program SPH
 
-	use globvar
-	use param
+	use globvar, only: allocateGlobalArrays,deallocateGlobalArrays,scale_k,ntotal,nvirt
+	use param, only: skf
 	
-	use input_m
-	use kernel_m
-	use summary_m
-	use time_integration_m
+	use input_m, only: input,virt_part
+	use kernel_m, only: kernel_k
+	use summary_m, only: preamble,time_print,print_summary
+	use time_integration_m, only: time_integration
 
 	implicit none
 	

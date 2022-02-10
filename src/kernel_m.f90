@@ -1,18 +1,20 @@
 module kernel_m
-
+	
+	public:: kernel,kernel_k
+	
 contains
 
 	!==============================================================================================================================
 	subroutine kernel(r,dx,thsml,tw,tdwdx)   
 	! Contains the kernels
 	
-		use param
-		use constants
+		use constants, only: pi
+		use param, only: f,skf,dim
 		
 		implicit none
-		real(8),intent(in):: dx(dim),r,thsml
-		real(8),intent(out):: tdwdx(dim),tw
-		real(8):: q,factor
+		real(f),intent(in):: dx(dim),r,thsml
+		real(f),intent(out):: tdwdx(dim),tw
+		real(f):: q,factor
 		
 		q = r/thsml
 		tw = 0.d0

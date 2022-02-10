@@ -1,19 +1,20 @@
 module material_rates_m
 	
-	use constants
-	use globvar
-	use param
+	use globvar, only: interactions,ntotal,nvirt
+	use param, only: mass,dim,f
 
 contains
 	
 	!=================================================================================
 	subroutine art_visc(ki,pair,ardvxdt)
 	
+		use param, only: alpha,beta,etq,hsml,c
+	
 		implicit none
 		integer,intent(in):: ki
 		type(interactions),intent(in):: pair
-		real(8),intent(inout):: ardvxdt(dim,ntotal+nvirt)
-		real(8):: dx(dim),piv(dim),muv,vr,rr,h,mrho
+		real(f),intent(inout):: ardvxdt(dim,ntotal+nvirt)
+		real(f):: dx(dim),piv(dim),muv,vr,rr,h,mrho
 		
 		dx(:) = pair%i%x(:) - pair%j%x(:)
 		vr = MIN(0d0,DOT_PRODUCT(pair%i%vx(:) - pair%j%vx(:),dx(:)))
@@ -31,12 +32,14 @@ contains
 	
 	!=================================================================================
 	subroutine ext_force(ki,pair,exdvxdt)
+		
+		use param, only: p1,p2,rr0,dd
 	
 		implicit none
 		integer,intent(in):: ki
 		type(interactions),intent(in):: pair
-		real(8),intent(inout):: exdvxdt(dim,ntotal+nvirt)
-		real(8):: dx(dim),rr,f
+		real(f),intent(inout):: exdvxdt(dim,ntotal+nvirt)
+		real(f):: dx(dim),rr,f
 		
 		dx(:) = pair%i%x(:) - pair%j%x(:)
 		rr = SQRT(SUM(dx(:)*dx(:)))
@@ -55,8 +58,8 @@ contains
 		implicit none
 		integer,intent(in):: ki
 		type(interactions),intent(in):: pair
-		real(8),intent(inout):: indvxdt(dim,ntotal+nvirt)
-		real(8):: h(dim)
+		real(f),intent(inout):: indvxdt(dim,ntotal+nvirt)
+		real(f):: h(dim)
 		
 		h = -(pair%i%p/pair%i%rho**2 + pair%j%p/pair%j%rho**2)*pair%dwdx(:)
 		indvxdt(:,pair%i%ind) = indvxdt(:,pair%i%ind) + mass*h(:)
@@ -70,8 +73,8 @@ contains
 		implicit none
 		integer,intent(in):: ki
 		type(interactions),intent(in):: pair
-		real(8),intent(inout):: codrhodt(ntotal+nvirt)
-		real(8):: dvx(dim),vcc
+		real(f),intent(inout):: codrhodt(ntotal+nvirt)
+		real(f):: dvx(dim),vcc
 		
 		dvx(:) = pair%i%vx(:) - pair%j%vx(:)
 				

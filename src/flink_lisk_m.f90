@@ -1,14 +1,17 @@
 module flink_list_m
 	
-	use datatypes
-	use globvar
-	use param
+	use datatypes, only: particles
+	use globvar, only: parts,pairs,niac,ntotal,nvirt,maxinter,scale_k
+	use param, only: dim,f,hsml
 	
-	use kernel_m
+	use kernel_m, only: kernel
 	
 	type particleincellarray
 		type(particles),pointer:: p
 	end type particleincellarray
+	
+	public:: flink_list,particleincellarray
+	private:: check_if_interact
 
 contains
 	subroutine flink_list( )
@@ -17,7 +20,7 @@ contains
 		implicit none
 		integer,parameter:: maxpcell=12
 		integer:: ngridx(dim),i,j,k,d,icell,jcell,xi,yi
-		real(8):: maxgridx(dim),mingridx(dim),dcell
+		real(f):: maxgridx(dim),mingridx(dim),dcell
 		integer,allocatable:: pincell(:,:)
 		type(particleincellarray),allocatable:: cells(:,:,:)
 		integer,parameter:: sweep(2,4) = reshape((/ 1,-1,&
@@ -30,8 +33,8 @@ contains
 		maxgridx(:) = parts(1)%x(:)
 		do i = 2,ntotal+nvirt
 			do d = 1,dim
-				if (parts(i)%x(d)<mingridx(d)) mingridx(d) = parts(i)%x(d)
-				if (parts(i)%x(d)>maxgridx(d)) maxgridx(d) = parts(i)%x(d)
+				mingridx(d) = MIN(mingridx(d),parts(i)%x(d))
+				maxgridx(d) = MAX(maxgridx(d),parts(i)%x(d))
 			end do
 		end do
 		
@@ -91,7 +94,7 @@ contains
 		
 		implicit none
 		type(particles),intent(in),target:: p_i,p_j
-		real(8):: dxiac(dim),r
+		real(f):: dxiac(dim),r
 		
 		! only consider interactions when real-real are involved
 		if ( p_i%itype.eq.1 .or. p_j%itype.eq.1 ) then

@@ -5,22 +5,24 @@ module globvar
 	implicit none
 	
 	! particle array
-	type(particles),allocatable,target:: parts(:)
+	type(particles),allocatable,target,public:: parts(:)
 	
 	! interaction array
-	type(interactions),allocatable:: pairs(:)
+	type(interactions),allocatable,public:: pairs(:)
 	
 	!global 1D variables
-	integer:: ntotal,nvirt
-	integer:: maxn,maxinter
-	integer:: niac
-	integer:: itimestep,maxtimestep,save_step,print_step
-	real(8):: time
+	integer,public:: ntotal,nvirt
+	integer,public:: maxn,maxinter
+	integer,public:: niac
+	integer,public:: itimestep,maxtimestep,save_step,print_step
+	real(f),public:: time
 	
-	real(8):: scale_k
+	real(f),public:: scale_k
 	
 	!timing
-	real(8):: cputime,output_time,test_time
+	real(f),public:: cputime,output_time,test_time
+	
+	public:: allocateGlobalArrays,deallocateGlobalArrays
 
 ! subroutines to allocate and deallocate global arrays
 contains

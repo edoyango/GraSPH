@@ -1,19 +1,22 @@
 module datatypes
 	
-	use param
+	use param, only: dim,f
+	
 	implicit none
 	
 	!variable to store particle data
 	type particles
 		integer:: itype,ind
-		real(8):: rho,p
-		real(8):: x(dim),vx(dim)
+		real(f):: rho,p
+		real(f):: x(dim),vx(dim)
 	end type particles
 	
 	!variable to store particle interaction information
 	type interactions
 		type(particles),pointer:: i,j
-		real(8):: w,dwdx(dim)
+		real(f):: w,dwdx(dim)
 	end type interactions
+	
+	public:: particles,interactions
 	
 end module datatypes

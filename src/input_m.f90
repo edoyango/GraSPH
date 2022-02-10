@@ -1,9 +1,11 @@
 module input_m
 	
-	use globvar
-	use param
+	use globvar, only: parts,ntotal,nvirt
+	use param, only: f,dxo,mp,np,op,pp,irho
 	
-	use output_m
+	use output_m, only: write_ini_config
+	
+	public:: input,virt_part
 	
 contains
 
@@ -13,8 +15,8 @@ contains
 		implicit none
 		logical,intent(in):: generate
 		integer:: i,j,d,n
-		real(8):: xi,yi
-		real(8),parameter:: dx=dxo,dy=dxo,xl=25d0,yl=25d0
+		real(f):: xi,yi
+		real(f),parameter:: dx=dxo,dy=dxo,xl=25d0,yl=25d0
 		
 		select case (generate)
 		
@@ -50,7 +52,7 @@ contains
 		implicit none
 		logical,intent(in):: generate
 		integer:: i,k,d,n
-		real(8),parameter:: dx = dxo, dy = dxo, xmin = 0d0, ymin = 0d0, xmax = 75d0, ymax = 40d0
+		real(f),parameter:: dx = dxo, dy = dxo, xmin = 0d0, ymin = 0d0, xmax = 75d0, ymax = 40d0
 		
 		select case (generate)
 			
