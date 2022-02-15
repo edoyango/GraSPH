@@ -3,14 +3,14 @@ module kernel_m
 	public:: kernel,kernel_k
 	
 contains
-
+	
 	!==============================================================================================================================
 	subroutine kernel(r,dx,thsml,tw,tdwdx)   
 	! Contains the kernels
 	
-		use constants, only: pi
-		use param, only: f,skf,dim
-		
+		use constants,	only: pi
+		use param, 		only: f,skf,dim
+	
 		implicit none
 		real(f),intent(in):: dx(dim),r,thsml
 		real(f),intent(out):: tdwdx(dim),tw
@@ -21,27 +21,28 @@ contains
 		tdwdx(:) = 0.d0
 		
 		SELECT CASE (SKF)
-			CASE (1)
-				factor = 10.d0/(7.d0*pi*thsml*thsml)
+			CASE (1) ! cubic
+				select case (dim)
+					case(2)
+						factor = 10.d0/(7.d0*pi*thsml*thsml)
+					case(3)
+						factor = 1d0/(pi*thsml*thsml)
+				end select
 				if (q.ge.0.d0 .and. q.lt.1.d0) then          
 					tw = factor * (1.d0 - 1.5d0*q*q + 0.75d0*q**3)
 					tdwdx(:) = factor * (-3.d0*q + 2.25d0*q*q) * dx(:) / (thsml*r)
 				else if (q.ge.1.d0 .and. q.lt.2.d0) then
 					tw = factor * 0.25d0 * (2.d0-q)**3.d0
 					tdwdx(:) = -factor*0.75d0*((2.d0-q)**2)*dx(:) / (thsml*r)        
-				endif
-			CASE (2)
-		
-				factor = 15.d0/(7.d0*pi*thsml*thsml)
-				if (q.ge.0.d0 .and. q.lt.1.d0) then          
-					tw = factor * (2.d0/3.d0 - q*q + 0.5d0*q**3)
-					tdwdx(:) = factor * (-2.d0 + 1.5d0 * q) / thsml**2 * dx(:)       
-				else if (q.ge.1.d0 .and. q.lt.2.d0) then
-					tw = factor/6d0 * (2.d0-q)**3
-					tdwdx(:) =-factor/6.d0*3.d0*(2.d0-q)**2/thsml*(dx(:)/r)        
-				endif
+				end if
+			CASE (2) ! gaussian
+				factor = 1d0/(thsml**dim*pi**(0.5d0*dim))
+				if (q.ge.0d0 .and. q.le.3d0) then
+					tw = factor*exp(-q*q)
+					tdwdx(:) = tw*2d0*dx(:)/(thsml*thsml)
+				end if
 		END SELECT
-	
+		
 	end subroutine kernel
 	
 	!==============================================================================================================================

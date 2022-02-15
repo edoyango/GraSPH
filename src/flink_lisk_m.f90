@@ -10,40 +10,42 @@ module flink_list_m
 		type(particles),pointer:: p
 	end type particleincellarray
 	
+	integer,private:: ngridx(dim),i,j,k,d,icell,jcell,kcell,xi,yi,zi,jth
+	real(f),private:: mingridx(dim),maxgridx(dim),dcell
+	
 	public:: flink_list,particleincellarray
-	private:: check_if_interact
+	private:: check_if_interact,flink_list2D,flink_list3D,bounding_box
 
 contains
-	subroutine flink_list( )
+	
+	!==============================================================================================================================
+	subroutine flink_list
+	! interface subroutine for 2D and 3D cases
+		implicit none
+		
+		select case (dim)
+			case(2)
+				call flink_list2D
+			case(3)
+				call flink_list3D
+		end select
+		
+	end subroutine flink_list
+	
+	!==============================================================================================================================
+	subroutine flink_list2D( )
 	! subroutine to search for particle interactions using cell-linked list.
 		
 		implicit none
 		integer,parameter:: maxpcell=12
-		integer:: ngridx(dim),i,j,k,d,icell,jcell,xi,yi
-		real(f):: maxgridx(dim),mingridx(dim),dcell
 		integer,allocatable:: pincell(:,:)
 		type(particleincellarray),allocatable:: cells(:,:,:)
 		integer,parameter:: sweep(2,4) = reshape((/ 1,-1,&
 													1, 0,&
 													0, 1,&
 													1, 1/),(/2,4/))
-	
-		!Determining bounding box extents
-		mingridx(:) = parts(1)%x(:)
-		maxgridx(:) = parts(1)%x(:)
-		do i = 2,ntotal+nvirt
-			do d = 1,dim
-				mingridx(d) = MIN(mingridx(d),parts(i)%x(d))
-				maxgridx(d) = MAX(maxgridx(d),parts(i)%x(d))
-			end do
-		end do
-		
-		!Determining number of grid cells in each direction
-		dcell = scale_k*hsml
-		maxgridx(:) = maxgridx(:) + 2d0*dcell
-		mingridx(:) = mingridx(:) - 2d0*dcell
-		ngridx(:) = int((maxgridx(:) - mingridx(:))/dcell) + 1
-		maxgridx(:) = mingridx(:) + ngridx(:)*dcell
+													
+		call bounding_box(mingridx,maxgridx,ngridx,dcell)
 		
 		allocate( pincell(ngridx(1),ngridx(2)),&
 					cells(maxpcell,ngridx(1),ngridx(2)) )
@@ -86,7 +88,77 @@ contains
 			end do
 		end do
 	
-	end subroutine flink_list
+	end subroutine flink_list2D
+	
+	!==============================================================================================================================
+	subroutine flink_list3D( )
+	! save as above, but for 3D
+		
+		implicit none
+		integer,parameter:: maxpcell=64
+		integer,allocatable:: pincell(:,:,:)
+		type(particleincellarray),allocatable:: cells(:,:,:,:)
+		integer,parameter:: sweep(3,13) = reshape((/-1,-1,-1,&
+													-1,-1, 0,&
+													-1,-1, 1,&
+													-1, 0,-1,&
+													-1, 0, 0,&
+													-1, 0, 1,&
+													-1, 1,-1,&
+													-1, 1, 0,&
+													-1, 1, 1,&
+													 0,-1,-1,&
+													 0,-1, 0,&
+													 0,-1, 1,&
+													 0, 0,-1/),(/3,13/))
+		
+		!Determining bounding box extents
+		call bounding_box(mingridx,maxgridx,ngridx,dcell)
+		
+		allocate( pincell(ngridx(1),ngridx(2),ngridx(3)),&
+					cells(maxpcell,ngridx(1),ngridx(2),ngridx(3)) )
+					
+		pincell(:,:,:) = 0
+		
+		do i=1,ntotal+nvirt
+			icell = int((parts(i)%x(1) - mingridx(1))/dcell) + 1
+			jcell = int((parts(i)%x(2) - mingridx(2))/dcell) + 1 
+			kcell = int((parts(i)%x(3) - mingridx(3))/dcell) + 1 
+			pincell(icell,jcell,kcell) = pincell(icell,jcell,kcell) + 1
+			cells(pincell(icell,jcell,kcell),icell,jcell,kcell)%p => parts(i)
+		enddo
+		
+		niac = 0
+		do icell = 2,ngridx(1)-2
+			do jcell = 2,ngridx(2)-2
+				do kcell = 2,ngridx(3)-2
+					if (pincell(icell,jcell,kcell) > 0) then
+					
+						! finding pairs within cell icell,jcell
+						do i = 1,pincell(icell,jcell,kcell)-1
+							do j = i+1,pincell(icell,jcell,kcell)
+								call check_if_interact(cells(i,icell,jcell,kcell)%p,cells(j,icell,jcell,kcell)%p)
+							end do
+						end do
+						
+						! finding pairs between particles in cell icell,jcell and particles in cell xi,yi
+						do k = 1,13
+							xi = icell + sweep(1,k)
+							yi = jcell + sweep(2,k)
+							zi = kcell + sweep(3,k)
+							do i = 1,pincell(icell,jcell,kcell)
+								do j = 1,pincell(xi,yi,zi)
+									call check_if_interact(cells(i,icell,jcell,kcell)%p,cells(j,xi,yi,zi)%p)
+								end do
+							end do
+						end do
+					
+					endif
+				end do
+			end do
+		end do
+		
+	end subroutine flink_list3D
 	
 	!==============================================================================================================================
 	subroutine check_if_interact(p_i,p_j)
@@ -115,4 +187,30 @@ contains
 		
 	end subroutine check_if_interact
 	
+	!==============================================================================================================================
+	subroutine bounding_box(minx,maxx,ng,dc)
+	
+		implicit none
+		real(f),intent(out):: minx(dim),maxx(dim),dc
+		integer,intent(out):: ng(dim)
+		
+		!Determining bounding box extents
+		minx(:) = parts(1)%x(:)
+		maxx(:) = parts(1)%x(:)
+		do i = 2,ntotal+nvirt
+			do d = 1,dim
+				minx(d) = MIN(minx(d),parts(i)%x(d))
+				maxx(d) = MAX(maxx(d),parts(i)%x(d))
+			end do
+		end do
+		
+		!Determining number of grid cells in each direction
+		dc = scale_k*hsml
+		maxx(:) = maxx(:) + 2d0*dc
+		minx(:) = minx(:) - 2d0*dc
+		ng(:) = int((maxgridx(:) - mingridx(:))/dc) + 1
+		maxx(:) = minx(:) + ng(:)*dc
+		
+	end subroutine bounding_box
+		
 end module flink_list_m

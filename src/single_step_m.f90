@@ -30,8 +30,8 @@ contains
 		cdrhodt(1:ntotal) = 0d0
 		indvxdt(:,1:ntotal) = 0d0
 		ardvxdt(:,1:ntotal) = 0d0
-		exdvxdt(1,1:ntotal) = 0d0
-		exdvxdt(2,1:ntotal) = -g
+		exdvxdt(1:dim-1,1:ntotal) = 0d0
+		exdvxdt(dim,1:ntotal) = -g
 		
 		! looping through interaction pairs to calculate forces/density change
 		do k = 1,niac

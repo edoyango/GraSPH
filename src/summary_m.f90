@@ -78,7 +78,7 @@ contains
 	subroutine print_update
 	
 		implicit none
-		integer:: ns(ntotal+nvirt)
+		integer,allocatable:: ns(:)
 		integer:: maxp,minp,sumiac,maxiac,miniac,noiac,i,j,k,d
 		
 		write(*,*)'_______________________________________________________________________________'
@@ -87,6 +87,7 @@ contains
 		write(*,*)'_______________________________________________________________________________'
 		
 		!Statistics for the interaction, Print information to screen
+		allocate(ns(ntotal+nvirt))
 		ns(:) = 0
 		do k = 1,niac
 			ns(pairs(k)%i%ind) = ns(pairs(k)%i%ind) + 1
