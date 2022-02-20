@@ -21,12 +21,6 @@ contains
 		real(f):: t1,t2
 		real(f),allocatable:: v_min(:,:),rho_min(:),dvxdt(:,:,:),drho(:,:)
 		
-		! Initializing diagnistics/timing information
-		time = 0.d0
-		cputime = 0.d0
-		output_time = 0.d0
-		test_time = 0d0
-		
 		allocate(v_min(dim,ntotal),rho_min(ntotal),dvxdt(dim,ntotal,4),drho(ntotal,4))
 		
 		! Time-integration (Leap-Frog)
