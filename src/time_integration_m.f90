@@ -98,13 +98,13 @@ contains
 			if (mod(itimestep,save_step).eq.0) then
 				call output( )	
 			end if 
+			
+			call CPU_TIME(t2)
+			output_time = output_time + t2 - t1
 	
 			if (mod(itimestep,print_step).eq.0) then
 				call print_update
 			end if
-			
-			call CPU_TIME(t2)
-			output_time = output_time + t2 - t1
 		
 		enddo
 		

@@ -83,7 +83,7 @@ contains
 		
 		write(*,*)'_______________________________________________________________________________'
 		write(*,*)'  current number of time step =', itimestep,'     current time=', real(time)
-		write(*,*)'                                                 Walltime    =', real(cputime)
+		write(*,*)'                                                 Walltime    =', real(cputime+output_time)
 		write(*,*)'_______________________________________________________________________________'
 		
 		!Statistics for the interaction, Print information to screen

@@ -11,8 +11,8 @@ contains
 	subroutine output( ) 
 	! Subroutine to write data to disk. Called intermittently, determined by save_step supplied at run-time
 	
-		use globvar
-		use param
+		use globvar,	only: itimestep,save_step
+		use param,		only: output_phys,output_virt
 		
 		implicit none  
 		integer:: n
