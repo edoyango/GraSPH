@@ -2,6 +2,7 @@
 
 @echo beginning compile script
 
+REM setting up variables
 set serial_src_dir=.\src_serial\
 set MPI_src_dir=.\src_MPI\
 set OMP_src_dir=.\src_OMP\
@@ -9,6 +10,7 @@ set obj_dir=.\obj\
 set out_dir=.\outputdata\
 set compoption=/O3 /Qipo /traceback
 
+REM creating directories if needed
 if not exist %obj_dir% (
 	@echo Obj directory does not exist. Creating...
 	mkdir %obj_dir% )
@@ -46,7 +48,7 @@ REM set compile options based on mode
 if %modeCount%==1 (
 	REM throw error if gpu mode is supplied
 	if %mode%==gpu (
-		@echo gpu argument supplied. Cannot compile gpu code - Need Linux
+		@echo gpu argument supplied. Cannot compile gpu code - HPC SDK and therefore nvfortran only available on Linux
 		exit /b )
 	@echo Compiling SPH code in %mode% mode
 	if %mode%==omp set compoption=%compoption% /Qopenmp 
@@ -125,9 +127,7 @@ REM section for compilation of OMP code
 	%OMP_src_dir%single_step_m.f90 ^
 	%OMP_src_dir%time_integration_m.f90 ^
 	%OMP_src_dir%main.f90 /exe:.\sph.exe
-	goto:eof
-
-goto:eof
+	goto:eof 
 
 :clean
 del %obj_dir%\*.obj
