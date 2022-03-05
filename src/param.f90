@@ -42,7 +42,7 @@ module param
 	real(f),parameter,public:: rr0 = dxo,dd = 5d0*g*25d0
 	integer,parameter,public:: p1=4,p2=2
 	
-	character(len=200),parameter,public:: output_directory = "C:\Users\edwar\Documents\outputdata\"
+	character(len=200),parameter,public:: output_directory = "outputdata"
 	
 	logical,parameter,public:: output_phys(2) = (/.true.,.true./)
 	logical,parameter,public:: output_virt(2) = (/.true.,.false./)
