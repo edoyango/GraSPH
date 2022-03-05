@@ -1,0 +1,301 @@
+module time_integration_m
+    
+    use datatypes, only: particles,interactions
+	use globvar, only: time,cputime,output_time,test_time,ntotal,parts,print_step,save_step,itimestep,maxtimestep,parts_d,parts,&
+        ntotal_d,nvirt_d,scale_k_d,scale_k,nvirt,initial_host2device,pairs,maxinter_perp,niac_d,pairs_d
+	use param, only: f,dim,rh0,gamma,c,dt,mass,g
+	
+	use flink_list_m, only: flink_list
+	use output_m, only: output
+	use summary_m, only: print_update
+    
+    use cudafor
+	
+	public:: time_integration
+    private:: part_props_start,zero_rate_arrays,single_step_kernel,art_visc,ext_force,int_force,con_density,RK4_update
+    
+    real(f),device,allocatable,private:: exdvxdt(:,:),ardvxdt(:,:),indvxdt(:,:),codrhodt(:)
+
+contains
+
+	!==============================================================================================================================
+	subroutine time_integration( )
+	! Subroutine responsible for the main time-integration loop
+	
+		implicit none     
+		integer:: i,j,k,d,n,istat,ki
+		real(f):: t1,t2
+		real(f),allocatable,device:: v_min(:,:),rho_min(:),dvxdt(:,:,:),drho(:,:)
+        real:: tmpTime
+        type(cudaEvent):: startEvent,stopEvent,startOutputEvent,stopOutputEvent,startTestEvent,stopTestEvent
+        
+        ! creating cuda events and recording start event
+        istat = cudaEventCreate(startEvent)
+        istat = cudaEventCreate(stopEvent)
+        istat = cudaEventCreate(startOutputEvent)
+        istat = cudaEventCreate(stopOutputEvent)
+        istat = cudaEventCreate(startTestEvent)
+        istat = cudaEventCreate(stopTestEvent)
+		istat = cudaEventRecord(startEvent,0)
+        
+        ! Transferring necessary data to GPU
+		allocate(v_min(dim,ntotal),rho_min(ntotal),dvxdt(dim,ntotal,4),drho(ntotal,4))
+        allocate(exdvxdt(dim,ntotal+nvirt),ardvxdt(dim,ntotal+nvirt),indvxdt(dim,ntotal+nvirt),codrhodt(ntotal+nvirt))
+        
+        call initial_host2device
+		
+		! Time-integration (Leap-Frog)
+		do itimestep = 1, maxtimestep
+			
+            
+			!Interaction parameters, calculating neighboring particles
+            
+			call flink_list
+			
+			! Save particles' velocity, density information at start of time-step
+            call part_props_start<<<ntotal_d,128>>>(ntotal_d,v_min,rho_min)
+            
+			! Beginning RK4 update (4 updates per timestep)
+            do ki = 1,4
+            
+                ! launching GPU kernel to calculate accelerations and density changes
+                call zero_rate_arrays<<<ntotal,128>>>(ntotal_d)
+                
+                call single_step_kernel<<<ntotal+nvirt,32>>>(ki,ntotal_d,nvirt_d,niac_d,pairs_d,v_min,rho_min)
+                
+                ! launching GPU kernel to update particles' speed and density
+                call RK4_update<<<ntotal,128>>>(ki,ntotal_d,v_min,rho_min,dvxdt,drho)
+                
+            end do
+			
+            ! Update time
+			time = time + dt
+			
+			! write output data
+			if (mod(itimestep,save_step).eq.0) then
+                ! start timing of write time
+                istat = cudaEventRecord(startOutputEvent,0)
+                ! transfer particle data from GPU to CPU
+                parts = parts_d
+				call output
+                ! End timing of output time
+                istat = cudaEventRecord(stopOutputEvent,0)
+                istat = cudaEventSynchronize(stopOutputEvent)
+                istat = cudaEventElapsedTime(tmpTime,startOutputEvent,stopOutputEvent)
+                output_time = output_time + tmpTime/1000.
+			end if 
+			
+			if (mod(itimestep,print_step).eq.0) then
+                istat = cudaEventRecord(stopEvent,0)
+                istat = cudaEventSynchronize(stopEvent)
+                istat = cudaEventElapsedTime(cputime,startEvent,stopEvent)
+                cputime = cputime/1000.
+				call print_update
+			end if
+		
+		enddo
+        
+        ! Ending timing of compute
+        istat = cudaEventRecord(stopEvent,0)
+        istat = cudaEventSynchronize(stopEvent)
+        istat = cudaEventElapsedTime(cputime,startEvent,stopEvent)
+        cputime = cputime/1000.
+		
+	end subroutine time_integration
+    
+    !===============================================================================================================================
+    attributes(global) subroutine part_props_start(nt,v_min,rho_min)
+    
+        implicit none
+        integer,intent(in):: nt
+        real(f),intent(out):: v_min(dim,nt),rho_min(nt)
+        integer:: i
+        
+        i = blockDim%x*(blockIdx%x-1)+threadIdx%x
+        
+        if (i<=nt) then
+            v_min(:,i) = parts_d(i)%vx(:)
+            rho_min(i) = parts_d(i)%rho
+            parts_d(i)%p = rh0*c**2*((parts_d(i)%rho/rh0)**gamma-1_f)/gamma
+        end if
+        
+    end subroutine part_props_start
+    
+    !==============================================================================================================================
+    attributes(global) subroutine zero_rate_arrays(nt)
+    
+        implicit none
+        integer,intent(in):: nt
+        integer:: i
+        
+        i = blockDim%x*(blockIdx%x-1)+threadIdx%x
+        
+        if (i<=nt) then
+            exdvxdt(:,i) = 0_f
+            exdvxdt(dim,i) = -g
+            ardvxdt(:,i) = 0_f
+            indvxdt(:,i) = 0_f
+            codrhodt(i) = 0_f
+        end if
+    
+    end subroutine zero_rate_arrays
+    
+    !==============================================================================================================================
+    attributes(global) subroutine single_step_kernel(ki,nt,nv,nij,pij,v_min,rho_min)
+        
+        implicit none
+        integer,intent(in),value:: ki
+        integer,intent(in):: nt,nv,nij(nt+nv)
+        type(interactions),intent(in):: pij(maxinter_perp,nt+nv)
+        real(f),intent(in):: v_min(dim,nt),rho_min(nt)
+        integer:: i,j,k,d
+        
+        ! Obtaining thread global index (used to assign particle index)
+        i = blockDim%x*(blockIdx%x-1)+threadIdx%x
+        
+        ! Beginning loop over 
+        if (i <= nt+nv) then
+        
+            do k = 1,nij(i)
+                if (pij(k,i)%i%itype>0 .and. pij(k,i)%j%itype > 0) then
+                
+                    call con_density(ki,pij(k,i))
+                    
+                    call int_force(ki,pij(k,i))
+                    
+                    call art_visc(ki,pij(k,i))
+                    
+                else !if (pij(k,i)%j%itype > 0 .or. pij(k,i)%i%itype>0) then
+                    call ext_force(ki,pij(k,i))
+                end if
+            end do
+        end if
+        
+    end subroutine single_step_kernel
+    
+    !=================================================================================
+	attributes(device) subroutine art_visc(ki,pair)
+	
+		use param, only: alpha,beta,etq,hsml,c
+	
+		implicit none
+		integer,intent(in):: ki
+		type(interactions),intent(in):: pair
+		real(f):: dx(dim),piv(dim),muv,vr,rr,h,mrho,dvx(dim),tmp
+        integer:: d
+		
+		dx(:) = pair%i%x(:) - pair%j%x(:)
+        vr = dot_product(pair%i%vx(:)-pair%j%vx(:),dx(:))
+		if (vr > 0_f) vr = 0_f
+		
+		!Artificial viscous force only if v_ij * r_ij < 0
+		rr = DOT_PRODUCT(dx(:),dx(:))
+		muv  = hsml*vr/(rr + hsml*hsml*etq*etq)
+		mrho = 0.5_f*(pair%i%rho + pair%j%rho)
+		piv  = (beta*muv - alpha*c)*muv/mrho*pair%dwdx(:)
+		
+        do d = 1,dim
+            tmp = atomicAdd(ardvxdt(d,pair%i%ind),-mass*piv(d))
+            tmp = atomicAdd(ardvxdt(d,pair%j%ind),mass*piv(d))
+        end do
+	
+	end subroutine art_visc
+	
+	!=================================================================================
+	attributes(device) subroutine ext_force(ki,pair)
+		
+		use param, only: p1,p2,rr0,dd
+	
+		implicit none
+		integer,intent(in):: ki
+		type(interactions),intent(in):: pair
+		real(f):: dx(dim),rr,fo,tmp
+        integer:: d
+		
+		dx(:) = pair%i%x(:) - pair%j%x(:)
+		rr = SQRT(SUM(dx(:)*dx(:)))
+		
+		if (rr.lt.rr0) then
+			fo = ((rr0/rr)**p1-(rr0/rr)**p2)/rr**2
+            do d = 1,dim
+                tmp = atomicAdd(exdvxdt(d,pair%i%ind),dd*dx(d)*fo)
+                tmp = atomicAdd(exdvxdt(d,pair%j%ind),-dd*dx(d)*fo)
+            end do
+		endif
+	
+	end subroutine ext_force
+	
+	!=================================================================================
+	attributes(device) subroutine int_force(ki,pair)
+	
+		implicit none
+		integer,intent(in):: ki
+		type(interactions),intent(in):: pair
+		real(f):: h(dim),tmp
+        integer:: d
+		
+		h = -(pair%i%p/pair%i%rho**2 + pair%j%p/pair%j%rho**2)*pair%dwdx(:)
+        do d = 1,dim
+            tmp = atomicAdd(indvxdt(d,pair%i%ind),mass*h(d))
+            tmp = atomicAdd(indvxdt(d,pair%j%ind),-mass*h(d))
+        end do
+	
+	end subroutine int_force
+	
+	!=================================================================================
+	attributes(device) subroutine con_density(ki,pair)
+	
+		implicit none
+		integer,intent(in):: ki
+		type(interactions),intent(in):: pair
+		real(f):: dvx(dim),vcc,tmp
+		
+		dvx(:) = pair%i%vx(:) - pair%j%vx(:)
+    
+		vcc = DOT_PRODUCT(dvx(:),pair%dwdx(:))
+		
+		tmp = atomicAdd(codrhodt(pair%i%ind),mass*vcc)
+        tmp = atomicAdd(codrhodt(pair%j%ind),mass*vcc)
+		
+	end subroutine con_density
+    
+    !===============================================================================================================================
+    attributes(global) subroutine RK4_update(ki,nt,v_min,rho_min,dvxdt,drhodt)
+    
+        implicit none
+        integer,intent(in),value:: ki
+        integer,intent(in):: nt
+        real(f),intent(in):: v_min(dim,nt),rho_min(nt)
+        real(f),intent(inout):: dvxdt(dim,nt,4),drhodt(nt,4)
+        integer:: i
+        
+        i = blockDim%x*(blockIdx%x-1)+threadIdx%x
+        
+        if (i<=nt) then
+            dvxdt(:,i,ki) = indvxdt(:,i) + exdvxdt(:,i) + ardvxdt(:,i)
+            drhodt(i,ki) = codrhodt(i)
+            select case(ki)
+                case(1)
+                    parts_d(i)%vx(:) = v_min(:,i) + 0.5_f*dt*dvxdt(:,i,1)
+                    parts_d(i)%rho = rho_min(i) + 0.5_f*dt*drhodt(i,1)
+                    parts_d(i)%p = rh0*c**2*((parts_d(i)%rho/rh0)**gamma-1_f)/gamma
+                case(2)
+                    parts_d(i)%vx(:) = v_min(:,i) + 0.5_f*dt*dvxdt(:,i,2)
+                    parts_d(i)%rho = rho_min(i) + 0.5_f*dt*drhodt(i,2)
+                    parts_d(i)%p = rh0*c**2*((parts_d(i)%rho/rh0)**gamma-1_f)/gamma
+                case(3)
+                    parts_d(i)%vx(:) = v_min(:,i) + dt*dvxdt(:,i,3)
+                    parts_d(i)%rho = rho_min(i) + dt*drhodt(i,3)
+                    parts_d(i)%p = rh0*c**2*((parts_d(i)%rho/rh0)**gamma-1_f)/gamma
+                case (4)
+                    parts_d(i)%vx(:) = v_min(:,i) + dt/6_f*(dvxdt(:,i,1) + 2_f*dvxdt(:,i,2) + 2_f*dvxdt(:,i,3) + dvxdt(:,i,4))
+                    parts_d(i)%rho = rho_min(i) + dt/6_f*(drhodt(i,1) + 2_f*drhodt(i,2) + 2_f*drhodt(i,3) + drhodt(i,4))
+                    parts_d(i)%x(:) = parts_d(i)%x(:) + dt*parts_d(i)%vx(:)
+                    parts_d(i)%p = rh0*c**2*((parts_d(i)%rho/rh0)**gamma-1_f)/gamma
+            end select
+            
+        end if
+        
+    end subroutine RK4_update
+    
+end module time_integration_m

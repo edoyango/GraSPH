@@ -1,0 +1,84 @@
+module material_rates_m
+	
+	use globvar, only: interactions,ntotal,nvirt
+	use param, only: mass,dim,f
+
+contains
+	
+	!=================================================================================
+	attributes(device) subroutine art_visc(ki,pair,ardvxdt)
+	
+		use param, only: alpha,beta,etq,hsml,c
+	
+		implicit none
+		integer,intent(in):: ki
+		type(interactions),intent(in):: pair
+		real(f),intent(inout):: ardvxdt(dim)
+		real(f):: dx(dim),piv(dim),muv,vr,rr,h,mrho,dvx(dim)
+		
+		dx(:) = pair%i%x(:) - pair%j%x(:)
+		vr = MIN(0_f,dot_product(pair%i%vx(:)-pair%j%vx(:),dx(:)))
+		
+		!Artificial viscous force only if v_ij * r_ij < 0
+		rr = DOT_PRODUCT(dx(:),dx(:))
+		muv  = hsml*vr/(rr + hsml*hsml*etq*etq)
+		mrho = 0.5_f*(pair%i%rho + pair%j%rho)
+		piv  = (beta*muv - alpha*c)*muv/mrho*pair%dwdx(:)
+		
+		ardvxdt(:) = ardvxdt(:) - mass*piv(:)
+	
+	end subroutine art_visc
+	
+	!=================================================================================
+	attributes(device) subroutine ext_force(ki,pair,exdvxdt)
+		
+		use param, only: p1,p2,rr0,dd
+	
+		implicit none
+		integer,intent(in):: ki
+		type(interactions),intent(in):: pair
+		real(f),intent(inout):: exdvxdt(dim)
+		real(f):: dx(dim),rr,fo
+		
+		dx(:) = pair%i%x(:) - pair%j%x(:)
+		rr = SQRT(SUM(dx(:)*dx(:)))
+		
+		if (rr.lt.rr0) then
+			fo = ((rr0/rr)**p1-(rr0/rr)**p2)/rr**2
+			exdvxdt(:) = exdvxdt(:) + dd*dx(:)*f
+		endif
+	
+	end subroutine ext_force
+	
+	!=================================================================================
+	attributes(device) subroutine int_force(ki,pair,indvxdt)
+	
+		implicit none
+		integer,intent(in):: ki
+		type(interactions),intent(in):: pair
+		real(f),intent(inout):: indvxdt(dim)
+		real(f):: h(dim)
+		
+		h = -(pair%i%p/pair%i%rho**2 + pair%j%p/pair%j%rho**2)*pair%dwdx(:)
+		indvxdt(:) = indvxdt(:) + mass*h(:)
+	
+	end subroutine int_force
+	
+	!=================================================================================
+	attributes(device) subroutine con_density(ki,pair,codrhodt)
+	
+		implicit none
+		integer,intent(in):: ki
+		type(interactions),intent(in):: pair
+		real(f),intent(inout):: codrhodt
+		real(f):: dvx(dim),vcc
+		
+		dvx(:) = pair%i%vx(:) - pair%j%vx(:)
+				
+		vcc = DOT_PRODUCT(dvx(:),pair%dwdx(:))
+		
+		codrhodt = codrhodt + mass*vcc
+		
+	end subroutine con_density
+
+end module material_rates_m

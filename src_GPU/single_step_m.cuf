@@ -1,0 +1,148 @@
+module single_step_m
+    
+    use datatypes, only: interactions
+    use globvar, only: ntotal_d,nvirt_d,niac_d,pairs_d,maxinter_perp,ntotal,nvirt
+    use param, only: dim,f,g,mass
+
+	public:: single_step
+    private:: calc_rates_kernel
+	
+contains
+
+	!==============================================================================================================================
+	subroutine single_step(ki,dvxdti,drhoi) 
+	! Container subroutine for all the rate-of-change calculations. Rate-of-changes are calculated seperately and then summed as
+	! required
+		
+		implicit none
+		integer,intent(in):: ki
+		real(f),intent(out),device:: dvxdti(dim,ntotal_d),drhoi(ntotal_d)
+		integer:: i,j,k,d
+		real(f):: t1,t2
+		real(f),allocatable,device:: indvxdt(:,:),ardvxdt(:,:),exdvxdt(:,:),cdrhodt(:)
+		
+		allocate( indvxdt(dim,ntotal+nvirt),&
+				ardvxdt(dim,ntotal+nvirt),&
+				exdvxdt(dim,ntotal+nvirt),&
+				cdrhodt(ntotal+nvirt) )
+                
+        call calc_rates_kernel<<<ntotal_d,32>>>(ki,ntotal_d,nvirt_d,ardvxdt,exdvxdt,indvxdt,cdrhodt,dvxdti,drhoi,niac_d,pairs_d)
+				
+		deallocate( indvxdt,ardvxdt,exdvxdt,cdrhodt )
+	
+	end subroutine single_step
+    
+    !==============================================================================================================================
+    attributes(global) subroutine calc_rates_kernel(ki,nt,nv,ardvxdt,exdvxdt,indvxdt,cdrhodt,dvxdti,drhoi,nij,pij)
+        
+        implicit none
+        integer,intent(in),value:: ki
+        integer,intent(in):: nt,nv,nij(nt+nv)
+        type(interactions),intent(in):: pij(maxinter_perp,nt+nv)
+        real(f),intent(out):: ardvxdt(dim,nt),exdvxdt(dim,nt),indvxdt(dim,nt),cdrhodt(nt),dvxdti(dim,nt),drhoi(nt)
+        integer:: i,j,k,d
+        
+        i = blockDim%x*(blockIdx%x-1)+threadIdx%x
+        if (i <= nt) then
+            ardvxdt(:,i) = 0_f
+            exdvxdt(1:dim-1,i) = 0_f
+            exdvxdt(dim,i) = -g
+            indvxdt(:,i) = 0_f
+            cdrhodt(i) = 0_f
+            do k = 1,nij(i)
+                if (pij(k,i)%i%itype > 0 .and. pij(k,i)%j%itype > 0) then
+                    call con_density(ki,pij(k,i),cdrhodt(i))
+                    if (i==1) write(*,*) k,cdrhodt(i)
+                    call int_force(ki,pij(k,i),indvxdt(:,i))
+                    
+                    call art_visc(ki,pij(k,i),ardvxdt(:,i))
+                    
+                else if (pij(k,i)%i%itype > 0 .or. pij(k,i)%j%itype > 0) then
+                    call ext_force(ki,pij(k,i),exdvxdt(:,i))
+                end if
+            end do
+            
+            dvxdti(:,i) = indvxdt(:,i) + exdvxdt(:,i) + ardvxdt(:,i)
+            drhoi(i) = cdrhodt(i)
+        end if
+        
+    end subroutine calc_rates_kernel
+    
+    !=================================================================================
+	attributes(device) subroutine art_visc(ki,pair,ardvxdt)
+	
+		use param, only: alpha,beta,etq,hsml,c
+	
+		implicit none
+		integer,intent(in):: ki
+		type(interactions),intent(in):: pair
+		real(f),intent(inout):: ardvxdt(dim)
+		real(f):: dx(dim),piv(dim),muv,vr,rr,h,mrho,dvx(dim)
+		
+		dx(:) = pair%i%x(:) - pair%j%x(:)
+        vr = dot_product(pair%i%vx(:)-pair%j%vx(:),dx(:))
+		if (vr > 0_f) vr = 0_f
+		
+		!Artificial viscous force only if v_ij * r_ij < 0
+		rr = DOT_PRODUCT(dx(:),dx(:))
+		muv  = hsml*vr/(rr + hsml*hsml*etq*etq)
+		mrho = 0.5_f*(pair%i%rho + pair%j%rho)
+		piv  = (beta*muv - alpha*c)*muv/mrho*pair%dwdx(:)
+		
+		ardvxdt(:) = ardvxdt(:) - mass*piv(:)
+	
+	end subroutine art_visc
+	
+	!=================================================================================
+	attributes(device) subroutine ext_force(ki,pair,exdvxdt)
+		
+		use param, only: p1,p2,rr0,dd
+	
+		implicit none
+		integer,intent(in):: ki
+		type(interactions),intent(in):: pair
+		real(f),intent(inout):: exdvxdt(dim)
+		real(f):: dx(dim),rr,fo
+		
+		dx(:) = pair%i%x(:) - pair%j%x(:)
+		rr = SQRT(SUM(dx(:)*dx(:)))
+		
+		if (rr.lt.rr0) then
+			fo = ((rr0/rr)**p1-(rr0/rr)**p2)/rr**2
+			exdvxdt(:) = exdvxdt(:) + dd*dx(:)*f
+		endif
+	
+	end subroutine ext_force
+	
+	!=================================================================================
+	attributes(device) subroutine int_force(ki,pair,indvxdt)
+	
+		implicit none
+		integer,intent(in):: ki
+		type(interactions),intent(in):: pair
+		real(f),intent(inout):: indvxdt(dim)
+		real(f):: h(dim)
+		
+		h = -(pair%i%p/pair%i%rho**2 + pair%j%p/pair%j%rho**2)*pair%dwdx(:)
+		indvxdt(:) = indvxdt(:) + mass*h(:)
+	
+	end subroutine int_force
+	
+	!=================================================================================
+	attributes(device) subroutine con_density(ki,pair,codrhodt)
+	
+		implicit none
+		integer,intent(in):: ki
+		type(interactions),intent(in):: pair
+		real(f),intent(inout):: codrhodt
+		real(f):: dvx(dim),vcc
+		
+		dvx(:) = pair%i%vx(:) - pair%j%vx(:)
+				
+		vcc = DOT_PRODUCT(dvx(:),pair%dwdx(:))
+		
+		codrhodt = codrhodt + mass*vcc
+		
+	end subroutine con_density
+
+end module single_step_m
