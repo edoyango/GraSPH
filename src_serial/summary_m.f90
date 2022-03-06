@@ -69,8 +69,8 @@ contains
 		integer:: i,j,k,d
 		
 		write (*,*)'================================= TIME SUMMARY ================================'
-		write (*,*)'Average CPU compute time = ', cputime
-		write (*,*)'Average Output time =      ', output_time
+		write (*,*)'Average Total CPU time = ', cputime
+		write (*,*)'Average Output time =     ', output_time
 	
 	end subroutine print_summary
 	
@@ -83,7 +83,7 @@ contains
 		
 		write(*,*)'_______________________________________________________________________________'
 		write(*,*)'  current number of time step =', itimestep,'     current time=', real(time)
-		write(*,*)'                                                 Walltime    =', real(cputime+output_time)
+		write(*,*)'                                                 Walltime    =', real(cputime)
 		write(*,*)'_______________________________________________________________________________'
 		
 		!Statistics for the interaction, Print information to screen

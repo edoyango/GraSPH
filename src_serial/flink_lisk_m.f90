@@ -206,8 +206,8 @@ contains
 		
 		!Determining number of grid cells in each direction
 		dc = scale_k*hsml
-		maxx(:) = maxx(:) + 2d0*dc
-		minx(:) = minx(:) - 2d0*dc
+		maxx(:) = maxx(:) + 2_f*dc
+		minx(:) = minx(:) - 2_f*dc
 		ng(:) = int((maxgridx(:) - mingridx(:))/dc) + 1
 		maxx(:) = minx(:) + ng(:)*dc
 		

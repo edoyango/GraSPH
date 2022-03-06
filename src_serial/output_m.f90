@@ -47,7 +47,7 @@ contains
 		
 		if (output_virt(1)) then
 			
-			open(3,file=trim(output_directory)//"v_xv"//number//".dat")
+			open(3,file=trim(output_directory)//"/v_xv"//number//".dat")
 			
 			do i = ntotal+1,ntotal+nvirt
 				write(3,1001) i, parts(i)%itype, parts(i)%x(:), parts(i)%vx(:)
@@ -59,7 +59,7 @@ contains
 		
 		if (output_virt(2)) then
 			
-			open(4,file=trim(output_directory)//"v_state"//number//".dat")
+			open(4,file=trim(output_directory)//"/v_state"//number//".dat")
 			
 			do i = ntotal+1,ntotal+nvirt
 				write(4,1001) i, parts(i)%itype, parts(i)%rho, parts(i)%p

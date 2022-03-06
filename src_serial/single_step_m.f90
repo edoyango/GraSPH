@@ -9,9 +9,8 @@ contains
 	! Container subroutine for all the rate-of-change calculations. Rate-of-changes are calculated seperately and then summed as
 	! required
 	
-		use constants, only: g
 		use globvar, only: ntotal,nvirt,niac,pairs
-		use param, only: dim,f
+		use param, only: dim,f,g
 		
 		use material_rates_m
 		
@@ -27,10 +26,10 @@ contains
 				exdvxdt(dim,ntotal+nvirt),&
 				cdrhodt(ntotal+nvirt) )
 				
-		cdrhodt(1:ntotal) = 0d0
-		indvxdt(:,1:ntotal) = 0d0
-		ardvxdt(:,1:ntotal) = 0d0
-		exdvxdt(1:dim-1,1:ntotal) = 0d0
+		cdrhodt(1:ntotal) = 0_f
+		indvxdt(:,1:ntotal) = 0_f
+		ardvxdt(:,1:ntotal) = 0_f
+		exdvxdt(1:dim-1,1:ntotal) = 0_f
 		exdvxdt(dim,1:ntotal) = -g
 		
 		! looping through interaction pairs to calculate forces/density change

@@ -18,15 +18,15 @@ contains
 	
 		implicit none     
 		integer:: i,j,k,d,n
-		real(f):: t1,t2
+		real(f):: t1,t2,t3,t4
 		real(f),allocatable:: v_min(:,:),rho_min(:),dvxdt(:,:,:),drho(:,:)
 		
 		allocate(v_min(dim,ntotal),rho_min(ntotal),dvxdt(dim,ntotal,4),drho(ntotal,4))
+        
+        call CPU_TIME(t1)
 		
 		! Time-integration (Leap-Frog)
 		do itimestep = 1, maxtimestep
-		
-			call CPU_TIME(t1)
 			
 			!Interaction parameters, calculating neighboring particles
 			call flink_list
@@ -35,7 +35,7 @@ contains
 			do i = 1,ntotal
 				v_min(:,i) = parts(i)%vx(:)
 				rho_min(i) = parts(i)%rho
-				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1d0)/gamma
+				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1_f)/gamma
 			end do
 			
 			! calculating forces (k1)
@@ -43,9 +43,9 @@ contains
 			
 			! updating data for mid-timestep base on k1
 			do i = 1,ntotal
-				parts(i)%vx(:) = v_min(:,i) + 0.5d0*dt*dvxdt(:,i,1)
-				parts(i)%rho = rho_min(i) + 0.5d0*dt*drho(i,1)
-				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1d0)/gamma
+				parts(i)%vx(:) = v_min(:,i) + 0.5_f*dt*dvxdt(:,i,1)
+				parts(i)%rho = rho_min(i) + 0.5_f*dt*drho(i,1)
+				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1_f)/gamma
 			end do
 			
 			! calculating forces (k2)
@@ -53,9 +53,9 @@ contains
 			
 			! updating data for mid-timestep base on k2
 			do i = 1,ntotal
-				parts(i)%vx(:) = v_min(:,i) + 0.5d0*dt*dvxdt(:,i,2)
-				parts(i)%rho = rho_min(i) + 0.5d0*dt*drho(i,2)
-				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1d0)/gamma
+				parts(i)%vx(:) = v_min(:,i) + 0.5_f*dt*dvxdt(:,i,2)
+				parts(i)%rho = rho_min(i) + 0.5_f*dt*drho(i,2)
+				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1_f)/gamma
 			end do
 			
 			! calculating forces (k3)
@@ -65,42 +65,44 @@ contains
 			do i = 1,ntotal
 				parts(i)%vx(:) = v_min(:,i) + dt*dvxdt(:,i,3)
 				parts(i)%rho = rho_min(i) + dt*drho(i,3)
-				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1d0)/gamma
+				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1_f)/gamma
 			end do
 			
 			call single_step(4,dvxdt(:,:,4),drho(:,4))
 			
 			! updating data for mid-timestep base on k1, k2, k3, k4
 			do i = 1,ntotal
-				parts(i)%vx(:) = v_min(:,i) + dt/6d0*(dvxdt(:,i,1) + 2d0*dvxdt(:,i,2) + 2d0*dvxdt(:,i,3) + dvxdt(:,i,4))
+				parts(i)%vx(:) = v_min(:,i) + dt/6_f*(dvxdt(:,i,1) + 2_f*dvxdt(:,i,2) + 2_f*dvxdt(:,i,3) + dvxdt(:,i,4))
 								
-				parts(i)%rho = rho_min(i) + dt/6d0*(drho(i,1) + 2d0*drho(i,2) + 2d0*drho(i,3) + drho(i,4))
+				parts(i)%rho = rho_min(i) + dt/6_f*(drho(i,1) + 2_f*drho(i,2) + 2_f*drho(i,3) + drho(i,4))
 							
 				parts(i)%x(:) = parts(i)%x(:) + dt*parts(i)%vx(:)
 				
-				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1d0)/gamma
+				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1_f)/gamma
 			end do
 			
 			time = time + dt
 			
-			call CPU_TIME(t2)
-			cputime = cputime + t2 - t1
-			
-			call CPU_TIME(t1)
+			call CPU_TIME(t3)
 			
 			! write output data
 			if (mod(itimestep,save_step).eq.0) then
-				call output( )	
+				call output( )
 			end if 
 			
-			call CPU_TIME(t2)
-			output_time = output_time + t2 - t1
+			call CPU_TIME(t4)
+			output_time = output_time + t4 - t3
 	
 			if (mod(itimestep,print_step).eq.0) then
+                call CPU_TIME(t2)
+                cputime = t2 - t1
 				call print_update
 			end if
 		
 		enddo
+    
+        call CPU_TIME(t2)
+        cputime = t2 - t1
 		
 	end subroutine time_integration
 

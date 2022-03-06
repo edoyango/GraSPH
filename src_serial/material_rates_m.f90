@@ -17,12 +17,13 @@ contains
 		real(f):: dx(dim),piv(dim),muv,vr,rr,h,mrho
 		
 		dx(:) = pair%i%x(:) - pair%j%x(:)
-		vr = MIN(0d0,DOT_PRODUCT(pair%i%vx(:) - pair%j%vx(:),dx(:)))
+		vr = DOT_PRODUCT(pair%i%vx(:) - pair%j%vx(:),dx(:))
+        if (vr > 0_f) vr = 0_f
 		
 		!Artificial viscous force only if v_ij * r_ij < 0
 		rr = DOT_PRODUCT(dx(:),dx(:))
 		muv  = hsml*vr/(rr + hsml*hsml*etq*etq)
-		mrho = 0.5d0*(pair%i%rho + pair%j%rho)
+		mrho = 0.5_f*(pair%i%rho + pair%j%rho)
 		piv  = (beta*muv - alpha*c)*muv/mrho*pair%dwdx(:)
 		
 		ardvxdt(:,pair%i%ind) = ardvxdt(:,pair%i%ind) - mass*piv(:)

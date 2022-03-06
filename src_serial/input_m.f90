@@ -49,7 +49,7 @@ contains
 		logical,intent(in):: generate
 		integer:: i,j,d,n
 		real(f):: xi,yi
-		real(f),parameter:: dx=dxo,dy=dxo,xl=25d0,yl=25d0
+		real(f),parameter:: dx=dxo,dy=dxo,xl=25_f,yl=25_f
 		
 		select case (generate)
 		
@@ -64,12 +64,12 @@ contains
 					do j = 1, np
 						n = n + 1
 						parts(n)%ind = n
-						parts(n)%x(1) = (i-0.5d0)*dx
-						parts(n)%x(2) = (j-0.5d0)*dy
-						parts(n)%vx(:) = 0d0
+						parts(n)%x(1) = (i-0.5_f)*dx
+						parts(n)%x(2) = (j-0.5_f)*dy
+						parts(n)%vx(:) = 0_f
 						parts(n)%itype = 1
 						parts(n)%rho = irho
-						parts(n)%p = 0d0
+						parts(n)%p = 0_f
 					enddo
 				enddo
 				
@@ -86,7 +86,7 @@ contains
 		logical,intent(in):: generate
 		integer:: i,j,k,d,n
 		real(f):: xi,yi,zi
-		real(f),parameter:: dx=dxo,dy=dxo,dz=dxo,xl=25d0,yl=2d0,zl=40d0
+		real(f),parameter:: dx=dxo,dy=dxo,dz=dxo,xl=25_f,yl=2_f,zl=40_f
 		
 		select case (generate)
 		
@@ -102,13 +102,13 @@ contains
 						do k = 1,op
 							n = n + 1
 							parts(n)%ind = n
-							parts(n)%x(1) = (i-0.5d0)*dx
-							parts(n)%x(2) = (j-0.5d0)*dy
-							parts(n)%x(3) = (k-0.5d0)*dz
-							parts(n)%vx(:) = 0d0
+							parts(n)%x(1) = (i-0.5_f)*dx
+							parts(n)%x(2) = (j-0.5_f)*dy
+							parts(n)%x(3) = (k-0.5_f)*dz
+							parts(n)%vx(:) = 0_f
 							parts(n)%itype = 1
 							parts(n)%rho = irho
-							parts(n)%p = 0d0
+							parts(n)%p = 0_f
 						end do
 					end do
 				end do
@@ -125,7 +125,7 @@ contains
 		implicit none
 		logical,intent(in):: generate
 		integer:: i,j,k,d,n
-		real(f),parameter:: dx = dxo, dy = dxo, xmin = 0d0, ymin = 0d0, xmax = 75d0, ymax = 40d0
+		real(f),parameter:: dx = dxo, dy = dxo, xmin = 0_f, ymin = 0_f, xmax = 75_f, ymax = 40_f
 		
 		select case (generate)
 			
@@ -141,40 +141,40 @@ contains
 				do i = 1, op
 					n = n + 1
 					parts(n)%ind = n
-					parts(n)%x(1) = xmin + (i-0.5d0)*dx
-					parts(n)%x(2) = ymin - 0.5d0*dy
-					parts(n)%vx(:) = 0d0
+					parts(n)%x(1) = xmin + (i-0.5_f)*dx
+					parts(n)%x(2) = ymin - 0.5_f*dy
+					parts(n)%vx(:) = 0_f
 				enddo
 				
 				!---Virtual particle on the upper boundary
 				do i = 1, op
 					n = n + 1
 					parts(n)%ind = n
-					parts(n)%x(1) = xmin + (i-0.5d0)*dx
-					parts(n)%x(2) = ymax - 1.5d0*dy
-					parts(n)%vx(:) = 0d0
+					parts(n)%x(1) = xmin + (i-0.5_f)*dx
+					parts(n)%x(2) = ymax - 1.5_f*dy
+					parts(n)%vx(:) = 0_f
 				enddo
 				
 				!---Virtual particle on the left boundary
 				do i = 1, pp
 					n = n + 1
 					parts(n)%ind = n
-					parts(n)%x(1) = xmin - 0.5d0*dx
-					parts(n)%x(2) = ymin + (i-1.5d0)*dy
-					parts(n)%vx(:) = 0d0
+					parts(n)%x(1) = xmin - 0.5_f*dx
+					parts(n)%x(2) = ymin + (i-1.5_f)*dy
+					parts(n)%vx(:) = 0_f
 				enddo
 				
 				!---Virtual particle on the right boundary
 				do i = 1, pp
 					n = n + 1
 					parts(n)%ind = n
-					parts(n)%x(1) = xmax + 0.5d0*dx
-					parts(n)%x(2) = ymin + (i-1.5d0)*dy
-					parts(n)%vx(:) = 0d0
+					parts(n)%x(1) = xmax + 0.5_f*dx
+					parts(n)%x(2) = ymin + (i-1.5_f)*dy
+					parts(n)%vx(:) = 0_f
 				enddo
 	
 				parts(ntotal+1:ntotal+nvirt)%rho = irho
-				parts(ntotal+1:ntotal+nvirt)%p = 0d0
+				parts(ntotal+1:ntotal+nvirt)%p = 0_f
 				parts(ntotal+1:ntotal+nvirt)%itype = -1
 				
 		end select
@@ -187,7 +187,7 @@ contains
 		implicit none
 		logical,intent(in):: generate
 		integer:: i,j,k,d,n
-		real(f),parameter:: dx = dxo, dy = dxo, dz = dxo, xmin = 0d0, ymin = 0d0, zmin = 0d0,&
+		real(f),parameter:: dx = dxo, dy = dxo, dz = dxo, xmin = 0_f, ymin = 0_f, zmin = 0_f,&
 		xmax = xmin + pp*dx, ymax = ymin + qp*dy, zmax = zmin + rp*dz
 		
 		select case (generate)
@@ -205,10 +205,10 @@ contains
 					do j = 1,qp
 						n = n + 1
 						parts(n)%ind = n
-						parts(n)%x(1) = xmin + (i-0.5d0)*dx
-						parts(n)%x(2) = ymin + (j-0.5d0)*dy
-						parts(n)%x(3) = zmin - 0.5d0*dz
-						parts(n)%vx(:) = 0d0
+						parts(n)%x(1) = xmin + (i-0.5_f)*dx
+						parts(n)%x(2) = ymin + (j-0.5_f)*dy
+						parts(n)%x(3) = zmin - 0.5_f*dz
+						parts(n)%vx(:) = 0_f
 					end do
 				end do
 				
@@ -217,10 +217,10 @@ contains
 					do j = 1,qp
 						n = n + 1
 						parts(n)%ind = n
-						parts(n)%x(1) = xmin + (i-0.5d0)*dx
-						parts(n)%x(2) = ymin + (j-0.5d0)*dy
-						parts(n)%x(3) = zmax - 1.5d0*dz
-						parts(n)%vx(:) = 0d0
+						parts(n)%x(1) = xmin + (i-0.5_f)*dx
+						parts(n)%x(2) = ymin + (j-0.5_f)*dy
+						parts(n)%x(3) = zmax - 1.5_f*dz
+						parts(n)%vx(:) = 0_f
 					end do
 				end do
 				
@@ -229,10 +229,10 @@ contains
 					do k = 1,rp
 						n = n + 1
 						parts(n)%ind = n
-						parts(n)%x(1) = xmin - 0.5d0*dx
-						parts(n)%x(2) = ymin + (j-0.5d0)*dy
-						parts(n)%x(3) = zmin + (k-1.5d0)*dz
-						parts(n)%vx(:) = 0d0
+						parts(n)%x(1) = xmin - 0.5_f*dx
+						parts(n)%x(2) = ymin + (j-0.5_f)*dy
+						parts(n)%x(3) = zmin + (k-1.5_f)*dz
+						parts(n)%vx(:) = 0_f
 					end do
 				end do
 				
@@ -241,10 +241,10 @@ contains
 					do k = 1,rp
 						n = n + 1
 						parts(n)%ind = n
-						parts(n)%x(1) = xmax + 0.5d0*dx
-						parts(n)%x(2) = ymin + (j-0.5d0)*dy
-						parts(n)%x(3) = zmin + (k-1.5d0)*dz
-						parts(n)%vx(:) = 0d0
+						parts(n)%x(1) = xmax + 0.5_f*dx
+						parts(n)%x(2) = ymin + (j-0.5_f)*dy
+						parts(n)%x(3) = zmin + (k-1.5_f)*dz
+						parts(n)%vx(:) = 0_f
 					end do
 				end do
 				
@@ -253,10 +253,10 @@ contains
 					do k = 1,rp
 						n = n + 1
 						parts(n)%ind = n
-						parts(n)%x(1) = xmin + (i-0.5d0)*dx
-						parts(n)%x(2) = ymin - 0.5d0*dy
-						parts(n)%x(3) = zmin + (k-1.5d0)*dz
-						parts(n)%vx(:) = 0d0
+						parts(n)%x(1) = xmin + (i-0.5_f)*dx
+						parts(n)%x(2) = ymin - 0.5_f*dy
+						parts(n)%x(3) = zmin + (k-1.5_f)*dz
+						parts(n)%vx(:) = 0_f
 					end do
 				end do
 				
@@ -265,15 +265,15 @@ contains
 					do k = 1,rp
 						n = n + 1
 						parts(n)%ind = n
-						parts(n)%x(1) = xmin + (i-0.5d0)*dx
-						parts(n)%x(2) = ymax + 0.5d0*dy
-						parts(n)%x(3) = zmin + (k-1.5d0)*dz
-						parts(n)%vx(:) = 0d0
+						parts(n)%x(1) = xmin + (i-0.5_f)*dx
+						parts(n)%x(2) = ymax + 0.5_f*dy
+						parts(n)%x(3) = zmin + (k-1.5_f)*dz
+						parts(n)%vx(:) = 0_f
 					end do
 				end do
 	
 				parts(ntotal+1:ntotal+nvirt)%rho = irho
-				parts(ntotal+1:ntotal+nvirt)%p = 0d0
+				parts(ntotal+1:ntotal+nvirt)%p = 0_f
 				parts(ntotal+1:ntotal+nvirt)%itype = -1
 				
 		end select

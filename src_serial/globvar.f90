@@ -15,12 +15,12 @@ module globvar
 	integer,public:: maxn,maxinter
 	integer,public:: niac
 	integer,public:: itimestep,maxtimestep,save_step,print_step
-	real(f),public:: time=0d0
+	real(f),public:: time=0_f
 	
 	real(f),public:: scale_k
 	
 	!timing
-	real(f),public:: cputime=0d0,output_time=0d0,test_time=0d0
+	real(f),public:: cputime=0_f,output_time=0_f,test_time=0_f
 	
 	public:: allocateGlobalArrays,deallocateGlobalArrays
 

@@ -21,7 +21,7 @@ module param
 	integer,parameter,public:: skf = 1
 	
 	!spacing and kernel radii parameters
-	real(f),parameter,public:: dxo = 0.5_f, kappa = 1.2_f, v_max = 44.3_f!22.15_f
+	real(f),parameter,public:: dxo = 0.5_f, kappa = 1.2_f, v_max = 44.3_f
 
 	!material density (per particle)
 	real(f),parameter,public:: irho = 1000_f
@@ -35,10 +35,10 @@ module param
 	real(f),parameter,public:: rh0 = irho
 	integer,parameter,public:: gamma = 7
 	
-	! artificial viscosity parameter,public::s
+	! artificial viscosity parameters
 	real(f),parameter,public:: alpha = 0.02_f, beta = 0_f, etq = 0.1_f
 	
-	! repulsive force parameter,public::s
+	! repulsive force parameters
 	real(f),parameter,public:: rr0 = dxo,dd = 5_f*g*25_f
 	integer,parameter,public:: p1=4,p2=2
 	

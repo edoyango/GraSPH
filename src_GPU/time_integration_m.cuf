@@ -287,7 +287,7 @@ contains
                     parts_d(i)%vx(:) = v_min(:,i) + dt*dvxdt(:,i,3)
                     parts_d(i)%rho = rho_min(i) + dt*drhodt(i,3)
                     parts_d(i)%p = rh0*c**2*((parts_d(i)%rho/rh0)**gamma-1_f)/gamma
-                case (4)
+                case(4)
                     parts_d(i)%vx(:) = v_min(:,i) + dt/6_f*(dvxdt(:,i,1) + 2_f*dvxdt(:,i,2) + 2_f*dvxdt(:,i,3) + dvxdt(:,i,4))
                     parts_d(i)%rho = rho_min(i) + dt/6_f*(drhodt(i,1) + 2_f*drhodt(i,2) + 2_f*drhodt(i,3) + drhodt(i,4))
                     parts_d(i)%x(:) = parts_d(i)%x(:) + dt*parts_d(i)%vx(:)
