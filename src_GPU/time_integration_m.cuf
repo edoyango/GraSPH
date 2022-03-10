@@ -9,7 +9,7 @@ module time_integration_m
 	use output_m, only: output
 	use summary_m, only: print_update
     
-    use cudafor
+    use cudafor, only: cudaEvent,cudaEventCreate,cudaEventRecord,cudaEventSynchronize,cudaEventElapsedTime
 	
 	public:: time_integration
     private:: part_props_start,zero_rate_arrays,single_step_kernel,art_visc,ext_force,int_force,con_density,RK4_update
@@ -53,18 +53,18 @@ contains
 			call flink_list
 			
 			! Save particles' velocity, density information at start of time-step
-            call part_props_start<<<ntotal_d,128>>>(ntotal_d,v_min,rho_min)
+            call part_props_start<<<ntotal/1024+1,1024>>>(ntotal_d,v_min,rho_min)
             
 			! Beginning RK4 update (4 updates per timestep)
             do ki = 1,4
             
                 ! launching GPU kernel to calculate accelerations and density changes
-                call zero_rate_arrays<<<ntotal,128>>>(ntotal_d)
+                call zero_rate_arrays<<<ntotal/1024+1,1024>>>(ntotal_d)
                 
-                call single_step_kernel<<<ntotal+nvirt,32>>>(ki,ntotal_d,nvirt_d,niac_d,pairs_d,v_min,rho_min)
+                call single_step_kernel<<<(ntotal+nvirt)/32+1,32>>>(ki,ntotal_d,nvirt_d,niac_d,pairs_d,v_min,rho_min)
                 
                 ! launching GPU kernel to update particles' speed and density
-                call RK4_update<<<ntotal,128>>>(ki,ntotal_d,v_min,rho_min,dvxdt,drho)
+                call RK4_update<<<ntotal/1024+1,1024>>>(ki,ntotal_d,v_min,rho_min,dvxdt,drho)
                 
             end do
 			

@@ -104,11 +104,11 @@ contains
 		allocate( pincell(ngridx(1),ngridx(2),ngridx(3)),&
 					cells(maxpcell3D,ngridx(1),ngridx(2),ngridx(3)) )
         
-        call zero_pincell3D<<<product(ngridx(:)),32>>>(ngridx,pincell)
+        call zero_pincell3D<<<product(ngridx(:))/1024+1,1024>>>(ngridx,pincell)
         
-        call populate3D<<<ntotal+nvirt,32>>>(ntotal_d,nvirt_d,mingridx,parts_d,ngridx,dcell,pincell,cells)
+        call populate3D<<<(ntotal+nvirt)/32+1,32>>>(ntotal_d,nvirt_d,mingridx,parts_d,ngridx,dcell,pincell,cells)
 
-        call sweep3D<<<ntotal+nvirt,32>>>(ntotal_d,nvirt_d,mingridx,ngridx,dcell,parts_d,pincell,cells,niac_d,pairs_d)
+        call sweep3D<<<(ntotal+nvirt)/32+1,32>>>(ntotal_d,nvirt_d,mingridx,ngridx,dcell,parts_d,pincell,cells,niac_d,pairs_d)
         
         deallocate( pincell,cells )
 		
@@ -136,7 +136,7 @@ contains
 		end do
 		
 		!Determining number of grid cells in each direction
-        !$cuf kernel do <<<dim,32>>>
+        !$cuf kernel do <<<1,32>>>
         do d = 1,dim
             maxx(d) = maxx(d) + 2_f*dc
             minx(d) = minx(d) - 2_f*dc

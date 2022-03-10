@@ -163,3 +163,4 @@ $sdir_gpu/main.cuf"
 fi
 echo "$FC $compoption $srcfiles -o sph"
 $FC $compoption $srcfiles -o sph
+rm *.o *.mod
