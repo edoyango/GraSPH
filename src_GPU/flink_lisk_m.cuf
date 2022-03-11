@@ -117,7 +117,6 @@ contains
                 maxgridind_d(d) = max(gridind(d,i)+1,maxgridind_d(d))
             end do
         end do
-        write(*,*) 'test'
         mingridind = mingridind_d
         maxgridind = maxgridind_d
         ngridx(:) = maxgridind(:) - mingridind(:) + 1
