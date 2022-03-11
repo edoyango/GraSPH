@@ -8,9 +8,11 @@ module flink_list_m
 	
 !~ 	use kernel_m, only: kernel
 	
-    integer,parameter:: maxpcell3D=64,maxpcell2D=16
-    integer,device:: ngridx(dim)
-    real(f),device:: mingridx(dim),maxgridx(dim),dcell
+    private,integer,parameter:: maxpcell3D=64,maxpcell2D=16
+    private,integer:: ngridx_h(dim)
+    private,integer,device:: ngridx(dim)
+    private,real(f),device:: mingridx(dim),maxgridx(dim),dcell
+    private,integer,device,allocatable:: gridind(:,:)
     
     type particleincellarray
         type(particles),pointer:: p
@@ -97,14 +99,19 @@ contains
 		integer,allocatable,device:: pincell(:,:,:)
         integer:: i,j,k,istat
         type(particleincellarray),allocatable,device:: cells(:,:,:,:)
+        type(dim3),parameter:: nthreads=dim3(8,8,8)
+        type(dim3):: nblocks
 
 		!Determining bounding box extents
 		call bounding_box(mingridx,maxgridx,ngridx,dcell)
-                
+        
 		allocate( pincell(ngridx(1),ngridx(2),ngridx(3)),&
 					cells(maxpcell3D,ngridx(1),ngridx(2),ngridx(3)) )
         
-        call zero_pincell3D<<<product(ngridx(:))/1024+1,1024>>>(ngridx,pincell)
+        ngridx_h(:) = ngridx(:)
+        nblocks = dim3(ngridx_h(1)/nthreads%x+1,ngridx_h(2)/nthreads%y+1,ngridx_h(3)/nthreads%y+1)
+        
+        call zero_pincell3D<<<nblocks,nthreads>>>(ngridx,pincell)
         
         call populate3D<<<(ntotal+nvirt)/32+1,32>>>(ntotal_d,nvirt_d,mingridx,parts_d,ngridx,dcell,pincell,cells)
 
@@ -153,18 +160,12 @@ contains
         implicit none
         integer,intent(in):: ng(dim)
         integer,intent(out):: p(ng(1),ng(2),ng(3))
-        integer:: ind,i,j,k
+        integer:: i,j,k
         
-        ind = blockDim%x*(blockIdx%x-1)+threadIdx%x
-        if (ind <= product(ng)) then
-            i = mod(ind,ng(1))
-            if (i==0) i = ng(1)
-            j = int(ceiling(real(mod(ind,ng(2)*ng(1)))/ng(1)))
-            if (mod(ind,ng(2)*ng(1))==0) j = ng(2)
-            k = int(ceiling(real(ind)/(ng(1)*ng(2))))
-        
-            p(i,j,k) = 0
-        end if
+        i = blockDim%x*(blockIdx%x-1)+threadIdx%x
+        j = blockDim%y*(blockIdx%y-1)+threadIdx%y
+        k = blockDim%z*(blockIdx%z-1)+threadIdx%z
+        if ( i <= ng(1) .and. j <= ng(2) .and. k <= ng(3) ) p(i,j,k) = 0
         
     end subroutine zero_pincell3D
     
