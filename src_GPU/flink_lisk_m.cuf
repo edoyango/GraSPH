@@ -8,11 +8,11 @@ module flink_list_m
 	
 !~ 	use kernel_m, only: kernel
 	
-    private,integer,parameter:: maxpcell3D=64,maxpcell2D=16
-    private,integer:: ngridx_h(dim)
-    private,integer,device:: ngridx(dim)
-    private,real(f),device:: mingridx(dim),maxgridx(dim),dcell
-    private,integer,device,allocatable:: gridind(:,:)
+    integer,parameter:: maxpcell3D=64,maxpcell2D=16
+    integer:: ngridx_h(dim)
+    integer,device:: ngridx(dim)
+    real(f),device:: mingridx(dim),maxgridx(dim),dcell
+    integer,device,allocatable:: gridind(:,:)
     
     type particleincellarray
         type(particles),pointer:: p
