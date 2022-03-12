@@ -14,7 +14,7 @@ module param
 	real(f),parameter,public:: pi = 3.14159265358979323846_f, g = 9.81_f
 
 	!dim : Dimension of the problem (1, 2 or 3)
-	integer,parameter,public:: dim = 3
+	integer,parameter,public:: dim = 2
 	
 	!Smoothing kernel function 
 	!skf = 1, cubic spline kernel by W4 - Spline (Monaghan 19f5)
