@@ -5,7 +5,7 @@ module time_integration_m
         ntotal_d,nvirt_d,scale_k_d,scale_k,nvirt,initial_host2device,pairs,maxinter_perp,niac_d,pairs_d
 	use param, only: f,dim,rh0,gamma,c,dt,mass,g
 	
-	use flink_list_m, only: flink_list
+	use interfaces_m, only: cell_linked_list
 	use output_m, only: output
 	use summary_m, only: print_update
     

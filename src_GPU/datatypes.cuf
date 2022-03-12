@@ -16,7 +16,12 @@ module datatypes
 		type(particles),pointer:: i,j
 		real(f):: w,dwdx(dim)
 	end type interactions
+    
+    !array of pointers to particles used to find interactions
+    type particleincellarray
+        type(particles),pointer:: p
+    end type particleincellarray
 	
-	public:: particles,interactions
+	public:: particles,interactions,particleincellarray
 	
 end module datatypes

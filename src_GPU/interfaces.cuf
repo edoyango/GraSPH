@@ -1,0 +1,28 @@
+module interfaces_m
+    
+    use param, only: dim
+    
+contains
+
+    subroutine cell_linked_list
+    
+        use cell_linked_list_2D_m, only cell_linked_list_2D
+        use cell_linked_list_3D_m, only cell_linked_list_3D
+        
+        implicit none
+        
+        select case (dim)
+            
+            case(2)
+            
+                call cell_linked_list_2D
+                
+            case(3)
+            
+                call cell_linked_list_3D
+                
+        end select
+    
+    end subroutine cell_linked_list
+
+end module interfaces_m
