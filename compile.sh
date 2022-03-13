@@ -92,7 +92,7 @@ if [ $mode == serial ] || [ $mode == mpi ]; then # serial/mpi mode (same flags)
 fi
 if [ $mode == gpu ]; then # gpu mode
     echo "compiler: nvfortran"
-    compoption="-module $odir -I$odir -Mcuda -Minfo"
+    compoption="-module $odir -I$odir -Mcuda -Minfo -gpu=rdc"
     [ $debug == 1 ] && compoption="-g -C -traceback -module $odir -I$odir -Mcuda -Minfo"
 fi
 if [ $mode == omp ]; then # OpenMP mode
@@ -155,6 +155,7 @@ $sdir_gpu/globvar.cuf \
 $sdir_gpu/summary_m.cuf \
 $sdir_gpu/output_m.cuf \
 $sdir_gpu/input_m.cuf \
+$sdir_gpu/single_step_m.cuf \
 $sdir_gpu/kernel_m.cuf \
 $sdir_gpu/flink_lisk_m.cuf \
 $sdir_gpu/time_integration_m.cuf \
