@@ -1,7 +1,7 @@
 module flink_list_m
 	
     use datatypes, only: particles,interactions
-	use globvar, only: parts_d,pairs_d,niac_d,ntotal_d,nvirt_d,maxinter_perp,scale_k,ntotal,nvirt,ntotal_d,nvirt_d,maxpcell,scale_k_d,niac,pairs,test_time
+	use globvar, only: parts_d,pairs_d,niac_d,ntotal_d,nvirt_d,maxinter_perp,scale_k,ntotal,nvirt,ntotal_d,nvirt_d,scale_k_d,test_time
 	use param, only: dim,f,hsml
     
     use cudafor
@@ -53,21 +53,17 @@ contains
         allocate(gridind(dim,ntotal+nvirt))
         call determine_gridinds<<<(ntotal+nvirt)/1024+1,1024>>>(dcell,ntotal_d,nvirt_d,parts_d,gridind)
 
-        minindx = HUGE(1)
-        minindy = HUGE(1)
-        maxindx = -HUGE(1)
-        maxindy = -HUGE(1)
-        !$cuf kernel do <<<,>>>
+        minindx = HUGE(1); minindy = HUGE(1)
+        maxindx = -HUGE(1); maxindy = -HUGE(1)
+        !$cuf kernel do <<<(ntotal+nvirt)/128+1,128>>>
         do i = 1,ntotal+nvirt
             minindx = min(minindx,gridind(1,i)-1)
             minindy = min(minindy,gridind(2,i)-1)
             maxindx = max(maxindx,gridind(1,i)+1)
             maxindy = max(maxindy,gridind(2,i)+1)
         end do
-        mingridind(1) = minindx
-        mingridind(2) = minindy
-        maxgridind(1) = maxindx
-        maxgridind(2) = maxindy
+        mingridind(1) = minindx; mingridind(2) = minindy
+        maxgridind(1) = maxindx; maxgridind(2) = maxindy
         ngridx(:) = maxgridind(:) - mingridind(:) + 1
         ngridx_d(:) = ngridx(:)
         mingridind_d = mingridind
@@ -105,14 +101,10 @@ contains
         allocate(gridind(dim,ntotal+nvirt))
         call determine_gridinds<<<(ntotal+nvirt)/1024+1,1024>>>(dcell,ntotal_d,nvirt_d,parts_d,gridind)
         
-        minindx = HUGE(1)
-        minindy = HUGE(1)
-        minindz = HUGE(1)
-        maxindx = -HUGE(1)
-        maxindy = -HUGE(1)
-        maxindz = -HUGE(1)
+        minindx = HUGE(1); minindy = HUGE(1); minindz = HUGE(1)
+        maxindx = -HUGE(1); maxindy = -HUGE(1); maxindz = -HUGE(1)
 		!Determining bounding box extents
-        !$cuf kernel do <<<,>>>
+        !$cuf kernel do <<<(ntotal+nvirt)/128+1,128>>>
         do i = 1,ntotal+nvirt
             minindx = min(minindx,gridind(1,i)-1)
             minindy = min(minindy,gridind(2,i)-1)
@@ -121,12 +113,8 @@ contains
             maxindy = max(maxindy,gridind(2,i)+1)
             maxindz = max(maxindz,gridind(3,i)+1)
         end do
-        mingridind(1) = minindx
-        mingridind(2) = minindy
-        mingridind(3) = minindz
-        maxgridind(1) = maxindx
-        maxgridind(2) = maxindy
-        maxgridind(3) = maxindz
+        mingridind(1) = minindx; mingridind(2) = minindy; mingridind(3) = minindz
+        maxgridind(1) = maxindx; maxgridind(2) = maxindy; maxgridind(3) = maxindz
         ngridx(:) = maxgridind(:) - mingridind(:) + 1
         ngridx_d(:) = ngridx(:)
         mingridind_d = mingridind
@@ -350,8 +338,8 @@ contains
 			if (r < hsml*scale_k_d) then
 				nij = nij + 1
 				if (nij < maxinter_perp) then
-					pij(nij)%i => p_i!%ind
-					pij(nij)%j => p_j!%ind
+					pij(nij)%i => p_i
+					pij(nij)%j => p_j
 					call kernel(r,dxiac(:),hsml,pij(nij)%w,pij(nij)%dwdx(:))
 				else
 					print *,' >>> Error <<< : Too many interactions'
