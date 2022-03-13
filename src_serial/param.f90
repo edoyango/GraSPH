@@ -6,21 +6,27 @@
 module param
 
 	! double or single precision (chance f to match)
-	integer,parameter,public:: df = kind(1d0),sf = kind(1.)
+	integer,parameter,public:: df = kind(1.d0),sf = kind(1.)
 	integer,parameter,public:: f = df
     
     ! constants: pi, g (gravity)
     real(f),parameter,public:: pi = 3.14159265358979323846_f, g = 9.81_f
 
 	!dim : Dimension of the problem (1, 2 or 3)
-	integer,parameter,public:: dim = 3
+	integer,parameter,public:: dim = 2
 	
 	!Smoothing kernel function 
 	!skf = 1, cubic spline kernel by W4 - Spline (Monaghan 1985)
-	!    = 2, Gauss kernel   (Gingold and Monaghan 1981) 
-	integer,parameter,public:: skf = 1
+    !    = 2, quartic spline kernel by W5 - Spline
+    !    = 3, quintic spline kernel by W6 - Spline
+    !    = 4, Wenland quintic C2 kernel (Dehnen & Aly 2012)
+    !    = 5, Wenland quintic C4 kernel
+    !    = 6, Wenland quintic C6 kernel
+	!    = 7, Gauss kernel   (Gingold and Monaghan 1981) 
+	integer,parameter,public:: skf = 2
 	
 	!spacing and kernel radii parameters
+    !note skf = 5 requires kappa at least 1.4, skf = 6 kappa at least 1.6 (approx values)
 	real(f),parameter,public:: dxo = 0.5_f, kappa = 1.2_f, v_max = 44.3_f
 	
 	!material density (per particle)

@@ -55,13 +55,13 @@ contains
 		
 			case (.false.)
 				
-				ntotal = mp*np
+				ntotal = mp*op
 				
 			case (.true.)
 			
 				n = 0
 				do i = 1, mp
-					do j = 1, np
+					do j = 1, op
 						n = n + 1
 						parts(n)%ind = n
 						parts(n)%x(1) = (i-0.5_f)*dx
@@ -131,14 +131,14 @@ contains
 			
 			case (.false.)
 				
-				nvirt = 2*op + 2*pp
+				nvirt = 2*rp + 2*pp
 				
 			case (.true.)
 				
 				n = ntotal
 				
 				!---Virtual particle on the lower boundary
-				do i = 1, op
+				do i = 1, pp
 					n = n + 1
 					parts(n)%ind = n
 					parts(n)%x(1) = xmin + (i-0.5_f)*dx
@@ -147,7 +147,7 @@ contains
 				enddo
 				
 				!---Virtual particle on the upper boundary
-				do i = 1, op
+				do i = 1, pp
 					n = n + 1
 					parts(n)%ind = n
 					parts(n)%x(1) = xmin + (i-0.5_f)*dx
@@ -156,7 +156,7 @@ contains
 				enddo
 				
 				!---Virtual particle on the left boundary
-				do i = 1, pp
+				do i = 1, rp
 					n = n + 1
 					parts(n)%ind = n
 					parts(n)%x(1) = xmin - 0.5_f*dx
@@ -165,7 +165,7 @@ contains
 				enddo
 				
 				!---Virtual particle on the right boundary
-				do i = 1, pp
+				do i = 1, rp
 					n = n + 1
 					parts(n)%ind = n
 					parts(n)%x(1) = xmax + 0.5_f*dx

@@ -37,7 +37,7 @@ contains
 	! subroutine to search for particle interactions using cell-linked list.
 		
 		implicit none
-		integer,parameter:: maxpcell=12
+		integer,parameter:: maxpcell=25
 		integer,allocatable:: pincell(:,:)
 		type(particleincellarray),allocatable:: cells(:,:,:)
 		integer,parameter:: sweep(2,4) = reshape((/ 1,-1,&
@@ -95,7 +95,7 @@ contains
 	! save as above, but for 3D
 		
 		implicit none
-		integer,parameter:: maxpcell=64
+		integer,parameter:: maxpcell=125
 		integer,allocatable:: pincell(:,:,:)
 		type(particleincellarray),allocatable:: cells(:,:,:,:)
 		integer,parameter:: sweep(3,13) = reshape((/-1,-1,-1,&
