@@ -39,7 +39,7 @@ contains
 	! subroutine to search for particle interactions using cell-linked list.
 		
 		implicit none
-		integer,parameter:: maxpcell=12
+		integer,parameter:: maxpcell=25
 		integer:: ngridx(2)
 		real(f):: mingridx(2),maxgridx(2)
 		integer,allocatable:: pincell(:,:)
@@ -99,7 +99,7 @@ contains
 	! save as above, but for 3D
 		
 		implicit none
-		integer,parameter:: maxpcell=64
+		integer,parameter:: maxpcell=125
 		integer:: ngridx(3)
 		real(f):: mingridx(3),maxgridx(3)
 		integer,allocatable:: pincell(:,:,:)

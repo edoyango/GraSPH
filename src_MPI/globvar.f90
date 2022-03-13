@@ -32,7 +32,7 @@ contains
 	subroutine allocateGlobalArrays
 
 		maxnloc = ntotal+nvirt
-		maxinter = 60*maxnloc
+		maxinter = 262*maxnloc
 		
 		allocate( parts(maxnloc) )
 		allocate( pairs(maxinter) )
