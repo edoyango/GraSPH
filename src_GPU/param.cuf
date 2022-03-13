@@ -14,7 +14,7 @@ module param
 	real(f),parameter,public:: pi = 3.14159265358979323846_f, g = 9.81_f
 
 	!dim : Dimension of the problem (1, 2 or 3)
-	integer,parameter,public:: dim = 2
+	integer,parameter,public:: dim = 3
 	
 	!Smoothing kernel function 
 	!skf = 1, cubic spline kernel by W4 - Spline (Monaghan 19f5)
@@ -30,7 +30,7 @@ module param
 	!derived parameter,public::s. c: speed of sound, hsml: smoothing length, dt: time-step size, mass: mass per particle
 	real(f),parameter,public:: c = 10_f*v_max,hsml = kappa*dxo, dt = 1.5_f*hsml/c,mass=irho*dxo**dim
 	
-	integer,parameter,public:: mp = 50, np = 50, op = 50, pp = 3*mp, qp = np, rp = 1.6*op
+	integer,parameter,public:: mp = 50, np = 25, op = 50, pp = 3*mp, qp = np, rp = 1.6*op
 	
 	! state equation parameter,public::s
 	real(f),parameter,public:: rh0 = irho

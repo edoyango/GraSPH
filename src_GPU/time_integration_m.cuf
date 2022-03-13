@@ -24,7 +24,6 @@ contains
 	
 		implicit none     
 		integer:: i,j,k,d,n,istat,ki
-		real(f):: t1,t2
 		real(f),allocatable,device:: v_min(:,:),rho_min(:),dvxdt(:,:,:),drho(:,:)
         real:: tmpTime
         type(cudaEvent):: startEvent,stopEvent,startOutputEvent,stopOutputEvent,startTestEvent,stopTestEvent
@@ -53,13 +52,13 @@ contains
 			call flink_list
 			
 			! Save particles' velocity, density information at start of time-step
-            call part_props_start<<<ntotal/1024+1,1024>>>(ntotal_d,v_min,rho_min)
+            call part_props_start<<<ntotal/1024+1,1024>>>(ntotal_d,parts_d,v_min,rho_min)
             
 			! Beginning RK4 update (4 updates per timestep)
             do ki = 1,4
             
                 ! launching GPU kernel to calculate accelerations and density changes
-                call zero_rate_arrays<<<ntotal/1024+1,1024>>>(ntotal_d)
+                call zero_rate_arrays<<<ntotal/1024+1,1024>>>(ntotal_d,ardvxdt,exdvxdt,indvxdt,codrhodt)
                 
                 call single_step_kernel<<<(ntotal+nvirt)/32+1,32>>>(ki,ntotal_d,nvirt_d,niac_d,pairs_d,v_min,rho_min)
                 
@@ -104,34 +103,36 @@ contains
 	end subroutine time_integration
     
     !===============================================================================================================================
-    attributes(global) subroutine part_props_start(nt,v_min,rho_min)
+    attributes(global) subroutine part_props_start(nt,pts,v_min,rho_min)
     
         implicit none
         integer,intent(in):: nt
+        type(particles),intent(inout):: pts(nt)
         real(f),intent(out):: v_min(dim,nt),rho_min(nt)
         integer:: i
         
         i = blockDim%x*(blockIdx%x-1)+threadIdx%x
         
         if (i<=nt) then
-            v_min(:,i) = parts_d(i)%vx(:)
-            rho_min(i) = parts_d(i)%rho
-            parts_d(i)%p = rh0*c**2*((parts_d(i)%rho/rh0)**gamma-1_f)/gamma
+            v_min(:,i) = pts(i)%vx(:)
+            rho_min(i) = pts(i)%rho
+            pts(i)%p = rh0*c**2*((pts(i)%rho/rh0)**gamma-1_f)/gamma
         end if
         
     end subroutine part_props_start
     
     !==============================================================================================================================
-    attributes(global) subroutine zero_rate_arrays(nt)
+    attributes(global) subroutine zero_rate_arrays(nt,ardvx,exdvx,indvx,codrho)
     
         implicit none
         integer,intent(in):: nt
+        real(f),intent(out):: exdvx(dim,nt),ardvx(dim,nt),indvx(dim,nt),codrho(nt)
         integer:: i
         
         i = blockDim%x*(blockIdx%x-1)+threadIdx%x
         
         if (i<=nt) then
-            exdvxdt(:,i) = 0_f
+            exdvxdt(1:dim-1,i) = 0_f
             exdvxdt(dim,i) = -g
             ardvxdt(:,i) = 0_f
             indvxdt(:,i) = 0_f
@@ -275,24 +276,18 @@ contains
             dvxdt(:,i,ki) = indvxdt(:,i) + exdvxdt(:,i) + ardvxdt(:,i)
             drhodt(i,ki) = codrhodt(i)
             select case(ki)
-                case(1)
-                    parts_d(i)%vx(:) = v_min(:,i) + 0.5_f*dt*dvxdt(:,i,1)
-                    parts_d(i)%rho = rho_min(i) + 0.5_f*dt*drhodt(i,1)
-                    parts_d(i)%p = rh0*c**2*((parts_d(i)%rho/rh0)**gamma-1_f)/gamma
-                case(2)
-                    parts_d(i)%vx(:) = v_min(:,i) + 0.5_f*dt*dvxdt(:,i,2)
-                    parts_d(i)%rho = rho_min(i) + 0.5_f*dt*drhodt(i,2)
-                    parts_d(i)%p = rh0*c**2*((parts_d(i)%rho/rh0)**gamma-1_f)/gamma
+                case(1,2)
+                    parts_d(i)%vx(:) = v_min(:,i) + 0.5_f*dt*dvxdt(:,i,ki)
+                    parts_d(i)%rho = rho_min(i) + 0.5_f*dt*drhodt(i,ki)
                 case(3)
                     parts_d(i)%vx(:) = v_min(:,i) + dt*dvxdt(:,i,3)
                     parts_d(i)%rho = rho_min(i) + dt*drhodt(i,3)
-                    parts_d(i)%p = rh0*c**2*((parts_d(i)%rho/rh0)**gamma-1_f)/gamma
                 case(4)
                     parts_d(i)%vx(:) = v_min(:,i) + dt/6_f*(dvxdt(:,i,1) + 2_f*dvxdt(:,i,2) + 2_f*dvxdt(:,i,3) + dvxdt(:,i,4))
                     parts_d(i)%rho = rho_min(i) + dt/6_f*(drhodt(i,1) + 2_f*drhodt(i,2) + 2_f*drhodt(i,3) + drhodt(i,4))
                     parts_d(i)%x(:) = parts_d(i)%x(:) + dt*parts_d(i)%vx(:)
-                    parts_d(i)%p = rh0*c**2*((parts_d(i)%rho/rh0)**gamma-1_f)/gamma
             end select
+            parts_d(i)%p = rh0*c**2*((parts_d(i)%rho/rh0)**gamma-1_f)/gamma
             
         end if
         
