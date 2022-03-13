@@ -20,7 +20,7 @@ contains
 		logical,intent(in):: generate
 		integer:: i,j,k,d,n,n_loc,n_loc_i,n_start,n_done
 		real(f):: xi,yi
-		real(f),parameter:: xl = 25_f, yl = 25_f
+		real(f),parameter:: xl = 25._f, yl = 25._f
 	
 		select case (generate)
 			
@@ -58,10 +58,10 @@ contains
 								parts(ntotal_loc)%x(1) = (i-0.5_f)*dxo
 								parts(ntotal_loc)%x(2) = (j-0.5_f)*dxo
 								parts(ntotal_loc)%x(3) = (k-0.5_f)*dxo
-								parts(ntotal_loc)%vx(:) = 0_f
+								parts(ntotal_loc)%vx(:) = 0._f
 								parts(ntotal_loc)%itype = 1
 								parts(ntotal_loc)%rho = irho
-								parts(ntotal_loc)%p = 0_f
+								parts(ntotal_loc)%p = 0._f
 							end if
 						end do
 					end do
@@ -82,7 +82,7 @@ contains
 		integer:: i,j,k,d,n
 		real(f):: xi(dim),xmin_loc(dim),xmax_loc(dim)
 		logical,intent(in):: generate
-		real(f),parameter:: dx = dxo, dy = dxo, dz = dxo, xmin = 0_f, ymin = 0_f, zmin = 0_f, xmax = xmin + dxo*pp, &
+		real(f),parameter:: dx = dxo, dy = dxo, dz = dxo, xmin = 0._f, ymin = 0._f, zmin = 0._f, xmax = xmin + dxo*pp, &
 		ymax = ymin + dxo*qp, zmax = zmin + dxo*rp
 		
 		select case (generate)
@@ -112,7 +112,7 @@ contains
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%indloc = ntotal_loc+nhalo_loc+nvirt_loc
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%itype = -1
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%x(:) = xi(:)
-							parts(ntotal_loc+nhalo_loc+nvirt_loc)%vx(:) = 0_f
+							parts(ntotal_loc+nhalo_loc+nvirt_loc)%vx(:) = 0._f
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%rho = irho
 						end if
 					end do
@@ -131,7 +131,7 @@ contains
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%indloc = ntotal_loc+nhalo_loc+nvirt_loc
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%itype = -1
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%x(:) = xi(:)
-							parts(ntotal_loc+nhalo_loc+nvirt_loc)%vx(:) = 0_f
+							parts(ntotal_loc+nhalo_loc+nvirt_loc)%vx(:) = 0._f
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%rho = irho
 						end if
 					end do
@@ -150,7 +150,7 @@ contains
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%indloc = ntotal_loc+nhalo_loc+nvirt_loc
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%itype = -1
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%x(:) = xi(:)
-							parts(ntotal_loc+nhalo_loc+nvirt_loc)%vx(:) = 0_f
+							parts(ntotal_loc+nhalo_loc+nvirt_loc)%vx(:) = 0._f
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%rho = irho
 						end if
 					end do
@@ -169,7 +169,7 @@ contains
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%indloc = ntotal_loc+nhalo_loc+nvirt_loc
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%itype = -1
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%x(:) = xi(:)
-							parts(ntotal_loc+nhalo_loc+nvirt_loc)%vx(:) = 0_f
+							parts(ntotal_loc+nhalo_loc+nvirt_loc)%vx(:) = 0._f
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%rho = irho
 						end if
 					end do
@@ -188,7 +188,7 @@ contains
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%indloc = ntotal_loc+nhalo_loc+nvirt_loc
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%itype = -1
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%x(:) = xi(:)
-							parts(ntotal_loc+nhalo_loc+nvirt_loc)%vx(:) = 0_f
+							parts(ntotal_loc+nhalo_loc+nvirt_loc)%vx(:) = 0._f
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%rho = irho
 						end if
 					end do
@@ -207,7 +207,7 @@ contains
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%indloc = ntotal_loc+nhalo_loc+nvirt_loc
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%itype = -1
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%x(:) = xi(:)
-							parts(ntotal_loc+nhalo_loc+nvirt_loc)%vx(:) = 0_f
+							parts(ntotal_loc+nhalo_loc+nvirt_loc)%vx(:) = 0._f
 							parts(ntotal_loc+nhalo_loc+nvirt_loc)%rho = irho
 						end if
 					end do

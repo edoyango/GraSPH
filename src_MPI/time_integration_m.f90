@@ -72,9 +72,9 @@ contains
 	
 			! updating data for mid-timestep base on k1, k2, k3, k4
 			do i = 1,ntotal_loc
-				parts(i)%vx(:) = v_min(:,i) + dt/6_f*(dvxdt(:,i,1) + 2_f*dvxdt(:,i,2) + 2_f*dvxdt(:,i,3) + dvxdt(:,i,4))
+				parts(i)%vx(:) = v_min(:,i) + dt/6._f*(dvxdt(:,i,1) + 2._f*dvxdt(:,i,2) + 2._f*dvxdt(:,i,3) + dvxdt(:,i,4))
 						
-				parts(i)%rho = rho_min(i) + dt/6_f*(drho(i,1) + 2_f*drho(i,2) + 2_f*drho(i,3) + drho(i,4))
+				parts(i)%rho = rho_min(i) + dt/6._f*(drho(i,1) + 2._f*drho(i,2) + 2._f*drho(i,3) + drho(i,4))
 					
 				parts(i)%x(:) = parts(i)%x(:) + dt*parts(i)%vx(:)
 				

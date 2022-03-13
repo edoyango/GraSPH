@@ -23,7 +23,7 @@ module param
     !    = 5, Wenland quintic C4 kernel
     !    = 6, Wenland quintic C6 kernel
 	!    = 7, Gauss kernel   (Gingold and Monaghan 1981) 
-	integer,parameter,public:: skf = 1
+	integer,parameter,public:: skf = 4
 	
 	!spacing and kernel radii parameters
 	real(f),parameter,public:: dxo = 0.5_f, kappa = 1.2_f, v_max = 44.3_f
@@ -45,7 +45,7 @@ module param
 	
 	! repulsive force parameters
 	real(f),parameter,public:: rr0 = dxo,dd = 5_f*g*25_f
-	integer,parameter,public:: p1=4,p2=2
+	integer,parameter,public:: p1=12,p2=6
 	
 	character(len=200),parameter,public:: output_directory = "outputdata"
 	

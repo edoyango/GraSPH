@@ -32,10 +32,10 @@ contains
 			exdvxdt(dim,ntotal_loc+nhalo_loc+nvirt_loc),&
 			codrhodt(ntotal_loc+nhalo_loc+nvirt_loc) )
 		
-		codrhodt(1:ntotal_loc) = 0_f
-		indvxdt(:,1:ntotal_loc) = 0_f
-		ardvxdt(:,1:ntotal_loc) = 0_f
-		exdvxdt(1:dim-1,1:ntotal_loc) = 0_f
+		codrhodt(1:ntotal_loc) = 0._f
+		indvxdt(:,1:ntotal_loc) = 0._f
+		ardvxdt(:,1:ntotal_loc) = 0._f
+		exdvxdt(1:dim-1,1:ntotal_loc) = 0._f
 		exdvxdt(dim,1:ntotal_loc) = -g
 		parts(1:ntotal_loc+nhalo_loc)%p = rh0*c**2*((parts(1:ntotal_loc+nhalo_loc)%rho/rh0)**gamma-1_f)/gamma
 		

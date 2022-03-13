@@ -164,23 +164,6 @@ contains
 			end do
 		end do
 
-		! do i = 1,ntotal_loc
-			! do xi = -1,1
-				! icell = int((parts(i)%x(1) - mingridx(1))/dcell) + 1 + xi
-				! do yi = -1,1
-					! jcell = int((parts(i)%x(2) - mingridx(2))/dcell) + 1 + yi
-					! do zi = -1,1
-						! kcell = int((parts(i)%x(3) - mingridx(3))/dcell) + 1 + zi
-						! if (pincell(icell,jcell,kcell) .ge. 1) then
-							! do j = 1, pincell(icell,jcell,kcell)
-								! call check_if_interact(parts(i),cells(j,icell,jcell,kcell)%p)
-							! end do
-						! end if
-					! end do
-				! end do
-			! end do
-		! end do
-		
 	end subroutine flink_list3D
 	
 	!==============================================================================================================================
