@@ -9,7 +9,7 @@ clear; close all; clc
 
 %% program parameters
 vid =0; % 1 = make video, 0 = no vide
-input_precision = 'double'; % input file precision 'single' for single, 'double' for double
+input_precision = 'single'; % input file precision 'single' for single, 'double' for double
 
 %Define working folder
 path = '~/SPH_basic/outputdata';
@@ -55,7 +55,7 @@ if ini_or_act == 0
 
 else
 
-    for i=1:80
+    for i=1:10
         %% formatting plot
         clf(hf,'reset'); axis equal; hold on;
             
@@ -70,7 +70,7 @@ else
         set(gca,'fontsize',16)
         
         % axis
-        axis([0 75 0 5 0 40])
+        axis([0 75 0 12.5 0 40])
         view(30,30)
         grid on; box on; axis on;
     %     grid off; box off; axis off;
@@ -85,8 +85,8 @@ else
         file01 = fopen(['f_xv',index,'.dat']);              a01 = fread(file01,[2*dim inf],input_precision);
 %         file02 = fopen(['f_state',index,'.dat']);           a02 = fread(file02,[2 inf],input_precision);
         %Halo Particle Data
-        file10 = fopen(['h_ind',index,'.dat']);             a10 = fread(file10,[3 inf],'*int');
-        file11 = fopen(['h_xv',index,'.dat']);              a11 = fread(file11,[2*dim inf],input_precision);
+%         file10 = fopen(['h_ind',index,'.dat']);             a10 = fread(file10,[3 inf],'*int');
+%         file11 = fopen(['h_xv',index,'.dat']);              a11 = fread(file11,[2*dim inf],input_precision);
 %         file12 = fopen(['h_state',index,'.dat']);             a12 = fread(file12,[2 inf],input_precision);
         
     %     %Virtual Particle Data
