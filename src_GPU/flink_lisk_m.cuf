@@ -81,7 +81,7 @@ contains
         call populate2D<<<(ntotal+nvirt)/32+1,32>>>(ntotal_d,nvirt_d,mingridind_d,maxgridind_d,parts_d,gridind,pincell,cells)
 
         call sweep2D<<<(ntotal+nvirt)/32+1,32>>>(ntotal_d,nvirt_d,mingridind_d,maxgridind_d,parts_d,gridind,pincell,cells,niac_d,pairs_d)
-
+        write(*,*) sum(niac_d)
         deallocate( pincell,cells )
         
 	end subroutine flink_list2D
@@ -132,7 +132,7 @@ contains
         call populate3D<<<(ntotal+nvirt)/32+1,32>>>(ntotal_d,nvirt_d,mingridind_d,maxgridind_d,parts_d,gridind,pincell,cells)
 
         call sweep3D<<<(ntotal+nvirt)/32+1,32>>>(ntotal_d,nvirt_d,mingridind_d,maxgridind_d,parts_d,gridind,pincell,cells,niac_d,pairs_d)
-
+        
         deallocate( pincell,cells )
 		
 	end subroutine flink_list3D
