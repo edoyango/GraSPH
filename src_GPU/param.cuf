@@ -30,7 +30,7 @@ module param
 	!derived parameter,public::s. c: speed of sound, hsml: smoothing length, dt: time-step size, mass: mass per particle
 	real(f),parameter,public:: c = 10_f*v_max,hsml = kappa*dxo, dt = 1.5_f*hsml/c,mass=irho*dxo**dim
 	
-	integer,parameter,public:: mp = 50, np = 25, op = 50, pp = 3*mp, qp = np, rp = 1.6*op
+	integer,parameter,public:: mp = 50, np = 25, op = 50, pp = 3*mp, qp = np, rp = int(1.6*op), nlayer = 3
 	
 	! state equation parameter,public::s
 	real(f),parameter,public:: rh0 = irho

@@ -1,7 +1,7 @@
 module input_m
 	
 	use globvar, only: parts,ntotal,nvirt
-	use param, only: dim,f,dxo,mp,np,op,pp,qp,rp,irho
+	use param, only: dim,f,dxo,mp,np,op,pp,qp,rp,nlayer,irho
 	
 	use output_m, only: write_ini_config
 	
@@ -55,13 +55,13 @@ contains
 		
 			case (.false.)
 				
-				ntotal = mp*np
+				ntotal = mp*op
 				
 			case (.true.)
 			
 				n = 0
 				do i = 1, mp
-					do j = 1, np
+					do j = 1, op
 						n = n + 1
 						parts(n)%ind = n
 						parts(n)%x(1) = (i-0.5_f)*dx
@@ -131,14 +131,14 @@ contains
 			
 			case (.false.)
 				
-				nvirt = 2*qp + 2*rp
+				nvirt = 2*pp + 2*rp
 				
 			case (.true.)
 				
 				n = ntotal
 				
 				!---Virtual particle on the lower boundary
-				do i = 1, qp
+				do i = 1, pp
 					n = n + 1
 					parts(n)%ind = n
 					parts(n)%x(1) = xmin + (i-0.5_f)*dx
@@ -147,7 +147,7 @@ contains
 				enddo
 				
 				!---Virtual particle on the upper boundary
-				do i = 1, qp
+				do i = 1, pp
 					n = n + 1
 					parts(n)%ind = n
 					parts(n)%x(1) = xmin + (i-0.5_f)*dx
@@ -194,88 +194,32 @@ contains
 			
 			case (.false.)
 				
-				nvirt = pp*qp*2 + rp*qp*2 + (pp+2)*rp*2
+				nvirt = (pp+2*nlayer)*(qp+2*nlayer)*(rp+2*nlayer) - pp*qp*rp
 				
 			case (.true.)
 				
 				n = ntotal
 				
-				!---Virtual particle on the bottom face
-				do i = 1, pp
-					do j = 1,qp
-						n = n + 1
-						parts(n)%ind = n
-						parts(n)%x(1) = xmin + (i-0.5_f)*dx
-						parts(n)%x(2) = ymin + (j-0.5_f)*dy
-						parts(n)%x(3) = zmin - 0.5_f*dz
-						parts(n)%vx(:) = 0_f
-					end do
-				end do
-				
-				!---Virtual particle on top face
-				do i = 1,pp
-					do j = 1,qp
-						n = n + 1
-						parts(n)%ind = n
-						parts(n)%x(1) = xmin + (i-0.5_f)*dx
-						parts(n)%x(2) = ymin + (j-0.5_f)*dy
-						parts(n)%x(3) = zmax - 1.5_f*dz
-						parts(n)%vx(:) = 0_f
-					end do
-				end do
-				
-				!---Virtual particle on the west face
-				do j = 1,qp
-					do k = 1,rp
-						n = n + 1
-						parts(n)%ind = n
-						parts(n)%x(1) = xmin - 0.5_f*dx
-						parts(n)%x(2) = ymin + (j-0.5_f)*dy
-						parts(n)%x(3) = zmin + (k-1.5_f)*dz
-						parts(n)%vx(:) = 0_f
-					end do
-				end do
-				
-				!---Virtual particle on the east face
-				do j = 1,qp
-					do k = 1,rp
-						n = n + 1
-						parts(n)%ind = n
-						parts(n)%x(1) = xmax + 0.5_f*dx
-						parts(n)%x(2) = ymin + (j-0.5_f)*dy
-						parts(n)%x(3) = zmin + (k-1.5_f)*dz
-						parts(n)%vx(:) = 0_f
-					end do
-				end do
-				
-				!---Virtual particle on the south face
-				do i = 0,pp+1
-					do k = 1,rp
-						n = n + 1
-						parts(n)%ind = n
-						parts(n)%x(1) = xmin + (i-0.5_f)*dx
-						parts(n)%x(2) = ymin - 0.5_f*dy
-						parts(n)%x(3) = zmin + (k-1.5_f)*dz
-						parts(n)%vx(:) = 0_f
-					end do
-				end do
-				
-				!---Virtual particle on the north face
-				do i = 0,pp+1
-					do k = 1,rp
-						n = n + 1
-						parts(n)%ind = n
-						parts(n)%x(1) = xmin + (i-0.5_f)*dx
-						parts(n)%x(2) = ymax + 0.5_f*dy
-						parts(n)%x(3) = zmin + (k-1.5_f)*dz
-						parts(n)%vx(:) = 0_f
-					end do
-				end do
+				do i = 1-nlayer,pp+nlayer
+                    do j = 1-nlayer,qp+nlayer
+                        do k = 1-nlayer,rp+nlayer
+                            if ( i<1 .or. j<1 .or. k<1 .or. i>pp .or. j>qp .or. k>rp) then
+                                n = n + 1
+                                parts(n)%ind = n
+                                parts(n)%x(1) = xmin + (i-0.5_f)*dx
+                                parts(n)%x(2) = ymin + (j-0.5_f)*dy
+                                parts(n)%x(3) = zmin + (k-0.5_f)*dz
+                                parts(n)%vx(:) = 0._f
+                                parts(n)%rho = irho
+                                parts(n)%p = 0._f
+                                if (i<1 .or. i>pp) parts(n)%itype = -3
+                                if (j<1 .or. j>qp) parts(n)%itype = -2
+                                if (k<1 .or. k>rp) parts(n)%itype = -1
+                            end if
+                        end do
+                    end do
+                end do
                 
-				parts(ntotal+1:ntotal+nvirt)%rho = irho
-				parts(ntotal+1:ntotal+nvirt)%p = 0_f
-				parts(ntotal+1:ntotal+nvirt)%itype = -1
-				
 		end select
 	
 	end subroutine virt_part3D
