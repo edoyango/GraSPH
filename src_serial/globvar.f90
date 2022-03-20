@@ -11,7 +11,7 @@ module globvar
 	type(interactions),allocatable,public:: pairs(:)
 	
 	!global 1D variables
-	integer,public:: ntotal,nvirt
+	integer,public:: ntotal,nvirt,nghos
 	integer,public:: maxn,maxinter
 	integer,public:: niac
 	integer,public:: itimestep,maxtimestep,save_step,print_step
@@ -32,7 +32,7 @@ contains
 	
 		implicit none
 		
-		maxn = ntotal+nvirt
+		maxn = 2*ntotal+nvirt
 		maxinter = 262*maxn
 		
 		allocate( parts(maxn) )

@@ -1,7 +1,7 @@
 module flink_list_m
 	
 	use datatypes, only: particles
-	use globvar, only: parts,pairs,niac,ntotal,nvirt,maxinter,scale_k
+	use globvar, only: parts,pairs,niac,ntotal,nvirt,nghos,maxinter,scale_k
 	use param, only: dim,f,hsml
 	
 	use kernel_m, only: kernel
@@ -120,7 +120,7 @@ contains
 					
 		pincell(:,:,:) = 0
 		
-		do i=1,ntotal+nvirt
+		do i=1,ntotal+nvirt+nghos
 			icell = int((parts(i)%x(1) - mingridx(1))/dcell) + 1
 			jcell = int((parts(i)%x(2) - mingridx(2))/dcell) + 1 
 			kcell = int((parts(i)%x(3) - mingridx(3))/dcell) + 1 
@@ -197,7 +197,7 @@ contains
 		!Determining bounding box extents
 		minx(:) = parts(1)%x(:)
 		maxx(:) = parts(1)%x(:)
-		do i = 2,ntotal+nvirt
+		do i = 2,ntotal+nvirt+nghos
 			do d = 1,dim
 				minx(d) = MIN(minx(d),parts(i)%x(d))
 				maxx(d) = MAX(maxx(d),parts(i)%x(d))

@@ -16,7 +16,7 @@ module globvar
     integer,allocatable,device:: niac_d(:)
 	
 	!global 1D variables
-	integer,public:: ntotal,nvirt
+	integer,public:: ntotal,nvirt,nghos
 	integer,public:: maxn,maxinter
 	integer,public:: itimestep,maxtimestep,save_step,print_step
 	real(f),public:: time=0_f
@@ -24,7 +24,7 @@ module globvar
     integer,parameter,public:: maxinter_perp = 135
     
     !global 1D variables (device)
-    integer,device:: ntotal_d,nvirt_d
+    integer,device:: ntotal_d,nvirt_d,nghos_d
 	integer,device:: maxinter_d
     real(f),device:: scale_k_d
 	
@@ -41,7 +41,7 @@ contains
 	
 		implicit none
 		
-		maxn = ntotal+nvirt
+		maxn = 2*ntotal+nvirt
 		maxinter = maxinter_perp*maxn
 		
 		allocate( parts(maxn),parts_d(maxn) )
@@ -58,6 +58,7 @@ contains
         parts_d(:) = parts(:)
         ntotal_d = ntotal
         nvirt_d = nvirt
+        nghos_d = 0
         scale_k_d = scale_k
         
     end subroutine initial_host2device

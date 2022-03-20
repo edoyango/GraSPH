@@ -9,7 +9,7 @@ contains
 	! Container subroutine for all the rate-of-change calculations. Rate-of-changes are calculated seperately and then summed as
 	! required
 	
-		use globvar, only: ntotal,nvirt,niac,pairs
+		use globvar, only: ntotal,nvirt,nghos,niac,pairs
 		use param, only: dim,f,g
 		
 		use material_rates_m
@@ -21,10 +21,10 @@ contains
 		real(f):: t1,t2
 		real(f),allocatable:: indvxdt(:,:),ardvxdt(:,:),exdvxdt(:,:),cdrhodt(:)
 		
-		allocate( indvxdt(dim,ntotal+nvirt),&
-				ardvxdt(dim,ntotal+nvirt),&
-				exdvxdt(dim,ntotal+nvirt),&
-				cdrhodt(ntotal+nvirt) )
+		allocate( indvxdt(dim,ntotal+nvirt+nghos),&
+				ardvxdt(dim,ntotal+nvirt+nghos),&
+				exdvxdt(dim,ntotal+nvirt+nghos),&
+				cdrhodt(ntotal+nvirt+nghos) )
 				
 		cdrhodt(1:ntotal) = 0_f
 		indvxdt(:,1:ntotal) = 0_f
@@ -35,7 +35,7 @@ contains
 		! looping through interaction pairs to calculate forces/density change
 		do k = 1,niac
 			
-			if (pairs(k)%i%itype > 0 .and. pairs(k)%j%itype > 0) then
+!~ 			if (pairs(k)%i%itype > 0 .and. pairs(k)%j%itype > 0) then
 			
 				!Density approximation or change rate
 				call con_density(ki,pairs(k),cdrhodt)
@@ -46,12 +46,12 @@ contains
 				!Artificial viscosity:
 				call art_visc(ki,pairs(k),ardvxdt)
 				
-			elseif (pairs(k)%i%itype> 0 .or. pairs(k)%j%itype > 0) then
+!~ 			elseif (pairs(k)%i%itype> 0 .or. pairs(k)%j%itype > 0) then
 			
-				!External forces:
-				call ext_force(ki,pairs(k),exdvxdt)
+!~ 				!External forces:
+!~ 				call ext_force(ki,pairs(k),exdvxdt)
 			
-			end if
+!~ 			end if
 		
 		end do
 		

@@ -81,7 +81,7 @@ contains
 		integer:: maxp,minp,sumiac,maxiac,miniac,noiac,i,j,k,d
 		
 		write(*,*)'_______________________________________________________________________________'
-		write(*,*)'  current number of time step =', itimestep,'     current time=', real(time)
+		write(*,*)'  current number of time step =', itimestep,'    current time=', real(time)
 		write(*,*)'                                                 Walltime    =', real(cputime)
 		write(*,*)'_______________________________________________________________________________'
 		
@@ -109,7 +109,7 @@ contains
 		print *,'**** Particle:',maxp, ' maximal interactions:',maxiac
 		print *,'**** Particle:',minp, ' minimal interactions:',miniac
 		print *,'**** Average :',real(sumiac)/real(ntotal)
-		print *,'**** Total pairs : ',sumiac/2
+		print *,'**** Total pairs : ',sumiac
 		print *,'**** Particles with no interactions:',noiac
 		
 	end subroutine print_update

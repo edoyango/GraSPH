@@ -1,6 +1,6 @@
 module material_rates_m
 	
-	use globvar, only: interactions,ntotal,nvirt
+	use globvar, only: interactions,ntotal,nvirt,nghos
 	use param, only: mass,dim,f
 
 contains
@@ -13,7 +13,7 @@ contains
 		implicit none
 		integer,intent(in):: ki
 		type(interactions),intent(in):: pair
-		real(f),intent(inout):: ardvxdt(dim,ntotal+nvirt)
+		real(f),intent(inout):: ardvxdt(dim,ntotal+nvirt+nghos)
 		real(f):: dx(dim),piv(dim),muv,vr,rr,h,mrho
 		
 		dx(:) = pair%i%x(:) - pair%j%x(:)
@@ -39,7 +39,7 @@ contains
 		implicit none
 		integer,intent(in):: ki
 		type(interactions),intent(in):: pair
-		real(f),intent(inout):: exdvxdt(dim,ntotal+nvirt)
+		real(f),intent(inout):: exdvxdt(dim,ntotal+nvirt+nghos)
 		real(f):: dx(dim),rr,f
 		
 		dx(:) = pair%i%x(:) - pair%j%x(:)
@@ -59,7 +59,7 @@ contains
 		implicit none
 		integer,intent(in):: ki
 		type(interactions),intent(in):: pair
-		real(f),intent(inout):: indvxdt(dim,ntotal+nvirt)
+		real(f),intent(inout):: indvxdt(dim,ntotal+nvirt+nghos)
 		real(f):: h(dim)
 		
 		h = -(pair%i%p/pair%i%rho**2 + pair%j%p/pair%j%rho**2)*pair%dwdx(:)
@@ -74,7 +74,7 @@ contains
 		implicit none
 		integer,intent(in):: ki
 		type(interactions),intent(in):: pair
-		real(f),intent(inout):: codrhodt(ntotal+nvirt)
+		real(f),intent(inout):: codrhodt(ntotal+nvirt+nghos)
 		real(f):: dvx(dim),vcc
 		
 		dvx(:) = pair%i%vx(:) - pair%j%vx(:)

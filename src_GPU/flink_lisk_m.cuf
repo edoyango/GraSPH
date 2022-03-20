@@ -1,7 +1,7 @@
 module flink_list_m
 	
     use datatypes, only: particles,interactions
-	use globvar, only: parts_d,pairs_d,niac_d,ntotal_d,nvirt_d,maxinter_perp,scale_k,ntotal,nvirt,ntotal_d,nvirt_d,scale_k_d,test_time
+	use globvar, only: parts_d,pairs_d,niac_d,ntotal_d,nvirt_d,maxinter_perp,scale_k,ntotal,nvirt,ntotal_d,nvirt_d,scale_k_d,test_time,nghos_d,nghos
 	use param, only: f,hsml,dim
     
     use cudafor
@@ -98,7 +98,7 @@ contains
         maxx = -HUGE(1._f); maxy = -HUGE(1._f); maxz = -HUGE(1._f)
 		!Determining bounding box extents
         !$cuf kernel do <<<(ntotal+nvirt)/128+1,128>>>
-        do i = 1,ntotal+nvirt
+        do i = 1,ntotal+nvirt+nghos
             minx = min(minx,parts_d(i)%x(1))
             miny = min(miny,parts_d(i)%x(2))
             minz = min(minz,parts_d(i)%x(3))
@@ -121,9 +121,9 @@ contains
         
         call zero_pincell3D<<<nblocks,nthreads>>>(ngridx_d,pincell)
         
-        call populate3D<<<(ntotal+nvirt)/32+1,32>>>(dcell,ntotal_d,nvirt_d,mingridx_d,ngridx_d,parts_d,pincell,cells)
+        call populate3D<<<(ntotal+nvirt+nghos)/32+1,32>>>(dcell,ntotal_d,nvirt_d,nghos_d,mingridx_d,ngridx_d,parts_d,pincell,cells)
                                                         
-        call sweep3D<<<(ntotal+nvirt)/32+1,32>>>(dcell,ntotal_d,nvirt_d,mingridx_d,ngridx_d,parts_d,pincell,cells,niac_d,pairs_d)
+        call sweep3D<<<(ntotal+nvirt+nghos)/32+1,32>>>(dcell,ntotal_d,nvirt_d,nghos_d,mingridx_d,ngridx_d,parts_d,pincell,cells,niac_d,pairs_d)
 
         deallocate( pincell,cells )
 		
@@ -184,20 +184,20 @@ contains
     end subroutine populate2D
     
     !==============================================================================================================================
-    attributes(global) subroutine populate3D(dc,nt,nv,mingx,ng,pts,p,c)
+    attributes(global) subroutine populate3D(dc,nt,nv,ng,mingx,ngx,pts,p,c)
     
         implicit none
-        integer,intent(in):: nt,nv,ng(dim)
+        integer,intent(in):: nt,nv,ng,ngx(dim)
         real(f),intent(in):: mingx(dim)
         real(f),intent(in),value:: dc
-        type(particles),intent(in),target:: pts(nt+nv)
-        integer,intent(inout):: p(ng(1),ng(2),ng(3))
-        type(particleincellarray),intent(out):: c(maxpcell3D,ng(1),ng(2),ng(3))
+        type(particles),intent(in),target:: pts(nt+nv+ng)
+        integer,intent(inout):: p(ngx(1),ngx(2),ngx(3))
+        type(particleincellarray),intent(out):: c(maxpcell3D,ngx(1),ngx(2),ngx(3))
         integer:: ind,icell,jcell,kcell,i,j,k,d
         
         ! global thread index
         i = blockDim%x*(blockIdx%x-1)+threadIdx%x
-        if (i<=nt+nv) then
+        if (i<=nt+nv+ng) then
             icell = int((pts(i)%x(1)-mingx(1))/dc)+1
             jcell = int((pts(i)%x(2)-mingx(2))/dc)+1
             kcell = int((pts(i)%x(3)-mingx(3))/dc)+1
@@ -252,16 +252,16 @@ contains
     end subroutine sweep2D
 
     !==============================================================================================================================
-    attributes(global) subroutine sweep3D(dc,nt,nv,mingx,ng,pts,p,c,nij,pij)
+    attributes(global) subroutine sweep3D(dc,nt,nv,ng,mingx,ngx,pts,p,c,nij,pij)
     
         implicit none
-        integer,intent(in):: nt,nv,ng(dim),p(ng(1),ng(2),ng(3))
+        integer,intent(in):: nt,nv,ng,ngx(dim),p(ngx(1),ngx(2),ngx(3))
         real(f),intent(in):: mingx(dim)
         real(f),intent(in),value:: dc
-        type(particleincellarray),intent(in):: c(maxpcell3D,ng(1),ng(2),ng(3)) 
-        type(particles),intent(in),target:: pts(nt+nv)
-        integer,intent(out):: nij(nt+nv)
-        type(interactions),intent(out):: pij(maxinter_perp,nt+nv)
+        type(particleincellarray),intent(in):: c(maxpcell3D,ngx(1),ngx(2),ngx(3)) 
+        type(particles),intent(in),target:: pts(nt+nv+ng)
+        integer,intent(out):: nij(nt+nv+ng)
+        type(interactions),intent(out):: pij(maxinter_perp,nt+nv+ng)
         integer:: i,j,k,d,xi,yi,zi,icell,jcell,kcell
         integer,parameter:: sweep(3,13) = reshape((/-1,-1,-1,&
 													-1,-1, 0,&
@@ -280,7 +280,7 @@ contains
         i = blockDim%x*(blockIdx%x-1)+threadIdx%x
         
         ! Beginning sweep
-        if (i<=nt+nv) then
+        if (i<=nt+nv+ng) then
             nij(i) = 0
             icell = int((pts(i)%x(1)-mingx(1))/dc) + 1
             jcell = int((pts(i)%x(2)-mingx(2))/dc) + 1
@@ -317,7 +317,7 @@ contains
 		real(f):: dxiac(dim),r
         
 		! only consider interactions when real particles are involved
-		if ( p_i%ind/=p_j%ind .and. (p_i%itype > 0 .or. p_j%itype > 0)) then
+		if ( p_i%ind/=p_j%ind .and. (p_i%itype == 1 .or. p_j%itype == 1)) then
 			dxiac(:) = p_i%x(:) - p_j%x(:)
 			r = SQRT(SUM(dxiac*dxiac))
 			if (r < hsml*scale_k_d) then
@@ -350,8 +350,8 @@ contains
 		
 		SELECT CASE (SKF)
 			CASE (1) ! cubic
-                if (dims==2) factor = 10_f/(7_f*pi*thsml*thsml)
-                if (dims==3) factor = 1_f/(pi*thsml*thsml)
+                if (dims==2) factor = 10._f/(7._f*pi*thsml*thsml)
+                if (dims==3) factor = 1_f/(pi*thsml*thsml*thsml)
                 tw = factor*(0.25_f*MAX(0._f,2._f-q)**3 - MAX(0._f,1._f-q)**3)
                 tdwdx = -factor*3._f*(0.25_f*MAX(0._f,2._f-q)**2 - MAX(0._f,1._f-q)**2)*dx(:)/(r*thsml)
             CASE (2) ! quartic

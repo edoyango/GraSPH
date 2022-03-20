@@ -1,6 +1,6 @@
 module summary_m
 
-	use globvar, only: ntotal,nvirt,niac,pairs,parts,maxtimestep,print_step,save_step,cputime,output_time,itimestep,time
+	use globvar, only: ntotal,nvirt,nghos,niac,pairs,parts,maxtimestep,print_step,save_step,cputime,output_time,itimestep,time
 	
 	public:: time_print,preamble,print_summary,print_update
 	
@@ -87,7 +87,7 @@ contains
 		write(*,*)'_______________________________________________________________________________'
 		
 		!Statistics for the interaction, Print information to screen
-		allocate(ns(ntotal+nvirt))
+		allocate(ns(ntotal+nvirt+nghos))
 		ns(:) = 0
 		do k = 1,niac
 			ns(pairs(k)%i%ind) = ns(pairs(k)%i%ind) + 1

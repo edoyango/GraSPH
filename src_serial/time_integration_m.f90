@@ -1,9 +1,11 @@
 module time_integration_m
 
-	use globvar, only: time,cputime,output_time,test_time,ntotal,parts,print_step,save_step,itimestep,maxtimestep
+	use globvar, only: time,cputime,output_time,test_time,ntotal,nvirt,parts,print_step,save_step,itimestep,maxtimestep
+    use input_m, only: gind,vw
 	use param, only: f,dim,rh0,gamma,c,dt
 	
 	use flink_list_m, only: flink_list
+    use input_m, only: generate_ghost_part,update_ghost_part,update_virt_part
 	use output_m, only: output
 	use single_step_m, only: single_step
 	use summary_m, only: print_update
@@ -22,21 +24,26 @@ contains
 		real(f),allocatable:: v_min(:,:),rho_min(:),dvxdt(:,:,:),drho(:,:)
 		
 		allocate(v_min(dim,ntotal),rho_min(ntotal),dvxdt(dim,ntotal,4),drho(ntotal,4))
+        allocate(gind(ntotal),vw(nvirt))
         
         call CPU_TIME(t1)
 		
 		! Time-integration (Leap-Frog)
 		do itimestep = 1, maxtimestep
-			
-			!Interaction parameters, calculating neighboring particles
-			call flink_list
-			
-			! Update density and velocity half a time step (not at first time-step)
+        
+            ! Update density and velocity half a time step (not at first time-step)
 			do i = 1,ntotal
 				v_min(:,i) = parts(i)%vx(:)
 				rho_min(i) = parts(i)%rho
 				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1_f)/gamma
 			end do
+            
+            call generate_ghost_part
+			
+			!Interaction parameters, calculating neighboring particles
+			call flink_list
+            
+            call update_virt_part
 			
 			! calculating forces (k1)
 			call single_step(1,dvxdt(:,:,1),drho(:,1))
@@ -47,6 +54,10 @@ contains
 				parts(i)%rho = rho_min(i) + 0.5_f*dt*drho(i,1)
 				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1_f)/gamma
 			end do
+            
+            call update_ghost_part
+            
+            call update_virt_part
 			
 			! calculating forces (k2)
 			call single_step(2,dvxdt(:,:,2),drho(:,2))
@@ -57,6 +68,10 @@ contains
 				parts(i)%rho = rho_min(i) + 0.5_f*dt*drho(i,2)
 				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1_f)/gamma
 			end do
+            
+            call update_ghost_part
+            
+            call update_virt_part
 			
 			! calculating forces (k3)
 			call single_step(3,dvxdt(:,:,3),drho(:,3))
@@ -67,6 +82,10 @@ contains
 				parts(i)%rho = rho_min(i) + dt*drho(i,3)
 				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1_f)/gamma
 			end do
+            
+            call update_ghost_part
+            
+            call update_virt_part
 			
 			call single_step(4,dvxdt(:,:,4),drho(:,4))
 			
@@ -80,6 +99,10 @@ contains
 				
 				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1_f)/gamma
 			end do
+            
+            call update_ghost_part
+            
+            call update_virt_part
 			
 			time = time + dt
 			

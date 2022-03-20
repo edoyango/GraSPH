@@ -2,11 +2,12 @@ module time_integration_m
     
     use datatypes, only: particles,interactions
 	use globvar, only: time,cputime,output_time,test_time,print_step,save_step,itimestep,maxtimestep,parts_d,parts,ntotal,nvirt,&
-        ntotal_d,nvirt_d,niac_d,pairs_d
-	use param, only: f,dim,rh0,gamma,c,dt,mass,g
+        ntotal_d,nvirt_d,niac_d,pairs_d,maxinter_perp,nghos_d,nghos,scale_k_d
+	use param, only: f,dim,rh0,gamma,c,dt,mass,g,irho,hsml
 	
     use cudafor
     
+    use input_m, only: vmat_update,update_ghost_part,generate_ghost_part
     use globvar, only: initial_host2device
 	use flink_list_m, only: flink_list
 	use output_m, only: output
@@ -27,7 +28,8 @@ contains
 		real(f),allocatable,device:: v_min(:,:),rho_min(:),dvxdt(:,:,:),drho(:,:)
         real:: tmpTime
         type(cudaEvent):: startEvent,stopEvent,startOutputEvent,stopOutputEvent,startTestEvent,stopTestEvent
-        real(f),device,allocatable:: exdvxdt(:,:),ardvxdt(:,:),indvxdt(:,:),codrhodt(:)
+        real(f),device,allocatable:: exdvxdt(:,:),ardvxdt(:,:),indvxdt(:,:),codrhodt(:),vw(:)
+        integer,device,allocatable:: gind(:)
         
         ! creating cuda events and recording start event
         istat = cudaEventCreate(startEvent)
@@ -40,29 +42,67 @@ contains
         
         ! Transferring necessary data to GPU
 		allocate(v_min(dim,ntotal),rho_min(ntotal),dvxdt(dim,ntotal,4),drho(ntotal,4))
-        allocate(exdvxdt(dim,ntotal+nvirt),ardvxdt(dim,ntotal+nvirt),indvxdt(dim,ntotal+nvirt),codrhodt(ntotal+nvirt))
+        allocate(exdvxdt(dim,2*ntotal+nvirt),ardvxdt(dim,2*ntotal+nvirt),indvxdt(dim,2*ntotal+nvirt),codrhodt(2*ntotal+nvirt))
+        allocate(vw(nvirt),gind(ntotal))
         
         call initial_host2device
 		
 		! Time-integration (Leap-Frog)
 		do itimestep = 1, maxtimestep
+        
+            ! Save particles' velocity, density information at start of time-step
+            !$cuf kernel do <<<(ntotal)/128+1,128>>>
+            do i = 1,ntotal
+                rho_min(i) = parts_d(i)%rho
+                v_min(:,i) = parts_d(i)%vx(:)
+                parts_d(i)%p = rh0*c**2*((parts_d(i)%rho/rh0)**gamma-1._f)/gamma
+            end do
 			
+            nghos_d = 0
+            call generate_ghost_part<<<ntotal/128+1,128>>>(ntotal_d,nvirt_d,nghos_d,parts_d,gind)
+            nghos = nghos_d
+            
 			!Interaction parameters, calculating neighboring particles
 			call flink_list
-			
-			! Save particles' velocity, density information at start of time-step
-            call part_props_start<<<ntotal/1024+1,1024>>>(ntotal_d,parts_d,v_min,rho_min)
-            
+
 			! Beginning RK4 update (4 updates per timestep)
             do ki = 1,4
             
                 ! launching GPU kernel to calculate accelerations and density changes
-                call zero_rate_arrays<<<ntotal/1024+1,1024>>>(ntotal_d,ardvxdt,exdvxdt,indvxdt,codrhodt)
+                !$cuf kernel do <<<(ntotal+nvirt)/128+1,128>>>
+                do i = 1,ntotal+nvirt
+                    exdvxdt(1:dim-1,i) = 0_f
+                    exdvxdt(dim,i) = -g
+                    ardvxdt(:,i) = 0_f
+                    indvxdt(:,i) = 0_f
+                    codrhodt(i) = 0_f
+                    if (i > ntotal_d .and. i <= ntotal_d+nvirt_d) then
+                        parts_d(i)%rho = 0._f
+                        parts_d(i)%vx(:) = 0._f
+                        vw(i-ntotal_d) = 0._f
+                    end if
+                end do
                 
-                call single_step_kernel<<<(ntotal+nvirt)/32+1,32>>>(ki,ntotal_d,nvirt_d,niac_d,pairs_d,ardvxdt,exdvxdt,indvxdt,codrhodt)
+                call vmat_update<<<(ntotal+nvirt+nghos)/32+1,32>>>(ntotal_d,nvirt_d,nghos_d,niac_d,pairs_d,vw)
+                
+                !$cuf kernel do <<<nvirt/128+1,128>>>
+                do i = 1,nvirt
+                    if (vw(i)>0._f) then
+                        parts_d(ntotal_d+i)%rho = parts_d(ntotal_d+i)%rho/vw(i)
+                        parts_d(ntotal_d+i)%vx(:) = parts_d(ntotal_d+i)%vx(:)/vw(i)
+                    elseif (vw(i)==0._f) then
+                        parts_d(ntotal_d+i)%rho = irho
+                        parts_d(ntotal_d+i)%vx(:) = 0._f
+                    end if
+                    parts_d(ntotal_d+i)%p = rh0*c**2*((parts_d(ntotal_d+i)%rho/rh0)**gamma-1._f)/gamma
+                end do
+                
+                call single_step_kernel<<<(ntotal+nvirt+nghos)/32+1,32>>>(ki,ntotal_d,nvirt_d,nghos_d,niac_d,pairs_d,ardvxdt,exdvxdt,indvxdt,codrhodt)
                 
                 ! launching GPU kernel to update particles' speed and density
                 call RK4_update<<<ntotal/1024+1,1024>>>(ki,ntotal_d,v_min,rho_min,ardvxdt,exdvxdt,indvxdt,codrhodt,dvxdt,drho)
+                
+                call update_ghost_part<<<nghos/1024+1,1024>>>(ntotal_d,nvirt_d,nghos_d,parts_d,gind)
                 
             end do
 			
@@ -75,6 +115,7 @@ contains
                 istat = cudaEventRecord(startOutputEvent,0)
                 ! transfer particle data from GPU to CPU
                 parts = parts_d
+                nghos = nghos_d
 				call output
                 ! End timing of output time
                 istat = cudaEventRecord(stopOutputEvent,0)
@@ -100,46 +141,7 @@ contains
         cputime = cputime/1000.
 		
 	end subroutine time_integration
-    
-    !===============================================================================================================================
-    attributes(global) subroutine part_props_start(nt,pts,v_min,rho_min)
-    
-        implicit none
-        integer,intent(in):: nt
-        type(particles),intent(inout):: pts(nt)
-        real(f),intent(out):: v_min(dim,nt),rho_min(nt)
-        integer:: i
         
-        i = blockDim%x*(blockIdx%x-1)+threadIdx%x
-        
-        if (i<=nt) then
-            v_min(:,i) = pts(i)%vx(:)
-            rho_min(i) = pts(i)%rho
-            pts(i)%p = rh0*c**2*((pts(i)%rho/rh0)**gamma-1_f)/gamma
-        end if
-        
-    end subroutine part_props_start
-    
-    !==============================================================================================================================
-    attributes(global) subroutine zero_rate_arrays(nt,ardvx,exdvx,indvx,codrho)
-    
-        implicit none
-        integer,intent(in):: nt
-        real(f),intent(out):: exdvx(dim,nt),ardvx(dim,nt),indvx(dim,nt),codrho(nt)
-        integer:: i
-        
-        i = blockDim%x*(blockIdx%x-1)+threadIdx%x
-        
-        if (i<=nt) then
-            exdvx(1:dim-1,i) = 0_f
-            exdvx(dim,i) = -g
-            ardvx(:,i) = 0_f
-            indvx(:,i) = 0_f
-            codrho(i) = 0_f
-        end if
-    
-    end subroutine zero_rate_arrays
-    
     !===============================================================================================================================
     attributes(global) subroutine RK4_update(ki,nt,v_min,rho_min,ardvxdt,exdvxdt,indvxdt,codrhodt,dvxdt,drhodt)
     

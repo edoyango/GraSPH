@@ -1,6 +1,6 @@
 module output_m
 	
-	use globvar, only: ntotal,nvirt,parts
+	use globvar, only: ntotal,nvirt,nghos,parts
 	use param, only: output_directory
 	
 	integer,private:: i,d
@@ -50,12 +50,13 @@ contains
 			
 		end if
         
-        open(1,file=trim(output_directory)//"/v_ind"//number//".dat",form='unformatted',access='stream',status='replace')
-        do i = ntotal+1,ntotal+nvirt
-            write(1) parts(i)%ind,0,parts(i)%itype
-        end do
-		
 		if (output_virt(1)) then
+        
+            open(1,file=trim(output_directory)//"/v_ind"//number//".dat",form='unformatted',access='stream',status='replace')
+            do i = ntotal+1,ntotal+nvirt
+                write(1) parts(i)%ind,0,parts(i)%itype
+            end do
+            close(1)
 			
 			open(3,file=trim(output_directory)//"/v_xv"//number//".dat",form='unformatted',access='stream',status='replace')
 			
@@ -72,6 +73,36 @@ contains
 			open(4,file=trim(output_directory)//"/v_state"//number//".dat",form='unformatted',access='stream',status='replace')
 			
 			do i = ntotal+1,ntotal+nvirt
+				write(4) parts(i)%rho, parts(i)%p
+			end do
+			
+			close(4)
+			
+		end if
+        
+        if (output_virt(1)) then
+        
+            open(1,file=trim(output_directory)//"/g_ind"//number//".dat",form='unformatted',access='stream',status='replace')
+            do i = ntotal+nvirt+1,ntotal+nvirt+nghos
+                write(1) parts(i)%ind,0,parts(i)%itype
+            end do
+            close(1)
+			
+			open(3,file=trim(output_directory)//"/g_xv"//number//".dat",form='unformatted',access='stream',status='replace')
+			
+			do i = ntotal+nvirt+1,ntotal+nvirt+nghos
+				write(3) parts(i)%x(:), parts(i)%vx(:)
+			end do
+			
+			close(3)
+			
+		end if
+		
+		if (output_virt(2)) then
+			
+			open(4,file=trim(output_directory)//"/g_state"//number//".dat",form='unformatted',access='stream',status='replace')
+			
+			do i = ntotal+nvirt+1,ntotal+nvirt+nghos
 				write(4) parts(i)%rho, parts(i)%p
 			end do
 			

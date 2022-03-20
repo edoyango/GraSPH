@@ -1,7 +1,8 @@
 module input_m
 	
-	use globvar, only: parts,ntotal,nvirt
-	use param, only: dim,f,dxo,mp,np,op,pp,qp,rp,nlayer,irho
+    use datatypes, only: particles,interactions
+	use globvar, only: parts,ntotal,nvirt,maxinter_perp,scale_k_d
+	use param, only: dim,f,dxo,mp,np,op,pp,qp,rp,nlayer,irho,g,gamma,c,hsml,mass
 	
 	use output_m, only: write_ini_config
 	
@@ -86,7 +87,7 @@ contains
 		logical,intent(in):: generate
 		integer:: i,j,k,d,n
 		real(f):: xi,yi,zi
-		real(f),parameter:: dx=dxo,dy=dxo,dz=dxo,xl=25d0,yl=2d0,zl=40d0
+		real(f),parameter:: dx=dxo,dy=dxo,dz=dxo,xl=25d0,yl=25d0,zl=25d0
 		
 		select case (generate)
 		
@@ -102,13 +103,14 @@ contains
 						do k = 1,op
 							n = n + 1
 							parts(n)%ind = n
-							parts(n)%x(1) = (i-0.5d0)*dx
-							parts(n)%x(2) = (j-0.5d0)*dy
-							parts(n)%x(3) = (k-0.5d0)*dz
-							parts(n)%vx(:) = 0d0
+							parts(n)%x(1) = (i-0.5_f)*dx
+							parts(n)%x(2) = (j-0.5_f)*dy
+							parts(n)%x(3) = (k-0.5_f)*dz
+							parts(n)%vx(:) = 0._f
 							parts(n)%itype = 1
-							parts(n)%rho = irho
-							parts(n)%p = 0d0
+                            parts(n)%p = 0._f!(zl-parts(n)%x(3))*g*irho
+							parts(n)%rho = irho*(parts(n)%p*gamma/(c**2*irho)+1)**(1._f/gamma)
+							
 						end do
 					end do
 				end do
@@ -194,7 +196,7 @@ contains
 			
 			case (.false.)
 				
-				nvirt = (pp+2*nlayer)*(qp+2*nlayer)*(rp+2*nlayer) - pp*qp*rp
+				nvirt = (pp+2*nlayer)*(qp+2*nlayer)*nlayer
 				
 			case (.true.)
 				
@@ -203,7 +205,7 @@ contains
 				do i = 1-nlayer,pp+nlayer
                     do j = 1-nlayer,qp+nlayer
                         do k = 1-nlayer,rp+nlayer
-                            if ( i<1 .or. j<1 .or. k<1 .or. i>pp .or. j>qp .or. k>rp) then
+                            if ( k<1 ) then
                                 n = n + 1
                                 parts(n)%ind = n
                                 parts(n)%x(1) = xmin + (i-0.5_f)*dx
@@ -212,9 +214,7 @@ contains
                                 parts(n)%vx(:) = 0._f
                                 parts(n)%rho = irho
                                 parts(n)%p = 0._f
-                                if (i<1 .or. i>pp) parts(n)%itype = -3
-                                if (j<1 .or. j>qp) parts(n)%itype = -2
-                                if (k<1 .or. k>rp) parts(n)%itype = -1
+                                parts(n)%itype = -1
                             end if
                         end do
                     end do
@@ -223,5 +223,195 @@ contains
 		end select
 	
 	end subroutine virt_part3D
+    
+    !===============================================================================================================================
+    attributes(global) subroutine generate_ghost_part(nt,nv,ng,pts,gind)
+    
+        implicit none
+        integer,intent(in):: nt,nv
+        integer,intent(inout):: ng
+        type(particles),intent(inout):: pts(2*nt+nv)
+        integer,intent(out):: gind(nt)
+        integer:: i,j,k,d,tmpi
+        
+        i = blockDim%x*(blockIdx%x-1)+threadIdx%x
+        
+        if (i<=nt) then
+            if (abs(pts(i)%x(1)-0._f) < hsml*scale_k_d) then
+                tmpi = atomicadd(ng,1)
+                pts(nt+nv+tmpi+1) = pts(i)
+                gind(tmpi+1) = pts(i)%ind
+                pts(nt+nv+tmpi+1)%itype = 2
+                pts(nt+nv+tmpi+1)%ind = nt+nv+tmpi+1
+                pts(nt+nv+tmpi+1)%x(1) = -pts(nt+nv+tmpi+1)%x(1)
+                pts(nt+nv+tmpi+1)%vx(1) = -pts(nt+nv+tmpi+1)%vx(1)
+            end if
+            if (abs(pts(i)%x(1)-75._f) < hsml*scale_k_d) then
+                tmpi = atomicadd(ng,1)
+                pts(nt+nv+tmpi+1) = pts(i)
+                gind(tmpi+1) = pts(i)%ind
+                pts(nt+nv+tmpi+1)%itype = 2
+                pts(nt+nv+tmpi+1)%ind = nt+nv+tmpi+1
+                pts(nt+nv+tmpi+1)%x(1) = -pts(nt+nv+tmpi+1)%x(1) + 150._f
+                pts(nt+nv+tmpi+1)%vx(1) = -pts(nt+nv+tmpi+1)%vx(1)
+            end if
+            if (abs(pts(i)%x(2)-0._f) < hsml*scale_k_d) then
+                tmpi = atomicadd(ng,1)
+                pts(nt+nv+tmpi+1) = pts(i)
+                gind(tmpi+1) = pts(i)%ind
+                pts(nt+nv+tmpi+1)%itype = 3
+                pts(nt+nv+tmpi+1)%ind = nt+nv+tmpi+1
+                pts(nt+nv+tmpi+1)%x(2) = -pts(nt+nv+tmpi+1)%x(2)
+                pts(nt+nv+tmpi+1)%vx(2) = -pts(nt+nv+tmpi+1)%vx(2)
+            end if
+            if (abs(pts(i)%x(2)-12.5_f) < hsml*scale_k_d) then
+                tmpi = atomicadd(ng,1)
+                pts(nt+nv+tmpi+1) = pts(i)
+                gind(tmpi+1) = pts(i)%ind
+                pts(nt+nv+tmpi+1)%ind = nt+nv+tmpi+1
+                pts(nt+nv+tmpi+1)%itype = 3
+                pts(nt+nv+tmpi+1)%x(2) = -pts(nt+nv+tmpi+1)%x(2) + 25._f
+                pts(nt+nv+tmpi+1)%vx(2) = -pts(nt+nv+tmpi+1)%vx(2)
+            end if
+            if ( (pts(i)%x(1)-0._f)**2 + (pts(i)%x(2)-0._f)**2 < (hsml*scale_k_d)**2 ) then
+                tmpi = atomicadd(ng,1)
+                pts(nt+nv+tmpi+1) = pts(i)
+                gind(tmpi+1) = pts(i)%ind
+                pts(nt+nv+tmpi+1)%itype = 5
+                pts(nt+nv+tmpi+1)%ind = nt+nv+tmpi+1
+                pts(nt+nv+tmpi+1)%x(1) = -pts(nt+nv+tmpi+1)%x(1) + 0._f
+                pts(nt+nv+tmpi+1)%x(2) = -pts(nt+nv+tmpi+1)%x(2) + 0._f
+                pts(nt+nv+tmpi+1)%vx(1) = -pts(nt+nv+tmpi+1)%vx(1)
+                pts(nt+nv+tmpi+1)%vx(2) = -pts(nt+nv+tmpi+1)%vx(2)
+            end if
+            if ( (pts(i)%x(1)-0._f)**2 + (pts(i)%x(2)-12.5_f)**2 < (hsml*scale_k_d)**2 ) then
+                tmpi = atomicadd(ng,1)
+                pts(nt+nv+tmpi+1) = pts(i)
+                gind(tmpi+1) = pts(i)%ind
+                pts(nt+nv+tmpi+1)%itype = 5
+                pts(nt+nv+tmpi+1)%ind = nt+nv+tmpi+1
+                pts(nt+nv+tmpi+1)%x(1) = -pts(nt+nv+tmpi+1)%x(1) + 0._f
+                pts(nt+nv+tmpi+1)%x(2) = -pts(nt+nv+tmpi+1)%x(2) + 25._f
+                pts(nt+nv+tmpi+1)%vx(1) = -pts(nt+nv+tmpi+1)%vx(1)
+                pts(nt+nv+tmpi+1)%vx(2) = -pts(nt+nv+tmpi+1)%vx(2)
+            end if
+            if ( (pts(i)%x(1)-75._f)**2 + (pts(i)%x(2)-0._f)**2 < (hsml*scale_k_d)**2 ) then
+                tmpi = atomicadd(ng,1)
+                pts(nt+nv+tmpi+1) = pts(i)
+                gind(tmpi+1) = pts(i)%ind
+                pts(nt+nv+tmpi+1)%itype = 5
+                pts(nt+nv+tmpi+1)%ind = nt+nv+tmpi+1
+                pts(nt+nv+tmpi+1)%x(1) = -pts(nt+nv+tmpi+1)%x(1) + 150._f
+                pts(nt+nv+tmpi+1)%x(2) = -pts(nt+nv+tmpi+1)%x(2) + 0._f
+                pts(nt+nv+tmpi+1)%vx(1) = -pts(nt+nv+tmpi+1)%vx(1)
+                pts(nt+nv+tmpi+1)%vx(2) = -pts(nt+nv+tmpi+1)%vx(2)
+            end if
+            if ( (pts(i)%x(1)-75._f)**2 + (pts(i)%x(2)-12.5_f)**2 < (hsml*scale_k_d)**2 ) then
+                tmpi = atomicadd(ng,1)
+                pts(nt+nv+tmpi+1) = pts(i)
+                gind(tmpi+1) = pts(i)%ind
+                pts(nt+nv+tmpi+1)%itype = 5
+                pts(nt+nv+tmpi+1)%ind = nt+nv+tmpi+1
+                pts(nt+nv+tmpi+1)%x(1) = -pts(nt+nv+tmpi+1)%x(1) + 150._f
+                pts(nt+nv+tmpi+1)%x(2) = -pts(nt+nv+tmpi+1)%x(2) + 25._f
+                pts(nt+nv+tmpi+1)%vx(1) = -pts(nt+nv+tmpi+1)%vx(1)
+                pts(nt+nv+tmpi+1)%vx(2) = -pts(nt+nv+tmpi+1)%vx(2)
+            end if
+            
+        end if
+        
+    end subroutine generate_ghost_part
+    
+    !===============================================================================================================================
+    attributes(global) subroutine update_ghost_part(nt,nv,ng,pts,gind)
+    
+        implicit none
+        integer,intent(in):: nt,nv,ng,gind(ng)
+        type(particles),intent(inout):: pts(nt+nv+ng)
+        integer:: i,j,k,d
+        
+        i = blockDim%x*(blockIdx%x-1)+threadIdx%x
+        
+        if (i<=ng) then
+            j = gind(i)
+            pts(nt+nv+i)%rho = pts(j)%rho
+            pts(nt+nv+i)%p = pts(j)%p
+            select case (pts(nt+nv+i)%itype)
+                case (2)
+                    pts(nt+nv+i)%vx(1) = -pts(j)%vx(1)
+                    pts(nt+nv+i)%vx(2) =  pts(j)%vx(2)
+                    pts(nt+nv+i)%vx(3) =  pts(j)%vx(3)
+                case (3)
+                    pts(nt+nv+i)%vx(1) =  pts(j)%vx(1)
+                    pts(nt+nv+i)%vx(2) = -pts(j)%vx(2)
+                    pts(nt+nv+i)%vx(3) =  pts(j)%vx(3)
+                case (4)
+                    pts(nt+nv+i)%vx(1) =  pts(j)%vx(1)
+                    pts(nt+nv+i)%vx(2) =  pts(j)%vx(2)
+                    pts(nt+nv+i)%vx(3) = -pts(j)%vx(3)
+                case (5)
+                    pts(nt+nv+i)%vx(1) = -pts(j)%vx(1)
+                    pts(nt+nv+i)%vx(2) = -pts(j)%vx(2)
+                    pts(nt+nv+i)%vx(3) =  pts(j)%vx(3)
+            end select
+        end if
+    
+    end subroutine update_ghost_part
+    
+    !===============================================================================================================================
+    attributes(global) subroutine vmat_update(nt,nv,ng,nij,pij,vw)
+    
+        implicit none
+        integer,intent(in):: nt,nv,ng,nij(nt+nv+ng)
+        type(interactions),intent(in):: pij(maxinter_perp,nt+nv+ng)
+        real(f),intent(inout):: vw(nv)
+        integer:: i,j,k,d
+        real(f):: tmp,tmp2
+        
+        i = blockDim%x*(blockIdx%x-1)+threadIdx%x
+        
+        if (i<=nt+nv+ng) then
+            do k = 1,nij(i)
+                if (pij(k,i)%i%itype < 0 .and. pij(k,i)%j%itype > 0) then
+                    tmp = mass*pij(k,i)%w/pij(k,i)%j%rho
+                    tmp2 = atomicadd(vw(pij(k,i)%i%ind-nt),tmp)
+                    tmp2 = atomicadd(pij(k,i)%i%rho,mass*pij(k,i)%w)
+                    select case (pij(k,i)%i%itype)
+                        case(-1) ! top-bottom walls
+                            tmp2 = atomicadd(pij(k,i)%i%vx(1),-pij(k,i)%j%vx(1)*tmp)
+                            tmp2 = atomicadd(pij(k,i)%i%vx(2),-pij(k,i)%j%vx(2)*tmp)
+                            tmp2 = atomicadd(pij(k,i)%i%vx(3),-pij(k,i)%j%vx(3)*tmp)
+                        case(-2) ! north-south walls
+                            tmp2 = atomicadd(pij(k,i)%i%vx(1), pij(k,i)%j%vx(1)*tmp)
+                            tmp2 = atomicadd(pij(k,i)%i%vx(2),-pij(k,i)%j%vx(2)*tmp)
+                            tmp2 = atomicadd(pij(k,i)%i%vx(3), pij(k,i)%j%vx(3)*tmp)
+                        case(-3) ! east-west walls
+                            tmp2 = atomicadd(pij(k,i)%i%vx(1),-pij(k,i)%j%vx(1)*tmp)
+                            tmp2 = atomicadd(pij(k,i)%i%vx(2), pij(k,i)%j%vx(2)*tmp)
+                            tmp2 = atomicadd(pij(k,i)%i%vx(3), pij(k,i)%j%vx(3)*tmp)
+                    end select
+                else if (pij(k,i)%j%itype < 0 .and. pij(k,i)%i%itype > 0) then
+                    tmp = mass*pij(k,i)%w/pij(k,i)%i%rho
+                    tmp2 = atomicadd(vw(pij(k,i)%j%ind-nt),tmp)
+                    tmp2 = atomicadd(pij(k,i)%j%rho,mass*pij(k,i)%w)
+                    select case (pij(k,i)%j%itype)
+                        case(-1) ! top-bottom walls
+                            tmp2 = atomicadd(pij(k,i)%j%vx(1),-pij(k,i)%i%vx(1)*tmp)
+                            tmp2 = atomicadd(pij(k,i)%j%vx(2),-pij(k,i)%i%vx(2)*tmp)
+                            tmp2 = atomicadd(pij(k,i)%j%vx(3),-pij(k,i)%i%vx(3)*tmp)
+                        case(-2) ! north-south walls
+                            tmp2 = atomicadd(pij(k,i)%j%vx(1), pij(k,i)%i%vx(1)*tmp)
+                            tmp2 = atomicadd(pij(k,i)%j%vx(2),-pij(k,i)%i%vx(2)*tmp)
+                            tmp2 = atomicadd(pij(k,i)%j%vx(3), pij(k,i)%i%vx(3)*tmp)
+                        case(-3) ! east-west walls
+                            tmp2 = atomicadd(pij(k,i)%j%vx(1),-pij(k,i)%i%vx(1)*tmp)
+                            tmp2 = atomicadd(pij(k,i)%j%vx(2), pij(k,i)%i%vx(2)*tmp)
+                            tmp2 = atomicadd(pij(k,i)%j%vx(3), pij(k,i)%i%vx(3)*tmp)
+                    end select
+                end if
+            end do
+        end if
+        
+    end subroutine vmat_update
 
 end module input_m
