@@ -42,7 +42,7 @@ module param
 	integer,parameter,public:: gamma = 7
 	
 	! artificial viscosity parameters
-	real(f),parameter,public:: alpha = 0.01_f, beta = 0_f, etq = 0.1_f
+	real(f),parameter,public:: alpha = 0.05_f, beta = 0.05_f, etq = 0.1_f
 	
 	! repulsive force parameter,public::s
 	real(f),parameter,public:: rr0 = dxo,dd = 5_f*g*25_f

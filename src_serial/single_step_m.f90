@@ -8,10 +8,11 @@ contains
 	subroutine single_step(ki,dvxdti,drhoi) 
 	! Container subroutine for all the rate-of-change calculations. Rate-of-changes are calculated seperately and then summed as
 	! required
-	
+        
 		use globvar, only: ntotal,nvirt,nghos,niac,pairs
 		use param, only: dim,f,g
 		
+        use input_m, only: virt_mirror
 		use material_rates_m
 		
 		implicit none
@@ -35,16 +36,20 @@ contains
 		! looping through interaction pairs to calculate forces/density change
 		do k = 1,niac
 			
-!~ 			if (pairs(k)%i%itype > 0 .and. pairs(k)%j%itype > 0) then
-			
+			if (pairs(k)%i%itype > 0 .and. pairs(k)%j%itype < 0) then
+                call virt_mirror(pairs(k)%i,pairs(k)%j)
+            elseif (pairs(k)%i%itype < 0 .and. pairs(k)%j%itype > 0) then
+                call virt_mirror(pairs(k)%j,pairs(k)%i)
+            end if
+                
 				!Density approximation or change rate
-				call con_density(ki,pairs(k),cdrhodt)
+				call con_density(ki,pairs(k)%i,pairs(k)%j,pairs(k)%dwdx,cdrhodt)
 				
 				!Internal force due to pressure
-				call int_force(ki,pairs(k),indvxdt)
+				call int_force(ki,pairs(k)%i,pairs(k)%j,pairs(k)%dwdx,indvxdt)
 				
 				!Artificial viscosity:
-				call art_visc(ki,pairs(k),ardvxdt)
+				call art_visc(ki,pairs(k)%i,pairs(k)%j,pairs(k)%dwdx,ardvxdt)
 				
 !~ 			elseif (pairs(k)%i%itype> 0 .or. pairs(k)%j%itype > 0) then
 			

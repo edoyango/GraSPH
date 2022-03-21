@@ -1,33 +1,35 @@
 module material_rates_m
 	
-	use globvar, only: interactions,ntotal,nvirt,nghos
+    use datatypes, only: particles,interactions
+	use globvar, only: ntotal,nvirt,nghos
 	use param, only: mass,dim,f
 
 contains
 	
 	!=================================================================================
-	subroutine art_visc(ki,pair,ardvxdt)
+	subroutine art_visc(ki,p_i,p_j,dwdx,ardvxdt)
 	
 		use param, only: alpha,beta,etq,hsml,c
 	
 		implicit none
 		integer,intent(in):: ki
-		type(interactions),intent(in):: pair
+        type(particles),intent(in):: p_i,p_j
+        real(f),intent(in):: dwdx(dim)
 		real(f),intent(inout):: ardvxdt(dim,ntotal+nvirt+nghos)
 		real(f):: dx(dim),piv(dim),muv,vr,rr,h,mrho
 		
-		dx(:) = pair%i%x(:) - pair%j%x(:)
-		vr = DOT_PRODUCT(pair%i%vx(:) - pair%j%vx(:),dx(:))
+		dx(:) = p_i%x(:) - p_j%x(:)
+		vr = DOT_PRODUCT(p_i%vx(:) - p_j%vx(:),dx(:))
         if (vr > 0_f) vr = 0_f
 		
 		!Artificial viscous force only if v_ij * r_ij < 0
 		rr = DOT_PRODUCT(dx(:),dx(:))
 		muv  = hsml*vr/(rr + hsml*hsml*etq*etq)
-		mrho = 0.5_f*(pair%i%rho + pair%j%rho)
-		piv  = (beta*muv - alpha*c)*muv/mrho*pair%dwdx(:)
+		mrho = 0.5_f*(p_i%rho + p_j%rho)
+		piv  = (beta*muv - alpha*c)*muv/mrho*dwdx(:)
 		
-		ardvxdt(:,pair%i%ind) = ardvxdt(:,pair%i%ind) - mass*piv(:)
-		ardvxdt(:,pair%j%ind) = ardvxdt(:,pair%j%ind) + mass*piv(:)
+		ardvxdt(:,p_i%ind) = ardvxdt(:,p_i%ind) - mass*piv(:)
+		ardvxdt(:,p_j%ind) = ardvxdt(:,p_j%ind) + mass*piv(:)
 	
 	end subroutine art_visc
 	
@@ -54,35 +56,37 @@ contains
 	end subroutine ext_force
 	
 	!=================================================================================
-	subroutine int_force(ki,pair,indvxdt)
+	subroutine int_force(ki,p_i,p_j,dwdx,indvxdt)
 	
 		implicit none
 		integer,intent(in):: ki
-		type(interactions),intent(in):: pair
+		type(particles),intent(in):: p_i,p_j
+        real(f),intent(in):: dwdx(dim)
 		real(f),intent(inout):: indvxdt(dim,ntotal+nvirt+nghos)
 		real(f):: h(dim)
 		
-		h = -(pair%i%p/pair%i%rho**2 + pair%j%p/pair%j%rho**2)*pair%dwdx(:)
-		indvxdt(:,pair%i%ind) = indvxdt(:,pair%i%ind) + mass*h(:)
-		indvxdt(:,pair%j%ind) = indvxdt(:,pair%j%ind) - mass*h(:)
+		h = -(p_i%p/p_i%rho**2 + p_j%p/p_j%rho**2)*dwdx(:)
+		indvxdt(:,p_i%ind) = indvxdt(:,p_i%ind) + mass*h(:)
+		indvxdt(:,p_j%ind) = indvxdt(:,p_j%ind) - mass*h(:)
 	
 	end subroutine int_force
 	
 	!=================================================================================
-	subroutine con_density(ki,pair,codrhodt)
+	subroutine con_density(ki,p_i,p_j,dwdx,codrhodt)
 	
 		implicit none
 		integer,intent(in):: ki
-		type(interactions),intent(in):: pair
+		type(particles),intent(in):: p_i,p_j
+        real(f),intent(in):: dwdx(dim)
 		real(f),intent(inout):: codrhodt(ntotal+nvirt+nghos)
 		real(f):: dvx(dim),vcc
 		
-		dvx(:) = pair%i%vx(:) - pair%j%vx(:)
+		dvx(:) = p_i%vx(:) - p_j%vx(:)
 				
-		vcc = DOT_PRODUCT(dvx(:),pair%dwdx(:))
+		vcc = DOT_PRODUCT(dvx(:),dwdx(:))
 		
-		codrhodt(pair%i%ind) = codrhodt(pair%i%ind) + mass*vcc
-		codrhodt(pair%j%ind) = codrhodt(pair%j%ind) + mass*vcc
+		codrhodt(p_i%ind) = codrhodt(p_i%ind) + mass*vcc
+		codrhodt(p_j%ind) = codrhodt(p_j%ind) + mass*vcc
 		
 	end subroutine con_density
 

@@ -1,5 +1,6 @@
 module input_m
 	
+    use datatypes, only: particles
 	use globvar, only: parts,pairs,ntotal,nvirt,nghos,scale_k,niac
 	use param, only: dim,f,dxo,mp,np,op,pp,qp,rp,nlayer,irho,hsml,mass,rh0,gamma,c
 	
@@ -232,7 +233,7 @@ contains
         nghos = 0
         
         do i = 1,ntotal
-            if (abs(parts(i)%x(1)-vxmin) < scale_k*hsml) then
+            if (abs(parts(i)%x(1)-vxmin) < scale_k*hsml .and. parts(i)%x(1) > vxmin) then
                 nghos = nghos + 1
                 ig = ntotal+nvirt+nghos
                 gind(nghos) = i
@@ -242,7 +243,7 @@ contains
                 parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmin
                 parts(ig)%vx(1) = -parts(ig)%vx(1)
             end if
-            if (abs(parts(i)%x(1)-vxmax) < scale_k*hsml) then
+            if (abs(parts(i)%x(1)-vxmax) < scale_k*hsml .and. parts(i)%x(1) < vxmax) then
                 nghos = nghos + 1
                 ig = ntotal+nvirt+nghos
                 gind(nghos) = i
@@ -252,7 +253,7 @@ contains
                 parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmax
                 parts(ig)%vx(1) = -parts(ig)%vx(1)
             end if
-            if (abs(parts(i)%x(2)-vymin) < scale_k*hsml) then
+            if (abs(parts(i)%x(2)-vymin) < scale_k*hsml .and. parts(i)%x(2) > vymin) then
                 nghos = nghos + 1
                 ig = ntotal+nvirt+nghos
                 gind(nghos) = i
@@ -262,7 +263,7 @@ contains
                 parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymin
                 parts(ig)%vx(2) = -parts(ig)%vx(2)
             end if
-            if (abs(parts(i)%x(2)-vymax) < scale_k*hsml) then
+            if (abs(parts(i)%x(2)-vymax) < scale_k*hsml .and. parts(i)%x(2) < vymax) then
                 nghos = nghos + 1
                 ig = ntotal+nvirt+nghos
                 gind(nghos) = i
@@ -272,7 +273,7 @@ contains
                 parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymax
                 parts(ig)%vx(2) = -parts(ig)%vx(2)
             end if
-            if ( (parts(i)%x(1)-vxmin)**2 + (parts(i)%x(2)-vymin)**2 < (scale_k*hsml)**2) then
+            if ( (parts(i)%x(1)-vxmin)**2 + (parts(i)%x(2)-vymin)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) > vxmin) then
                 nghos = nghos + 1
                 ig = ntotal+nvirt+nghos
                 gind(nghos) = i
@@ -284,7 +285,7 @@ contains
                 parts(ig)%vx(1) = -parts(ig)%vx(1)
                 parts(ig)%vx(2) = -parts(ig)%vx(2)
             end if
-            if ( (parts(i)%x(1)-vxmin)**2 + (parts(i)%x(2)-vymax)**2 < (scale_k*hsml)**2) then
+            if ( (parts(i)%x(1)-vxmin)**2 + (parts(i)%x(2)-vymax)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) > vxmin) then
                 nghos = nghos + 1
                 ig = ntotal+nvirt+nghos
                 gind(nghos) = i
@@ -296,7 +297,7 @@ contains
                 parts(ig)%vx(1) = -parts(ig)%vx(1)
                 parts(ig)%vx(2) = -parts(ig)%vx(2)
             end if
-            if ( (parts(i)%x(1)-vxmax)**2 + (parts(i)%x(2)-vymax)**2 < (scale_k*hsml)**2) then
+            if ( (parts(i)%x(1)-vxmax)**2 + (parts(i)%x(2)-vymax)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) < vxmax) then
                 nghos = nghos + 1
                 ig = ntotal+nvirt+nghos
                 gind(nghos) = i
@@ -308,7 +309,7 @@ contains
                 parts(ig)%vx(1) = -parts(ig)%vx(1)
                 parts(ig)%vx(2) = -parts(ig)%vx(2)
             end if
-            if ( (parts(i)%x(1)-vxmax)**2 + (parts(i)%x(2)-vymin)**2 < (scale_k*hsml)**2) then
+            if ( (parts(i)%x(1)-vxmax)**2 + (parts(i)%x(2)-vymin)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) < vxmax) then
                 nghos = nghos + 1
                 ig = ntotal+nvirt+nghos
                 gind(nghos) = i
@@ -398,5 +399,26 @@ contains
         end do
         
     end subroutine update_virt_part
+    
+    !==============================================================================================================================
+    subroutine virt_mirror(pr,pv)
+    
+        implicit none
+        type(particles),intent(in):: pr
+        type(particles),intent(inout):: pv
+        real(f):: da,db,beta
+        real(f),parameter:: beta_max = 5._f
+        
+        da = ABS(pr%x(3) - vzmin)
+        db = ABS(pv%x(3) - vzmin)
+        
+        beta = MIN(1._f + db/da,beta_max)
+        if (ISNAN(beta)) beta = beta_max
+        
+        pv%rho = pr%rho
+        pv%p = pr%p
+        pv%vx(:) = (1._f-beta)*pr%vx(:)
+        
+    end subroutine virt_mirror
 
 end module input_m

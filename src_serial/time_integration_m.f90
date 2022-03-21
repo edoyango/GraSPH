@@ -43,7 +43,7 @@ contains
 			!Interaction parameters, calculating neighboring particles
 			call flink_list
             
-            call update_virt_part
+!~             call update_virt_part
 			
 			! calculating forces (k1)
 			call single_step(1,dvxdt(:,:,1),drho(:,1))
@@ -57,7 +57,7 @@ contains
             
             call update_ghost_part
             
-            call update_virt_part
+!~             call update_virt_part
 			
 			! calculating forces (k2)
 			call single_step(2,dvxdt(:,:,2),drho(:,2))
@@ -71,7 +71,7 @@ contains
             
             call update_ghost_part
             
-            call update_virt_part
+!~             call update_virt_part
 			
 			! calculating forces (k3)
 			call single_step(3,dvxdt(:,:,3),drho(:,3))
@@ -85,7 +85,7 @@ contains
             
             call update_ghost_part
             
-            call update_virt_part
+!~             call update_virt_part
 			
 			call single_step(4,dvxdt(:,:,4),drho(:,4))
 			
@@ -102,7 +102,7 @@ contains
             
             call update_ghost_part
             
-            call update_virt_part
+!~             call update_virt_part
 			
 			time = time + dt
 			
