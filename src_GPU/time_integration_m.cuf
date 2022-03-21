@@ -28,7 +28,7 @@ contains
 		real(f),allocatable,device:: v_min(:,:),rho_min(:),dvxdt(:,:,:),drho(:,:)
         real:: tmpTime
         type(cudaEvent):: startEvent,stopEvent,startOutputEvent,stopOutputEvent,startTestEvent,stopTestEvent
-        real(f),device,allocatable:: exdvxdt(:,:),ardvxdt(:,:),indvxdt(:,:),codrhodt(:),vw(:)
+        real(f),device,allocatable:: exdvxdt(:,:),ardvxdt(:,:),indvxdt(:,:),codrhodt(:)
         integer,device,allocatable:: gind(:)
         
         ! creating cuda events and recording start event
@@ -42,8 +42,9 @@ contains
         
         ! Transferring necessary data to GPU
 		allocate(v_min(dim,ntotal),rho_min(ntotal),dvxdt(dim,ntotal,4),drho(ntotal,4))
-        allocate(exdvxdt(dim,2*ntotal+nvirt),ardvxdt(dim,2*ntotal+nvirt),indvxdt(dim,2*ntotal+nvirt),codrhodt(2*ntotal+nvirt))
-        allocate(vw(nvirt),gind(ntotal))
+        allocate(exdvxdt(dim,ntotal+nvirt+int(0.2*ntotal)),ardvxdt(dim,ntotal+nvirt+int(0.2*ntotal)),&
+            indvxdt(dim,ntotal+nvirt+int(0.2*ntotal)),codrhodt(ntotal+nvirt+int(0.2*ntotal)))
+        allocate(gind(int(0.2*ntotal)))
         
         call initial_host2device
 		
@@ -69,32 +70,13 @@ contains
             do ki = 1,4
             
                 ! launching GPU kernel to calculate accelerations and density changes
-                !$cuf kernel do <<<(ntotal+nvirt)/128+1,128>>>
-                do i = 1,ntotal+nvirt
+                !$cuf kernel do <<<(ntotal)/128+1,128>>>
+                do i = 1,ntotal
                     exdvxdt(1:dim-1,i) = 0_f
                     exdvxdt(dim,i) = -g
                     ardvxdt(:,i) = 0_f
                     indvxdt(:,i) = 0_f
                     codrhodt(i) = 0_f
-                    if (i > ntotal_d .and. i <= ntotal_d+nvirt_d) then
-                        parts_d(i)%rho = 0._f
-                        parts_d(i)%vx(:) = 0._f
-                        vw(i-ntotal_d) = 0._f
-                    end if
-                end do
-                
-                call vmat_update<<<(ntotal+nvirt+nghos)/32+1,32>>>(ntotal_d,nvirt_d,nghos_d,niac_d,pairs_d,vw)
-                
-                !$cuf kernel do <<<nvirt/128+1,128>>>
-                do i = 1,nvirt
-                    if (vw(i)>0._f) then
-                        parts_d(ntotal_d+i)%rho = parts_d(ntotal_d+i)%rho/vw(i)
-                        parts_d(ntotal_d+i)%vx(:) = parts_d(ntotal_d+i)%vx(:)/vw(i)
-                    elseif (vw(i)==0._f) then
-                        parts_d(ntotal_d+i)%rho = irho
-                        parts_d(ntotal_d+i)%vx(:) = 0._f
-                    end if
-                    parts_d(ntotal_d+i)%p = rh0*c**2*((parts_d(ntotal_d+i)%rho/rh0)**gamma-1._f)/gamma
                 end do
                 
                 call single_step_kernel<<<(ntotal+nvirt+nghos)/32+1,32>>>(ki,ntotal_d,nvirt_d,nghos_d,niac_d,pairs_d,ardvxdt,exdvxdt,indvxdt,codrhodt)

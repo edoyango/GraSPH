@@ -5,6 +5,11 @@ module input_m
 	use param, only: dim,f,dxo,mp,np,op,pp,qp,rp,nlayer,irho,g,gamma,c,hsml,mass
 	
 	use output_m, only: write_ini_config
+    
+    real(f),parameter:: vxmin = 0._f, vymin = 0._f, vzmin = 0._f, &
+        vxmax = vxmin + pp*dxo, vymax = vymin + qp*dxo, vzmax = vzmin + rp*dxo
+    real(f),parameter:: rxmin = 0._f, rymin = 0._f, rzmin = 0._f, &
+        rxmax = rxmin + mp*dxo, rymax = rymin + np*dxo, rzmax = rzmin + op*dxo
 	
 	public:: input,virt_part
 	private:: input2D,input3D,virt_part2D,virt_part3D
@@ -50,7 +55,6 @@ contains
 		logical,intent(in):: generate
 		integer:: i,j,d,n
 		real(f):: xi,yi
-		real(f),parameter:: dx=dxo,dy=dxo,xl=25_f,yl=25_f
 		
 		select case (generate)
 		
@@ -65,8 +69,8 @@ contains
 					do j = 1, op
 						n = n + 1
 						parts(n)%ind = n
-						parts(n)%x(1) = (i-0.5_f)*dx
-						parts(n)%x(2) = (j-0.5_f)*dy
+						parts(n)%x(1) = (i-0.5_f)*dxo
+						parts(n)%x(2) = (j-0.5_f)*dxo
 						parts(n)%vx(:) = 0_f
 						parts(n)%itype = 1
 						parts(n)%rho = irho
@@ -87,7 +91,6 @@ contains
 		logical,intent(in):: generate
 		integer:: i,j,k,d,n
 		real(f):: xi,yi,zi
-		real(f),parameter:: dx=dxo,dy=dxo,dz=dxo,xl=25d0,yl=25d0,zl=25d0
 		
 		select case (generate)
 		
@@ -103,9 +106,9 @@ contains
 						do k = 1,op
 							n = n + 1
 							parts(n)%ind = n
-							parts(n)%x(1) = (i-0.5_f)*dx
-							parts(n)%x(2) = (j-0.5_f)*dy
-							parts(n)%x(3) = (k-0.5_f)*dz
+							parts(n)%x(1) = (i-0.5_f)*dxo
+							parts(n)%x(2) = (j-0.5_f)*dxo
+							parts(n)%x(3) = (k-0.5_f)*dxo
 							parts(n)%vx(:) = 0._f
 							parts(n)%itype = 1
                             parts(n)%p = 0._f!(zl-parts(n)%x(3))*g*irho
@@ -127,7 +130,6 @@ contains
 		implicit none
 		logical,intent(in):: generate
 		integer:: i,j,k,d,n
-		real(f),parameter:: dx = dxo, dy = dxo, xmin = 0_f, ymin = 0_f, xmax = 75_f, ymax = 40_f
 		
 		select case (generate)
 			
@@ -143,8 +145,8 @@ contains
 				do i = 1, pp
 					n = n + 1
 					parts(n)%ind = n
-					parts(n)%x(1) = xmin + (i-0.5_f)*dx
-					parts(n)%x(2) = ymin - 0.5_f*dy
+					parts(n)%x(1) = vxmin + (i-0.5_f)*dxo
+					parts(n)%x(2) = vymin - 0.5_f*dxo
 					parts(n)%vx(:) = 0_f
 				enddo
 				
@@ -152,8 +154,8 @@ contains
 				do i = 1, pp
 					n = n + 1
 					parts(n)%ind = n
-					parts(n)%x(1) = xmin + (i-0.5_f)*dx
-					parts(n)%x(2) = ymax - 1.5_f*dy
+					parts(n)%x(1) = vxmin + (i-0.5_f)*dxo
+					parts(n)%x(2) = vymax - 1.5_f*dxo
 					parts(n)%vx(:) = 0_f
 				enddo
 				
@@ -161,8 +163,8 @@ contains
 				do i = 1, rp
 					n = n + 1
 					parts(n)%ind = n
-					parts(n)%x(1) = xmin - 0.5_f*dx
-					parts(n)%x(2) = ymin + (i-1.5_f)*dy
+					parts(n)%x(1) = vxmin - 0.5_f*dxo
+					parts(n)%x(2) = vymin + (i-1.5_f)*dxo
 					parts(n)%vx(:) = 0_f
 				enddo
 				
@@ -170,8 +172,8 @@ contains
 				do i = 1, rp
 					n = n + 1
 					parts(n)%ind = n
-					parts(n)%x(1) = xmax + 0.5_f*dx
-					parts(n)%x(2) = ymin + (i-1.5_f)*dy
+					parts(n)%x(1) = vxmax + 0.5_f*dxo
+					parts(n)%x(2) = vymin + (i-1.5_f)*dxo
 					parts(n)%vx(:) = 0_f
 				enddo
 	
@@ -189,8 +191,6 @@ contains
 		implicit none
 		logical,intent(in):: generate
 		integer:: i,j,k,d,n
-		real(f),parameter:: dx = dxo, dy = dxo, dz = dxo, xmin = 0_f, ymin = 0_f, zmin = 0_f,&
-		xmax = xmin + pp*dx, ymax = ymin + qp*dy, zmax = zmin + rp*dz
 		
 		select case (generate)
 			
@@ -208,9 +208,9 @@ contains
                             if ( k<1 ) then
                                 n = n + 1
                                 parts(n)%ind = n
-                                parts(n)%x(1) = xmin + (i-0.5_f)*dx
-                                parts(n)%x(2) = ymin + (j-0.5_f)*dy
-                                parts(n)%x(3) = zmin + (k-0.5_f)*dz
+                                parts(n)%x(1) = vxmin + (i-0.5_f)*dxo
+                                parts(n)%x(2) = vymin + (j-0.5_f)*dxo
+                                parts(n)%x(3) = vzmin + (k-0.5_f)*dxo
                                 parts(n)%vx(:) = 0._f
                                 parts(n)%rho = irho
                                 parts(n)%p = 0._f
@@ -237,83 +237,83 @@ contains
         i = blockDim%x*(blockIdx%x-1)+threadIdx%x
         
         if (i<=nt) then
-            if (abs(pts(i)%x(1)-0._f) < hsml*scale_k_d) then
+            if (abs(pts(i)%x(1)-vxmin) < hsml*scale_k_d) then
                 tmpi = atomicadd(ng,1)
                 pts(nt+nv+tmpi+1) = pts(i)
                 gind(tmpi+1) = pts(i)%ind
                 pts(nt+nv+tmpi+1)%itype = 2
                 pts(nt+nv+tmpi+1)%ind = nt+nv+tmpi+1
-                pts(nt+nv+tmpi+1)%x(1) = -pts(nt+nv+tmpi+1)%x(1)
+                pts(nt+nv+tmpi+1)%x(1) = -pts(nt+nv+tmpi+1)%x(1) + 2._f*vxmin
                 pts(nt+nv+tmpi+1)%vx(1) = -pts(nt+nv+tmpi+1)%vx(1)
             end if
-            if (abs(pts(i)%x(1)-75._f) < hsml*scale_k_d) then
+            if (abs(pts(i)%x(1)-vxmax) < hsml*scale_k_d) then
                 tmpi = atomicadd(ng,1)
                 pts(nt+nv+tmpi+1) = pts(i)
                 gind(tmpi+1) = pts(i)%ind
                 pts(nt+nv+tmpi+1)%itype = 2
                 pts(nt+nv+tmpi+1)%ind = nt+nv+tmpi+1
-                pts(nt+nv+tmpi+1)%x(1) = -pts(nt+nv+tmpi+1)%x(1) + 150._f
+                pts(nt+nv+tmpi+1)%x(1) = -pts(nt+nv+tmpi+1)%x(1) + 2._f*vxmax
                 pts(nt+nv+tmpi+1)%vx(1) = -pts(nt+nv+tmpi+1)%vx(1)
             end if
-            if (abs(pts(i)%x(2)-0._f) < hsml*scale_k_d) then
+            if (abs(pts(i)%x(2)-vymin) < hsml*scale_k_d) then
                 tmpi = atomicadd(ng,1)
                 pts(nt+nv+tmpi+1) = pts(i)
                 gind(tmpi+1) = pts(i)%ind
                 pts(nt+nv+tmpi+1)%itype = 3
                 pts(nt+nv+tmpi+1)%ind = nt+nv+tmpi+1
-                pts(nt+nv+tmpi+1)%x(2) = -pts(nt+nv+tmpi+1)%x(2)
+                pts(nt+nv+tmpi+1)%x(2) = -pts(nt+nv+tmpi+1)%x(2) + 2._f*vymin
                 pts(nt+nv+tmpi+1)%vx(2) = -pts(nt+nv+tmpi+1)%vx(2)
             end if
-            if (abs(pts(i)%x(2)-12.5_f) < hsml*scale_k_d) then
+            if (abs(pts(i)%x(2)-vymax) < hsml*scale_k_d) then
                 tmpi = atomicadd(ng,1)
                 pts(nt+nv+tmpi+1) = pts(i)
                 gind(tmpi+1) = pts(i)%ind
                 pts(nt+nv+tmpi+1)%ind = nt+nv+tmpi+1
                 pts(nt+nv+tmpi+1)%itype = 3
-                pts(nt+nv+tmpi+1)%x(2) = -pts(nt+nv+tmpi+1)%x(2) + 25._f
-                pts(nt+nv+tmpi+1)%vx(2) = -pts(nt+nv+tmpi+1)%vx(2)
+                pts(nt+nv+tmpi+1)%x(2) = -pts(nt+nv+tmpi+1)%x(2) + 2._f*vymax
+                pts(nt+nv+tmpi+1)%vx(2) = -pts(nt+nv+tmpi+1)%vx(2) 
             end if
-            if ( (pts(i)%x(1)-0._f)**2 + (pts(i)%x(2)-0._f)**2 < (hsml*scale_k_d)**2 ) then
+            if ( (pts(i)%x(1)-vxmin)**2 + (pts(i)%x(2)-vymin)**2 < (hsml*scale_k_d)**2 ) then
                 tmpi = atomicadd(ng,1)
                 pts(nt+nv+tmpi+1) = pts(i)
                 gind(tmpi+1) = pts(i)%ind
                 pts(nt+nv+tmpi+1)%itype = 5
                 pts(nt+nv+tmpi+1)%ind = nt+nv+tmpi+1
-                pts(nt+nv+tmpi+1)%x(1) = -pts(nt+nv+tmpi+1)%x(1) + 0._f
-                pts(nt+nv+tmpi+1)%x(2) = -pts(nt+nv+tmpi+1)%x(2) + 0._f
+                pts(nt+nv+tmpi+1)%x(1) = -pts(nt+nv+tmpi+1)%x(1) + 2._f*vxmin
+                pts(nt+nv+tmpi+1)%x(2) = -pts(nt+nv+tmpi+1)%x(2) + 2._f*vymin
                 pts(nt+nv+tmpi+1)%vx(1) = -pts(nt+nv+tmpi+1)%vx(1)
                 pts(nt+nv+tmpi+1)%vx(2) = -pts(nt+nv+tmpi+1)%vx(2)
             end if
-            if ( (pts(i)%x(1)-0._f)**2 + (pts(i)%x(2)-12.5_f)**2 < (hsml*scale_k_d)**2 ) then
+            if ( (pts(i)%x(1)-vxmin)**2 + (pts(i)%x(2)-vymax)**2 < (hsml*scale_k_d)**2 ) then
                 tmpi = atomicadd(ng,1)
                 pts(nt+nv+tmpi+1) = pts(i)
                 gind(tmpi+1) = pts(i)%ind
                 pts(nt+nv+tmpi+1)%itype = 5
                 pts(nt+nv+tmpi+1)%ind = nt+nv+tmpi+1
-                pts(nt+nv+tmpi+1)%x(1) = -pts(nt+nv+tmpi+1)%x(1) + 0._f
-                pts(nt+nv+tmpi+1)%x(2) = -pts(nt+nv+tmpi+1)%x(2) + 25._f
+                pts(nt+nv+tmpi+1)%x(1) = -pts(nt+nv+tmpi+1)%x(1) + 2._f*vxmin
+                pts(nt+nv+tmpi+1)%x(2) = -pts(nt+nv+tmpi+1)%x(2) + 2._f*vymax
                 pts(nt+nv+tmpi+1)%vx(1) = -pts(nt+nv+tmpi+1)%vx(1)
                 pts(nt+nv+tmpi+1)%vx(2) = -pts(nt+nv+tmpi+1)%vx(2)
             end if
-            if ( (pts(i)%x(1)-75._f)**2 + (pts(i)%x(2)-0._f)**2 < (hsml*scale_k_d)**2 ) then
+            if ( (pts(i)%x(1)-vxmax)**2 + (pts(i)%x(2)-vymin)**2 < (hsml*scale_k_d)**2 ) then
                 tmpi = atomicadd(ng,1)
                 pts(nt+nv+tmpi+1) = pts(i)
                 gind(tmpi+1) = pts(i)%ind
                 pts(nt+nv+tmpi+1)%itype = 5
                 pts(nt+nv+tmpi+1)%ind = nt+nv+tmpi+1
-                pts(nt+nv+tmpi+1)%x(1) = -pts(nt+nv+tmpi+1)%x(1) + 150._f
-                pts(nt+nv+tmpi+1)%x(2) = -pts(nt+nv+tmpi+1)%x(2) + 0._f
+                pts(nt+nv+tmpi+1)%x(1) = -pts(nt+nv+tmpi+1)%x(1) + 2._f*vxmax
+                pts(nt+nv+tmpi+1)%x(2) = -pts(nt+nv+tmpi+1)%x(2) + 2._f*vymin
                 pts(nt+nv+tmpi+1)%vx(1) = -pts(nt+nv+tmpi+1)%vx(1)
                 pts(nt+nv+tmpi+1)%vx(2) = -pts(nt+nv+tmpi+1)%vx(2)
             end if
-            if ( (pts(i)%x(1)-75._f)**2 + (pts(i)%x(2)-12.5_f)**2 < (hsml*scale_k_d)**2 ) then
+            if ( (pts(i)%x(1)-vxmax)**2 + (pts(i)%x(2)-vymax)**2 < (hsml*scale_k_d)**2 ) then
                 tmpi = atomicadd(ng,1)
                 pts(nt+nv+tmpi+1) = pts(i)
                 gind(tmpi+1) = pts(i)%ind
                 pts(nt+nv+tmpi+1)%itype = 5
                 pts(nt+nv+tmpi+1)%ind = nt+nv+tmpi+1
-                pts(nt+nv+tmpi+1)%x(1) = -pts(nt+nv+tmpi+1)%x(1) + 150._f
-                pts(nt+nv+tmpi+1)%x(2) = -pts(nt+nv+tmpi+1)%x(2) + 25._f
+                pts(nt+nv+tmpi+1)%x(1) = -pts(nt+nv+tmpi+1)%x(1) + 2._f*vxmax
+                pts(nt+nv+tmpi+1)%x(2) = -pts(nt+nv+tmpi+1)%x(2) + 2._f*vymax
                 pts(nt+nv+tmpi+1)%vx(1) = -pts(nt+nv+tmpi+1)%vx(1)
                 pts(nt+nv+tmpi+1)%vx(2) = -pts(nt+nv+tmpi+1)%vx(2)
             end if

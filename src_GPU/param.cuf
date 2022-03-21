@@ -22,7 +22,7 @@ module param
 	integer,parameter,public:: skf = 4
 	
 	!spacing and kernel radii parameter,public::s
-	real(f),parameter,public:: dxo = 0.5_f, kappa = 1.5_f, v_max = 44.3_f
+	real(f),parameter,public:: dxo = 0.25_f, kappa = 1.5_f, v_max = 44.3_f
 	
 	!material density (per particle)
 	real(f),parameter,public:: irho = 1000_f
@@ -30,7 +30,7 @@ module param
 	!derived parameter,public::s. c: speed of sound, hsml: smoothing length, dt: time-step size, mass: mass per particle
 	real(f),parameter,public:: c = 10_f*v_max,hsml = kappa*dxo, dt = 1.5_f*hsml/c,mass=irho*dxo**dim
 	
-	integer,parameter,public:: mp = 50, np = 25, op = 50, pp = 3*mp, qp = np, rp = int(1.6*op), nlayer = 4
+	integer,parameter,public:: mp = 100, np = 50, op = 100, pp = 3*mp, qp = np, rp = int(1.6*op), nlayer = 4
 	
 	! state equation parameter,public::s
 	real(f),parameter,public:: rh0 = irho

@@ -41,7 +41,7 @@ contains
 	
 		implicit none
 		
-		maxn = 2*ntotal+nvirt
+		maxn = ntotal+nvirt+int(0.2*ntotal)
 		maxinter = maxinter_perp*maxn
 		
 		allocate( parts(maxn),parts_d(maxn) )

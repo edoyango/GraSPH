@@ -1,6 +1,7 @@
 module summary_m
 
-	use globvar, only: ntotal,nvirt,niac,pairs,parts,maxtimestep,print_step,save_step,cputime,output_time,itimestep,time,niac,niac_d
+	use globvar, only: ntotal,nvirt,nghos,niac,pairs,parts,maxtimestep,print_step,save_step,cputime,output_time,itimestep,time,&
+        niac,niac_d
 	
 	public:: time_print,preamble,print_summary,print_update
 	
@@ -104,10 +105,10 @@ contains
 			endif
 			if (niac(i).eq.0) noiac = noiac + 1
 		enddo
-		
+		print *,' >> Statistics: no. of ghost particles: ',nghos
 		print *,' >> Statistics: interactions per particle:'
-		print *,'**** Particle:',maxp, ' maximal interactions:',maxiac
-		print *,'**** Particle:',minp, ' minimal interactions:',miniac
+		print *,'**** Particle:',maxp, ' maximal interactions: ',maxiac
+		print *,'**** Particle:',minp, ' minimal interactions: ',miniac
 		print *,'**** Average :',real(sumiac)/real(ntotal)
 		print *,'**** Total pairs : ',sumiac
 		print *,'**** Particles with no interactions:',noiac
