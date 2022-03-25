@@ -1,0 +1,337 @@
+module flink_list_m
+	
+    use datatypes, only: particles,interactions
+	use globvar, only: parts_d,pairs_d,niac_d,ntotal_d,nvirt_d,maxinter_perp,scale_k,ntotal,nvirt,ntotal_d,nvirt_d,maxpcell,scale_k_d,niac,pairs,test_time
+	use param, only: dim,f,hsml
+    
+    use cudafor
+	
+!~ 	use kernel_m, only: kernel
+	
+    private,integer,parameter:: maxpcell3D=64,maxpcell2D=16
+    private,integer:: ngridx_h(dim)
+    private,integer,device:: ngridx(dim),mingridind(dim),maxgridind(dim)
+    private,real(f),device:: mingridx(dim),maxgridx(dim),dcell
+    private,integer,device,allocatable:: gridind(:,:)
+    
+    type particleincellarray
+        type(particles),pointer:: p
+    end type particleincellarray
+	
+	public:: flink_list,particleincellarray
+	private:: check_if_interact,flink_list2D,flink_list3D,bounding_box
+
+contains
+	
+	!==============================================================================================================================
+	subroutine flink_list
+	! interface subroutine for 2D and 3D cases
+		implicit none
+		
+!~ 		select case (dim)
+!~ 			case(2)
+!~ 				call flink_list2D
+!~ 			case(3)
+				call flink_list3D
+!~ 		end select
+		
+	end subroutine flink_list
+	
+	!==============================================================================================================================
+!~ 	subroutine flink_list2D( )
+	! subroutine to search for particle interactions using cell-linked list.
+		
+!~ 		implicit none
+!~         integer,allocatable,device:: pincell(:,:)
+!~         integer:: i,j,k,istat
+!~ 		type(particleincellarray),allocatable,device:: cells(:,:,:)
+													
+!~ 		call bounding_box<<<ceiling((ntotal+nvirt)/real(blocksize))>>>(mingridx,maxgridx,ngridx,dcell)
+		
+!~ 		allocate( pincell(ngridx(1),ngridx(2)),&
+!~ 					cells(maxpcell,ngridx(1),ngridx(2)) )
+					
+!~ 		!Mapping particles to grid cells
+!~ 		call zero_pincell<<<product(ngridx(:))/ngridx(dim),ngridx(dim)>>>(ngridx,pincell)
+		
+!~ 		do i=1,ntotal+nvirt
+!~ 			icell = int((parts(i)%x(1) - mingridx(1))/dcell) + 1
+!~ 			jcell = int((parts(i)%x(2) - mingridx(2))/dcell) + 1 
+!~ 			pincell(icell,jcell) = pincell(icell,jcell) + 1
+!~ 			cells(pincell(icell,jcell),icell,jcell)%p => parts(i)
+!~ 		enddo
+		
+		! Searching for interactions. Algorithm loops through every cell with indices icell,jcell.
+		! First checks particles within cell are interacting, then checks particles interacting with
+		! particles in adjacent cells. 
+!~ 		niac = 0
+!~ 		do icell = 2,ngridx(1)-2
+!~ 			do jcell = 2,ngridx(2)-2
+			
+!~ 				! finding pairs within cell icell,jcell
+!~ 				do i = 1,pincell(icell,jcell)-1
+!~ 					do j = i+1,pincell(icell,jcell)
+!~ 						call check_if_interact(cells(i,icell,jcell)%p,cells(j,icell,jcell)%p)
+!~ 					end do
+!~ 				end do
+				
+!~ 				! finding pairs between particles in cell icell,jcell and particles in cell xi,yi
+!~ 				do k = 1,4
+!~ 					xi = icell + sweep(1,k)
+!~ 					yi = jcell + sweep(2,k)
+!~ 					do i = 1,pincell(icell,jcell)
+!~ 						do j = 1,pincell(xi,yi)
+!~ 							call check_if_interact(cells(i,icell,jcell)%p,cells(j,xi,yi)%p)
+!~ 						end do
+!~ 					end do
+!~ 				end do
+				
+!~ 			end do
+!~ 		end do
+	
+!~ 	end subroutine flink_list2D
+	
+	!==============================================================================================================================
+	subroutine flink_list3D( )
+	! save as above, but for 3D
+		
+		implicit none
+		integer,allocatable,device:: pincell(:,:,:)
+        integer:: i,j,k,istat
+        type(particleincellarray),allocatable,device:: cells(:,:,:,:)
+        type(dim3),parameter:: nthreads=dim3(8,8,8)
+        type(dim3):: nblocks
+        
+        allocate(gridind(dim,ntotal+nvirt)
+        call determine_gridinds<<<(ntotal+nvirt)/1024+1,1024>>>(ntotal_d,nvirt_d,parts_d,gridind)
+
+		!Determining bounding box extents
+        
+		allocate( pincell(ngridx(1),ngridx(2),ngridx(3)),&
+					cells(maxpcell3D,ngridx(1),ngridx(2),ngridx(3)) )
+        
+        ngridx_h(:) = ngridx(:)
+        nblocks = dim3(ngridx_h(1)/nthreads%x+1,ngridx_h(2)/nthreads%y+1,ngridx_h(3)/nthreads%y+1)
+        
+        call zero_pincell3D<<<nblocks,nthreads>>>(ngridx,pincell)
+        
+        call populate3D<<<(ntotal+nvirt)/32+1,32>>>(ntotal_d,nvirt_d,mingridx,parts_d,ngridx,dcell,pincell,cells)
+
+        call sweep3D<<<(ntotal+nvirt)/32+1,32>>>(ntotal_d,nvirt_d,mingridx,ngridx,dcell,parts_d,pincell,cells,niac_d,pairs_d)
+        
+        deallocate( pincell,cells )
+		
+	end subroutine flink_list3D
+    
+    !==============================================================================================================================
+    attributes(global) subroutine determine_gridinds(dc,nt,nv,pts,ginds)
+    
+        implicit none
+        real(f),intent(in):: dc
+        integer,intent(in):: nt,nv
+        type(particles),intent(in):: pts
+        integer,intent(out):: ginds(dim,nt+nv)
+        real(f):: refpoint(dim)=pts(1)%x(1:dim)
+        integer:: i
+        
+        i = blockDim%x*(blockIdx%x-1)+threadIdx%x
+        if (i <= nt+nv) ginds(:,i) = int((pts(i)%x(:)-refpoint(:))/dc) + 1
+        
+    end subroutine determine_gridinds
+    
+    !==============================================================================================================================
+	subroutine bounding_box(minx,maxx,ng,dc)
+    
+		implicit none
+		real(f),device,intent(out):: minx(dim),maxx(dim),dc
+		integer,device,intent(out):: ng(dim)
+        integer:: i,d,istat
+        
+        minx(:) = huge(minx(1))
+        maxx(:) = -huge(maxx(1))
+        dc = scale_k*hsml
+		
+		!Determining bounding box extents
+		!$cuf kernel do (2) <<<*,*>>>
+		do i = 1,ntotal+nvirt
+			do d = 1,dim
+				minx(d) = MIN(minx(d),parts_d(i)%x(d))
+				maxx(d) = MAX(maxx(d),parts_d(i)%x(d))
+			end do
+		end do
+		
+		!Determining number of grid cells in each direction
+        !$cuf kernel do <<<1,32>>>
+        do d = 1,dim
+            maxx(d) = maxx(d) + 2_f*dc
+            minx(d) = minx(d) - 2_f*dc
+            ng(d) = int((maxx(d) - minx(d))/dc) + 1
+            maxx(d) = minx(d) + ng(d)*dc
+        end do
+		
+	end subroutine bounding_box
+    
+	!==============================================================================================================================
+    attributes(global) subroutine zero_pincell3D(ng,p)
+    ! helper function to zero pincell array on GPU
+    
+        implicit none
+        integer,intent(in):: ng(dim)
+        integer,intent(out):: p(ng(1),ng(2),ng(3))
+        integer:: i,j,k
+        
+        i = blockDim%x*(blockIdx%x-1)+threadIdx%x
+        j = blockDim%y*(blockIdx%y-1)+threadIdx%y
+        k = blockDim%z*(blockIdx%z-1)+threadIdx%z
+        if ( i <= ng(1) .and. j <= ng(2) .and. k <= ng(3) ) p(i,j,k) = 0
+        
+    end subroutine zero_pincell3D
+    
+    !==============================================================================================================================
+    attributes(global) subroutine populate3D(nt,nv,minx,ptcles,ng,dc,p,c)
+    
+        implicit none
+        real(f),intent(in):: minx(dim),dc
+        integer,intent(in):: ng(dim),nt,nv
+        type(particles),intent(in),target:: ptcles(nt+nv)
+        integer,intent(inout):: p(ng(1),ng(2),ng(3))
+        type(particleincellarray),intent(out):: c(maxpcell3D,ng(1),ng(2),ng(3))
+        integer:: ind,icell,jcell,kcell,i,j,k,d
+        
+        ! global thread index
+        i = blockDim%x*(blockIdx%x-1)+threadIdx%x
+        if (i<=nt+nv) then
+            icell = int((ptcles(i)%x(1)-minx(1))/dc) + 1
+            jcell = int((ptcles(i)%x(2)-minx(2))/dc) + 1
+            kcell = int((ptcles(i)%x(3)-minx(3))/dc) + 1
+            ind = atomicadd(p(icell,jcell,kcell),1)
+            c(ind+1,icell,jcell,kcell)%p => ptcles(i)
+        end if
+
+    end subroutine populate3D
+
+    !==============================================================================================================================
+    attributes(global) subroutine sweep3D(nt,nv,minx,ng,dc,ptcles,p,c,nij,pij)
+    
+        implicit none
+        integer,intent(in):: nt,nv,ng(dim),p(ng(1),ng(2),ng(3))
+        type(particleincellarray),intent(in):: c(maxpcell3D,ng(1),ng(2),ng(3)) 
+        real(f),intent(in):: minx(dim),dc
+        type(particles),intent(in),target:: ptcles(nt+nv)
+        integer,intent(out):: nij(nt+nv)
+        type(interactions),intent(out):: pij(maxinter_perp,nt+nv)
+        integer:: i,j,k,d,xi,yi,zi,icell,jcell,kcell
+        real(f):: dxiac(dim),r
+        integer,parameter:: sweep(3,13) = reshape((/-1,-1,-1,&
+													-1,-1, 0,&
+													-1,-1, 1,&
+													-1, 0,-1,&
+													-1, 0, 0,&
+													-1, 0, 1,&
+													-1, 1,-1,&
+													-1, 1, 0,&
+													-1, 1, 1,&
+													 0,-1,-1,&
+													 0,-1, 0,&
+													 0,-1, 1,&
+													 0, 0,-1/),(/3,13/))
+        
+        i = blockDim%x*(blockIdx%x-1)+threadIdx%x
+        
+        ! Beginning sweep
+        if (i<=nt+nv) then
+            nij(i) = 0
+            icell = int((ptcles(i)%x(1)-minx(1))/dc) + 1
+            jcell = int((ptcles(i)%x(2)-minx(2))/dc) + 1
+            kcell = int((ptcles(i)%x(3)-minx(3))/dc) + 1
+            if (p(icell,jcell,kcell) > 1) then
+                do j = 1,p(icell,jcell,kcell)
+                    if (c(j,icell,jcell,kcell)%p%ind > i) then
+                        ! only consider interactions when real particles are involved
+                        call check_if_interact(ptcles(i),c(j,icell,jcell,kcell)%p,nij(i),pij(:,i))
+                    end if
+                end do
+            end if
+            do k = 1,13
+                xi = icell + sweep(1,k)
+                yi = jcell + sweep(2,k)
+                zi = kcell + sweep(3,k)
+                do j = 1,p(xi,yi,zi)
+                    ! only consider interactions when real particles are involved
+                    call check_if_interact(ptcles(i),c(j,xi,yi,zi)%p,nij(i),pij(:,i))
+                end do
+            end do
+        end if
+        
+    end subroutine sweep3D
+	
+	!==============================================================================================================================
+	attributes(device) subroutine check_if_interact(p_i,p_j,nij,pij)
+	! subroutine to chekc if two particles are interacting and consequently adding to pair list
+		
+		implicit none
+		type(particles),target,intent(in):: p_i,p_j
+        integer,intent(inout):: nij
+        type(interactions),intent(inout):: pij(maxinter_perp)
+		real(f):: dxiac(dim),r
+        
+		! only consider interactions when real particles are involved
+		if ( p_i%ind/=p_j%ind .and. (p_i%itype > 0 .or. p_j%itype > 0)) then
+			dxiac(:) = p_i%x(:) - p_j%x(:)
+			r = SQRT(SUM(dxiac*dxiac))
+			if (r < hsml*scale_k_d) then
+				nij = nij + 1
+				if (nij < maxinter_perp) then
+					pij(nij)%i => p_i!%ind
+					pij(nij)%j => p_j!%ind
+					call kernel(r,dxiac(:),hsml,pij(nij)%w,pij(nij)%dwdx(:))
+				else
+					print *,' >>> Error <<< : Too many interactions'
+					stop
+				end if
+			end if
+		end if
+		
+	end subroutine check_if_interact
+	
+	!==============================================================================================================================
+	attributes(device) subroutine kernel(r,dx,thsml,tw,tdwdx)   
+	! Contains the kernels
+	
+		use param, 		only: skf,pi
+	
+		implicit none
+		real(f),intent(in):: dx(dim),r,thsml
+		real(f),intent(out):: tdwdx(dim),tw
+		real(f):: q,factor
+		
+		q = r/thsml
+		tw = 0_f
+		tdwdx(:) = 0_f
+		
+		SELECT CASE (SKF)
+			CASE (1) ! cubic
+				select case (dim)
+					case(2)
+						factor = 10_f/(7_f*pi*thsml*thsml)
+					case(3)
+						factor = 1_f/(pi*thsml*thsml)
+				end select
+				if (q.ge.0_f .and. q.lt.1_f) then          
+					tw = factor * (1_f - 1.5_f*q*q + 0.75_f*q**3)
+					tdwdx(:) = factor * (-3_f*q + 2.25_f*q*q) * dx(:) / (thsml*r)
+				else if (q.ge.1_f .and. q.lt.2_f) then
+					tw = factor * 0.25_f * (2_f-q)**3
+					tdwdx(:) = -factor*0.75_f*((2_f-q)**2)*dx(:) / (thsml*r)        
+				end if
+			CASE (2) ! gaussian
+				factor = 1_f/(thsml**dim*pi**(0.5_f*dim))
+				if (q.ge.0_f .and. q.le.3_f) then
+					tw = factor*exp(-q*q)
+					tdwdx(:) = tw*2_f*dx(:)/(thsml*thsml)
+				end if
+		END SELECT
+		
+	end subroutine kernel
+    
+end module flink_list_m
