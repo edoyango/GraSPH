@@ -1,6 +1,6 @@
 module output_m
 
-	use globvar,		only: ntotal_loc,nhalo_loc,nvirt_loc,parts,itimestep,save_step,ntotal,nvirt
+	use globvar,		only: ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc,parts,itimestep,save_step,ntotal,nvirt
 	use globvar_para,	only: procid,numprocs,ierr,MPI_ftype
 	use param,			only: f,dim,output_directory,output_phys,output_halo,output_virt,output_flt_type
     
@@ -14,7 +14,7 @@ module output_m
 	character(len=4),private::number
 	integer,allocatable,private:: int_tmp(:,:)
 	real(f),allocatable,private:: dbl_tmp(:,:)
-	integer,private:: n,i,j,k,d,request(3),status(MPI_STATUS_SIZE,3)
+	integer,private:: n,i,j,k,d,request(4),status(MPI_STATUS_SIZE,4)
     integer(HID_T),private:: fid,real_group_id,virt_group_id,ghos_group_id
     integer(HSIZE_T),private:: global_dims(2)
     integer(HSSIZE_T),private:: displ(2)
@@ -28,12 +28,13 @@ contains
 	! Subroutine to write data to disk. Called intermittently, determined by save_step supplied at run-time
 		
 		implicit none
-        integer:: ntotal_glob(numprocs),nhalo_glob(numprocs),nvirt_glob(numprocs)
+        integer:: ntotal_glob(numprocs),nhalo_glob(numprocs),nvirt_glob(numprocs),nghos_glob(numprocs)
         
 		! Exchanging how many particles each process will output data for
 		call MPI_IALLGATHER(ntotal_loc,1,MPI_INTEGER,ntotal_glob,1,MPI_INTEGER,MPI_COMM_WORLD,request(1),ierr)
 		call MPI_IALLGATHER(nhalo_loc,1,MPI_INTEGER,nhalo_glob,1,MPI_INTEGER,MPI_COMM_WORLD,request(2),ierr)
 		call MPI_IALLGATHER(nvirt_loc,1,MPI_INTEGER,nvirt_glob,1,MPI_INTEGER,MPI_COMM_WORLD,request(3),ierr)
+		call MPI_IALLGATHER(nghos_loc,1,MPI_INTEGER,nghos_glob,1,MPI_INTEGER,MPI_COMM_WORLD,request(4),ierr)
 		
 		!Format number
 		n = itimestep/save_step
@@ -60,7 +61,7 @@ contains
         call h5gclose_f(ghos_group_id,ierr)
 		
         ! Waiting for non-blocking exchange to complete
-		call MPI_WAITALL(3,request,status,ierr)
+		call MPI_WAITALL(4,request,status,ierr)
         
         ! Writing data for real particles ------------------------------------------------------------------------------------------
         ! defining array shapes and displacments
@@ -73,7 +74,7 @@ contains
         ! writing 1D arrays
         call hdf5_parallel_write(fid,'real/ind',displ(2),global_dims(2),parts(1:ntotal_loc)%indglob)
         call hdf5_parallel_write(fid,'real/procid',displ(2),global_dims(2),int_tmp(:,1))
-        call hdf5_parallel_write(fid,'real/itype',displ(2),global_dims(2),parts(1:ntotal_loc)%itype)
+        call hdf5_parallel_write(fid,'real/type',displ(2),global_dims(2),parts(1:ntotal_loc)%itype)
         call hdf5_parallel_write(fid,'real/rho',displ(2),global_dims(2),parts(1:ntotal_loc)%rho)
         call hdf5_parallel_write(fid,'real/p',displ(2),global_dims(2),parts(1:ntotal_loc)%p)
         
@@ -167,6 +168,41 @@ contains
         ! cleanup
         deallocate(dbl_tmp,int_tmp)
         
+        ! Writing data for ghost particles -----------------------------------------------------------------------------------------
+        ! defining array shapes and displacments
+        global_dims(:) = [dim,sum(nghos_glob)]
+        displ(:) = [0,SUM(nghos_glob(1:procid))] ! hdf5 works with 0-indexing
+        
+        allocate(int_tmp(nghos_loc,1))
+        int_tmp = procid
+        
+        ! writing 1D arrays
+        call hdf5_parallel_write(fid,'ghos/ind',displ(2),global_dims(2),parts(1:nghos_loc)%indglob)
+        call hdf5_parallel_write(fid,'ghos/procid',displ(2),global_dims(2),int_tmp(:,1))
+        call hdf5_parallel_write(fid,'ghos/type',displ(2),global_dims(2),parts(1:nghos_loc)%itype)
+        call hdf5_parallel_write(fid,'ghos/rho',displ(2),global_dims(2),parts(1:nghos_loc)%rho)
+        call hdf5_parallel_write(fid,'ghos/p',displ(2),global_dims(2),parts(1:nghos_loc)%p)
+        
+        ! Converting position data to contiguous array
+        allocate(dbl_tmp(dim,nghos_loc))
+        do i = 1,nghos_loc
+            dbl_tmp(:,i) = parts(ntotal_loc+nhalo_loc+nvirt_loc+i)%x(:)
+        end do
+        
+        ! writing position
+        call hdf5_parallel_write(fid,'ghos/x',displ,global_dims,dbl_tmp)
+        
+        ! Converting velocity data to contiguous array
+        do i = 1,nghos_loc
+            dbl_tmp(:,i) = parts(ntotal_loc+nhalo_loc+nvirt_loc+i)%vx(:)
+        end do
+        
+        ! Writing velocity
+        call hdf5_parallel_write(fid,'ghos/v',displ,global_dims,dbl_tmp)
+        
+        ! cleanup
+        deallocate(dbl_tmp,int_tmp)
+        
         ! Closing output file
         call h5fclose_f(fid,ierr)
         
@@ -220,6 +256,12 @@ contains
         end do
         call hdf5_parallel_write(fid,'real/v',displ,global_dims,dbl_tmp)
         deallocate(dbl_tmp)
+        
+        ! Closing output file
+        call h5fclose_f(fid,ierr)
+        
+        ! closing hdf5
+        call h5close_f(ierr)
         
 	end subroutine write_ini_config
 	

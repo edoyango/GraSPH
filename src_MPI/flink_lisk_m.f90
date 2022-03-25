@@ -1,7 +1,7 @@
 module flink_list_m
 	
 	use datatypes,		only: particles
-	use globvar,		only: ntotal_loc,nhalo_loc,nvirt_loc,parts,scale_k,niac,pairs,maxinter
+	use globvar,		only: ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc,parts,scale_k,niac,pairs,maxinter
 	use globvar_para,	only: procid,numprocs
 	use param,			only: dim,hsml,f
 	
@@ -57,7 +57,7 @@ contains
 		!Mapping particles to grid cells
 		pincell(:,:) = 0
 		
-		do i=1,ntotal_loc+nhalo_loc+nvirt_loc
+		do i=1,ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
 			icell = int((parts(i)%x(1) - mingridx(1))/dcell) + 1
 			jcell = int((parts(i)%x(2) - mingridx(2))/dcell) + 1 
 			pincell(icell,jcell) = pincell(icell,jcell) + 1
@@ -126,7 +126,7 @@ contains
 					
 		pincell(:,:,:) = 0
 		
-		do i=1,ntotal_loc+nhalo_loc+nvirt_loc
+		do i=1,ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
 			icell = int((parts(i)%x(1) - mingridx(1))/dcell) + 1
 			jcell = int((parts(i)%x(2) - mingridx(2))/dcell) + 1 
 			kcell = int((parts(i)%x(3) - mingridx(3))/dcell) + 1 
@@ -203,7 +203,7 @@ contains
 		!Determining bounding box extents
 		minx(:) = parts(1)%x(:)
 		maxx(:) = parts(1)%x(:)
-		do i = 2,ntotal_loc+nhalo_loc+nvirt_loc
+		do i = 2,ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
 			do d = 1,dim
 				minx(d) = MIN(minx(d),parts(i)%x(d))
 				maxx(d) = MAX(maxx(d),parts(i)%x(d))

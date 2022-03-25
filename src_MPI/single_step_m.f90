@@ -1,4 +1,6 @@
 module single_step_m
+
+    use input_m, only: update_ghost_part,virt_mirror
 	
 	public:: single_step
 	
@@ -9,7 +11,7 @@ contains
 	! Container subroutine for all the rate-of-change calculations. Rate-of-changes are calculated seperately and then summed as
 	! required
 		
-		use globvar, 			only: ntotal_loc,nhalo_loc,nvirt_loc,parts,pairs,t_dist,niac
+		use globvar, 			only: ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc,parts,pairs,t_dist,niac
 		use globvar_para, 		only: procid,numprocs
 		use mpi, 				only: MPI_WTIME
 		use param, 				only: dim,rh0,c,gamma,f,g
@@ -26,37 +28,39 @@ contains
 		t_dist = t_dist - MPI_WTIME()
 		if (ki.ne.1) call ORB_sendrecv_haloupdate(ki)
 		t_dist = t_dist + MPI_WTIME()
+        
+        parts(1:ntotal_loc+nhalo_loc)%p = rh0*c**2*((parts(1:ntotal_loc+nhalo_loc)%rho/rh0)**gamma-1_f)/gamma
+        
+        if (ki.ne.1) call update_ghost_part
 		
-		allocate(indvxdt(dim,ntotal_loc+nhalo_loc+nvirt_loc),&
-			ardvxdt(dim,ntotal_loc+nhalo_loc+nvirt_loc),&
-			exdvxdt(dim,ntotal_loc+nhalo_loc+nvirt_loc),&
-			codrhodt(ntotal_loc+nhalo_loc+nvirt_loc) )
+		allocate(indvxdt(dim,ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc),&
+			ardvxdt(dim,ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc),&
+			exdvxdt(dim,ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc),&
+			codrhodt(ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc) )
 		
 		codrhodt(1:ntotal_loc) = 0._f
 		indvxdt(:,1:ntotal_loc) = 0._f
 		ardvxdt(:,1:ntotal_loc) = 0._f
 		exdvxdt(1:dim-1,1:ntotal_loc) = 0._f
 		exdvxdt(dim,1:ntotal_loc) = -g
-		parts(1:ntotal_loc+nhalo_loc)%p = rh0*c**2*((parts(1:ntotal_loc+nhalo_loc)%rho/rh0)**gamma-1_f)/gamma
 		
 		do k = 1,niac
-			if (pairs(k)%i%itype > 0 .and. pairs(k)%j%itype > 0) then
 				
-				!Internal force due to pressure
-				call int_force(ki,pairs(k),indvxdt)
-				
-				!Artificial viscosity:
-				call art_visc(ki,pairs(k),ardvxdt)
-				
-				!Density approximation or change rate
-				call con_density(ki,pairs(k),codrhodt)
+            if (pairs(k)%i%itype > 0 .and. pairs(k)%j%itype < 0) then
+                call virt_mirror(pairs(k)%i,pairs(k)%j)
+            elseif (pairs(k)%i%itype < 0 .and. pairs(k)%j%itype > 0) then
+                call virt_mirror(pairs(k)%j,pairs(k)%i)
+            end if
+            
+            !Internal force due to pressure
+            call int_force(ki,pairs(k),indvxdt)
+            
+            !Artificial viscosity:
+            call art_visc(ki,pairs(k),ardvxdt)
+            
+            !Density approximation or change rate
+            call con_density(ki,pairs(k),codrhodt)
 			
-			elseif (pairs(k)%i%itype > 0 .or. pairs(k)%j%itype > 0) then
-			
-				!External forces:
-				call ext_force(ki,pairs(k),exdvxdt)
-			
-			end if
 		end do
 		
 		!Convert velocity, force, and energy to f and dfdt

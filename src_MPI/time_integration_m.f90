@@ -6,6 +6,7 @@ module time_integration_m
 	use mpi
 	use param,			only: f,dim,dt
 	
+    use input_m,        only: gind,generate_ghost_part
 	use flink_list_m,	only: flink_list
 	use ORB_m,			only: ORB
 	use output_m,		only: output
@@ -23,6 +24,7 @@ contains
 		real(f),allocatable:: v_min(:,:),rho_min(:),dvxdt(:,:,:),drho(:,:)
 		
 		allocate(v_min(dim,maxnloc),rho_min(maxnloc),dvxdt(dim,maxnloc,4),drho(maxnloc,4))
+        allocate(gind(maxnloc))
 		
 		! Time-integration (Leap-Frog)
 		do itimestep = 1, maxtimestep
@@ -31,6 +33,9 @@ contains
 			
 			! distributing particles
 			call ORB
+            
+            ! generating ghost particles
+            call generate_ghost_part
 			
 			! Storing velocity and density at initial time-step
 			do i = 1,ntotal_loc
@@ -91,7 +96,7 @@ contains
 				call output
 			end if
 
-			output_time = output_time + MPI_WTIME()			
+			output_time = output_time + MPI_WTIME()
 			
 			if (mod(itimestep,print_step).eq.0) then
 				call print_loadbalance
