@@ -108,7 +108,7 @@ contains
         ! writing 1D arrays
         call hdf5_parallel_write(fid,'halo/ind',displ(2),global_dims(2),parts(1:nhalo_loc)%indglob)
         call hdf5_parallel_write(fid,'halo/procid',displ(2),global_dims(2),int_tmp(:,1))
-        call hdf5_parallel_write(fid,'halo/itype',displ(2),global_dims(2),parts(1:nhalo_loc)%itype)
+        call hdf5_parallel_write(fid,'halo/type',displ(2),global_dims(2),parts(1:nhalo_loc)%itype)
         call hdf5_parallel_write(fid,'halo/rho',displ(2),global_dims(2),parts(1:nhalo_loc)%rho)
         call hdf5_parallel_write(fid,'halo/p',displ(2),global_dims(2),parts(1:nhalo_loc)%p)
         
@@ -143,7 +143,7 @@ contains
         ! writing 1D arrays
         call hdf5_parallel_write(fid,'virt/ind',displ(2),global_dims(2),parts(1:nvirt_loc)%indglob)
         call hdf5_parallel_write(fid,'virt/procid',displ(2),global_dims(2),int_tmp(:,1))
-        call hdf5_parallel_write(fid,'virt/itype',displ(2),global_dims(2),parts(1:nvirt_loc)%itype)
+        call hdf5_parallel_write(fid,'virt/type',displ(2),global_dims(2),parts(1:nvirt_loc)%itype)
         call hdf5_parallel_write(fid,'virt/rho',displ(2),global_dims(2),parts(1:nvirt_loc)%rho)
         call hdf5_parallel_write(fid,'virt/p',displ(2),global_dims(2),parts(1:nvirt_loc)%p)
         
