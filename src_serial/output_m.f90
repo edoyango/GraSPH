@@ -51,7 +51,6 @@ contains
         
         ! particle index
         idatatmp(:,1) = parts(1:ntotal)%ind
-!~         call hdf5_write_helper(file_id,'real/ind',idatatmp)
         call H5LTmake_dataset_int_f(file_id,'real/ind',1,data_dims,idatatmp,ierr)
         
         ! process ID
