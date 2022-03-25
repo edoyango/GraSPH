@@ -115,6 +115,9 @@ contains
 							parts(n)%itype = 1
 							parts(n)%rho = irho
 							parts(n)%p = 0_f
+                            parts(n)%sig(:) = 0._f
+                            parts(n)%strain(:) = 0._f
+                            parts(n)%pstrain(:) = 0._f
 						end do
 					end do
 				end do

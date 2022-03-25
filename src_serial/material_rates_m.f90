@@ -2,7 +2,7 @@ module material_rates_m
 	
     use datatypes, only: particles,interactions
 	use globvar, only: ntotal,nvirt,nghos
-	use param, only: mass,dim,f
+	use param, only: mass,dim,f,tenselem
 
 contains
 	
@@ -89,5 +89,27 @@ contains
 		codrhodt(p_j%ind) = codrhodt(p_j%ind) + mass*vcc
 		
 	end subroutine con_density
+    
+    !===============================================================================================================================
+    subroutine strain_rate(ki,p_i,p_j,dwdx,dstraindt)
+    
+        implicit none
+        integer,intent(in):: ki
+        type(particles),intent(in):: p_i,p_j
+        real(f),intent(in):: dwdx(dim)
+        real(f),intent(inout):: dstraindt(tenselem,ntotal+nvirt+nghos)
+        real(f):: dvx(dim),he(tenselem),hr(tenselem-dim)
+        
+        dvx(:) = p_i%vx(:) - p_j%vx(:)
+        
+        he(4) = 0.5_f*(dvx(1)*dwdx(2) + dvx(2)*dwdx(1))
+        he(5) = 0.5_f*(dvx(1)*dwdx(3) + dvx(3)*dwdx(1))
+        he(6) = 0.5_f*(dvx(2)*dwdx(3) + dvx(3)*dwdx(2))
+        
+        dstraindt(:,p_i%ind) = dstraindt(:,p_i%ind) + mass*he(:)/p_j%rho
+        dstraindt(:,p_j%ind) = dstraindt(:,p_j%ind) + mass*he(:)/p_i%rho
+        
+    end subroutine strain_rate
+        
 
 end module material_rates_m

@@ -1,5 +1,5 @@
 !---------------------------------------------------------
-!     Including file for parameter,public::s and constants used 
+!     Including file for parameters and constants used 
 !     in the entire SPH software packages.
 !---------------------------------------------------------
 
@@ -13,7 +13,7 @@ module param
     real(f),parameter,public:: pi = 3.14159265358979323846_f, g = 9.81_f
 
 	!dim : Dimension of the problem (1, 2 or 3)
-	integer,parameter,public:: dim = 3
+	integer,parameter,public:: dim = 3, tenselem = dim*(dim+1)/2
 	
 	!Smoothing kernel function 
 	!skf = 1, cubic spline kernel by W4 - Spline (Monaghan 1985)
@@ -44,7 +44,7 @@ module param
 	! artificial viscosity parameters
 	real(f),parameter,public:: alpha = 0.05_f, beta = 0.05_f, etq = 0.1_f
 	
-	! repulsive force parameter,public::s
+	! repulsive force parameters
 	real(f),parameter,public:: rr0 = dxo,dd = 5_f*g*25_f
 	integer,parameter,public:: p1=4,p2=2
 	
