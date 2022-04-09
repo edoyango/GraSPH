@@ -65,7 +65,19 @@ contains
 		real(f),intent(inout):: indvxdt(dim,ntotal+nvirt+nghos)
 		real(f):: h(dim)
 		
-		h = -(p_i%p/p_i%rho**2 + p_j%p/p_j%rho**2)*dwdx(:)
+!~ 		h = -(p_i%p/p_i%rho**2 + p_j%p/p_j%rho**2)*dwdx(:)
+        h(1) = (p_i%sig(1)/p_i%rho**2 + p_j%sig(1)/p_j%rho**2)*dwdx(1) + &
+               (p_i%sig(4)/p_i%rho**2 + p_j%sig(4)/p_j%rho**2)*dwdx(2) + &
+               (p_i%sig(5)/p_i%rho**2 + p_j%sig(5)/p_j%rho**2)*dwdx(3)
+               
+        h(2) = (p_i%sig(4)/p_i%rho**2 + p_j%sig(4)/p_j%rho**2)*dwdx(1) + &
+               (p_i%sig(2)/p_i%rho**2 + p_j%sig(2)/p_j%rho**2)*dwdx(2) + &
+               (p_i%sig(6)/p_i%rho**2 + p_j%sig(6)/p_j%rho**2)*dwdx(3)
+               
+        h(3) = (p_i%sig(5)/p_i%rho**2 + p_j%sig(5)/p_j%rho**2)*dwdx(1) + &
+               (p_i%sig(6)/p_i%rho**2 + p_j%sig(6)/p_j%rho**2)*dwdx(2) + &
+               (p_i%sig(3)/p_i%rho**2 + p_j%sig(3)/p_j%rho**2)*dwdx(3)
+
 		indvxdt(:,p_i%ind) = indvxdt(:,p_i%ind) + mass*h(:)
 		indvxdt(:,p_j%ind) = indvxdt(:,p_j%ind) - mass*h(:)
 	
@@ -98,10 +110,11 @@ contains
         type(particles),intent(in):: p_i,p_j
         real(f),intent(in):: dwdx(dim)
         real(f),intent(inout):: dstraindt(tenselem,ntotal+nvirt+nghos)
-        real(f):: dvx(dim),he(tenselem),hr(tenselem-dim)
+        real(f):: dvx(dim),he(tenselem)
         
-        dvx(:) = p_i%vx(:) - p_j%vx(:)
+        dvx(:) = p_j%vx(:) - p_i%vx(:)
         
+        he(1:3) = dvx(:)*dwdx(:)
         he(4) = 0.5_f*(dvx(1)*dwdx(2) + dvx(2)*dwdx(1))
         he(5) = 0.5_f*(dvx(1)*dwdx(3) + dvx(3)*dwdx(1))
         he(6) = 0.5_f*(dvx(2)*dwdx(3) + dvx(3)*dwdx(2))
@@ -110,6 +123,5 @@ contains
         dstraindt(:,p_j%ind) = dstraindt(:,p_j%ind) + mass*he(:)/p_i%rho
         
     end subroutine strain_rate
-        
 
 end module material_rates_m

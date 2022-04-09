@@ -24,31 +24,36 @@ module param
     !    = 6, Wenland quintic C6 kernel
 	!    = 7, Gauss kernel   (Gingold and Monaghan 1981) 
 	integer,parameter,public:: skf = 4
+    
+    !Stress update model
+    !stress_mode = 'EOS': equation of state (Monaghan 1994)
+    !              'SDP': Soil Drucker-Prager model
+    character(len=*),parameter,public:: stress_mode = 'SDP'
 	
 	!spacing and kernel radii parameters
     !note skf = 5 requires kappa at least 1.4, skf = 6 kappa at least 1.6 (approx values)
-	real(f),parameter,public:: dxo = 0.5_f, kappa = 1.5_f, v_max = 44.3_f
+	real(f),parameter,public:: dxo = 0.002_f, kappa = 1.2_f, v_max = 44.3_f
 	
 	!material density (per particle)
-	real(f),parameter,public:: irho = 1000_f
+	real(f),parameter,public:: irho = 1600_f
 	
 	!derived parameters. c: speed of sound, hsml: smoothing length, dt: time-step size, mass: mass per particle
-	real(f),parameter,public:: c = 10_f*v_max,hsml = kappa*dxo, dt = 1.5_f*hsml/c,mass=irho*dxo**dim
+	real(f),parameter,public:: c = 65._f,hsml = kappa*dxo, dt = 1.5_f*hsml/c,mass=irho*dxo**dim
 	
-	integer,parameter,public:: mp = 50, np = 25, op = 50, pp = 3*mp, qp = np, rp = int(1.6*op), nlayer = 4
+	integer,parameter,public:: mp = 75, np = 10, op = 50, pp = 3*mp, qp = np, rp = int(1.6*op), nlayer = 4
 	
 	! state equation parameter,public::s
 	real(f),parameter,public:: rh0 = irho
 	integer,parameter,public:: gamma = 7
 	
 	! artificial viscosity parameters
-	real(f),parameter,public:: alpha = 0.05_f, beta = 0.05_f, etq = 0.1_f
+	real(f),parameter,public:: alpha = 0.1_f, beta = 0.1_f, etq = 0.1_f
 	
 	! repulsive force parameters
 	real(f),parameter,public:: rr0 = dxo,dd = 5_f*g*25_f
 	integer,parameter,public:: p1=4,p2=2
 	
-	character(len=200),parameter,public:: output_directory = "outputdata"
+	character(len=*),parameter,public:: output_directory = "outputdata"
 	
 	logical,parameter,public:: output_phys(2) = (/.true.,.true./)
 	logical,parameter,public:: output_virt(2) = (/.true.,.true./)

@@ -11,7 +11,7 @@ module input_m
     real(f),parameter:: rxmin = 0._f, rymin = 0._f, rzmin = 0._f, &
         rxmax = rxmin + mp*dxo, rymax = rymin + np*dxo, rzmax = rzmin + op*dxo
     
-    integer,allocatable:: gind(:),vw(:)
+    integer,allocatable:: gind(:)
 	
 	public:: input,virt_part
 	private:: input2D,input3D,virt_part2D,virt_part3D,vxmin,vymin,vzmin,vxmax,vymax,vzmax,rxmin,rymin,rzmin,rxmax,rymax,rzmax
@@ -93,6 +93,7 @@ contains
 		logical,intent(in):: generate
 		integer:: i,j,k,d,n
 		real(f):: xi,yi,zi
+        real(f),parameter:: K0=0.3_f/0.7_f
 		
 		select case (generate)
 		
@@ -103,9 +104,10 @@ contains
 			case (.true.)
 			
 				n = 0
-				do i = 1, mp
+                do k = 1,op
+				
 					do j = 1, np
-						do k = 1,op
+						do i = 1, mp
 							n = n + 1
 							parts(n)%ind = n
 							parts(n)%x(1) = (i-0.5_f)*dxo
@@ -115,6 +117,8 @@ contains
 							parts(n)%itype = 1
 							parts(n)%rho = irho
 							parts(n)%p = 0_f
+!~                             parts(n)%sig(3) = -irho*9.81_f*(rzmax-parts(n)%x(3))
+!~                             parts(n)%sig(1:2) = K0*parts(n)%sig(3)
                             parts(n)%sig(:) = 0._f
                             parts(n)%strain(:) = 0._f
                             parts(n)%pstrain(:) = 0._f
@@ -209,12 +213,12 @@ contains
 				do i = 1-nlayer,pp+nlayer
                     do j = 1-nlayer,qp+nlayer
                         do k = 1,nlayer
-                                n = n + 1
-                                parts(n)%ind = n
-                                parts(n)%x(1) = vxmin + (i-0.5_f)*dxo
-                                parts(n)%x(2) = vymin + (j-0.5_f)*dxo
-                                parts(n)%x(3) = vzmin - (k-0.5_f)*dxo
-                                parts(n)%vx(:) = 0._f
+                            n = n + 1
+                            parts(n)%ind = n
+                            parts(n)%x(1) = vxmin + (i-0.5_f)*dxo
+                            parts(n)%x(2) = vymin + (j-0.5_f)*dxo
+                            parts(n)%x(3) = vzmin - (k-0.5_f)*dxo
+                            parts(n)%vx(:) = 0._f
                         end do
                     end do
                 end do
@@ -245,6 +249,7 @@ contains
                 parts(ig)%itype = 99
                 parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmin
                 parts(ig)%vx(1) = -parts(ig)%vx(1)
+                parts(ig)%sig(4:6) = -parts(ig)%sig(4:6)
             end if
             if (abs(parts(i)%x(1)-vxmax) < scale_k*hsml .and. parts(i)%x(1) < vxmax) then
                 nghos = nghos + 1
@@ -255,6 +260,7 @@ contains
                 parts(ig)%itype = 99
                 parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmax
                 parts(ig)%vx(1) = -parts(ig)%vx(1)
+                parts(ig)%sig(4:6) = -parts(ig)%sig(4:6)
             end if
             if (abs(parts(i)%x(2)-vymin) < scale_k*hsml .and. parts(i)%x(2) > vymin) then
                 nghos = nghos + 1
@@ -265,6 +271,7 @@ contains
                 parts(ig)%itype = 98
                 parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymin
                 parts(ig)%vx(2) = -parts(ig)%vx(2)
+                parts(ig)%sig(4:6) = -parts(ig)%sig(4:6)
             end if
             if (abs(parts(i)%x(2)-vymax) < scale_k*hsml .and. parts(i)%x(2) < vymax) then
                 nghos = nghos + 1
@@ -275,6 +282,7 @@ contains
                 parts(ig)%itype = 98
                 parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymax
                 parts(ig)%vx(2) = -parts(ig)%vx(2)
+                parts(ig)%sig(4:6) = -parts(ig)%sig(4:6)
             end if
             if ( (parts(i)%x(1)-vxmin)**2 + (parts(i)%x(2)-vymin)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) > vxmin) then
                 nghos = nghos + 1
@@ -287,6 +295,7 @@ contains
                 parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymin
                 parts(ig)%vx(1) = -parts(ig)%vx(1)
                 parts(ig)%vx(2) = -parts(ig)%vx(2)
+                parts(ig)%sig(4:6) = -parts(ig)%sig(4:6)
             end if
             if ( (parts(i)%x(1)-vxmin)**2 + (parts(i)%x(2)-vymax)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) > vxmin) then
                 nghos = nghos + 1
@@ -299,6 +308,7 @@ contains
                 parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymax
                 parts(ig)%vx(1) = -parts(ig)%vx(1)
                 parts(ig)%vx(2) = -parts(ig)%vx(2)
+                parts(ig)%sig(4:6) = -parts(ig)%sig(4:6)
             end if
             if ( (parts(i)%x(1)-vxmax)**2 + (parts(i)%x(2)-vymax)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) < vxmax) then
                 nghos = nghos + 1
@@ -311,6 +321,7 @@ contains
                 parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymax
                 parts(ig)%vx(1) = -parts(ig)%vx(1)
                 parts(ig)%vx(2) = -parts(ig)%vx(2)
+                parts(ig)%sig(4:6) = -parts(ig)%sig(4:6)
             end if
             if ( (parts(i)%x(1)-vxmax)**2 + (parts(i)%x(2)-vymin)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) < vxmax) then
                 nghos = nghos + 1
@@ -323,6 +334,7 @@ contains
                 parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymin
                 parts(ig)%vx(1) = -parts(ig)%vx(1)
                 parts(ig)%vx(2) = -parts(ig)%vx(2)
+                parts(ig)%sig(4:6) = -parts(ig)%sig(4:6)
             end if
         end do
         
@@ -344,18 +356,24 @@ contains
                     parts(ig)%vx(1) =-parts(ir)%vx(1)
                     parts(ig)%vx(2) = parts(ir)%vx(2)
                     parts(ig)%vx(3) = parts(ir)%vx(3)
+                    parts(ig)%sig(1:dim) = parts(ir)%sig(1:dim)
+                    parts(ig)%sig(4:6) = parts(ir)%sig(4:6)
                 case(98)
                     parts(ig)%rho = parts(ir)%rho
                     parts(ig)%p = parts(ir)%p
                     parts(ig)%vx(1) = parts(ir)%vx(1)
                     parts(ig)%vx(2) =-parts(ir)%vx(2)
                     parts(ig)%vx(3) = parts(ir)%vx(3)
+                    parts(ig)%sig(1:dim) = parts(ir)%sig(1:dim)
+                    parts(ig)%sig(4:6) = parts(ir)%sig(4:6)
                 case(97)
                     parts(ig)%rho = parts(ir)%rho
                     parts(ig)%p = parts(ir)%p
                     parts(ig)%vx(1) =-parts(ir)%vx(1)
                     parts(ig)%vx(2) =-parts(ir)%vx(2)
                     parts(ig)%vx(3) = parts(ir)%vx(3)
+                    parts(ig)%sig(1:dim) = parts(ir)%sig(1:dim)
+                    parts(ig)%sig(4:6) = parts(ir)%sig(4:6)
             end select
         end do
         
@@ -416,10 +434,11 @@ contains
         db = ABS(pv%x(3) - vzmin)
         
         beta = MIN(1._f + db/da,beta_max)
-        if (ISNAN(beta)) beta = beta_max
+        if (da==0._f) beta = beta_max
         
         pv%rho = pr%rho
         pv%p = pr%p
+        pv%sig = pr%sig
         pv%vx(:) = (1._f-beta)*pr%vx(:)
         
     end subroutine virt_mirror

@@ -9,7 +9,7 @@ module datatypes
 		integer:: itype,ind
 		real(f):: rho,p
 		real(f):: x(dim),vx(dim)
-        real(f):: sig(tenselem),strain(tenselem),pstrain(tenselem)
+        real(f):: strain(tenselem),pstrain(tenselem),sig(tenselem)
 	end type particles
 	
 	!variable to store particle interaction information

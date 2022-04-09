@@ -82,7 +82,7 @@ contains
 		integer:: maxp,minp,sumiac,maxiac,miniac,noiac,i,j,k,d
 		
 		write(*,*)'_______________________________________________________________________________'
-		write(*,*)'  current number of time step =', itimestep,'     current time=', real(time)
+		write(*,*)'  current number of time step =', itimestep,'    current time=', real(time)
 		write(*,*)'                                                 Walltime    =', real(cputime)
 		write(*,*)'_______________________________________________________________________________'
 		

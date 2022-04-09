@@ -1,13 +1,14 @@
 module time_integration_m
 
 	use globvar, only: time,cputime,output_time,test_time,ntotal,nvirt,parts,print_step,save_step,itimestep,maxtimestep
-    use input_m, only: gind,vw
-	use param, only: f,dim,rh0,gamma,c,dt,tenselem
+    use input_m, only: gind
+	use param, only: f,dim,dt,tenselem
 	
 	use flink_list_m, only: flink_list
     use input_m, only: generate_ghost_part,update_ghost_part,update_virt_part
 	use output_m, only: output
 	use single_step_m, only: single_step
+    use stress_update_m, only: stress_update
 	use summary_m, only: print_update
 	
 	public:: time_integration
@@ -20,24 +21,24 @@ contains
 	
 		implicit none     
 		integer:: i,j,k,d,n
-		real(f):: t1,t2,t3,t4
-		real(f),allocatable:: v_min(:,:),rho_min(:),strain_min(:,:),dvxdt(:,:,:),drho(:,:),dstrain(:,:,:)
+		real(f):: t1,t2,t3,t4,dstraini(tenselem)
+		real(f),allocatable:: v_min(:,:),rho_min(:),strain_min(:,:),sig_min(:,:),dvxdt(:,:,:),drho(:,:),dstrain(:,:,:)
 		
 		allocate(v_min(dim,ntotal),rho_min(ntotal),dvxdt(dim,ntotal,4),drho(ntotal,4))
-        allocate(strain_min(tenselem,ntotal),dstrain(tenselem,ntotal,4))
-        allocate(gind(ntotal),vw(nvirt))
+        allocate(strain_min(tenselem,ntotal),dstrain(tenselem,ntotal,4),sig_min(tenselem,ntotal))
+        allocate(gind(ntotal))
         
         call CPU_TIME(t1)
 		
 		! Time-integration (Leap-Frog)
 		do itimestep = 1, maxtimestep
-        
+            
             ! Update density and velocity half a time step (not at first time-step)
 			do i = 1,ntotal
 				v_min(:,i) = parts(i)%vx(:)
 				rho_min(i) = parts(i)%rho
                 strain_min(:,i) = parts(i)%strain(:)
-				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1_f)/gamma
+                sig_min(:,i) = parts(i)%sig(:)
 			end do
             
             call generate_ghost_part
@@ -52,8 +53,9 @@ contains
 			do i = 1,ntotal
 				parts(i)%vx(:) = v_min(:,i) + 0.5_f*dt*dvxdt(:,i,1)
 				parts(i)%rho = rho_min(i) + 0.5_f*dt*drho(i,1)
-                parts(i)%strain(:) = strain_min(:,i) + 0.5_f*dt*dstrain(:,i,1)
-				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1_f)/gamma
+                dstraini = 0.5_f*dt*dstrain(:,i,1)
+                parts(i)%strain(:) = strain_min(:,i) + dstraini(:)
+                call stress_update(1,dstraini,sig_min(:,i),parts(i))
 			end do
             
             call update_ghost_part
@@ -65,8 +67,9 @@ contains
 			do i = 1,ntotal
 				parts(i)%vx(:) = v_min(:,i) + 0.5_f*dt*dvxdt(:,i,2)
 				parts(i)%rho = rho_min(i) + 0.5_f*dt*drho(i,2)
-                parts(i)%strain(:) = strain_min(:,i) + 0.5_f*dt*dstrain(:,i,2)
-				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1_f)/gamma
+                dstraini = 0.5_f*dt*dstrain(:,i,2)
+                parts(i)%strain(:) = strain_min(:,i) + dstraini(:)
+                call stress_update(2,dstraini,sig_min(:,i),parts(i))
 			end do
             
             call update_ghost_part
@@ -78,8 +81,9 @@ contains
 			do i = 1,ntotal
 				parts(i)%vx(:) = v_min(:,i) + dt*dvxdt(:,i,3)
 				parts(i)%rho = rho_min(i) + dt*drho(i,3)
-                parts(i)%strain(:) = strain_min(:,i) + dt*dstrain(:,i,3)
-				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1_f)/gamma
+                dstraini = dt*dstrain(:,i,3)
+                parts(i)%strain(:) = strain_min(:,i) + dstraini
+                call stress_update(3,dstraini,sig_min(:,i),parts(i))
 			end do
             
             call update_ghost_part
@@ -88,16 +92,16 @@ contains
 			
 			! updating data for mid-timestep base on k1, k2, k3, k4
 			do i = 1,ntotal
-				parts(i)%vx(:) = v_min(:,i) + dt/6_f*(dvxdt(:,i,1) + 2_f*dvxdt(:,i,2) + 2_f*dvxdt(:,i,3) + dvxdt(:,i,4))
+				parts(i)%vx(:) = v_min(:,i) + dt/6._f*(dvxdt(:,i,1) + 2._f*dvxdt(:,i,2) + 2._f*dvxdt(:,i,3) + dvxdt(:,i,4))
 								
-				parts(i)%rho = rho_min(i) + dt/6_f*(drho(i,1) + 2_f*drho(i,2) + 2_f*drho(i,3) + drho(i,4))
+				parts(i)%rho = rho_min(i) + dt/6._f*(drho(i,1) + 2._f*drho(i,2) + 2._f*drho(i,3) + drho(i,4))
 							
 				parts(i)%x(:) = parts(i)%x(:) + dt*parts(i)%vx(:)
                 
-                parts(i)%strain(:) = strain_min(:,i) + dt/6_f*(dstrain(:,i,1) + 2_f*dstrain(:,i,2) + 2_f*dstrain(:,i,3) + &
-                    dstrain(:,i,4))
+                dstraini = dt/6._f*(dstrain(:,i,1) + 2._f*dstrain(:,i,2) + 2._f*dstrain(:,i,3) + dstrain(:,i,4))
+                parts(i)%strain(:) = strain_min(:,i) + dstraini(:)
 				
-				parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1_f)/gamma
+                call stress_update(4,dstraini,sig_min(:,i),parts(i))
 			end do
             
             call update_ghost_part

@@ -132,32 +132,31 @@ contains
 		do icell = 2,ngridx(1)-2
 			do jcell = 2,ngridx(2)-2
 				do kcell = 2,ngridx(3)-2
-					if (pincell(icell,jcell,kcell) > 0) then
 					
-						! finding pairs within cell icell,jcell
-						do i = 1,pincell(icell,jcell,kcell)-1
-							do j = i+1,pincell(icell,jcell,kcell)
-								call check_if_interact(cells(i,icell,jcell,kcell)%p,cells(j,icell,jcell,kcell)%p)
-							end do
-						end do
-						
-						! finding pairs between particles in cell icell,jcell and particles in cell xi,yi
-						do k = 1,13
-							xi = icell + sweep(1,k)
-							yi = jcell + sweep(2,k)
-							zi = kcell + sweep(3,k)
-							do i = 1,pincell(icell,jcell,kcell)
-								do j = 1,pincell(xi,yi,zi)
-									call check_if_interact(cells(i,icell,jcell,kcell)%p,cells(j,xi,yi,zi)%p)
-								end do
-							end do
-						end do
-					
-					endif
+                    ! finding pairs within cell icell,jcell
+                    do i = 1,pincell(icell,jcell,kcell)-1
+                        do j = i+1,pincell(icell,jcell,kcell)
+                            call check_if_interact(cells(i,icell,jcell,kcell)%p,cells(j,icell,jcell,kcell)%p)
+                        end do
+                    end do
+                    
+                    ! finding pairs between particles in cell icell,jcell and particles in cell xi,yi
+                    do k = 1,13
+                        xi = icell + sweep(1,k)
+                        yi = jcell + sweep(2,k)
+                        zi = kcell + sweep(3,k)
+                        do i = 1,pincell(icell,jcell,kcell)
+                            do j = 1,pincell(xi,yi,zi)
+                                call check_if_interact(cells(i,icell,jcell,kcell)%p,cells(j,xi,yi,zi)%p)
+                            end do
+                        end do
+                    end do
 				end do
 			end do
 		end do
 		
+        deallocate(pincell,cells)
+        
 	end subroutine flink_list3D
 	
 	!==============================================================================================================================
@@ -173,15 +172,10 @@ contains
 			dxiac(:) = p_i%x(:) - p_j%x(:)
 			r = SQRT(SUM(dxiac*dxiac))
 			if (r < hsml*scale_k) then
-				niac = niac + 1
-				if (niac < maxinter) then
-					pairs(niac)%i => p_i
-					pairs(niac)%j => p_j
-					call kernel(r,dxiac,hsml,pairs(niac)%w,pairs(niac)%dwdx(:))
-				else
-					print *,' >>> Error <<< : Too many interactions'
-					stop
-				end if
+                niac = niac + 1
+                pairs(niac)%i => p_i
+                pairs(niac)%j => p_j
+                call kernel(r,dxiac,hsml,pairs(niac)%w,pairs(niac)%dwdx(:))
 			end if
 		end if
 		
@@ -208,7 +202,7 @@ contains
 		dc = scale_k*hsml
 		maxx(:) = maxx(:) + 2_f*dc
 		minx(:) = minx(:) - 2_f*dc
-		ng(:) = int((maxgridx(:) - mingridx(:))/dc) + 1
+		ng(:) = int((maxx(:) - minx(:))/dc) + 1
 		maxx(:) = minx(:) + ng(:)*dc
 		
 	end subroutine bounding_box

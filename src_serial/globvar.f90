@@ -33,7 +33,7 @@ contains
 		implicit none
 		
 		maxn = 2*ntotal+nvirt
-		maxinter = 262*maxn
+		maxinter = 131*maxn
 		
 		allocate( parts(maxn) )
 		allocate( pairs(maxinter) )
