@@ -4,7 +4,7 @@ module time_integration_m
 						print_step,save_step,maxnloc
 	use globvar_para,	only: procid,numprocs
 	use mpi
-	use param,			only: f,dim,dt
+	use param,			only: f,dim,dt,tenselem
 	
     use input_m,        only: gind,generate_ghost_part
 	use flink_list_m,	only: flink_list
@@ -21,9 +21,11 @@ contains
 	
 		implicit none     
 		integer:: i,j,k,d,n
-		real(f),allocatable:: v_min(:,:),rho_min(:),dvxdt(:,:,:),drho(:,:)
+		real(f),allocatable:: v_min(:,:),rho_min(:),strain_min(:,:),dvxdt(:,:,:),drho(:,:),dstrain(:,:,:)
+        real(f):: dstraini(tenselem)
 		
-		allocate(v_min(dim,maxnloc),rho_min(maxnloc),dvxdt(dim,maxnloc,4),drho(maxnloc,4))
+		allocate(v_min(dim,maxnloc),rho_min(maxnloc),strain_min(tenselem,maxnloc),&
+            dvxdt(dim,maxnloc,4),drho(maxnloc,4),dstrain(tenselem,maxnloc,4))
         allocate(gind(maxnloc))
 		
 		! Time-integration (Leap-Frog)
@@ -41,39 +43,46 @@ contains
 			do i = 1,ntotal_loc
 				v_min(:,i) = parts(i)%vx(:)
 				rho_min(i) = parts(i)%rho
+                strain_min(:,i) = parts(i)%strain(:)
 			end do
 			
 			!Interaction parameters, calculating neighboring particles
 			call flink_list
 			
 			! calculating forces (k1)
-			call single_step(1,dvxdt(:,:,1),drho(1:ntotal_loc,1))
+			call single_step(1,dvxdt(:,1:ntotal_loc,1),drho(1:ntotal_loc,1),dstrain(:,1:ntotal_loc,1))
 	
 			! updating data for mid-timestep base on k1
 			do i = 1,ntotal_loc
 				parts(i)%vx(:) = v_min(:,i) + 0.5_f*dt*dvxdt(:,i,1)
 				parts(i)%rho = rho_min(i) + 0.5_f*dt*drho(i,1)
+                dstraini(:) = 0.5_f*dt*dstrain(:,i,1)
+                parts(i)%strain(:) = strain_min(:,i) + dstraini(:)
 			end do
 			
 			! calculating forces (k2)
-			call single_step(2,dvxdt(:,:,2),drho(1:ntotal_loc,2))
+			call single_step(2,dvxdt(:,1:ntotal_loc,2),drho(1:ntotal_loc,2),dstrain(:,1:ntotal_loc,2))
 	
 			! updating data for mid-timestep base on k2
 			do i = 1,ntotal_loc
 				parts(i)%vx(:) = v_min(:,i) + 0.5_f*dt*dvxdt(:,i,2)
 				parts(i)%rho = rho_min(i) + 0.5_f*dt*drho(i,2)
+                dstraini(:) = 0.5_f*dt*dstrain(:,i,2)
+                parts(i)%strain(:) = strain_min(:,i) + dstraini(:)
 			end do
 			
 			! calculating forces (k3)
-			call single_step(3,dvxdt(:,:,3),drho(1:ntotal_loc,3))
+			call single_step(3,dvxdt(:,1:ntotal_loc,3),drho(1:ntotal_loc,3),dstrain(:,1:ntotal_loc,3))
 	
 			! updating data for mid-timestep base on k3
 			do i = 1,ntotal_loc
 				parts(i)%vx(:) = v_min(:,i) + dt*dvxdt(:,i,3)
 				parts(i)%rho = rho_min(i) + dt*drho(i,3)
+                dstraini(:) = dt*dstrain(:,i,3)
+                parts(i)%strain(:) = strain_min(:,i) + dstraini(:)
 			end do
 			
-			call single_step(4,dvxdt(:,:,4),drho(1:ntotal_loc,4))
+			call single_step(4,dvxdt(:,1:ntotal_loc,4),drho(1:ntotal_loc,4),dstrain(:,1:ntotal_loc,4))
 	
 			! updating data for mid-timestep base on k1, k2, k3, k4
 			do i = 1,ntotal_loc
@@ -82,7 +91,10 @@ contains
 				parts(i)%rho = rho_min(i) + dt/6._f*(drho(i,1) + 2._f*drho(i,2) + 2._f*drho(i,3) + drho(i,4))
 					
 				parts(i)%x(:) = parts(i)%x(:) + dt*parts(i)%vx(:)
-				
+                
+                dstraini(:) = dt/6._f*(dstrain(:,i,1) + 2._f*dstrain(:,i,2) + 2._f*dstrain(:,i,3) + dstrain(:,i,4))
+				parts(i)%strain(:) = strain_min(:,i) + dstraini(:)
+                
 			end do
 			
 			time = time + dt

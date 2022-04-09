@@ -7,23 +7,23 @@ module single_step_m
 contains
 
 	!==============================================================================================================================
-	subroutine single_step(ki,dvxdti,drhoi)
+	subroutine single_step(ki,dvxdti,drhoi,dstraini)
 	! Container subroutine for all the rate-of-change calculations. Rate-of-changes are calculated seperately and then summed as
 	! required
 		
 		use globvar, 			only: ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc,parts,pairs,t_dist,niac
 		use globvar_para, 		only: procid,numprocs
 		use mpi, 				only: MPI_WTIME
-		use param, 				only: dim,rh0,c,gamma,f,g
+		use param, 				only: dim,rh0,c,gamma,f,g,tenselem
 		
-		use material_rates_m,	only: int_force,art_visc,con_density,ext_force
+		use material_rates_m,	only: int_force,art_visc,con_density,ext_force,strain_rate
 		use ORB_sr_m, 			only: ORB_sendrecv_haloupdate
 		
 		implicit none
 		integer,intent(in):: ki
-		real(f),intent(out):: dvxdti(dim,ntotal_loc),drhoi(ntotal_loc)
+		real(f),intent(out):: dvxdti(dim,ntotal_loc),drhoi(ntotal_loc),dstraini(tenselem,ntotal_loc)
 		integer:: i,j,k,d
-		real(f),allocatable:: indvxdt(:,:),ardvxdt(:,:),exdvxdt(:,:),codrhodt(:)
+		real(f),allocatable:: indvxdt(:,:),ardvxdt(:,:),exdvxdt(:,:),codrhodt(:),dstraindt(:,:)
 		
 		t_dist = t_dist - MPI_WTIME()
 		if (ki.ne.1) call ORB_sendrecv_haloupdate(ki)
@@ -36,13 +36,15 @@ contains
 		allocate(indvxdt(dim,ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc),&
 			ardvxdt(dim,ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc),&
 			exdvxdt(dim,ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc),&
-			codrhodt(ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc) )
+			codrhodt(ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc),&
+            dstraindt(tenselem,ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc) )
 		
-		codrhodt(1:ntotal_loc) = 0._f
 		indvxdt(:,1:ntotal_loc) = 0._f
 		ardvxdt(:,1:ntotal_loc) = 0._f
 		exdvxdt(1:dim-1,1:ntotal_loc) = 0._f
 		exdvxdt(dim,1:ntotal_loc) = -g
+		codrhodt(1:ntotal_loc) = 0._f
+        dstraindt(:,1:ntotal_loc) = 0._f
 		
 		do k = 1,niac
 				
@@ -53,19 +55,23 @@ contains
             end if
             
             !Internal force due to pressure
-            call int_force(ki,pairs(k),indvxdt)
+            call int_force(ki,pairs(k)%i,pairs(k)%j,pairs(k)%dwdx,indvxdt)
             
             !Artificial viscosity:
-            call art_visc(ki,pairs(k),ardvxdt)
+            call art_visc(ki,pairs(k)%i,pairs(k)%j,pairs(k)%dwdx,ardvxdt)
             
             !Density approximation or change rate
-            call con_density(ki,pairs(k),codrhodt)
+            call con_density(ki,pairs(k)%i,pairs(k)%j,pairs(k)%dwdx,codrhodt)
+            
+            ! strain rate
+            call strain_rate(ki,pairs(k)%i,pairs(k)%j,pairs(k)%dwdx,dstraindt)
 			
 		end do
 		
 		!Convert velocity, force, and energy to f and dfdt
 		dvxdti(1:dim,1:ntotal_loc) = indvxdt(1:dim,1:ntotal_loc) + exdvxdt(1:dim,1:ntotal_loc) + ardvxdt(1:dim,1:ntotal_loc)
 		drhoi(1:ntotal_loc) = codrhodt(1:ntotal_loc)
+        dstraini(1:tenselem,1:ntotal_loc) = dstraindt(1:tenselem,1:ntotal_loc)
 		
 		deallocate( indvxdt,ardvxdt,exdvxdt,codrhodt )
 		

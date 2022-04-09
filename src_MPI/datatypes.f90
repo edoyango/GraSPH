@@ -1,6 +1,6 @@
 module datatypes
 	
-	use param, only: dim,f
+	use param, only: dim,f,tenselem
 	
 	implicit none
 	
@@ -9,6 +9,7 @@ module datatypes
 		integer:: indglob,itype,indloc
 		real(f):: rho,p
 		real(f):: x(dim),vx(dim)
+        real(f):: strain(tenselem),pstrain(tenselem),sig(tenselem)
 	end type particles
 	
 	!variable to store particle interaction information

@@ -2,7 +2,7 @@ module output_m
 
 	use globvar,		only: ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc,parts,itimestep,save_step,ntotal,nvirt
 	use globvar_para,	only: procid,numprocs,ierr,MPI_ftype
-	use param,			only: f,dim,output_directory,output_phys,output_halo,output_virt,output_flt_type
+	use param,			only: f,dim,output_directory,output_phys,output_halo,output_virt,output_flt_type,tenselem
     
     use hdf5
     use mpi
@@ -98,6 +98,27 @@ contains
         ! cleanup
         deallocate(dbl_tmp,int_tmp)
         
+        ! Writing tensor data
+        ! Converting data to contiguous array
+        allocate(dbl_tmp(tenselem,ntotal_loc))
+        
+        global_dims(:) = [tenselem,ntotal]
+        
+        do i = 1,ntotal_loc
+            dbl_tmp(:,i) = parts(i)%strain(:)
+        end do
+        call hdf5_parallel_write(fid,'real/strain',displ,global_dims,dbl_tmp)
+        do i = 1,ntotal_loc
+            dbl_tmp(:,i) = parts(i)%pstrain(:)
+        end do
+        call hdf5_parallel_write(fid,'real/pstrain',displ,global_dims,dbl_tmp)
+        do i = 1,ntotal_loc
+            dbl_tmp(:,i) = parts(i)%sig(:)
+        end do
+        call hdf5_parallel_write(fid,'real/sig',displ,global_dims,dbl_tmp)
+        
+        deallocate(dbl_tmp)
+        
         ! Writing data for halo particles ------------------------------------------------------------------------------------------
         ! defining array shapes and displacments
         global_dims(:) = [dim,sum(nhalo_glob)]
@@ -132,6 +153,17 @@ contains
         
         ! cleanup
         deallocate(dbl_tmp,int_tmp)
+        
+        allocate(dbl_tmp(tenselem,nhalo_loc))
+        
+        global_dims(:) = [tenselem,sum(nhalo_glob)]
+        
+        do i = 1,nhalo_loc
+            dbl_tmp(:,i) = parts(ntotal_loc+i)%sig(:)
+        end do
+        call hdf5_parallel_write(fid,'halo/sig',displ,global_dims,dbl_tmp)
+        
+        deallocate(dbl_tmp)
         
         ! Writing data for virtual particles ---------------------------------------------------------------------------------------
         ! defining array shapes and displacments
@@ -202,6 +234,17 @@ contains
         
         ! cleanup
         deallocate(dbl_tmp,int_tmp)
+        
+        allocate(dbl_tmp(tenselem,nghos_loc))
+        
+        global_dims(:) = [tenselem,sum(nghos_glob)]
+        
+        do i = 1,nghos_loc
+            dbl_tmp(:,i) = parts(ntotal_loc+nhalo_loc+nvirt_loc+i)%sig(:)
+        end do
+        call hdf5_parallel_write(fid,'ghos/sig',displ,global_dims,dbl_tmp)
+        
+        deallocate(dbl_tmp)
         
         ! Closing output file
         call h5fclose_f(fid,ierr)

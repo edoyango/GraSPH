@@ -5,7 +5,7 @@ module param_para
 	use datatypes, 		only: particles
 	use globvar_para, 	only: parttype,halotype,haloupdatetype,ierr,MPI_ftype
 	use mpi
-	use param, 			only: dim,f
+	use param, 			only: dim,f,tenselem
 
 ! parameters for ORB algorithm
 ! dcell_ORB = size of each cell used to draw subdomain boundaries (in multiples of hsml)
@@ -39,30 +39,33 @@ contains
 	
 		implicit none
 		type(particles):: parts_dummy(2)
-		integer:: blockl(7),type(7)
-		integer(KIND=MPI_ADDRESS_KIND):: disp(7),lb,ext
+		integer:: blockl(10),type(10)
+		integer(KIND=MPI_ADDRESS_KIND):: disp(10),lb,ext
 		
 		! Obtaining memory address of each block in derived type
-		call MPI_GET_ADDRESS(parts_dummy(1)%indglob, disp(1), ierr)
-		call MPI_GET_ADDRESS(parts_dummy(1)%indloc , disp(2), ierr)
-		call MPI_GET_ADDRESS(parts_dummy(1)%itype  , disp(3), ierr)
-		call MPI_GET_ADDRESS(parts_dummy(1)%rho    , disp(4), ierr)
-		call MPI_GET_ADDRESS(parts_dummy(1)%p      , disp(5), ierr)
-		call MPI_GET_ADDRESS(parts_dummy(1)%x(1)   , disp(6), ierr)
-		call MPI_GET_ADDRESS(parts_dummy(1)%vx(1)  , disp(7), ierr)
+		call MPI_GET_ADDRESS(parts_dummy(1)%indglob   , disp(1), ierr)
+		call MPI_GET_ADDRESS(parts_dummy(1)%indloc    , disp(2), ierr)
+		call MPI_GET_ADDRESS(parts_dummy(1)%itype     , disp(3), ierr)
+		call MPI_GET_ADDRESS(parts_dummy(1)%rho       , disp(4), ierr)
+		call MPI_GET_ADDRESS(parts_dummy(1)%p         , disp(5), ierr)
+		call MPI_GET_ADDRESS(parts_dummy(1)%x(1)      , disp(6), ierr)
+		call MPI_GET_ADDRESS(parts_dummy(1)%vx(1)     , disp(7), ierr)
+		call MPI_GET_ADDRESS(parts_dummy(1)%strain(1) , disp(8), ierr)
+		call MPI_GET_ADDRESS(parts_dummy(1)%pstrain(1), disp(9), ierr)
+		call MPI_GET_ADDRESS(parts_dummy(1)%sig(1)    , disp(10), ierr)
 		
 		! Converting absolute addressed to relative address (relative to indglob)
 		disp(:) = disp(:) - disp(1)
 		
 		! Size of each block in derived type
-		blockl(:) = (/1, 1, 1, 1, 1, dim, dim/)
+		blockl(:) = (/1, 1, 1, 1, 1, dim, dim, tenselem, tenselem, tenselem/)
 		
 		! Types of each block (MPI)
 		type(1:3) = MPI_INTEGER
-		type(4:7) = MPI_ftype
+		type(4:10) = MPI_ftype
 		
 		! Creating MPI user type
-		call MPI_TYPE_CREATE_STRUCT(7, blockl, disp, type, parttype, ierr)
+		call MPI_TYPE_CREATE_STRUCT(10, blockl, disp, type, parttype, ierr)
 		call MPI_TYPE_COMMIT(parttype, ierr)
 		
 		! Calculating distance in memory between consecutive elements in array of defined type
@@ -80,15 +83,16 @@ contains
 		call MPI_GET_ADDRESS(parts_dummy(1)%rho    , disp(3), ierr)
 		call MPI_GET_ADDRESS(parts_dummy(1)%x(1)   , disp(4), ierr)
 		call MPI_GET_ADDRESS(parts_dummy(1)%vx(1)  , disp(5), ierr)
+		call MPI_GET_ADDRESS(parts_dummy(1)%sig(1) , disp(6), ierr)
 		
 		disp(:) = disp(:) - disp(1)
 		
-		blockl(1:5) = (/1, 1, 1, dim, dim/)
+		blockl(1:6) = (/1, 1, 1, dim, dim, tenselem/)
 		
 		type(1:2) = MPI_INTEGER
-		type(3:5) = MPI_ftype
+		type(3:6) = MPI_ftype
 		
-		call MPI_TYPE_CREATE_STRUCT(5, blockl, disp, type, halotype, ierr)
+		call MPI_TYPE_CREATE_STRUCT(6, blockl, disp, type, halotype, ierr)
 		call MPI_TYPE_COMMIT(halotype, ierr)
 		
 		call MPI_GET_ADDRESS(parts_dummy(1)%indglob, disp(1), ierr)
@@ -100,12 +104,13 @@ contains
 		! Setting up type for halo particle updates (updates only need density, velocity)
 		call MPI_GET_ADDRESS(parts_dummy(1)%rho    , disp(1), ierr)
 		call MPI_GET_ADDRESS(parts_dummy(1)%vx(1)  , disp(2), ierr)
+		call MPI_GET_ADDRESS(parts_dummy(1)%sig(1) , disp(3), ierr)
 		
 		disp(:) = disp(:) - disp(1)
 		
-		blockl(1:2) = (/1, dim/)
+		blockl(1:3) = (/1, dim, tenselem/)
 		
-		type(1:2) = MPI_ftype
+		type(1:3) = MPI_ftype
 		
 		call MPI_TYPE_CREATE_STRUCT(2, blockl, disp, type, haloupdatetype, ierr)
 		call MPI_TYPE_COMMIT(haloupdatetype, ierr)
@@ -123,7 +128,7 @@ contains
 		implicit none
 		integer,intent(in):: ftype
 		integer:: MPI_ftype
-		integer,parameter:: dp = kind(1_f), sp = kind(1.)
+		integer,parameter:: dp = kind(1._f), sp = kind(1.)
 		
 		select case(ftype)
 			case(dp)
