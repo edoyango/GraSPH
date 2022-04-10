@@ -1,7 +1,7 @@
 module material_rates_m
 	
 	use datatypes,	only: interactions
-	use globvar, 	only: ntotal_loc,nvirt_loc,nhalo_loc
+	use globvar, 	only: ntotal_loc,nvirt_loc,nhalo_loc,nghos_loc
 	use param, 		only: mass,dim,f
 	
 	public:: art_visc,ext_force,int_force,con_density
@@ -16,7 +16,7 @@ contains
 		implicit none
 		integer,intent(in):: ki
 		type(interactions),intent(in):: pair
-		real(f),intent(inout):: ardvxdt(dim,ntotal_loc+nvirt_loc+nhalo_loc)
+		real(f),intent(inout):: ardvxdt(dim,ntotal_loc+nvirt_loc+nhalo_loc+nghos_loc)
 		real(f):: dx(dim),piv(dim),muv,vr,rr,h,mrho
 		
 		dx(:) = pair%i%x(:) - pair%j%x(:)
@@ -42,7 +42,7 @@ contains
 		implicit none
 		integer,intent(in):: ki
 		type(interactions),intent(in):: pair
-		real(f),intent(inout):: exdvxdt(dim,ntotal_loc+nvirt_loc+nhalo_loc)
+		real(f),intent(inout):: exdvxdt(dim,ntotal_loc+nvirt_loc+nhalo_loc+nghos_loc)
 		real(f):: dx(dim),rr,f
 		
 		dx(:) = pair%i%x(:) - pair%j%x(:)
@@ -62,7 +62,7 @@ contains
 		implicit none
 		integer,intent(in):: ki
 		type(interactions),intent(in):: pair
-		real(f),intent(inout):: indvxdt(dim,ntotal_loc+nvirt_loc+nhalo_loc)
+		real(f),intent(inout):: indvxdt(dim,ntotal_loc+nvirt_loc+nhalo_loc+nghos_loc)
 		real(f):: h(dim)
 		
 		h = -(pair%i%p/pair%i%rho**2 + pair%j%p/pair%j%rho**2)*pair%dwdx(:)
@@ -77,7 +77,7 @@ contains
 		implicit none
 		integer,intent(in):: ki
 		type(interactions),intent(in):: pair
-		real(f),intent(inout):: codrhodt(ntotal_loc+nvirt_loc+nhalo_loc)
+		real(f),intent(inout):: codrhodt(ntotal_loc+nvirt_loc+nhalo_loc+nghos_loc)
 		real(f):: dvx(dim),vcc
 		
 		dvx(:) = pair%i%vx(:) - pair%j%vx(:)
