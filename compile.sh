@@ -74,20 +74,20 @@ if [ $mode == serial ] || [ $mode == mpi ]; then # serial/mpi mode (same flags)
     if [ $compiler == gnu ]; then
         [ $mode == serial ] && echo "compiler: gfortran"
         [ $mode == mpi ] && echo "compiler: mpifort (gfortran)"
-        compoption="-O3 -flto"
+        compoption="-O3 -flto -march=native"
         [ $debug == 1 ] && compoption="-Og -g -fcheck=all -fbacktrace -J$odir -I$odir"
     fi
     if [ $compiler == intel ]; then
         [ $mode == serial ] && echo "compiler: ifort"
         [ $mode == mpi ] && echo "compiler: mpifort (ifort)"
-        compoption="-O3 -ipo -module $odir -I$odir -traceback"
+        compoption="-O3 -ipo -module $odir -I$odir -traceback -xCORE-AVX2"
         [ $debug == 1 ] && compoption="-g -traceback -check all -module $odir -I$odir"
     fi
     if [ $compiler == nv ]; then
         [ $mode == serial ] && echo "compiler: nvfortran"
         [ $mode == mpi ] && echo "compiler: mpifort (nvfortran)"
-        compoption="-O3 -module $odir -I$odir"
-        [ $debug ==1 ] && compoption="-g -C -traceback -module $odir -I$odir"
+        compoption="-Mipa -module $odir -I$odir"
+        [ $debug == 1 ] && compoption="-g -C -traceback -module $odir -I$odir"
     fi
 fi
 if [ $mode == gpu ]; then # gpu mode
@@ -98,7 +98,7 @@ fi
 if [ $mode == omp ]; then # OpenMP mode
     if [ $compiler == gnu ]; then
         echo "compiler: gfortran"
-        compoption="-O3 -flto -J$odir -I$odir -fopenmp"
+        compoption="-O3 -flto -J$odir -I$odir -fopenmp "
         [ $debug == 1 ] && compoption="-Og -g -fcheck=all -fbacktrace -J$odir -I$odir -fopenmp"
     fi
     if [ $compiler == intel]; then
@@ -121,12 +121,13 @@ $sdir_serial/input_m.f90 \
 $sdir_serial/kernel_m.f90 \
 $sdir_serial/flink_lisk_m.f90 \
 $sdir_serial/material_rates_m.f90 \
+$sdir_serial/stress_update_m.f90 \
 $sdir_serial/single_step_m.f90 \
 $sdir_serial/time_integration_m.f90 \
 $sdir_serial/main.f90"
     [ $compiler == gnu ] && FC=h5fc
     [ $compiler == intel ] && FC=h5fc
-    [ $compiler == nv ] && FC=nvfortran
+    [ $compiler == nv ] && FC=h5fc
 fi
 if [ $mode == mpi ]; then
     srcfiles="$sdir_mpi/param.f90 \
@@ -137,13 +138,14 @@ $sdir_mpi/param_para.f90 \
 $sdir_mpi/summary_m.f90 \
 $sdir_mpi/error_msg_m.f90 \
 $sdir_mpi/material_rates_m.f90 \
-$sdir_mpi/hdf5_parallel_io_helper_m.f90 \
+$sdir_mpi/hdf5_parallel_io_helper_m.f90 -lhdf5_fortran \
 $sdir_mpi/output_m.f90 -lhdf5_fortran \
 $sdir_mpi/input_m.f90 \
 $sdir_mpi/kernel_m.f90 \
 $sdir_mpi/flink_lisk_m.f90 \
 $sdir_mpi/ORB_sr_m.f90 \
 $sdir_mpi/ORB_m.f90 \
+$sdir_mpi/stress_update_m.f90 \
 $sdir_mpi/single_step_m.f90 \
 $sdir_mpi/time_integration_m.f90 \
 $sdir_mpi/main.f90"
