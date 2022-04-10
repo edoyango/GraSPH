@@ -1,7 +1,7 @@
 module material_rates_m
 	
 	use datatypes,	only: interactions,particles
-	use globvar, 	only: ntotal_loc,nvirt_loc,nhalo_loc
+	use globvar, 	only: ntotal_loc,nvirt_loc,nhalo_loc,nghos_loc
 	use param, 		only: mass,dim,f,tenselem
 	
 	public:: art_visc,ext_force,int_force,con_density
@@ -17,7 +17,7 @@ contains
 		integer,intent(in):: ki
 		type(particles),intent(in):: p_i,p_j
         real(f),intent(in):: dwdx(dim)
-		real(f),intent(inout):: ardvxdt(dim,ntotal_loc+nvirt_loc+nhalo_loc)
+		real(f),intent(inout):: ardvxdt(dim,ntotal_loc+nvirt_loc+nhalo_loc+nghos_loc)
 		real(f):: dx(dim),piv(dim),muv,vr,rr,h,mrho
 		
 		dx(:) = p_i%x(:) - p_j%x(:)
@@ -44,7 +44,7 @@ contains
 		integer,intent(in):: ki
 		type(particles),intent(in):: p_i,p_j
         real(f),intent(in):: dwdx(dim)
-		real(f),intent(inout):: exdvxdt(dim,ntotal_loc+nvirt_loc+nhalo_loc)
+		real(f),intent(inout):: exdvxdt(dim,ntotal_loc+nvirt_loc+nhalo_loc+nghos_loc)
 		real(f):: dx(dim),rr,f
 		
 		dx(:) = p_i%x(:) - p_j%x(:)
@@ -65,10 +65,21 @@ contains
 		integer,intent(in):: ki
 		type(particles),intent(in):: p_i,p_j
         real(f),intent(in):: dwdx(dim)
-		real(f),intent(inout):: indvxdt(dim,ntotal_loc+nvirt_loc+nhalo_loc)
+		real(f),intent(inout):: indvxdt(dim,ntotal_loc+nvirt_loc+nhalo_loc+nghos_loc)
 		real(f):: h(dim)
 		
-		h = -(p_i%p/p_i%rho**2 + p_j%p/p_j%rho**2)*dwdx(:)
+		h(1) = (p_i%sig(1)/p_i%rho**2 + p_j%sig(1)/p_j%rho**2)*dwdx(1) + &
+               (p_i%sig(4)/p_i%rho**2 + p_j%sig(4)/p_j%rho**2)*dwdx(2) + &
+               (p_i%sig(5)/p_i%rho**2 + p_j%sig(5)/p_j%rho**2)*dwdx(3)
+               
+        h(2) = (p_i%sig(4)/p_i%rho**2 + p_j%sig(4)/p_j%rho**2)*dwdx(1) + &
+               (p_i%sig(2)/p_i%rho**2 + p_j%sig(2)/p_j%rho**2)*dwdx(2) + &
+               (p_i%sig(6)/p_i%rho**2 + p_j%sig(6)/p_j%rho**2)*dwdx(3)
+               
+        h(3) = (p_i%sig(5)/p_i%rho**2 + p_j%sig(5)/p_j%rho**2)*dwdx(1) + &
+               (p_i%sig(6)/p_i%rho**2 + p_j%sig(6)/p_j%rho**2)*dwdx(2) + &
+               (p_i%sig(3)/p_i%rho**2 + p_j%sig(3)/p_j%rho**2)*dwdx(3)
+
 		indvxdt(:,p_i%indloc) = indvxdt(:,p_i%indloc) + mass*h(:)
 		indvxdt(:,p_j%indloc) = indvxdt(:,p_j%indloc) - mass*h(:)
 	
@@ -81,7 +92,7 @@ contains
 		integer,intent(in):: ki
 		type(particles),intent(in):: p_i,p_j
         real(f),intent(in):: dwdx(dim)
-		real(f),intent(inout):: codrhodt(ntotal_loc+nvirt_loc+nhalo_loc)
+		real(f),intent(inout):: codrhodt(ntotal_loc+nvirt_loc+nhalo_loc+nghos_loc)
 		real(f):: dvx(dim),vcc
 		
 		dvx(:) = p_i%vx(:) - p_j%vx(:)
@@ -100,7 +111,7 @@ contains
         integer,intent(in):: ki
         type(particles),intent(in):: p_i,p_j
         real(f),intent(in):: dwdx(dim)
-        real(f),intent(inout):: dstraindt(tenselem,ntotal_loc+nvirt_loc+nhalo_loc)
+        real(f),intent(inout):: dstraindt(tenselem,ntotal_loc+nvirt_loc+nhalo_loc+nghos_loc)
         real(f):: dvx(dim),he(tenselem)
         
         dvx(:) = p_j%vx(:) - p_i%vx(:)

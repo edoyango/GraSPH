@@ -24,6 +24,11 @@ module param
     !    = 6, Wenland quintic C6 kernel
 	!    = 7, Gauss kernel   (Gingold and Monaghan 1981) 
 	integer,parameter,public:: skf = 4
+    
+    !Stress update model
+    !stress_mode = 'EOS': equation of state (Monaghan 1994)
+    !              'SDP': Soil Drucker-Prager model
+    character(len=*),parameter,public:: stress_mode = 'EOS'
 	
 	!spacing and kernel radii parameters
     !note skf = 5 requires kappa at least 1.4, skf = 6 kappa at least 1.6 (approx values)

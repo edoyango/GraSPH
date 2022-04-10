@@ -69,6 +69,7 @@ contains
 								parts(ntotal_loc)%itype = 1
 								parts(ntotal_loc)%rho = irho
 								parts(ntotal_loc)%p = 0._f
+                                parts(ntotal_loc)%sig(1:6) = 0._f
 							end if
 						end do
 					end do
@@ -147,6 +148,7 @@ contains
                 parts(ig)%itype = 99
                 parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmin
                 parts(ig)%vx(1) = -parts(ig)%vx(1)
+                parts(ig)%sig(4:6) = -parts(ig)%sig(4:6)
             end if
             if (abs(parts(i)%x(1)-vxmax) < scale_k*hsml .and. parts(i)%x(1) < vxmax) then
                 nghos_loc = nghos_loc + 1
@@ -157,6 +159,7 @@ contains
                 parts(ig)%itype = 99
                 parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmax
                 parts(ig)%vx(1) = -parts(ig)%vx(1)
+                parts(ig)%sig(4:6) = -parts(ig)%sig(4:6)
             end if
             if (abs(parts(i)%x(2)-vymin) < scale_k*hsml .and. parts(i)%x(2) > vymin) then
                 nghos_loc = nghos_loc + 1
@@ -167,6 +170,7 @@ contains
                 parts(ig)%itype = 98
                 parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymin
                 parts(ig)%vx(2) = -parts(ig)%vx(2)
+                parts(ig)%sig(4:6) = -parts(ig)%sig(4:6)
             end if
             if (abs(parts(i)%x(2)-vymax) < scale_k*hsml .and. parts(i)%x(2) < vymax) then
                 nghos_loc = nghos_loc + 1
@@ -177,6 +181,7 @@ contains
                 parts(ig)%itype = 98
                 parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymax
                 parts(ig)%vx(2) = -parts(ig)%vx(2)
+                parts(ig)%sig(4:6) = -parts(ig)%sig(4:6)
             end if
             if ( (parts(i)%x(1)-vxmin)**2 + (parts(i)%x(2)-vymin)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) > vxmin) then
                 nghos_loc = nghos_loc + 1
@@ -189,6 +194,7 @@ contains
                 parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymin
                 parts(ig)%vx(1) = -parts(ig)%vx(1)
                 parts(ig)%vx(2) = -parts(ig)%vx(2)
+                parts(ig)%sig(4:6) = -parts(ig)%sig(4:6)
             end if
             if ( (parts(i)%x(1)-vxmin)**2 + (parts(i)%x(2)-vymax)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) > vxmin) then
                 nghos_loc = nghos_loc + 1
@@ -201,6 +207,7 @@ contains
                 parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymax
                 parts(ig)%vx(1) = -parts(ig)%vx(1)
                 parts(ig)%vx(2) = -parts(ig)%vx(2)
+                parts(ig)%sig(4:6) = -parts(ig)%sig(4:6)
             end if
             if ( (parts(i)%x(1)-vxmax)**2 + (parts(i)%x(2)-vymax)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) < vxmax) then
                 nghos_loc = nghos_loc + 1
@@ -213,6 +220,7 @@ contains
                 parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymax
                 parts(ig)%vx(1) = -parts(ig)%vx(1)
                 parts(ig)%vx(2) = -parts(ig)%vx(2)
+                parts(ig)%sig(4:6) = -parts(ig)%sig(4:6)
             end if
             if ( (parts(i)%x(1)-vxmax)**2 + (parts(i)%x(2)-vymin)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) < vxmax) then
                 nghos_loc = nghos_loc + 1
@@ -225,6 +233,7 @@ contains
                 parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymin
                 parts(ig)%vx(1) = -parts(ig)%vx(1)
                 parts(ig)%vx(2) = -parts(ig)%vx(2)
+                parts(ig)%sig(4:6) = -parts(ig)%sig(4:6)
             end if
         end do
         
@@ -246,18 +255,24 @@ contains
                     parts(ig)%vx(1) =-parts(ir)%vx(1)
                     parts(ig)%vx(2) = parts(ir)%vx(2)
                     parts(ig)%vx(3) = parts(ir)%vx(3)
+                    parts(ig)%sig(1:3) = parts(ir)%sig(1:3)
+                    parts(ig)%sig(4:6) = -parts(ir)%sig(4:6)
                 case(98)
                     parts(ig)%rho = parts(ir)%rho
                     parts(ig)%p = parts(ir)%p
                     parts(ig)%vx(1) = parts(ir)%vx(1)
                     parts(ig)%vx(2) =-parts(ir)%vx(2)
                     parts(ig)%vx(3) = parts(ir)%vx(3)
+                    parts(ig)%sig(1:3) = parts(ir)%sig(1:3)
+                    parts(ig)%sig(4:6) = -parts(ir)%sig(4:6)
                 case(97)
                     parts(ig)%rho = parts(ir)%rho
                     parts(ig)%p = parts(ir)%p
                     parts(ig)%vx(1) =-parts(ir)%vx(1)
                     parts(ig)%vx(2) =-parts(ir)%vx(2)
                     parts(ig)%vx(3) = parts(ir)%vx(3)
+                    parts(ig)%sig(1:3) = parts(ir)%sig(1:3)
+                    parts(ig)%sig(4:6) = -parts(ir)%sig(4:6)
             end select
         end do
         
@@ -281,6 +296,7 @@ contains
         pv%rho = pr%rho
         pv%p = pr%p
         pv%vx(:) = (1._f-beta)*pr%vx(:)
+        pv%sig(:) = pr%sig(:)
         
     end subroutine virt_mirror
 

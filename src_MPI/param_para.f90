@@ -44,8 +44,8 @@ contains
 		
 		! Obtaining memory address of each block in derived type
 		call MPI_GET_ADDRESS(parts_dummy(1)%indglob   , disp(1), ierr)
-		call MPI_GET_ADDRESS(parts_dummy(1)%indloc    , disp(2), ierr)
-		call MPI_GET_ADDRESS(parts_dummy(1)%itype     , disp(3), ierr)
+		call MPI_GET_ADDRESS(parts_dummy(1)%itype     , disp(2), ierr)
+		call MPI_GET_ADDRESS(parts_dummy(1)%indloc    , disp(3), ierr)
 		call MPI_GET_ADDRESS(parts_dummy(1)%rho       , disp(4), ierr)
 		call MPI_GET_ADDRESS(parts_dummy(1)%p         , disp(5), ierr)
 		call MPI_GET_ADDRESS(parts_dummy(1)%x(1)      , disp(6), ierr)
@@ -71,6 +71,7 @@ contains
 		! Calculating distance in memory between consecutive elements in array of defined type
 		call MPI_GET_ADDRESS(parts_dummy(1)%indglob, disp(1), ierr)
 		call MPI_GET_ADDRESS(parts_dummy(2)%indglob, disp(2), ierr)
+        
 		! Resizing array to account for any "padding". lb = lowerbound
 		lb = 0; ext = disp(2)-disp(1)
 		call MPI_TYPE_CREATE_RESIZED(parttype, lb, ext, parttype, ierr)
@@ -112,7 +113,7 @@ contains
 		
 		type(1:3) = MPI_ftype
 		
-		call MPI_TYPE_CREATE_STRUCT(2, blockl, disp, type, haloupdatetype, ierr)
+		call MPI_TYPE_CREATE_STRUCT(3, blockl, disp, type, haloupdatetype, ierr)
 		call MPI_TYPE_COMMIT(haloupdatetype, ierr)
 		
 		call MPI_GET_ADDRESS(parts_dummy(1)%rho, disp(1), ierr)
