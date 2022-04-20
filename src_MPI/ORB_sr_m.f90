@@ -52,7 +52,7 @@ contains
 				removal_list(nphys_send_all) = i
             else if ( any( [xi(:).le.xmin_halo(:) , xi(:).ge.xmax_halo] ) ) then
                 npotential_halo = npotential_halo + 1
-                potential_halo(npotential_halo) = i
+                potential_halo(npotential_halo) = i-nphys_send_all
 			end if
 		end do
 		removal_list(nphys_send_all+1) = 0 ! This is needed due to a quirk in the loop below
@@ -88,7 +88,7 @@ contains
 					pid = proc_neighbour_list(n) + 1
 					dr = 0_f
 					do d = 1,dim
-						dr = dr + MAX(0d0,bounds_glob(d,pid)-parts(i)%x(d),parts(i)%x(d)-bounds_glob(dim+d,pid))**2
+						dr = dr + MAX(0._f,bounds_glob(d,pid)-parts(i)%x(d),parts(i)%x(d)-bounds_glob(dim+d,pid))**2
 					end do
 					dr = SQRT(dr)
 					if (dr.lt.dr_min) then
@@ -194,8 +194,8 @@ contains
 		use param_para,		only: halotype,haloupdatetype
 	
 		implicit none
-		integer,intent(inout):: request_in(2*n_process_neighbour)
-		integer,intent(in):: nphys_recv_all,nrequest,npotential_halo,potential_halo(:)
+		integer,intent(inout):: nrequest,request_in(2*n_process_neighbour)
+		integer,intent(in):: nphys_recv_all,npotential_halo,potential_halo(:)
 		integer,intent(out):: request_out(2*n_process_neighbour)
 		integer:: status(MPI_STATUS_SIZE,2*n_process_neighbour)
 		integer:: d,i,j,k,pid,n_send_all,n,pos0_recv,pos1_recv,pos0,pos1
@@ -237,7 +237,7 @@ contains
             xmax_loc = bounds_glob(dim+1:2*dim,procid+1) - scale_k*hsml
             do i = ntotal_loc+1,ntotal_loc+nphys_recv_all
                 xi(:) = parts(i)%x(:)
-                if ( any ([xi(:).le.xmin_loc(:) , xi(:).ge.xmax_loc(:)] ) ) then
+                if ( any([xi(:).le.xmin_loc(:) , xi(:).ge.xmax_loc(:)] ) ) then
                     do j = 1,n_process_neighbour
                         pid = proc_neighbour_list(j) + 1
                         xmin_rem(:) = bounds_glob(1:dim,pid) - scale_k*hsml
