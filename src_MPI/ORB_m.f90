@@ -24,8 +24,9 @@ contains
 		
 		implicit none
 		real(f),parameter:: dcell=hsml*dcell_ORB
-		integer:: d,i,j,k,ngridx(dim),nphys_recv_all,request_phys(2*numprocs),request_halo(2*numprocs),searchrange_ini(2),n_request,&
-		status(MPI_STATUS_SIZE,4*numprocs),nphys_send_all,procrange_ini(2),tree_layers,gridind_ini(dim,2),diffusedepth
+		integer:: d,i,j,k,ngridx(dim),nphys_recv_all,request_phys(2*numprocs),request_halo(2*numprocs),searchrange_ini(2),&
+            n_request,status(MPI_STATUS_SIZE,4*numprocs),nphys_send_all,procrange_ini(2),tree_layers,gridind_ini(dim,2),&
+            diffusedepth,npotential_halo,potential_halo(ntotal_loc)
 		real(f):: bounds_out(2*dim),mingridx_ini(dim),maxgridx_ini(dim),current_to_previous(dim,dim),box_ratio_current(dim,dim)
 		
 		!allocating partitioning arrays and initialising diagnostic variables -------------------------------------------------------------
@@ -111,10 +112,11 @@ contains
 		! physical particle distribution
 		diffusedepth = 0
 		searchrange_ini(:) = (/1,ntotal_loc/)
-		i = ORB_sendrecv_diffuse( diffusedepth,searchrange_ini,n_request,request_phys,nphys_recv_all )
+        npotential_halo = 0
+		i = ORB_sendrecv_diffuse( diffusedepth,searchrange_ini,n_request,request_phys,nphys_recv_all,potential_halo,npotential_halo )
 		
 		! halo particle distribution
-		call ORB_sendrecv_halo( request_phys,request_halo,nphys_recv_all,n_request )
+		call ORB_sendrecv_halo( request_phys,request_halo,nphys_recv_all,n_request,potential_halo,npotential_halo )
 		
 		! update virtual particles
 		call virt_part(.true.)

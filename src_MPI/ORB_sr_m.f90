@@ -12,7 +12,8 @@ module ORB_sr_m
 contains
 
 	!==============================================================================================================================
-	recursive function ORB_sendrecv_diffuse( entrydepth,searchrange,nrequest,request,n_recv_all ) result (success)
+	recursive function ORB_sendrecv_diffuse( entrydepth,searchrange,nrequest,request,n_recv_all,potential_halo,npotential_halo ) &
+        result (success)
 	! Recursive function to exchange physical particles. In cases were subdomain boundaries are updated, the possibility of needing
 	! diffusion is considered
 	
@@ -20,10 +21,10 @@ contains
 		
 		implicit none
 		integer,intent(in):: searchrange(2)
-		integer,intent(inout):: nrequest,request(2*n_process_neighbour),n_recv_all,entrydepth
+		integer,intent(inout):: nrequest,request(2*n_process_neighbour),n_recv_all,entrydepth,npotential_halo,potential_halo(:)
 		integer:: d,i,j,k,pid,n,pos_recv,success
 		integer:: removal_list(searchrange(2)-searchrange(1)+2),nphys_send_all,diff_dest,ndiffuse_loc,ndiffuse_all,searchrange_next(2)
-		real(f):: xmin_loc(dim),xmax_loc(dim),xmin_rem(dim),xmax_rem(dim),xi(dim),dr,dr_min
+		real(f):: xmin_loc(dim),xmax_loc(dim),xmin_rem(dim),xmax_rem(dim),xi(dim),dr,dr_min,xmin_halo(dim),xmax_halo(dim)
 		integer:: status(2*n_process_neighbour,MPI_STATUS_SIZE)
 		
 		! Initialization
@@ -38,6 +39,8 @@ contains
 		
 		xmin_loc(:) = bounds_glob(1:dim,procid+1)
 		xmax_loc(:) = bounds_glob(dim+1:2*dim,procid+1)
+        xmin_halo(:) = xmin_loc(:) + scale_k*hsml
+        xmax_halo(:) = xmax_loc(:) - scale_k*hsml
 			
 		! Searching particles to remove within indices of searchrange(1) and searchrange(2), inclusive.
 		! At node 0, searchrange(1:2) = [1,ntotal_loc)
@@ -47,6 +50,9 @@ contains
 			if ( any( [xi(:).lt.xmin_loc(:) , xi(:).ge.xmax_loc(:)] ) ) then
 				nphys_send_all = nphys_send_all + 1
 				removal_list(nphys_send_all) = i
+            else if ( any( [xi(:).le.xmin_halo(:) , xi(:).ge.xmax_halo] ) ) then
+                npotential_halo = npotential_halo + 1
+                potential_halo(npotential_halo) = i
 			end if
 		end do
 		removal_list(nphys_send_all+1) = 0 ! This is needed due to a quirk in the loop below
@@ -169,7 +175,8 @@ contains
 				
 				entrydepth = entrydepth + 1
 				searchrange_next = (/ntotal_loc+1,ntotal_loc+n_recv_all/)
-				success = ORB_sendrecv_diffuse( entrydepth,searchrange_next,nrequest,request,n_recv_all )
+				success = ORB_sendrecv_diffuse( entrydepth,searchrange_next,nrequest,request,n_recv_all,potential_halo,&
+                    npotential_halo )
 			end if
 		end if
 		success = 0
@@ -177,7 +184,7 @@ contains
 	end function ORB_sendrecv_diffuse
 	
 	!==============================================================================================================================
-	subroutine ORB_sendrecv_halo( request_in,request_out,nphys_recv_all,nrequest )
+	subroutine ORB_sendrecv_halo( request_in,request_out,nphys_recv_all,nrequest,potential_halo,npotential_halo )
 	
 		!subroutine responsible for sending sending halo particle information between processes, given 
 		!predetermined subdomain boundaires. 
@@ -188,7 +195,7 @@ contains
 	
 		implicit none
 		integer,intent(inout):: request_in(2*n_process_neighbour)
-		integer,intent(inout):: nphys_recv_all,nrequest
+		integer,intent(in):: nphys_recv_all,nrequest,npotential_halo,potential_halo(:)
 		integer,intent(out):: request_out(2*n_process_neighbour)
 		integer:: status(MPI_STATUS_SIZE,2*n_process_neighbour)
 		integer:: d,i,j,k,pid,n_send_all,n,pos0_recv,pos1_recv,pos0,pos1
@@ -203,46 +210,46 @@ contains
 			
 		nhalo_send(:) = 0
 	
-		if (nphys_recv_all.eq.0) then
-			wait_for_phys_then_reloop = .false.
-		else
-			wait_for_phys_then_reloop = .true.
-		end if
-	
-		! Halo particle send location determination
-		! First loop loops over currently held particles
-		pos0 = 1
-		pos1 = ntotal_loc
-	
-		! Begin search
-		xmin_loc = bounds_glob(1:dim,procid+1) + scale_k*hsml
-		xmax_loc = bounds_glob(dim+1:2*dim,procid+1) - scale_k*hsml
-	1 	do i = pos0,pos1
+		! Begin search - First loop loops over currently held particles
+        do k = 1,npotential_halo
+            i = potential_halo(k)
 			xi(:) = parts(i)%x(:)
-			if ( any( [xi(:).le.xmin_loc(:) , xi(:).ge.xmax_loc(:)] ) ) then ! if particle is potentially neighbour's halo
-				do j = 1,n_process_neighbour
-					pid = proc_neighbour_list(j) + 1
-					xmin_rem(:) = bounds_glob(1:dim,pid) - scale_k*hsml
-					xmax_rem(:) = bounds_glob(dim+1:2*dim,pid) + scale_k*hsml
-					if ( all( [xi(:).ge.xmin_rem(:) , xi(:).le.xmax_rem(:)] ) ) then
+!~ 			if ( any( [xi(:).le.xmin_loc(:) , xi(:).ge.xmax_loc(:)] ) ) then ! if particle is potentially neighbour's halo
+            do j = 1,n_process_neighbour
+                pid = proc_neighbour_list(j) + 1
+                xmin_rem(:) = bounds_glob(1:dim,pid) - scale_k*hsml
+                xmax_rem(:) = bounds_glob(dim+1:2*dim,pid) + scale_k*hsml
+                if ( all( [xi(:).ge.xmin_rem(:) , xi(:).le.xmax_rem(:)] ) ) then
 					
-						nhalo_send(j) = nhalo_send(j) + 1
-						halo_pindex(nhalo_send(j),j) = i
-			
-					end if
-		
-				end do
-			end if
+                    nhalo_send(j) = nhalo_send(j) + 1
+                    halo_pindex(nhalo_send(j),j) = i
+
+                end if
+
+            end do
+!~ 			end if
 		end do
 		
 		! Waiting for physical particles to complete exchange if needed
-		if (wait_for_phys_then_reloop) then
-			pos0 = ntotal_loc+1
-			pos1 = ntotal_loc+nphys_recv_all
-			wait_for_phys_then_reloop = .false.
+		if (nphys_recv_all > 0) then
 			call MPI_WAITALL(nrequest,request_in,status(:,1:nrequest),ierr) !wait for new physical particles to arrive
-			goto 1
-		end if
+            xmin_loc = bounds_glob(1:dim,procid+1) + scale_k*hsml
+            xmax_loc = bounds_glob(dim+1:2*dim,procid+1) - scale_k*hsml
+            do i = ntotal_loc+1,ntotal_loc+nphys_recv_all
+                xi(:) = parts(i)%x(:)
+                if ( any ([xi(:).le.xmin_loc(:) , xi(:).ge.xmax_loc(:)] ) ) then
+                    do j = 1,n_process_neighbour
+                        pid = proc_neighbour_list(j) + 1
+                        xmin_rem(:) = bounds_glob(1:dim,pid) - scale_k*hsml
+                        xmax_rem(:) = bounds_glob(dim+1:2*dim,pid) + scale_k*hsml
+                        if ( all( [xi(:).ge.xmin_rem(:) , xi(:).le.xmax_rem(:)] ) ) then
+                            nhalo_send(j) = nhalo_send(j) + 1
+                            halo_pindex(nhalo_send(j),j) = i
+                        end if
+                    end do
+                end if
+            end do
+        end if
 	
 		! Posting non-blocking send for nhalo_send exchange
 		do n = 1,n_process_neighbour
