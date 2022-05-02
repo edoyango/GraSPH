@@ -24,7 +24,7 @@ module param_para
 !                        Too small and program will be very slow. Too large, and load balance will
 !                        be very poor in general. The more slowly the particles move, ORBchecks 
 !                        can be less frequent
-	real(f),parameter,public:: dcell_ORB = 1_f, box_ratio_threshold = 0.25_f, bound_extend = 10_f
+	real(f),parameter,public:: dcell_ORB = 1_f, box_ratio_threshold = 0.1_f, bound_extend = 10_f
 	integer,parameter,public:: ORBcheck1 = 15, ORBcheck2 = 7
 	
 	public:: CreateMPIType,Select_MPI_ftype

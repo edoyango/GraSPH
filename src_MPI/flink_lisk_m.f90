@@ -173,9 +173,9 @@ contains
 		implicit none
 		type(particles),intent(in),target:: p_i,p_j
 		real(f):: dxiac(dim),r
-		
+
 		! only consider interactions when real-real are involved
-		if ( (p_i%itype.eq.1 .or. p_j%itype.eq.1) ) then
+		if ( (p_i%indloc<=ntotal_loc .or. p_j%indloc<=ntotal_loc) ) then
 			dxiac(:) = p_i%x(:) - p_j%x(:)
 			r = SQRT(SUM(dxiac*dxiac))
 			if (r <= hsml*scale_k) then
@@ -212,8 +212,8 @@ contains
 		
 		!Determining number of grid cells in each direction
 		dc = scale_k*hsml
-		maxx(:) = maxx(:) + 2_f*dc
-		minx(:) = minx(:) - 2_f*dc
+		maxx(:) = maxx(:) + 2._f*dc
+		minx(:) = minx(:) - 2._f*dc
 		ng(:) = int((maxx(:) - minx(:))/dc) + 1
 		maxx(:) = minx(:) + ng(:)*dc
 		

@@ -29,7 +29,12 @@ contains
 		if (ki.ne.1) call ORB_sendrecv_haloupdate(ki)
 		t_dist = t_dist + MPI_WTIME()
         
-        parts(1:ntotal_loc+nhalo_loc)%p = rh0*c**2*((parts(1:ntotal_loc+nhalo_loc)%rho/rh0)**gamma-1_f)/gamma
+        do i = 1,ntotal_loc
+            parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1_f)/gamma
+        end do
+        do i = ntotal_loc+nvirt_loc+1,ntotal_loc+nvirt_loc+nhalo_loc+nghos_loc
+            parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma-1_f)/gamma
+        end do
         
         if (ki.ne.1) call update_ghost_part
 		
@@ -51,6 +56,9 @@ contains
             elseif (pairs(k)%i%itype < 0 .and. pairs(k)%j%itype > 0) then
                 call virt_mirror(pairs(k)%j,pairs(k)%i)
             end if
+!~             if (procid.eq.0 .and. (pairs(k)%i%indloc <= ntotal_loc .and. pairs(k)%j%indloc > ntotal_loc+nvirt_loc .and. pairs(k)%j%indloc <=ntotal_loc+nvirt_loc+nhalo_loc) .or. &
+!~                 (pairs(k)%j%indloc <= ntotal_loc .and. pairs(k)%i%indloc > ntotal_loc+nvirt_loc .and. pairs(k)%i%indloc <=ntotal_loc+nvirt_loc+nhalo_loc) ) &
+!~                 write(*,'(3(I7,1x),2(e14.7,1x))') k,pairs(k)%i%indloc,pairs(k)%j%indloc,pairs(k)%i%rho,pairs(k)%j%rho
             
             !Internal force due to pressure
             call int_force(ki,pairs(k),indvxdt)

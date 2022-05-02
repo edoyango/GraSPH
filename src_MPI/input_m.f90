@@ -4,7 +4,7 @@ module input_m
 	use globvar,		only: ntotal,nvirt,ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc,parts,scale_k,maxnloc
 	use globvar_para,	only: procid,numprocs,bounds_glob
 	use mpi
-	use param,			only: dim,irho,dxo,f,hsml,mp,np,op,pp,qp,rp,nlayer
+	use param,			only: dim,irho,dxo,f,hsml,mp,np,op,pp,qp,rp,nlayer,rh0,c,gamma,f,g
 	use error_msg_m,	only: error_msg
 	use output_m,		only: write_ini_config
     
@@ -67,15 +67,13 @@ contains
 								parts(ntotal_loc)%x(3) = rzmin + (k-0.5_f)*dxo
 								parts(ntotal_loc)%vx(:) = 0._f
 								parts(ntotal_loc)%itype = 1
-								parts(ntotal_loc)%rho = irho
-								parts(ntotal_loc)%p = 0._f
+                                parts(ntotal_loc)%p = irho*g*(rzmax-parts(ntotal_loc)%x(3))
+								parts(ntotal_loc)%rho = rh0*(parts(ntotal_loc)%p*gamma/(rh0*c**2)+1._f)**(1._f/gamma)
 							end if
 						end do
 					end do
 				end do
 				
-				call write_ini_config
-			
 		end select
 		
 	end subroutine input
@@ -86,8 +84,7 @@ contains
 	! 2 cases: return only number of particles retrieved, or generating the particles
 		
 		implicit none
-		integer:: i,j,k,d,n
-		real(f):: xi(dim),xmin_loc(dim),xmax_loc(dim)
+		integer:: i,j,k,d,n,n_loc,n_loc_i,n_start,n_done
 		logical,intent(in):: generate
 		
 		select case (generate)
@@ -97,9 +94,16 @@ contains
 				nvirt = nlayer*(2*nlayer+pp)*(2*nlayer+qp)
 				
 			case (.true.)
-				
-				xmin_loc(:) = bounds_glob(1:dim,procid+1) - scale_k*hsml
-				xmax_loc(:) = bounds_glob(dim+1:2*dim,procid+1) + scale_k*hsml
+            
+                ! how many particles to generate per process
+				n_loc_i = ceiling(dble(nvirt)/numprocs)
+				if (procid.eq.numprocs-1) then
+					n_loc = nvirt - (numprocs-1)*n_loc_i
+				else
+					n_loc = n_loc_i
+				end if
+				n_start = procid*n_loc_i + 1
+				n_done = n_start + n_loc_i - 1
 				
 				nvirt_loc = 0
 				n = ntotal ! counter used to track particle indices
@@ -109,22 +113,21 @@ contains
 					do j = 1-nlayer,qp+nlayer
                         do k = 1,nlayer
                             n = n + 1
-                            xi(1) = vxmin + (i-0.5_f)*dxo
-                            xi(2) = vymin + (j-0.5_f)*dxo
-                            xi(3) = vzmin - (k-0.5_f)*dxo
-                            if ( all( xi(:).ge.xmin_loc(:) .and. xi(:).le.xmax_loc(:) ) ) then
+                            if ( (n-ntotal.ge.n_start) .and. (n-ntotal.le.n_done) ) then
                                 nvirt_loc = nvirt_loc + 1
-                                parts(ntotal_loc+nhalo_loc+nvirt_loc)%indglob = n
-                                parts(ntotal_loc+nhalo_loc+nvirt_loc)%indloc = ntotal_loc+nhalo_loc+nvirt_loc
-                                parts(ntotal_loc+nhalo_loc+nvirt_loc)%itype = -1
-                                parts(ntotal_loc+nhalo_loc+nvirt_loc)%x(:) = xi(:)
-                                parts(ntotal_loc+nhalo_loc+nvirt_loc)%vx(:) = 0._f
-                                parts(ntotal_loc+nhalo_loc+nvirt_loc)%rho = irho
+                                parts(ntotal_loc+nvirt_loc)%indglob = n
+                                parts(ntotal_loc+nvirt_loc)%indloc = ntotal_loc+nvirt_loc
+                                parts(ntotal_loc+nvirt_loc)%itype = -1
+                                parts(ntotal_loc+nvirt_loc)%x(1) = vxmin + (i-0.5_f)*dxo
+                                parts(ntotal_loc+nvirt_loc)%x(2) = vymin + (j-0.5_f)*dxo
+                                parts(ntotal_loc+nvirt_loc)%x(3) = vzmin - (k-0.5_f)*dxo
+                                parts(ntotal_loc+nvirt_loc)%vx(:) = 0._f
+                                parts(ntotal_loc+nvirt_loc)%rho = irho
                             end if
                         end do
 					end do
 				end do
-				
+
 		end select
 
 	end subroutine virt_part
@@ -137,94 +140,96 @@ contains
         
         nghos_loc = 0
         
-        do i = 1,ntotal_loc+nhalo_loc
-            if (abs(parts(i)%x(1)-vxmin) < scale_k*hsml .and. parts(i)%x(1) > vxmin) then
-                nghos_loc = nghos_loc + 1
-                ig = ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
-                gind(nghos_loc) = i
-                parts(ig) = parts(i)
-                parts(ig)%indloc = ig
-                parts(ig)%itype = 99
-                parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmin
-                parts(ig)%vx(1) = -parts(ig)%vx(1)
-            end if
-            if (abs(parts(i)%x(1)-vxmax) < scale_k*hsml .and. parts(i)%x(1) < vxmax) then
-                nghos_loc = nghos_loc + 1
-                ig = ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
-                gind(nghos_loc) = i
-                parts(ig) = parts(i)
-                parts(ig)%indloc = ig
-                parts(ig)%itype = 99
-                parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmax
-                parts(ig)%vx(1) = -parts(ig)%vx(1)
-            end if
-            if (abs(parts(i)%x(2)-vymin) < scale_k*hsml .and. parts(i)%x(2) > vymin) then
-                nghos_loc = nghos_loc + 1
-                ig = ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
-                gind(nghos_loc) = i
-                parts(ig) = parts(i)
-                parts(ig)%indloc = ig
-                parts(ig)%itype = 98
-                parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymin
-                parts(ig)%vx(2) = -parts(ig)%vx(2)
-            end if
-            if (abs(parts(i)%x(2)-vymax) < scale_k*hsml .and. parts(i)%x(2) < vymax) then
-                nghos_loc = nghos_loc + 1
-                ig = ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
-                gind(nghos_loc) = i
-                parts(ig) = parts(i)
-                parts(ig)%indloc = ig
-                parts(ig)%itype = 98
-                parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymax
-                parts(ig)%vx(2) = -parts(ig)%vx(2)
-            end if
-            if ( (parts(i)%x(1)-vxmin)**2 + (parts(i)%x(2)-vymin)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) > vxmin) then
-                nghos_loc = nghos_loc + 1
-                ig = ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
-                gind(nghos_loc) = i
-                parts(ig) = parts(i)
-                parts(ig)%indloc = ig
-                parts(ig)%itype = 97
-                parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmin
-                parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymin
-                parts(ig)%vx(1) = -parts(ig)%vx(1)
-                parts(ig)%vx(2) = -parts(ig)%vx(2)
-            end if
-            if ( (parts(i)%x(1)-vxmin)**2 + (parts(i)%x(2)-vymax)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) > vxmin) then
-                nghos_loc = nghos_loc + 1
-                ig = ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
-                gind(nghos_loc) = i
-                parts(ig) = parts(i)
-                parts(ig)%indloc = ig
-                parts(ig)%itype = 97
-                parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmin
-                parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymax
-                parts(ig)%vx(1) = -parts(ig)%vx(1)
-                parts(ig)%vx(2) = -parts(ig)%vx(2)
-            end if
-            if ( (parts(i)%x(1)-vxmax)**2 + (parts(i)%x(2)-vymax)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) < vxmax) then
-                nghos_loc = nghos_loc + 1
-                ig = ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
-                gind(nghos_loc) = i
-                parts(ig) = parts(i)
-                parts(ig)%indloc = ig
-                parts(ig)%itype = 97
-                parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmax
-                parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymax
-                parts(ig)%vx(1) = -parts(ig)%vx(1)
-                parts(ig)%vx(2) = -parts(ig)%vx(2)
-            end if
-            if ( (parts(i)%x(1)-vxmax)**2 + (parts(i)%x(2)-vymin)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) < vxmax) then
-                nghos_loc = nghos_loc + 1
-                ig = ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
-                gind(nghos_loc) = i
-                parts(ig) = parts(i)
-                parts(ig)%indloc = ig
-                parts(ig)%itype = 97
-                parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmax
-                parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymin
-                parts(ig)%vx(1) = -parts(ig)%vx(1)
-                parts(ig)%vx(2) = -parts(ig)%vx(2)
+        do i = 1,ntotal_loc+nvirt_loc+nhalo_loc
+            if (parts(i)%itype > 0) then
+                if (abs(parts(i)%x(1)-vxmin) < scale_k*hsml .and. parts(i)%x(1) > vxmin) then
+                    nghos_loc = nghos_loc + 1
+                    ig = ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
+                    gind(nghos_loc) = i
+                    parts(ig) = parts(i)
+                    parts(ig)%indloc = ig
+                    parts(ig)%itype = 99
+                    parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmin
+                    parts(ig)%vx(1) = -parts(ig)%vx(1)
+                end if
+                if (abs(parts(i)%x(1)-vxmax) < scale_k*hsml .and. parts(i)%x(1) < vxmax) then
+                    nghos_loc = nghos_loc + 1
+                    ig = ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
+                    gind(nghos_loc) = i
+                    parts(ig) = parts(i)
+                    parts(ig)%indloc = ig
+                    parts(ig)%itype = 99
+                    parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmax
+                    parts(ig)%vx(1) = -parts(ig)%vx(1)
+                end if
+                if (abs(parts(i)%x(2)-vymin) < scale_k*hsml .and. parts(i)%x(2) > vymin) then
+                    nghos_loc = nghos_loc + 1
+                    ig = ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
+                    gind(nghos_loc) = i
+                    parts(ig) = parts(i)
+                    parts(ig)%indloc = ig
+                    parts(ig)%itype = 98
+                    parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymin
+                    parts(ig)%vx(2) = -parts(ig)%vx(2)
+                end if
+                if (abs(parts(i)%x(2)-vymax) < scale_k*hsml .and. parts(i)%x(2) < vymax) then
+                    nghos_loc = nghos_loc + 1
+                    ig = ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
+                    gind(nghos_loc) = i
+                    parts(ig) = parts(i)
+                    parts(ig)%indloc = ig
+                    parts(ig)%itype = 98
+                    parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymax
+                    parts(ig)%vx(2) = -parts(ig)%vx(2)
+                end if
+                if ( (parts(i)%x(1)-vxmin)**2 + (parts(i)%x(2)-vymin)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) > vxmin) then
+                    nghos_loc = nghos_loc + 1
+                    ig = ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
+                    gind(nghos_loc) = i
+                    parts(ig) = parts(i)
+                    parts(ig)%indloc = ig
+                    parts(ig)%itype = 97
+                    parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmin
+                    parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymin
+                    parts(ig)%vx(1) = -parts(ig)%vx(1)
+                    parts(ig)%vx(2) = -parts(ig)%vx(2)
+                end if
+                if ( (parts(i)%x(1)-vxmin)**2 + (parts(i)%x(2)-vymax)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) > vxmin) then
+                    nghos_loc = nghos_loc + 1
+                    ig = ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
+                    gind(nghos_loc) = i
+                    parts(ig) = parts(i)
+                    parts(ig)%indloc = ig
+                    parts(ig)%itype = 97
+                    parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmin
+                    parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymax
+                    parts(ig)%vx(1) = -parts(ig)%vx(1)
+                    parts(ig)%vx(2) = -parts(ig)%vx(2)
+                end if
+                if ( (parts(i)%x(1)-vxmax)**2 + (parts(i)%x(2)-vymax)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) < vxmax) then
+                    nghos_loc = nghos_loc + 1
+                    ig = ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
+                    gind(nghos_loc) = i
+                    parts(ig) = parts(i)
+                    parts(ig)%indloc = ig
+                    parts(ig)%itype = 97
+                    parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmax
+                    parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymax
+                    parts(ig)%vx(1) = -parts(ig)%vx(1)
+                    parts(ig)%vx(2) = -parts(ig)%vx(2)
+                end if
+                if ( (parts(i)%x(1)-vxmax)**2 + (parts(i)%x(2)-vymin)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) < vxmax) then
+                    nghos_loc = nghos_loc + 1
+                    ig = ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
+                    gind(nghos_loc) = i
+                    parts(ig) = parts(i)
+                    parts(ig)%indloc = ig
+                    parts(ig)%itype = 97
+                    parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmax
+                    parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymin
+                    parts(ig)%vx(1) = -parts(ig)%vx(1)
+                    parts(ig)%vx(2) = -parts(ig)%vx(2)
+                end if
             end if
         end do
         

@@ -40,13 +40,16 @@ contains
         integer(HSIZE_T),intent(in):: global_dims ! shape of entire dataset being written
         integer(HSSIZE_T),intent(in):: displ ! displacement of process
         real(kind(1.d0)),intent(in):: ddata(:) ! data local to MPI Process to write
-        integer(HSIZE_T):: local_dims(1)
+        integer(HSIZE_T):: local_dims(1),global_dims_copy(1)
+        integer(HSSIZE_T):: displ_copy(1)
         integer,parameter:: rank = 1
         
         local_dims = size(ddata)
+        global_dims_copy(1) = global_dims
+        displ_copy(1) = displ
 
         ! Creating dataspace for entire dataset
-        call h5screate_simple_f(rank,[global_dims],dspace_id,ierr)
+        call h5screate_simple_f(rank,global_dims_copy,dspace_id,ierr)
         
         ! Creating dataset for entire dataset
         call h5dcreate_f(fid,dset_name,H5T_NATIVE_DOUBLE,dspace_id,dset_id,ierr)
@@ -55,12 +58,12 @@ contains
         ! Creating dataspace in dataset for each process to write to
         call h5screate_simple_f(rank,local_dims,local_dspace_id,ierr)
         call h5dget_space_f(dset_id,dspace_id,ierr)
-        call h5sselect_hyperslab_f(dspace_id,H5S_SELECT_SET_F,[displ],local_dims,ierr)
+        call h5sselect_hyperslab_f(dspace_id,H5S_SELECT_SET_F,displ_copy,local_dims,ierr)
         ! Create property list for collective dataset write
         call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, ierr)
         call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, ierr)
         ! Write the dataset collectively. 
-        call h5dwrite_f(dset_id,H5T_NATIVE_DOUBLE,ddata,[global_dims],ierr,file_space_id=dspace_id,mem_space_id=local_dspace_id,&
+        call h5dwrite_f(dset_id,H5T_NATIVE_DOUBLE,ddata,global_dims_copy,ierr,file_space_id=dspace_id,mem_space_id=local_dspace_id,&
             xfer_prp = plist_id)
         
         ! closing all dataspaces,datasets,property lists.
@@ -120,28 +123,31 @@ contains
         integer(HSIZE_T),intent(in):: global_dims ! shape of entire dataset being written
         integer(HSSIZE_T),intent(in):: displ ! displacement of process
         integer,intent(in):: idata(:) ! data local to MPI Process to write
-        integer(HSIZE_T):: local_dims(1)
+        integer(HSIZE_T):: local_dims(1),global_dims_copy(1)
+        integer(HSSIZE_T):: displ_copy(1) ! this exists because the hdf5 subroutine only accepts arrays, not constants
         integer,parameter:: rank = 1
         
         local_dims = size(idata)
+        global_dims_copy(1) = global_dims
+        displ_copy(1) = displ
 
         ! Creating dataspace for entire dataset
-        call h5screate_simple_f(rank,[global_dims],dspace_id,ierr)
+        call h5screate_simple_f(rank,global_dims_copy,dspace_id,ierr)
         
         ! Creating dataset for entire dataset
-        call h5dcreate_f(fid,dset_name,H5T_NATIVE_DOUBLE,dspace_id,dset_id,ierr)
+        call h5dcreate_f(fid,dset_name,H5T_NATIVE_INTEGER,dspace_id,dset_id,ierr)
         call h5sclose_f(dspace_id,ierr)
         
         ! Creating dataspace in dataset for each process to write to
         call h5screate_simple_f(rank,local_dims,local_dspace_id,ierr)
         call h5dget_space_f(dset_id,dspace_id,ierr)
-        call h5sselect_hyperslab_f(dspace_id,H5S_SELECT_SET_F,[displ],local_dims,ierr)
+        call h5sselect_hyperslab_f(dspace_id,H5S_SELECT_SET_F,displ_copy,local_dims,ierr)
         ! Create property list for collective dataset write
         call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, ierr)
         call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, ierr)
         ! Write the dataset collectively. 
-        call h5dwrite_f(dset_id,H5T_NATIVE_INTEGER,idata,[global_dims],ierr,file_space_id=dspace_id,mem_space_id=local_dspace_id,&
-            xfer_prp = plist_id)
+        call h5dwrite_f(dset_id,H5T_NATIVE_INTEGER,idata,global_dims_copy,ierr,file_space_id=dspace_id,&
+            mem_space_id=local_dspace_id,xfer_prp = plist_id)
         
         ! closing all dataspaces,datasets,property lists.
         call h5sclose_f(dspace_id,ierr)

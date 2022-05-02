@@ -1,30 +1,36 @@
 module ORB_sr_m
-
-	use globvar, 		only: ntotal_loc,nhalo_loc,parts,maxnloc,itimestep,scale_k
-	use globvar_para,	only: procid,numprocs,PhysPackSend,bounds_glob,n_process_neighbour,proc_neighbour_list,nphys_send,&
-						nphys_recv,parttype,ierr
+    
+    use datatypes,      only: particles
+	use globvar, 		only: ntotal_loc,nvirt_loc,nhalo_loc,parts,maxnloc,itimestep,scale_k
+	use globvar_para,	only: procid,numprocs,bounds_glob,n_process_neighbour,proc_neighbour_list,nphys_send,nphys_recv,nvirt_send,&
+						nvirt_recv,parttype,ierr
 	use mpi
 	use param,			only: f,dim,hsml
 	use error_msg_m,	only: error_msg
+    
+    type(particles),allocatable,private:: PhysPackSend(:,:),VirtPackSend(:,:)
 	
 	public:: ORB_sendrecv_diffuse,ORB_sendrecv_halo,ORB_sendrecv_haloupdate
 	
 contains
 
 	!==============================================================================================================================
-	recursive function ORB_sendrecv_diffuse( entrydepth,searchrange,nrequest,request,n_recv_all ) result (success)
+	recursive function ORB_sendrecv_diffuse( entrydepth,physsearchrange,virtsearchrange,nrequest,request,n_recv_all,&
+        nvirt_recv_all ) result (success)
 	! Recursive function to exchange physical particles. In cases were subdomain boundaries are updated, the possibility of needing
 	! diffusion is considered
 	
 		use globvar_para,	only: repartition_mode
 		
 		implicit none
-		integer,intent(in):: searchrange(2)
-		integer,intent(inout):: nrequest,request(2*n_process_neighbour),n_recv_all,entrydepth
-		integer:: d,i,j,k,pid,n,pos_recv,success
-		integer:: removal_list(searchrange(2)-searchrange(1)+2),nphys_send_all,diff_dest,ndiffuse_loc,ndiffuse_all,searchrange_next(2)
+		integer,intent(in):: physsearchrange(2),virtsearchrange(2)
+		integer,intent(inout):: nrequest,request(4*n_process_neighbour),n_recv_all,nvirt_recv_all,entrydepth
+		integer:: d,i,j,k,pid,n,pos_recv_phys,pos_recv_virt,success
+		integer:: removal_list_phys(physsearchrange(2)-physsearchrange(1)+2),&
+            removal_list_virt(virtsearchrange(2)-virtsearchrange(1)+2),nphys_send_all,nvirt_send_all,diff_dest,ndiffuse_loc,&
+            ndiffuse_all,physsearchrange_next(2),virtsearchrange_next(2)
 		real(f):: xmin_loc(dim),xmax_loc(dim),xmin_rem(dim),xmax_rem(dim),xi(dim),dr,dr_min
-		integer:: status(2*n_process_neighbour,MPI_STATUS_SIZE)
+		integer:: status(4*n_process_neighbour,MPI_STATUS_SIZE)
 		
 		! Initialization
 		success = 1
@@ -33,7 +39,8 @@ contains
 		if (entrydepth.gt.0) then
 			call MPI_WAITALL(nrequest,request,status,ierr)
 			ntotal_loc = ntotal_loc + n_recv_all
-			deallocate( PhysPackSend )
+            nvirt_loc = nvirt_loc + nvirt_recv_all
+			deallocate( PhysPackSend,VirtPackSend )
 		end if
 		
 		xmin_loc(:) = bounds_glob(1:dim,procid+1)
@@ -42,42 +49,93 @@ contains
 		! Searching particles to remove within indices of searchrange(1) and searchrange(2), inclusive.
 		! At node 0, searchrange(1:2) = [1,ntotal_loc)
 		nphys_send_all = 0
-		do i = searchrange(1),searchrange(2)
+		do i = physsearchrange(1),physsearchrange(2)
 			xi(:) = parts(i)%x(:)
 			if ( any( [xi(:).lt.xmin_loc(:) , xi(:).ge.xmax_loc(:)] ) ) then
-				nphys_send_all = nphys_send_all + 1
-				removal_list(nphys_send_all) = i
+                nphys_send_all = nphys_send_all + 1
+				removal_list_phys(nphys_send_all) = i
 			end if
 		end do
-		removal_list(nphys_send_all+1) = 0 ! This is needed due to a quirk in the loop below
-		
+		removal_list_phys(nphys_send_all+1) = 0 ! This is needed due to a quirk in the loop below
+        
+        nvirt_send_all = 0
+        do i = virtsearchrange(1),virtsearchrange(2)
+            xi(:) = parts(i)%x(:)
+            if ( any( [xi(:).lt.xmin_loc(:) , xi(:).ge.xmax_loc(:)] ) ) then
+                nvirt_send_all = nvirt_send_all + 1
+                removal_list_virt(nvirt_send_all) = i
+            end if
+        end do
+		removal_list_virt(nvirt_send_all+1) = 0
+        
 		! If there are any particles that do not belong to the host process,
 		! begin searching for neighbouring processes to send the particle to.
 		! If particle is not contained with subdomain boundaries, send the particle to nearest process neighbouring current host.
-		allocate( PhysPackSend(nphys_send_all,n_process_neighbour) )
+		allocate( PhysPackSend(nphys_send_all,n_process_neighbour),&
+            VirtPackSend(nvirt_send_all,n_process_neighbour) )
 		nphys_send(:) = 0
 		ndiffuse_loc = 0
 		if (nphys_send_all.gt.0) then
-			loop_through_parts: do j = 1,nphys_send_all
-				i = removal_list(j)
+			loop_through_parts_phys: do j = 1,nphys_send_all
+				i = removal_list_phys(j)
 				xi(:) = parts(i)%x(:) !placeholder variable of particle position for code readibility
 				do n = 1,n_process_neighbour
 					pid = proc_neighbour_list(n) + 1
 					xmin_rem(:) = bounds_glob(1:dim,pid) ! min boundary for remote process, pid
 					xmax_rem(:) = bounds_glob(dim+1:2*dim,pid) ! max boundary for remote process, pid
 					if ( all( [xi(:).ge.xmin_rem(:) , xi(:).lt.xmax_rem(:)] ) ) then
-		
-						nphys_send(n) = nphys_send(n) + 1
+                        nphys_send(n) = nphys_send(n) + 1
 						PhysPackSend(nphys_send(n),n) = parts(i)
 		
-						cycle loop_through_parts ! stop searching for a subdomain neighbour and move to next particle
+						cycle loop_through_parts_phys ! stop searching for a subdomain neighbour and move to next particle
 					end if
 				end do
 	
 				! particle belongs to non-neighbouring process. 
 				! Evaluates closeness by considering minimum distance between particle and a processes edge,face, or vertice
 				ndiffuse_loc = ndiffuse_loc + 1
-				dr_min = huge(1_f)
+				dr_min = huge(1._f)
+				do n = 1,n_process_neighbour
+					pid = proc_neighbour_list(n) + 1
+					dr = 0_f
+					do d = 1,dim
+						dr = dr + MAX(0._f,bounds_glob(d,pid)-parts(i)%x(d),parts(i)%x(d)-bounds_glob(dim+d,pid))**2
+					end do
+					dr = SQRT(dr)
+					if (dr.lt.dr_min) then
+						diff_dest = n
+						dr_min = dr
+					end if
+				end do
+                
+                nphys_send(diff_dest) = nphys_send(diff_dest) + 1
+				PhysPackSend(nphys_send(diff_dest),diff_dest) = parts(i)
+				
+				!call error_msg(itimestep,procid,4,ind(i))
+			end do loop_through_parts_phys
+		end if
+        
+        nvirt_send(:) = 0
+        if (nvirt_send_all.gt.0) then
+			loop_through_parts_virt: do j = 1,nvirt_send_all
+				i = removal_list_virt(j)
+				xi(:) = parts(i)%x(:) !placeholder variable of particle position for code readibility
+				do n = 1,n_process_neighbour
+					pid = proc_neighbour_list(n) + 1
+					xmin_rem(:) = bounds_glob(1:dim,pid) ! min boundary for remote process, pid
+					xmax_rem(:) = bounds_glob(dim+1:2*dim,pid) ! max boundary for remote process, pid
+					if ( all( [xi(:).ge.xmin_rem(:) , xi(:).lt.xmax_rem(:)] ) ) then
+                        nvirt_send(n) = nvirt_send(n) + 1
+						VirtPackSend(nvirt_send(n),n) = parts(i)
+		
+						cycle loop_through_parts_virt ! stop searching for a subdomain neighbour and move to next particle
+					end if
+				end do
+	
+				! particle belongs to non-neighbouring process. 
+				! Evaluates closeness by considering minimum distance between particle and a processes edge,face, or vertice
+				ndiffuse_loc = ndiffuse_loc + 1
+				dr_min = huge(1._f)
 				do n = 1,n_process_neighbour
 					pid = proc_neighbour_list(n) + 1
 					dr = 0_f
@@ -90,64 +148,86 @@ contains
 						dr_min = dr
 					end if
 				end do
-	
-				nphys_send(diff_dest) = nphys_send(diff_dest) + 1
-				PhysPackSend(nphys_send(diff_dest),diff_dest) = parts(i)
+                
+                nvirt_send(diff_dest) = nvirt_send(diff_dest) + 1
+				VirtPackSend(nvirt_send(diff_dest),diff_dest) = parts(i)
 				
 				!call error_msg(itimestep,procid,4,ind(i))
-			end do loop_through_parts
+			end do loop_through_parts_virt
 		end if
 		
 		! Posting non-blocking send/recv to exchange info with neighers of no. particles being sent
 		do n = 1,n_process_neighbour
 			pid = proc_neighbour_list(n)
-			call MPI_IRECV(nphys_recv(n),1,MPI_INTEGER,pid,0,MPI_COMM_WORLD,request(2*n-1),ierr)
-			call MPI_ISEND(nphys_send(n),1,MPI_INTEGER,pid,0,MPI_COMM_WORLD,request(2*n),ierr)
+			call MPI_IRECV(nphys_recv(n),1,MPI_INTEGER,pid,0,MPI_COMM_WORLD,request(4*n-3),ierr)
+			call MPI_IRECV(nvirt_recv(n),1,MPI_INTEGER,pid,0,MPI_COMM_WORLD,request(4*n-2),ierr)
+			call MPI_ISEND(nphys_send(n),1,MPI_INTEGER,pid,0,MPI_COMM_WORLD,request(4*n-1),ierr)
+			call MPI_ISEND(nvirt_send(n),1,MPI_INTEGER,pid,0,MPI_COMM_WORLD,request(4*n),ierr)
 		end do
 		
 		! Shifting information to remove sent particles
 		n = 0
 		if ( (nphys_send_all.gt.0) .and. (nphys_send_all.lt.ntotal_loc) ) then
-			do i = removal_list(1),ntotal_loc
-				if ( i.eq.removal_list(n+1) ) then
+			do i = removal_list_phys(1),ntotal_loc
+				if ( i.eq.removal_list_phys(n+1) ) then
 					n = n + 1
 				else
 					parts(i-n) = parts(i) ! moving particle to new local position
 				end if
 			end do
 		end if
-		
-		ntotal_loc = ntotal_loc - nphys_send_all
-		
+        n = 0
+        
+        if ( (nphys_send_all > 0 .or. nvirt_send_all > 0) .and. (nvirt_send_all .lt.nvirt_loc) ) then
+            do i = ntotal_loc+1,ntotal_loc+nvirt_loc
+                if ( i.eq.removal_list_virt(n+1) ) then
+                    n = n + 1
+                else
+                    parts(i-n-nphys_send_all) = parts(i)
+                end if
+            end do
+        end if
 		! Wait for non-blocking send to complete
-		call MPI_WAITALL(2*n_process_neighbour,request,status,ierr)
-		
+		call MPI_WAITALL(4*n_process_neighbour,request,status,ierr)
+        n_recv_all = SUM(nphys_recv)
+        nvirt_recv_all = sum(nvirt_recv)
+        ntotal_loc = ntotal_loc - nphys_send_all
+        nvirt_loc = nvirt_loc - nvirt_send_all
+
+        parts(ntotal_loc+n_recv_all+1:ntotal_loc+n_recv_all+nvirt_loc) = parts(ntotal_loc+1:ntotal_loc+nvirt_loc)
+
 		! Calculating total number of physical particles to be received. Check if this exceeds particle array boundaries
-		n_recv_all = SUM(nphys_recv)
 		if (ntotal_loc+n_recv_all.gt.maxnloc) call error_msg(2,parts(ntotal_loc)%indloc)
 		
 		! Non-blocking sends to exchange physical particles that have moved processes ---------------------------------------------------
-		pos_recv = ntotal_loc + 1
+		pos_recv_phys = ntotal_loc + 1
+        pos_recv_virt = ntotal_loc + n_recv_all + nvirt_loc + 1
 		nrequest = 0
 		do n = 1,n_process_neighbour
 	
 			pid = proc_neighbour_list(n)
 	
 			if (nphys_recv(n).gt.0) then
-	
 				nrequest = nrequest + 1
-				call MPI_IRECV(parts(pos_recv)%indglob,nphys_recv(n),parttype,pid,0,MPI_COMM_WORLD,request(nrequest),ierr)
-				
-				pos_recv = pos_recv + nphys_recv(n)
-					
+				call MPI_IRECV(parts(pos_recv_phys)%indglob,nphys_recv(n),parttype,pid,0,MPI_COMM_WORLD,request(nrequest),ierr)
+				pos_recv_phys = pos_recv_phys + nphys_recv(n)
 			end if
 	
 			if (nphys_send(n).gt.0) then
-			
 				nrequest = nrequest + 1
 				call MPI_ISEND(PhysPackSend(1,n)%indglob,nphys_send(n),parttype,pid,0,MPI_COMM_WORLD,request(nrequest),ierr)
-		
 			end if
+            
+            if (nvirt_recv(n).gt.0) then
+                nrequest = nrequest + 1
+                call MPI_IRECV(parts(pos_recv_virt)%indglob,nvirt_recv(n),parttype,pid,0,MPI_COMM_WORLD,request(nrequest),ierr)
+                pos_recv_virt = pos_recv_virt + nvirt_recv(n)
+            end if
+            
+            if (nvirt_send(n).gt.0) then
+                nrequest = nrequest + 1
+                call MPI_ISEND(VirtPackSend(1,n)%indglob,nvirt_send(n),parttype,pid,0,MPI_COMM_WORLD,request(nrequest),ierr)
+            end if
 	
 		end do
 		
@@ -168,8 +248,10 @@ contains
 				end if
 				
 				entrydepth = entrydepth + 1
-				searchrange_next = (/ntotal_loc+1,ntotal_loc+n_recv_all/)
-				success = ORB_sendrecv_diffuse( entrydepth,searchrange_next,nrequest,request,n_recv_all )
+				physsearchrange_next = (/ntotal_loc+1,ntotal_loc+n_recv_all/)
+                virtsearchrange_next = (/ntotal_loc+n_recv_all+nvirt_loc+1,ntotal_loc+n_recv_all+nvirt_loc+nvirt_recv_all/)
+				success = ORB_sendrecv_diffuse( entrydepth,physsearchrange_next,virtsearchrange_next,nrequest,request,n_recv_all,&
+                    nvirt_recv_all )
 			end if
 		end if
 		success = 0
@@ -177,7 +259,7 @@ contains
 	end function ORB_sendrecv_diffuse
 	
 	!==============================================================================================================================
-	subroutine ORB_sendrecv_halo( request_in,request_out,nphys_recv_all,nrequest )
+	subroutine ORB_sendrecv_halo( request_in,request_out,nphys_recv_all,nvirt_recv_all,nrequest )
 	
 		!subroutine responsible for sending sending halo particle information between processes, given 
 		!predetermined subdomain boundaires. 
@@ -187,63 +269,67 @@ contains
 		use param_para,		only: halotype,haloupdatetype
 	
 		implicit none
-		integer,intent(inout):: request_in(2*n_process_neighbour)
-		integer,intent(inout):: nphys_recv_all,nrequest
+		integer,intent(inout):: request_in(4*n_process_neighbour)
+		integer,intent(inout):: nphys_recv_all,nrequest,nvirt_recv_all
 		integer,intent(out):: request_out(2*n_process_neighbour)
 		integer:: status(MPI_STATUS_SIZE,2*n_process_neighbour)
-		integer:: d,i,j,k,pid,n_send_all,n,pos0_recv,pos1_recv,pos0,pos1
+		integer:: d,i,j,k,pid,n_send_all,n,pos0_recv,pos1_recv,pos0,pos1,pos2,pos3
 		real(f):: xmin_rem(dim),xmax_rem(dim),xi(dim),t1,t2,xmin_loc(dim),xmax_loc(dim),dr
-		logical:: wait_for_phys_then_reloop
+		logical:: wait_then_reloop=.false.
 		integer:: ones1D(ntotal_loc+nphys_recv_all),halo_pindex_0(ntotal_loc+nphys_recv_all)
 	
 		! Initialization
 		if ( allocated(halo_pindex) ) deallocate( halo_pindex )
 		
-		allocate( halo_pindex(ntotal_loc+nphys_recv_all,n_process_neighbour) )
+		allocate( halo_pindex(ntotal_loc+nphys_recv_all+nvirt_loc+nvirt_recv_all,n_process_neighbour) )
 			
 		nhalo_send(:) = 0
 	
-		if (nphys_recv_all.eq.0) then
-			wait_for_phys_then_reloop = .false.
-		else
-			wait_for_phys_then_reloop = .true.
-		end if
+		if (nphys_recv_all+nvirt_recv_all > 0) wait_then_reloop = .true.
 	
 		! Halo particle send location determination
 		! First loop loops over currently held particles
 		pos0 = 1
 		pos1 = ntotal_loc
+        pos2 = ntotal_loc+nphys_recv_all+1
+        pos3 = pos2 + nvirt_loc - 1
 	
 		! Begin search
 		xmin_loc = bounds_glob(1:dim,procid+1) + scale_k*hsml
 		xmax_loc = bounds_glob(dim+1:2*dim,procid+1) - scale_k*hsml
-	1 	do i = pos0,pos1
-			xi(:) = parts(i)%x(:)
-			if ( any( [xi(:).le.xmin_loc(:) , xi(:).ge.xmax_loc(:)] ) ) then ! if particle is potentially neighbour's halo
-				do j = 1,n_process_neighbour
-					pid = proc_neighbour_list(j) + 1
-					xmin_rem(:) = bounds_glob(1:dim,pid) - scale_k*hsml
-					xmax_rem(:) = bounds_glob(dim+1:2*dim,pid) + scale_k*hsml
-					if ( all( [xi(:).ge.xmin_rem(:) , xi(:).le.xmax_rem(:)] ) ) then
-					
-						nhalo_send(j) = nhalo_send(j) + 1
-						halo_pindex(nhalo_send(j),j) = i
-			
-					end if
+	1 	do k = 1,2
+            do i = pos0,pos1
+                xi(:) = parts(i)%x(:)
+                if ( any( [xi(:).le.xmin_loc(:) , xi(:).ge.xmax_loc(:)] ) ) then ! if particle is potentially neighbour's halo
+                    do j = 1,n_process_neighbour
+                        pid = proc_neighbour_list(j) + 1
+                        xmin_rem(:) = bounds_glob(1:dim,pid) - scale_k*hsml
+                        xmax_rem(:) = bounds_glob(dim+1:2*dim,pid) + scale_k*hsml
+                        if ( all( [xi(:).ge.xmin_rem(:) , xi(:).le.xmax_rem(:)] ) ) then
+                        
+                            nhalo_send(j) = nhalo_send(j) + 1
+                            halo_pindex(nhalo_send(j),j) = i
+                
+                        end if
+            
+                    end do
+                end if
+            end do
+            pos0 = pos2
+            pos1 = pos3
+        end do
 		
-				end do
-			end if
-		end do
-		
-		! Waiting for physical particles to complete exchange if needed
-		if (wait_for_phys_then_reloop) then
-			pos0 = ntotal_loc+1
-			pos1 = ntotal_loc+nphys_recv_all
-			wait_for_phys_then_reloop = .false.
-			call MPI_WAITALL(nrequest,request_in,status(:,1:nrequest),ierr) !wait for new physical particles to arrive
+        ! Waiting for particles exchange to complete if needed
+        if (wait_then_reloop) then
+            pos0 = ntotal_loc+1
+            pos1 = pos0 + nphys_recv_all - 1
+            pos2 = pos1 + nvirt_loc + 1
+            pos3 = pos2 + nvirt_recv_all - 1
+            wait_then_reloop = .false.
+            call MPI_WAITALL(nrequest,request_in,status(:,1:nrequest),ierr) !wait for new physical particles to arrive
 			goto 1
-		end if
-	
+        end if
+		
 		! Posting non-blocking send for nhalo_send exchange
 		do n = 1,n_process_neighbour
 			pid = proc_neighbour_list(n)
@@ -266,9 +352,10 @@ contains
 		end do
 		
 		ntotal_loc = ntotal_loc + nphys_recv_all
-		parts(1:ntotal_loc)%indloc = (/ (i, i=1,ntotal_loc) /) ! updating all the loca indices of new physical particles
+        nvirt_loc = nvirt_loc + nvirt_recv_all
+		parts(1:ntotal_loc+nvirt_loc)%indloc = (/ (i, i=1,ntotal_loc+nvirt_loc) /) ! updating all the loca indices of new physical particles
 	
-		deallocate( PhysPackSend )
+		deallocate( PhysPackSend,VirtPackSend )
 		
 		! Wait for non-blocking send to complete
 		call MPI_WAITALL(2*n_process_neighbour,request_out,status,ierr)
@@ -277,11 +364,11 @@ contains
 		
 		! stopping program if array bounds are exceeded
 		nhalo_loc = SUM(nhalo_recv)
-		if (ntotal_loc+nhalo_loc.gt.maxnloc) call error_msg(3,parts(i)%indloc)
+		if (ntotal_loc+nvirt_loc+nhalo_loc.gt.maxnloc) call error_msg(3,parts(i)%indloc)
 		
 		nrequest = 0
 		! Creating communicator for indexed struct comms
-		pos1_recv = ntotal_loc
+		pos1_recv = ntotal_loc+nvirt_loc
 		do n = 1,n_process_neighbour
 	
 			pid = proc_neighbour_list(n)
@@ -322,7 +409,7 @@ contains
 	
 		!3. halo particle send/receive ----------------------------------------------------------------------------------------------------
 		n_request = 0
-		pos1_recv = ntotal_loc
+		pos1_recv = ntotal_loc+nvirt_loc
 		do n = 1,n_process_neighbour
 	
 			pid = proc_neighbour_list(n)

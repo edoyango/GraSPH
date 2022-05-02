@@ -15,7 +15,7 @@ module globvar
 	integer,public:: ntotal,nvirt,ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc
 	integer,public:: maxn,maxinter,maxnloc
 	integer,public:: niac
-	integer,public:: itimestep,maxtimestep,save_step,print_step
+	integer,public:: itimestep=0,maxtimestep,save_step,print_step
 	real(f),public:: time
 	
 	real(f),public:: scale_k

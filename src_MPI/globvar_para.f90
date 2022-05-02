@@ -14,13 +14,12 @@ module globvar_para
 	integer,allocatable,public:: halotype_indexed(:),haloupdatetype_indexed(:)
 
 	! particle send/recv arrays -------------------------------------------------------------------------------------------------------
-	integer,allocatable,public:: nphys_send(:),nphys_recv(:)
+	integer,allocatable,public:: nphys_send(:),nphys_recv(:),nvirt_send(:),nvirt_recv(:)
 	integer,allocatable,public:: nhalo_send(:),nhalo_recv(:)
-	type(particles),allocatable,public:: PhysPackSend(:,:)
 	
 	!ORB variables --------------------------------------------------------------------------------------------------------------------
 	integer,public:: maxnode,n_process_neighbour,leaf_node,repartition_mode
-	integer,allocatable,public:: node_cax(:),pincell_ORB_2D(:,:),pincell_ORB_3D(:,:,:),proc_neighbour_list(:),node_cut(:),&
+	integer,allocatable,public:: node_cax(:),pincell_ORB(:,:,:),proc_neighbour_list(:),node_cut(:),&
 	node_segment(:),halo_pindex(:,:)
 	real(f),allocatable,public:: bounds_glob(:,:)
 	

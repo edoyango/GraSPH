@@ -1,6 +1,6 @@
 program SPH
 	
-	use globvar, 			only: ntotal,nvirt,scale_k,allocateGlobalArrays,deallocateGlobalArrays
+	use globvar, 			only: ntotal,nvirt,scale_k,allocateGlobalArrays,deallocateGlobalArrays,nhalo_loc,nghos_loc
 	use globvar_para, 		only: ierr,procid,numprocs,MPI_ftype
 	use mpi
 	use param, 				only: f,skf
@@ -8,6 +8,7 @@ program SPH
 	
 	use input_m, 			only: input,virt_part
 	use kernel_m,			only: kernel_k
+    use output_m,           only: output
 	use summary_m, 			only: preamble,time_print,print_summary
 	use time_integration_m,	only: time_integration
 	
@@ -40,7 +41,8 @@ program SPH
 	
 	!Created fluid domain using particles
 	call input(.true.)
-	
+    call virt_part(.true.)
+    
 	!Entering discretized time-integration loop
 	call time_integration( )
 	
