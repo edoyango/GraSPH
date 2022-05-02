@@ -39,7 +39,7 @@ axis equal; hold on
 %% Initial configuration
 colours = rand(numprocs,3);
 
-for i=1:10
+for i=1:50
     %% formatting plot
     clf(hf,'reset'); axis equal; hold on;
 
@@ -57,7 +57,7 @@ for i=1:10
     if dim == 2
         axis([0 75 0 40]);
     elseif dim==3
-        axis([0 75 0 14.5 -2 42]);
+%         axis([0 75 0 14.5 -2 42]);
         view(30,30);
     end
 
@@ -67,80 +67,71 @@ for i=1:10
     index=sprintf('%04d',i);
 
     %% Loading data
+    file_path = ['sph_out',index,'.h5'];
     %Physical particle Data
-    rx = h5read(['sph_out',index,'.h5'],'/real/x');
-    rv = h5read(['sph_out',index,'.h5'],'/real/v');
-    rrho = h5read(['sph_out',index,'.h5'],'/real/rho');
-    rp = h5read(['sph_out',index,'.h5'],'/real/p');
-    rind = h5read(['sph_out',index,'.h5'],'/real/ind');
-    rprocid = h5read(['sph_out',index,'.h5'],'/real/procid');
-    ritype = h5read(['sph_out',index,'.h5'],'/real/itype');
+    try
+        [rx,rv,rrho,rp,rind,rprocid,rtype] = ...
+            read_h5_data(file_path,'real');
+    catch
+        fprintf('Failed to find ghost particle data');
+    end
     
     % Halo particle data
-    hx = h5read(['sph_out',index,'.h5'],'/halo/x');
-    hv = h5read(['sph_out',index,'.h5'],'/halo/v');
-    hrho = h5read(['sph_out',index,'.h5'],'/halo/rho');
-    hp = h5read(['sph_out',index,'.h5'],'/halo/p');
-    hind = h5read(['sph_out',index,'.h5'],'/halo/ind');
-    hprocid = h5read(['sph_out',index,'.h5'],'/halo/procid');
-    hitype = h5read(['sph_out',index,'.h5'],'/halo/itype');
+    try
+        [vx,vv,vrho,vp,vind,vprocid,vtype] = ...
+            read_h5_data(file_path,'virt');
+    catch
+        fprintf('Failed to find ghost particle data');
+    end
 
     % Virtual particle data
-    vx = h5read(['sph_out',index,'.h5'],'/virt/x');
-    vv = h5read(['sph_out',index,'.h5'],'/virt/v');
-    vrho = h5read(['sph_out',index,'.h5'],'/virt/rho');
-    vp = h5read(['sph_out',index,'.h5'],'/virt/p');
-    vind = h5read(['sph_out',index,'.h5'],'/virt/ind');
-    vprocid = h5read(['sph_out',index,'.h5'],'/virt/procid');
-    vitype = h5read(['sph_out',index,'.h5'],'/virt/itype');
+    try
+        [hx,hv,hrho,hp,hind,hprocid,htype] = ...
+            read_h5_data(file_path,'halo');
+    catch
+        fprintf('Failed to find ghost particle data');
+    end
 
     % Ghost particle data
-%     gx = h5read(['sph_out',index,'.h5'],'/ghos/x');
-%     gv = h5read(['sph_out',index,'.h5'],'/ghos/v');
-%     grho = h5read(['sph_out',index,'.h5'],'/ghos/rho');
-%     gp = h5read(['sph_out',index,'.h5'],'/ghos/p');
-%     gind = h5read(['sph_out',index,'.h5'],'/ghos/ind');
-%     gprocid = h5read(['sph_out',index,'.h5'],'/ghos/procid');
-%     gitype = h5read(['sph_out',index,'.h5'],'/ghos/itype');
+    try
+        [gx,gv,grho,gp,gind,gprocid,gtype] = ...
+            read_h5_data(['sph_out',index,'.h5'],'ghos');
+    catch
+        fprintf('Failed to find ghost particle data');
+    end
+
 
     %% Choosing which quantities to plot and plotting physical particles
-    pquant = sqrt(sum(rv(:,:).^2,1));   % speed
-%     pquant = rrho;
-%     pquant = rprocid;
+%     pquant = sqrt(sum(rv(:,:).^2,1));   % speed
+    pquant = rprocid;
 %     pquant = [1,0,0]                                      % All particles red
-    %         ind = find(a00(2,:)==0); a01 = a01(:,ind); pquant = pquant(ind); a00 = a00(:,ind);
-    if dim == 2; b = scatter(rx(1,:),rx(2,:),25,pquant,'.');
-    elseif dim == 3; b = scatter3(rx(1,:),rx(2,:),rx(3,:),10,pquant,'.');
-    end
+%     ind = find(rprocid==0); rx = rx(:,ind); pquant = pquant(ind);
+    b = plot_helper(rx,pquant,25,'.');
 
     hold on;
 
     %% plotting halo particles
-    %         hquant = a10(3,:);
-    %         hquant = a11(1,:);
-    %     hquant = -a13(3,:); % vertical stress
-    %     hquant = a10(3,:);
-    %         hquant = [0 1 1];
+%     hquant = [0 1 1];
+    hquant = hv;
 
-    %         ind = find(a10(2,:)==0); a11 = a11(:,ind); hquant = hquant(ind); a10 = a10(:,ind);
-    %         b = scatter(a11(1,:),a11(2,:),150,hquant,'.');
+%     ind = find(hprocid==2); hx = hx(:,ind); hquant = hquant(ind); 
+%     b = plot_helper(hx,hquant,25,'x');
 
     %% plotting virtual particles
-    vquant = [0.7 0.7 0.7]; % colour all virutla particles grey
-%     vquant = sqrt(sum(vv(:,:).^2,1));   % speed
-    % vquant = a22(1,:);
-    % ind = find(vquant>0); vx = vx(:,ind); vquant = vquant(ind);
-    if dim==2 ; b = scatter(vx(1,:),vx(2,:),50,vquant,'.');
-    elseif dim==3; b = scatter3(vx(1,:),vx(2,:),vx(3,:),25,vquant,'.');
-    end
+    vquant = [0.7 0.7 0.7]; % colour all virutla particles gre
+%     vquant = vv;
+% %     vquant = sqrt(sum(vv(:,:).^2,1));   % speed
+%     % vquant = a22(1,:);
+%     ind = find(vprocid==2); vx = vx(:,ind);% vquant = vquant(ind);
+    b = plot_helper(vx,vquant,25,'^');
 
     %% plotting ghost particles
-    %         gquant = [0.7 0.7 0.7];
+%     gquant = [0.7 0.7 0.7];
+    gquant = gv;
 %     gquant = sqrt(a31(4,:).^2+a31(5,:).^2+a31(6,:).^2);   % speed
 %     %     gquant = -a33(3,:)/9.81/1600;
-%     if dim==2 ; b = scatter(a31(1,:),a31(2,:),100,gquant,'.');
-%     elseif dim==3; b = scatter3(a31(1,:),a31(2,:),a31(3,:),25,gquant,'.');
-%     end
+%     ind = find(gprocid==2); gx = gx(:,ind); gquant = gquant(ind);
+%     b = plot_helper(gx,gquant,25,'o');
 
     %     caxis([0,1])
 
@@ -165,5 +156,25 @@ if vid
     close(aviobj);
     close(hf);
 end
-fclose('all')
+fclose('all');
 cd(olddir);
+
+%% helper function to read sph particle data
+function [x,v,rho,p,ind,procid,type] = read_h5_data(path,group)
+    
+    x = h5read(path,['/',group,'/x']);
+    v = h5read(path,['/',group,'/v']);
+    rho = h5read(path,['/',group,'/rho']);
+    p = h5read(path,['/',group,'/p']);
+    ind = h5read(path,['/',group,'/ind']);
+    procid = h5read(path,['/',group,'/procid']);
+    type = h5read(path,['/',group,'/type']);
+end
+
+function b = plot_helper(x,data,sz,symbol)
+    if size(x,1)==2
+        b = scatter(x(1,:),x(2,:),sz,data,symbol);
+    elseif size(x,1)==3
+        b = scatter3(x(1,:),x(2,:),x(3,:),sz,data,symbol);
+    end
+end
