@@ -13,11 +13,11 @@ contains
 	!==============================================================================================================================
 	subroutine ORB
 	! Container subroutine for the bulk of the ORB algorithm, including the initial exchange of physical and halo particles
-		use globvar,		only: itimestep,ntotal,nhalo_loc,t_graph,t_dist
+		use globvar,		only: itimestep,ntotal,nhalo_loc,nvirt_loc,t_graph,t_dist
 		use globvar_para,	only: n_reorients,n_parts,mintstep_bn_part,maxtstep_bn_part,mintstep_bn_reorient,maxtstep_bn_reorient,&
 			box_ratio_previous,maxnode,bounds_glob,node_segment,prev_part_tstep,prev_reorient_tstep,nphys_send,nphys_recv,&
-			nhalo_send,nhalo_recv,halotype_indexed,haloupdatetype_indexed,prev_load,n_process_neighbour,proc_neighbour_list
-
+			nhalo_send,nhalo_recv,halotype_indexed,haloupdatetype_indexed,prev_load,n_process_neighbour,proc_neighbour_list,&
+            VirtPack
 		use param_para,		only: dcell_ORB,ORBcheck1,ORBcheck2,box_ratio_threshold
 		use ORB_sr_m,		only: ORB_sendrecv_diffuse,ORB_sendrecv_halo
 		use input_m,		only: virt_part
@@ -90,6 +90,9 @@ contains
 				bounds_out = ORB_bounds( gridind_ini,numprocs,1,procrange_ini,ntotal,dcell,mingridx_ini,maxgridx_ini )
 	
 				call subdomain_neighbour
+                
+                ! Local save subset of global virtual particles
+                call virt_part(.true.)
 				
 				! Updating sizes of select arrays to account for potential changes in neighbour list size
 				if (itimestep.ne.1) deallocate(nphys_send,nphys_recv,nhalo_send,nhalo_recv,halotype_indexed,haloupdatetype_indexed)
@@ -117,7 +120,8 @@ contains
 		call ORB_sendrecv_halo( request_phys,request_halo,nphys_recv_all,n_request )
 		
 		! update virtual particles
-		call virt_part(.true.)
+!~ 		call virt_part(.true.)
+        parts(ntotal_loc+nhalo_loc+1:ntotal_loc+nhalo_loc+nvirt_loc) = VirtPack(1:nvirt_loc)
 		
 		if (repartition_mode.gt.1) prev_load = ntotal_loc
 		

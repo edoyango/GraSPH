@@ -20,7 +20,7 @@ contains
 	! Subroutine responsible for the main time-integration loop
 	
 		implicit none     
-		integer:: i,j,k,d,n
+		integer:: i,j,k,d,n,ki
 		real(f),allocatable:: v_min(:,:),rho_min(:),dvxdt(:,:,:),drho(:,:)
 		
 		allocate(v_min(dim,maxnloc),rho_min(maxnloc),dvxdt(dim,maxnloc,4),drho(maxnloc,4))
@@ -45,45 +45,37 @@ contains
 			
 			!Interaction parameters, calculating neighboring particles
 			call flink_list
-			
-			! calculating forces (k1)
-			call single_step(1,dvxdt(:,:,1),drho(1:ntotal_loc,1))
-	
-			! updating data for mid-timestep base on k1
-			do i = 1,ntotal_loc
-				parts(i)%vx(:) = v_min(:,i) + 0.5_f*dt*dvxdt(:,i,1)
-				parts(i)%rho = rho_min(i) + 0.5_f*dt*drho(i,1)
-			end do
-			
-			! calculating forces (k2)
-			call single_step(2,dvxdt(:,:,2),drho(1:ntotal_loc,2))
-	
-			! updating data for mid-timestep base on k2
-			do i = 1,ntotal_loc
-				parts(i)%vx(:) = v_min(:,i) + 0.5_f*dt*dvxdt(:,i,2)
-				parts(i)%rho = rho_min(i) + 0.5_f*dt*drho(i,2)
-			end do
-			
-			! calculating forces (k3)
-			call single_step(3,dvxdt(:,:,3),drho(1:ntotal_loc,3))
-	
-			! updating data for mid-timestep base on k3
-			do i = 1,ntotal_loc
-				parts(i)%vx(:) = v_min(:,i) + dt*dvxdt(:,i,3)
-				parts(i)%rho = rho_min(i) + dt*drho(i,3)
-			end do
-			
-			call single_step(4,dvxdt(:,:,4),drho(1:ntotal_loc,4))
-	
-			! updating data for mid-timestep base on k1, k2, k3, k4
-			do i = 1,ntotal_loc
-				parts(i)%vx(:) = v_min(:,i) + dt/6._f*(dvxdt(:,i,1) + 2._f*dvxdt(:,i,2) + 2._f*dvxdt(:,i,3) + dvxdt(:,i,4))
-						
-				parts(i)%rho = rho_min(i) + dt/6._f*(drho(i,1) + 2._f*drho(i,2) + 2._f*drho(i,3) + drho(i,4))
-					
-				parts(i)%x(:) = parts(i)%x(:) + dt*parts(i)%vx(:)
-				
-			end do
+            
+            do ki = 1,4
+            
+                call single_step(ki,dvxdt(:,:,ki),drho(1:ntotal_loc,ki))
+                
+                select case (ki)
+                
+                    case (1,2)
+                    
+                        do i = 1,ntotal_loc
+                            parts(i)%vx(:) = v_min(:,i) + 0.5_f*dt*dvxdt(:,i,ki)
+                            parts(i)%rho = rho_min(i) + 0.5_f*dt*drho(i,ki)
+                        end do
+                        
+                    case(3)
+                    
+                        do i = 1,ntotal_loc
+                            parts(i)%vx(:) = v_min(:,i) + dt*dvxdt(:,i,ki)
+                            parts(i)%rho = rho_min(i) + dt*drho(i,ki)
+                        end do
+                        
+                    case(4)
+                    
+                        do i = 1,ntotal_loc
+                            parts(i)%vx(:) = v_min(:,i) + dt/6._f*(dvxdt(:,i,1) + 2._f*dvxdt(:,i,2) + 2._f*dvxdt(:,i,3) + dvxdt(:,i,4))
+                            parts(i)%rho = rho_min(i) + dt/6._f*(drho(i,1) + 2._f*drho(i,2) + 2._f*drho(i,3) + drho(i,4))
+                            parts(i)%x(:) = parts(i)%x(:) + dt*parts(i)%vx(:)
+                        end do
+                        
+                end select
+            end do
 			
 			time = time + dt
 			

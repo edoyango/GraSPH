@@ -127,11 +127,13 @@ contains
 		pincell(:,:,:) = 0
 		
 		do i=1,ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
-			icell = int((parts(i)%x(1) - mingridx(1))/dcell) + 1
-			jcell = int((parts(i)%x(2) - mingridx(2))/dcell) + 1 
-			kcell = int((parts(i)%x(3) - mingridx(3))/dcell) + 1 
-			pincell(icell,jcell,kcell) = pincell(icell,jcell,kcell) + 1
-			cells(pincell(icell,jcell,kcell),icell,jcell,kcell)%p => parts(i)
+            if (.not.any(parts(i)%x(:) < mingridx(:) .or. parts(i)%x(:) >= maxgridx(:))) then
+                icell = int((parts(i)%x(1) - mingridx(1))/dcell) + 1
+                jcell = int((parts(i)%x(2) - mingridx(2))/dcell) + 1 
+                kcell = int((parts(i)%x(3) - mingridx(3))/dcell) + 1 
+                pincell(icell,jcell,kcell) = pincell(icell,jcell,kcell) + 1
+                cells(pincell(icell,jcell,kcell),icell,jcell,kcell)%p => parts(i)
+            end if
 		enddo
 		
 		niac = 0
@@ -203,7 +205,7 @@ contains
 		!Determining bounding box extents
 		minx(:) = parts(1)%x(:)
 		maxx(:) = parts(1)%x(:)
-		do i = 2,ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
+		do i = 2,ntotal_loc!+nhalo_loc+nvirt_loc+nghos_loc
 			do d = 1,dim
 				minx(d) = MIN(minx(d),parts(i)%x(d))
 				maxx(d) = MAX(maxx(d),parts(i)%x(d))
@@ -212,8 +214,8 @@ contains
 		
 		!Determining number of grid cells in each direction
 		dc = scale_k*hsml
-		maxx(:) = maxx(:) + 2_f*dc
-		minx(:) = minx(:) - 2_f*dc
+		maxx(:) = maxx(:) + 3._f*dc
+		minx(:) = minx(:) - 3._f*dc
 		ng(:) = int((maxx(:) - minx(:))/dc) + 1
 		maxx(:) = minx(:) + ng(:)*dc
 		
