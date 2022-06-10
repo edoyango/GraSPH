@@ -39,7 +39,7 @@ axis equal; hold on
 %% Initial configuration
 colours = rand(numprocs,3);
 
-for i=1:10
+for i=1:20
     %% formatting plot
     clf(hf,'reset'); axis equal; hold on;
 
@@ -54,12 +54,12 @@ for i=1:10
     set(gca,'fontsize',16)
 
     % axis
-    if dim == 2
-        axis([0 75 0 40]);
-    elseif dim==3
-        axis([0 75 0 14.5 -2 42]);
-        view(30,30);
-    end
+%     if dim == 2
+%         axis([0 75 0 40]);
+%     elseif dim==3
+%         axis([0 75 0 14.5 -2 42]);
+%         view(30,30);
+%     end
 
     grid on; box on; axis on;
     %     grid off; box off; axis off;
@@ -74,7 +74,7 @@ for i=1:10
     rp = h5read(['sph_out',index,'.h5'],'/real/p');
     rind = h5read(['sph_out',index,'.h5'],'/real/ind');
     rprocid = h5read(['sph_out',index,'.h5'],'/real/procid');
-    ritype = h5read(['sph_out',index,'.h5'],'/real/itype');
+%     ritype = h5read(['sph_out',index,'.h5'],'/real/itype');
     
     % Halo particle data
     hx = h5read(['sph_out',index,'.h5'],'/halo/x');
@@ -83,7 +83,7 @@ for i=1:10
     hp = h5read(['sph_out',index,'.h5'],'/halo/p');
     hind = h5read(['sph_out',index,'.h5'],'/halo/ind');
     hprocid = h5read(['sph_out',index,'.h5'],'/halo/procid');
-    hitype = h5read(['sph_out',index,'.h5'],'/halo/itype');
+%     hitype = h5read(['sph_out',index,'.h5'],'/halo/itype');
 
     % Virtual particle data
     vx = h5read(['sph_out',index,'.h5'],'/virt/x');
@@ -92,7 +92,7 @@ for i=1:10
     vp = h5read(['sph_out',index,'.h5'],'/virt/p');
     vind = h5read(['sph_out',index,'.h5'],'/virt/ind');
     vprocid = h5read(['sph_out',index,'.h5'],'/virt/procid');
-    vitype = h5read(['sph_out',index,'.h5'],'/virt/itype');
+%     vitype = h5read(['sph_out',index,'.h5'],'/virt/itype');
 
     % Ghost particle data
 %     gx = h5read(['sph_out',index,'.h5'],'/ghos/x');
