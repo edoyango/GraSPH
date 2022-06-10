@@ -1,42 +1,42 @@
 module output_m
 
-	use globvar,		only: ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc,parts,itimestep,save_step,ntotal,nvirt,maxnloc
-	use globvar_para,	only: procid,numprocs,ierr,MPI_ftype
-	use param,			only: f,dim,output_directory,output_phys,output_halo,output_virt,output_flt_type
+    use globvar,        only: ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc,parts,itimestep,save_step,ntotal,nvirt,maxnloc
+    use globvar_para,    only: procid,numprocs,ierr,MPI_ftype
+    use param,            only: f,dim,output_directory,output_phys,output_halo,output_virt,output_flt_type
     
     use hdf5
     use mpi
     
     use hdf5_parallel_io_helper_m, only: hdf5_parallel_fileopen,hdf5_parallel_write
-	
-	implicit none
-	character(len=220),private:: filepath
-	character(len=4),private::number
-	integer,private:: n,i,j,k,d,request(4),status(MPI_STATUS_SIZE),posrange(2)
+    
+    implicit none
+    character(len=220),private:: filepath
+    character(len=4),private::number
+    integer,private:: n,i,j,k,d,request(4),status(MPI_STATUS_SIZE),posrange(2)
     integer(HID_T),private:: fid,real_group_id,virt_group_id,ghos_group_id
     integer(HSIZE_T),private:: global_dims(2)
     integer(HSSIZE_T),private:: displ(2)
-	
-	public:: output,write_ini_config
-	
+    
+    public:: output,write_ini_config
+    
 contains
 
-	!==============================================================================================================================
-	subroutine output
-	! Subroutine to write data to disk. Called intermittently, determined by save_step supplied at run-time
-		
-		implicit none
+    !==============================================================================================================================
+    subroutine output
+    ! Subroutine to write data to disk. Called intermittently, determined by save_step supplied at run-time
+        
+        implicit none
         integer:: ntotal_glob(numprocs),nhalo_glob(numprocs),nvirt_glob(numprocs),nghos_glob(numprocs)
         
-		! Exchanging how many particles each process will output data for
-		call MPI_IALLGATHER(ntotal_loc,1,MPI_INTEGER,ntotal_glob,1,MPI_INTEGER,MPI_COMM_WORLD,request(1),ierr)
-		call MPI_IALLGATHER(nhalo_loc,1,MPI_INTEGER,nhalo_glob,1,MPI_INTEGER,MPI_COMM_WORLD,request(2),ierr)
-		call MPI_IALLGATHER(nvirt_loc,1,MPI_INTEGER,nvirt_glob,1,MPI_INTEGER,MPI_COMM_WORLD,request(3),ierr)
-		call MPI_IALLGATHER(nghos_loc,1,MPI_INTEGER,nghos_glob,1,MPI_INTEGER,MPI_COMM_WORLD,request(4),ierr)
-		
-		!Format number
-		n = itimestep/save_step
-		write(number,'(I4.4)') n
+        ! Exchanging how many particles each process will output data for
+        call MPI_IALLGATHER(ntotal_loc,1,MPI_INTEGER,ntotal_glob,1,MPI_INTEGER,MPI_COMM_WORLD,request(1),ierr)
+        call MPI_IALLGATHER(nhalo_loc,1,MPI_INTEGER,nhalo_glob,1,MPI_INTEGER,MPI_COMM_WORLD,request(2),ierr)
+        call MPI_IALLGATHER(nvirt_loc,1,MPI_INTEGER,nvirt_glob,1,MPI_INTEGER,MPI_COMM_WORLD,request(3),ierr)
+        call MPI_IALLGATHER(nghos_loc,1,MPI_INTEGER,nghos_glob,1,MPI_INTEGER,MPI_COMM_WORLD,request(4),ierr)
+        
+        !Format number
+        n = itimestep/save_step
+        write(number,'(I4.4)') n
         
         ! initializing hdf5
         call h5open_f(ierr)
@@ -104,19 +104,19 @@ contains
         ! closing hdf5
         call h5close_f(ierr)
         
-	end subroutine output
+    end subroutine output
         
-	!==============================================================================================================================
-	subroutine write_ini_config
-	! Subroutine for writing initial configuration data using MPI IO subroutines
-		
-		implicit none
-		integer:: ntotal_glob(numprocs),posrange(2)
+    !==============================================================================================================================
+    subroutine write_ini_config
+    ! Subroutine for writing initial configuration data using MPI IO subroutines
         
-		
-		! Exchanging how many particles each process will output data for
-		call MPI_IALLGATHER(ntotal_loc,1,MPI_INTEGER,ntotal_glob,1,MPI_INTEGER,MPI_COMM_WORLD,request(1),ierr)
-		
+        implicit none
+        integer:: ntotal_glob(numprocs),posrange(2)
+        
+        
+        ! Exchanging how many particles each process will output data for
+        call MPI_IALLGATHER(ntotal_loc,1,MPI_INTEGER,ntotal_glob,1,MPI_INTEGER,MPI_COMM_WORLD,request(1),ierr)
+        
         call h5open_f(ierr)
         
         filepath = trim(output_directory)//"/sph_out0000.h5"
@@ -148,7 +148,7 @@ contains
         ! closing hdf5
         call h5close_f(ierr)
         
-	end subroutine write_ini_config
+    end subroutine write_ini_config
 
     !==============================================================================================================================
     subroutine write_particle_data(fid_in,particletype,posrange_in,gdims,ldispl)

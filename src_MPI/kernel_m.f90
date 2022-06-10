@@ -2,27 +2,27 @@ module kernel_m
     
     use param, only: f
     
-	public:: kernel,kernel_k
+    public:: kernel,kernel_k
 
 contains
 
-	!==============================================================================================================================
-	subroutine kernel(r,dx,thsml,tw,tdwdx)
-	! Contains the kernels
-	
-		use param, only: dims=>dim,skf,pi
-		
-		implicit none
-		real(f),intent(in):: dx(dims),r,thsml
-		real(f),intent(out):: tdwdx(dims),tw
-		real(f):: q,factor
-		
-		q = r/thsml
-		tw = 0_f
-		tdwdx(:) = 0_f
-		
-		SELECT CASE (SKF)
-			CASE (1) ! cubic
+    !==============================================================================================================================
+    subroutine kernel(r,dx,thsml,tw,tdwdx)
+    ! Contains the kernels
+    
+        use param, only: dims=>dim,skf,pi
+        
+        implicit none
+        real(f),intent(in):: dx(dims),r,thsml
+        real(f),intent(out):: tdwdx(dims),tw
+        real(f):: q,factor
+        
+        q = r/thsml
+        tw = 0_f
+        tdwdx(:) = 0_f
+        
+        SELECT CASE (SKF)
+            CASE (1) ! cubic
                 if (dims==2) factor = 10_f/(7_f*pi*thsml*thsml)
                 if (dims==3) factor = 1_f/(pi*thsml*thsml)
                 tw = factor*(0.25_f*DIM(2._f,q)**3 - DIM(1._f,q)**3)
@@ -52,34 +52,34 @@ contains
                 if (dims==3) factor = 1365._f/(524288._f*pi*thsml*thsml*thsml)
                 tw = factor*DIM(2._f,q)**8*(16._f*q**3 + 25_f*q**2 + 16._f*q + 4._f)
                 tdwdx(:) = -factor*22._f*q*(8._f*q**2 + 7._f*q + 2._f)*DIM(2._f,q)**7*dx(:)/(r*thsml)
-			CASE (7) ! gaussian
-				factor = 1_f/(thsml**dims*pi**(0.5_f*dims))
-				if (q.ge.0_f .and. q.le.3_f) then
-					tw = factor*exp(-q*q)
-					tdwdx(:) = tw*2_f*dx(:)/(thsml*thsml)
-				end if
+            CASE (7) ! gaussian
+                factor = 1_f/(thsml**dims*pi**(0.5_f*dims))
+                if (q.ge.0_f .and. q.le.3_f) then
+                    tw = factor*exp(-q*q)
+                    tdwdx(:) = tw*2_f*dx(:)/(thsml*thsml)
+                end if
             
-		END SELECT
-	
-	end subroutine kernel
-	
-	!==============================================================================================================================
-	function kernel_k(skf) result(scale_k)
-	! setting k parameter for kernel radius (r = kh)
-	
-		implicit none
-		integer,intent(in):: skf
-		real(f):: scale_k
-		
-		select case (skf)
-			case (1,4,5,6)
-				scale_k = 2_f
-			case (2)
-				scale_k = 2.5_f
-			case (3,7)
-				scale_k = 3_f
-		end select
-	
-	end function kernel_k
-	
+        END SELECT
+    
+    end subroutine kernel
+    
+    !==============================================================================================================================
+    function kernel_k(skf) result(scale_k)
+    ! setting k parameter for kernel radius (r = kh)
+    
+        implicit none
+        integer,intent(in):: skf
+        real(f):: scale_k
+        
+        select case (skf)
+            case (1,4,5,6)
+                scale_k = 2_f
+            case (2)
+                scale_k = 2.5_f
+            case (3,7)
+                scale_k = 3_f
+        end select
+    
+    end function kernel_k
+    
 end module kernel_m

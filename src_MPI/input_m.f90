@@ -1,12 +1,12 @@
 module input_m
-	
+    
     use datatypes,      only: particles
-	use globvar,		only: ntotal,nvirt,ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc,parts,scale_k,maxnloc
-	use globvar_para,	only: procid,numprocs,bounds_glob
-	use mpi
-	use param,			only: dim,irho,dxo,f,hsml,mp,np,op,pp,qp,rp,nlayer
-	use error_msg_m,	only: error_msg
-	use output_m,		only: write_ini_config
+    use globvar,        only: ntotal,nvirt,ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc,parts,scale_k,maxnloc
+    use globvar_para,    only: procid,numprocs,bounds_glob
+    use mpi
+    use param,            only: dim,irho,dxo,f,hsml,mp,np,op,pp,qp,rp,nlayer
+    use error_msg_m,    only: error_msg
+    use output_m,        only: write_ini_config
     
     real(f),parameter:: vxmin = 0._f, vymin = 0._f, vzmin = 0._f, &
         vxmax = vxmin + pp*dxo, vymax = vymin + qp*dxo, vzmax = vzmin + rp*dxo
@@ -14,99 +14,99 @@ module input_m
         rxmax = rxmin + mp*dxo, rymax = rymin + np*dxo, rzmax = rzmin + op*dxo
         
     integer,allocatable:: gind(:)
-	
-	public:: input,virt_part
-	
+    
+    public:: input,virt_part
+    
 contains
-	
-	!==============================================================================================================================
-	subroutine input(generate)
-	! Generates initial physical particle configuration.
-	! 2 cases: return only number of particles retrieved, or generating the particles
-	
-		implicit none
-		logical,intent(in):: generate
-		integer:: i,j,k,d,n,n_loc,n_loc_i,n_start,n_done
-		real(f):: xi,yi
-	
-		select case (generate)
-			
-			case (.false.)
-			
-				ntotal = mp*np*op
-			
-			case (.true.)
-				
-				! how many particles to generate per process
-				n_loc_i = ceiling(dble(ntotal)/numprocs)
-				if (procid.eq.numprocs-1) then
-					n_loc = ntotal - (numprocs-1)*n_loc_i
-				else
-					n_loc = n_loc_i
-				end if
-				n_start = procid*n_loc_i + 1
-				n_done = n_start + n_loc_i - 1
-				
-				! stopping program if array bounds are exceeded
-				if ( (procid.eq.0) .and. (n_loc.gt.maxnloc) ) call error_msg(1,1)
-		
-				! intitial setup
-				n = 0
-				ntotal_loc = 0
-				do i = 1,mp
-					do j = 1,np
-						do k = 1,op
-							n = n + 1 ! tracking total number of particles generated
-							! Only generating particles assigned to process
-							if ( (n.ge.n_start) .and. (n.le.n_done) ) then
-								ntotal_loc = ntotal_loc + 1
-								parts(ntotal_loc)%indglob = n
-								parts(ntotal_loc)%indloc = ntotal_loc
-								parts(ntotal_loc)%x(1) = rxmin + (i-0.5_f)*dxo
-								parts(ntotal_loc)%x(2) = rymin + (j-0.5_f)*dxo
-								parts(ntotal_loc)%x(3) = rzmin + (k-0.5_f)*dxo
-								parts(ntotal_loc)%vx(:) = 0._f
-								parts(ntotal_loc)%itype = 1
-								parts(ntotal_loc)%rho = irho
-								parts(ntotal_loc)%p = 0._f
-							end if
-						end do
-					end do
-				end do
-				
-				call write_ini_config
-			
-		end select
-		
-	end subroutine input
-	
-	!==============================================================================================================================
-	subroutine virt_part(generate)
-	! Generates the virtual particle configuration. Can change over time or remain static
-	! 2 cases: return only number of particles retrieved, or generating the particles
-		
-		implicit none
-		integer:: i,j,k,d,n
-		real(f):: xi(dim),xmin_loc(dim),xmax_loc(dim)
-		logical,intent(in):: generate
-		
-		select case (generate)
-			
-			case (.false.)
-				
-				nvirt = nlayer*(2*nlayer+pp)*(2*nlayer+qp)
-				
-			case (.true.)
-				
-				xmin_loc(:) = bounds_glob(1:dim,procid+1) - scale_k*hsml
-				xmax_loc(:) = bounds_glob(dim+1:2*dim,procid+1) + scale_k*hsml
-				
-				nvirt_loc = 0
-				n = ntotal ! counter used to track particle indices
-				
-				!---Virtual particle on the bottom face
-				do i = 1-nlayer, pp+nlayer
-					do j = 1-nlayer,qp+nlayer
+    
+    !==============================================================================================================================
+    subroutine input(generate)
+    ! Generates initial physical particle configuration.
+    ! 2 cases: return only number of particles retrieved, or generating the particles
+    
+        implicit none
+        logical,intent(in):: generate
+        integer:: i,j,k,d,n,n_loc,n_loc_i,n_start,n_done
+        real(f):: xi,yi
+    
+        select case (generate)
+            
+            case (.false.)
+            
+                ntotal = mp*np*op
+            
+            case (.true.)
+                
+                ! how many particles to generate per process
+                n_loc_i = ceiling(dble(ntotal)/numprocs)
+                if (procid.eq.numprocs-1) then
+                    n_loc = ntotal - (numprocs-1)*n_loc_i
+                else
+                    n_loc = n_loc_i
+                end if
+                n_start = procid*n_loc_i + 1
+                n_done = n_start + n_loc_i - 1
+                
+                ! stopping program if array bounds are exceeded
+                if ( (procid.eq.0) .and. (n_loc.gt.maxnloc) ) call error_msg(1,1)
+        
+                ! intitial setup
+                n = 0
+                ntotal_loc = 0
+                do i = 1,mp
+                    do j = 1,np
+                        do k = 1,op
+                            n = n + 1 ! tracking total number of particles generated
+                            ! Only generating particles assigned to process
+                            if ( (n.ge.n_start) .and. (n.le.n_done) ) then
+                                ntotal_loc = ntotal_loc + 1
+                                parts(ntotal_loc)%indglob = n
+                                parts(ntotal_loc)%indloc = ntotal_loc
+                                parts(ntotal_loc)%x(1) = rxmin + (i-0.5_f)*dxo
+                                parts(ntotal_loc)%x(2) = rymin + (j-0.5_f)*dxo
+                                parts(ntotal_loc)%x(3) = rzmin + (k-0.5_f)*dxo
+                                parts(ntotal_loc)%vx(:) = 0._f
+                                parts(ntotal_loc)%itype = 1
+                                parts(ntotal_loc)%rho = irho
+                                parts(ntotal_loc)%p = 0._f
+                            end if
+                        end do
+                    end do
+                end do
+                
+                call write_ini_config
+            
+        end select
+        
+    end subroutine input
+    
+    !==============================================================================================================================
+    subroutine virt_part(generate)
+    ! Generates the virtual particle configuration. Can change over time or remain static
+    ! 2 cases: return only number of particles retrieved, or generating the particles
+        
+        implicit none
+        integer:: i,j,k,d,n
+        real(f):: xi(dim),xmin_loc(dim),xmax_loc(dim)
+        logical,intent(in):: generate
+        
+        select case (generate)
+            
+            case (.false.)
+                
+                nvirt = nlayer*(2*nlayer+pp)*(2*nlayer+qp)
+                
+            case (.true.)
+                
+                xmin_loc(:) = bounds_glob(1:dim,procid+1) - scale_k*hsml
+                xmax_loc(:) = bounds_glob(dim+1:2*dim,procid+1) + scale_k*hsml
+                
+                nvirt_loc = 0
+                n = ntotal ! counter used to track particle indices
+                
+                !---Virtual particle on the bottom face
+                do i = 1-nlayer, pp+nlayer
+                    do j = 1-nlayer,qp+nlayer
                         do k = 1,nlayer
                             n = n + 1
                             xi(1) = vxmin + (i-0.5_f)*dxo
@@ -122,12 +122,12 @@ contains
                                 parts(ntotal_loc+nhalo_loc+nvirt_loc)%rho = irho
                             end if
                         end do
-					end do
-				end do
-				
-		end select
+                    end do
+                end do
+                
+        end select
 
-	end subroutine virt_part
+    end subroutine virt_part
     
     !==============================================================================================================================
     subroutine generate_ghost_part
