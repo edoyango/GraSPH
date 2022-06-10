@@ -20,71 +20,12 @@ module flink_list_m
     end type particleincellarray
     
     public:: flink_list,particleincellarray
-    private:: check_if_interact,flink_list2D,flink_list3D,bounding_box
+    private:: check_if_interact,bounding_box
 
 contains
     
     !==============================================================================================================================
-    subroutine flink_list
-    ! interface subroutine for 2D and 3D cases
-    
-        
-        implicit none
-        
-        select case (dim)
-            case(2)
-                call flink_list2D
-            case(3)
-                call flink_list3D
-        end select
-        
-    end subroutine flink_list
-    
-    !==============================================================================================================================
-    subroutine flink_list2D( )
-    ! subroutine to search for particle interactions using cell-linked list.
-        
-        implicit none
-        integer,allocatable,device:: pincell(:,:)
-        integer:: i,j,k,d,istat
-        type(particleincellarray),allocatable,device:: cells(:,:,:)
-        type(dim3),parameter:: nthreads=dim3(32,32,1)
-                                                    
-        dcell = scale_k*hsml
-        minx =  HUGE(1._f); miny =  HUGE(1._f)
-        maxx = -HUGE(1._f); maxy = -HUGE(1._f)
-        !Determining bounding box extents
-        !$cuf kernel do <<<(ntotal+nvirt)/128+1,128>>>
-        do i = 1,ntotal+nvirt
-            minx = min(minx,parts_d(i)%x(1))
-            miny = min(miny,parts_d(i)%x(2))
-            maxx = max(maxx,parts_d(i)%x(1))
-            maxy = max(maxy,parts_d(i)%x(2))
-        end do
-        mingridx(1) = minx-2._f*dcell; mingridx(2) = miny-2._f*dcell
-        maxgridx(1) = maxx+2._f*dcell; maxgridx(2) = maxy+2._f*dcell
-        ngridx(:) = int((maxgridx(:)-mingridx(:))/dcell) + 1
-        maxgridx(:) = mingridx(:) + ngridx*dcell
-        ngridx_d(:) = ngridx(:)
-        mingridx_d = mingridx
-        maxgridx_d = maxgridx
-
-        allocate( pincell(ngridx(1),ngridx(2)),&
-                    cells(maxpcell3D,ngridx(1),ngridx(2)) )
-        
-        nblocks = dim3(ngridx(1)/nthreads%x+1,ngridx(2)/nthreads%y+1,1)
-        
-        call zero_pincell2D<<<nblocks,nthreads>>>(ngridx_d,pincell)
-        
-        call populate2D<<<(ntotal+nvirt)/32+1,32>>>(dcell,ntotal_d,nvirt_d,mingridx_d,ngridx_d,parts_d,pincell,cells)
-        
-        call sweep2D<<<(ntotal+nvirt)/32+1,32>>>(dcell,ntotal_d,nvirt_d,mingridx_d,ngridx_d,parts_d,pincell,cells,niac_d,pairs_d)
-        deallocate( pincell,cells )
-        
-    end subroutine flink_list2D
-    
-    !==============================================================================================================================
-    subroutine flink_list3D( )
+    subroutine flink_list( )
     ! save as above, but for 3D
         
         implicit none
@@ -119,33 +60,18 @@ contains
         
         nblocks = dim3(ngridx(1)/nthreads%x+1,ngridx(2)/nthreads%y+1,ngridx(3)/nthreads%y+1)
         
-        call zero_pincell3D<<<nblocks,nthreads>>>(ngridx_d,pincell)
+        call zero_pincell<<<nblocks,nthreads>>>(ngridx_d,pincell)
         
-        call populate3D<<<(ntotal+nvirt+nghos)/32+1,32>>>(dcell,ntotal_d,nvirt_d,nghos_d,mingridx_d,ngridx_d,parts_d,pincell,cells)
+        call populate<<<(ntotal+nvirt+nghos)/32+1,32>>>(dcell,ntotal_d,nvirt_d,nghos_d,mingridx_d,ngridx_d,parts_d,pincell,cells)
                                                         
-        call sweep3D<<<(ntotal+nvirt+nghos)/32+1,32>>>(dcell,ntotal_d,nvirt_d,nghos_d,mingridx_d,ngridx_d,parts_d,pincell,cells,niac_d,pairs_d)
+        call sweep<<<(ntotal+nvirt+nghos)/32+1,32>>>(dcell,ntotal_d,nvirt_d,nghos_d,mingridx_d,ngridx_d,parts_d,pincell,cells,niac_d,pairs_d)
 
         deallocate( pincell,cells )
         
-    end subroutine flink_list3D
+    end subroutine flink_list
     
     !==============================================================================================================================
-    attributes(global) subroutine zero_pincell2D(ng,p)
-    ! helper function to zero pincell array on GPU
-    
-        implicit none
-        integer,intent(in):: ng(dim)
-        integer,intent(out):: p(ng(1),ng(2))
-        integer:: i,j
-        
-        i = blockDim%x*(blockIdx%x-1)+threadIdx%x
-        j = blockDim%y*(blockIdx%y-1)+threadIdx%y
-        if ( i <= ng(1) .and. j <= ng(2) ) p(i,j) = 0
-    
-    end subroutine zero_pincell2D
-    
-    !==============================================================================================================================
-    attributes(global) subroutine zero_pincell3D(ng,p)
+    attributes(global) subroutine zero_pincell(ng,p)
     ! helper function to zero pincell array on GPU
     
         implicit none
@@ -158,33 +84,10 @@ contains
         k = blockDim%z*(blockIdx%z-1)+threadIdx%z
         if ( i <= ng(1) .and. j <= ng(2) .and. k <= ng(3) ) p(i,j,k) = 0
         
-    end subroutine zero_pincell3D
+    end subroutine zero_pincell
     
     !==============================================================================================================================
-    attributes(global) subroutine populate2D(dc,nt,nv,mingx,ng,pts,p,c)
-    
-        implicit none
-        integer,intent(in):: nt,nv,ng(dim)
-        real(f),intent(in):: mingx(dim)
-        real(f),intent(in),value:: dc
-        type(particles),intent(in),target:: pts(nt+nv)
-        integer,intent(inout):: p(ng(1),ng(2))
-        type(particleincellarray),intent(out):: c(maxpcell2D,ng(1),ng(2))
-        integer:: ind,icell,jcell,i,j,d
-        
-        ! global thread index
-        i = blockDim%x*(blockIdx%x-1)+threadIdx%x
-        if (i<=nt+nv) then
-            icell = int((pts(i)%x(1)-mingx(1))/dc) + 1
-            jcell = int((pts(i)%x(2)-mingx(2))/dc) + 1
-            ind = atomicadd(p(icell,jcell),1)
-            c(ind+1,icell,jcell)%p => pts(i)
-        end if
-
-    end subroutine populate2D
-    
-    !==============================================================================================================================
-    attributes(global) subroutine populate3D(dc,nt,nv,ng,mingx,ngx,pts,p,c)
+    attributes(global) subroutine populate(dc,nt,nv,ng,mingx,ngx,pts,p,c)
     
         implicit none
         integer,intent(in):: nt,nv,ng,ngx(dim)
@@ -205,54 +108,10 @@ contains
             c(ind+1,icell,jcell,kcell)%p => pts(i)
         end if
 
-    end subroutine populate3D
+    end subroutine populate
     
     !==============================================================================================================================
-    attributes(global) subroutine sweep2D(dc,nt,nv,mingx,ng,pts,p,c,nij,pij)
-    
-        implicit none
-        integer,intent(in):: nt,nv,ng(dim),p(ng(1),ng(2))
-        real(f),intent(in):: mingx(dim)
-        real(f),intent(in),value:: dc
-        type(particleincellarray),intent(in):: c(maxpcell2D,ng(1),ng(2)) 
-        type(particles),intent(in),target:: pts(nt+nv)
-        integer,intent(out):: nij(nt+nv)
-        type(interactions),intent(out):: pij(maxinter_perp,nt+nv)
-        integer:: i,j,k,d,xi,yi,zi,icell,jcell
-        integer,parameter:: sweep(2,4) = reshape((/-1,-1,&
-                                                   -1, 0,&
-                                                   -1, 1,&
-                                                    0,-1/),(/2,4/))
-        
-        i = blockDim%x*(blockIdx%x-1)+threadIdx%x
-        
-        ! Beginning sweep
-        if (i<=nt+nv) then
-            nij(i) = 0
-            icell = int((pts(i)%x(1)-mingx(1))/dc) + 1
-            jcell = int((pts(i)%x(2)-mingx(2))/dc) + 1
-            if (p(icell,jcell) > 1) then
-                do j = 1,p(icell,jcell)
-                    if (c(j,icell,jcell)%p%ind > i) then
-                        ! only consider interactions when real particles are involved
-                        call check_if_interact(pts(i),c(j,icell,jcell)%p,nij(i),pij(:,i))
-                    end if
-                end do
-            end if
-            do k = 1,4
-                xi = icell + sweep(1,k)
-                yi = jcell + sweep(2,k)
-                do j = 1,p(xi,yi)
-                    ! only consider interactions when real particles are involved
-                    call check_if_interact(pts(i),c(j,xi,yi)%p,nij(i),pij(:,i))
-                end do
-            end do
-        end if
-        
-    end subroutine sweep2D
-
-    !==============================================================================================================================
-    attributes(global) subroutine sweep3D(dc,nt,nv,ng,mingx,ngx,pts,p,c,nij,pij)
+    attributes(global) subroutine sweep(dc,nt,nv,ng,mingx,ngx,pts,p,c,nij,pij)
     
         implicit none
         integer,intent(in):: nt,nv,ng,ngx(dim),p(ngx(1),ngx(2),ngx(3))
@@ -263,7 +122,7 @@ contains
         integer,intent(out):: nij(nt+nv+ng)
         type(interactions),intent(out):: pij(maxinter_perp,nt+nv+ng)
         integer:: i,j,k,d,xi,yi,zi,icell,jcell,kcell
-        integer,parameter:: sweep(3,13) = reshape((/-1,-1,-1,&
+        integer,parameter:: sweepinds(3,13) = reshape((/-1,-1,-1,&
                                                     -1,-1, 0,&
                                                     -1,-1, 1,&
                                                     -1, 0,-1,&
@@ -294,9 +153,9 @@ contains
                 end do
             end if
             do k = 1,13
-                xi = icell + sweep(1,k)
-                yi = jcell + sweep(2,k)
-                zi = kcell + sweep(3,k)
+                xi = icell + sweepinds(1,k)
+                yi = jcell + sweepinds(2,k)
+                zi = kcell + sweepinds(3,k)
                 do j = 1,p(xi,yi,zi)
                     ! only consider interactions when real particles are involved
                     call check_if_interact(pts(i),c(j,xi,yi,zi)%p,nij(i),pij(:,i))
@@ -304,7 +163,7 @@ contains
             end do
         end if
         
-    end subroutine sweep3D
+    end subroutine sweep
     
     !==============================================================================================================================
     attributes(device) subroutine check_if_interact(p_i,p_j,nij,pij)
