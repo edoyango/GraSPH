@@ -39,7 +39,7 @@ axis equal; hold on
 %% Initial configuration
 colours = rand(numprocs,3);
 
-for i=1:50
+for i=1:20
     %% formatting plot
     clf(hf,'reset'); axis equal; hold on;
 
@@ -54,6 +54,7 @@ for i=1:50
     set(gca,'fontsize',16)
 
     % axis
+
     if dim == 2
         axis([0 75 0 40]);
     elseif dim==3
