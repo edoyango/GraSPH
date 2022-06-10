@@ -28,7 +28,7 @@ contains
         integer,parameter:: maxpcell=125
         integer:: ngridx(3)
         real(f):: mingridx(3),maxgridx(3)
-        integer,allocatable:: pincell(:,:,:)
+        integer,allocatable:: pincell(:,:,:),gridind(:,:)
         type(particleincellarray),allocatable:: cells(:,:,:,:)
         integer,parameter:: sweep(3,13) = reshape((/-1,-1,-1,&
                                                     -1,-1, 0,&
@@ -62,44 +62,34 @@ contains
         maxgridx(:) = mingridx(:) + ngridx(:)*dcell
         
         allocate( pincell(ngridx(1),ngridx(2),ngridx(3)),&
+                    gridind(dim,ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc),&
                     cells(maxpcell,ngridx(1),ngridx(2),ngridx(3)) )
                     
         pincell(:,:,:) = 0
         
         do i=1,ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
-            icell = int((parts(i)%x(1) - mingridx(1))/dcell) + 1
-            jcell = int((parts(i)%x(2) - mingridx(2))/dcell) + 1 
-            kcell = int((parts(i)%x(3) - mingridx(3))/dcell) + 1 
+            gridind(:,i) = int((parts(i)%x(:) - mingridx(:))/dcell) + 1
+            icell = gridind(1,i)
+            jcell = gridind(2,i) 
+            kcell = gridind(3,i) 
             pincell(icell,jcell,kcell) = pincell(icell,jcell,kcell) + 1
             cells(pincell(icell,jcell,kcell),icell,jcell,kcell)%p => parts(i)
         enddo
         
         niac = 0
-        do icell = 2,ngridx(1)-2
-            do jcell = 2,ngridx(2)-2
-                do kcell = 2,ngridx(3)-2
-                    if (pincell(icell,jcell,kcell) > 0) then
-                    
-                        ! finding pairs within cell icell,jcell
-                        do i = 1,pincell(icell,jcell,kcell)-1
-                            do j = i+1,pincell(icell,jcell,kcell)
-                                call check_if_interact(cells(i,icell,jcell,kcell)%p,cells(j,icell,jcell,kcell)%p)
-                            end do
-                        end do
-                        
-                        ! finding pairs between particles in cell icell,jcell and particles in cell xi,yi
-                        do k = 1,13
-                            xi = icell + sweep(1,k)
-                            yi = jcell + sweep(2,k)
-                            zi = kcell + sweep(3,k)
-                            do i = 1,pincell(icell,jcell,kcell)
-                                do j = 1,pincell(xi,yi,zi)
-                                    call check_if_interact(cells(i,icell,jcell,kcell)%p,cells(j,xi,yi,zi)%p)
-                                end do
-                            end do
-                        end do
-                    
-                    endif
+        do i = 1,ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
+            icell = gridind(1,i); jcell = gridind(2,i); kcell = gridind(3,i)
+            do j = 1,pincell(icell,jcell,kcell)
+                if (cells(j,icell,jcell,kcell)%p%indloc > parts(i)%indloc) then
+                    call check_if_interact(parts(i),cells(j,icell,jcell,kcell)%p)
+                end if
+            end do
+            do k = 1,13
+                xi = icell + sweep(1,k)
+                yi = jcell + sweep(2,k)
+                zi = kcell + sweep(3,k)
+                do j = 1,pincell(xi,yi,zi)
+                    call check_if_interact(parts(i),cells(j,xi,yi,zi)%p)
                 end do
             end do
         end do
