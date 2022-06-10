@@ -27,19 +27,19 @@ MKFILE_CUDA=makefile.CUDA
 case "$1" in
 	"serial-gnu")
 		FCFLAGS="$FCLAGS $FCFLAGS_gnu"
-		MKFILE=$MKFILE_SERIAL
+		MKFILE=$MKFILE_serial
 		;;
 	"serial-intel")
 		FCFLAGS="$FCFLAGS $FCFLAGS_intel"
-		MKFILE=$MKFILE_SERIAL
+		MKFILE=$MKFILE_serial
 		;;
 	"serial-gnu-debug")
 		FCFLAGS="$FCFLAGS $FCFLAGS_gnu_debug"
-		MKFILE=$MKFILE_SERIAL
+		MKFILE=$MKFILE_serial
 		;;
 	"serial-intel-debug")
 		FCFLAGS="$FCFLAGS $FCFLAGS_intel_debug"
-		MKFILE=$MKFILE_SERIAL
+		MKFILE=$MKFILE_serial
 		;;
 	"MPI-gnu")
 		FCFLAGS="$FCFLAGS $FCFLAGS_gnu"
@@ -87,5 +87,5 @@ case "$1" in
 		exit 1
 
 esac
-
+echo $MKFILES_DIR/$MKFILE
 make -f $MKFILES_DIR/$MKFILE FCFLAGS="$FCFLAGS"
