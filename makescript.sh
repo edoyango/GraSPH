@@ -16,7 +16,7 @@
 FCFLAGS_gnu="-O3 -flto -fbacktrace -fimplicit-none -pedantic -Wall -Wextra -Jobj"
 FCFLAGS_gnu_debug="-Og -g -fcheck=all -fbacktrace -fimplicit-none -pedantic -Wall -Wextra -Jobj"
 FCFLAGS_intel="-O3 -ipo -traceback -module obj"
-FCFLAGS_intel_debug="-g -traceback -checka all -module obj"
+FCFLAGS_intel_debug="-g -traceback -check all -module obj"
 FCFLAGS_CUDA="-Mcuda -Minfo -Iobj -module obj"
 FCFLAGS_CUDA_debug="-g -C -traceback -Iobj -module obj"
 MKFILES_DIR=makefiles
@@ -45,17 +45,17 @@ case "$1" in
 		FCFLAGS="$FCFLAGS $FCFLAGS_gnu"
 		MKFILE=$MKFILE_MPI
 		;;
-	"MPI_intel")
+	"MPI-intel")
 		FCFLAGS="$FCFLAGS $FCFLAGS_intel"
 		MKFILE=$MKFILE_MPI
 		;;
-	"MPI_gnu_debug")
+	"MPI-gnu-debug")
 		FCFLAGS="$FCFLAGS $FCFLAGS_gnu_debug"
 		MKFILE=$MKFILE_MPI
 		;;
-	"MPI_intel_debug")
+	"MPI-intel-debug")
 		FCFLAGS="$FCFLAGS $FCFLAGS_intel_debug"
-		MKFILE=$mKFILE_MPI
+		MKFILE=$MKFILE_MPI
 		;;
 	"CUDA")
 		FCFLAGS="$FCFLAGS $FCFLAGS_CUDA"
