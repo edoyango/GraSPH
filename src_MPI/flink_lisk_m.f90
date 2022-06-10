@@ -45,7 +45,21 @@ contains
                                                      0, 0,-1/),(/3,13/))
         
         !Determining bounding box extents
-        call bounding_box(mingridx,maxgridx,ngridx,dcell)
+        mingridx(:) = parts(1)%x(:)
+        maxgridx(:) = parts(1)%x(:)
+        do i = 2,ntotal_loc
+            do d = 1,dim
+                mingridx(d) = MIN(mingridx(d),parts(i)%x(d))
+                maxgridx(d) = MAX(maxgridx(d),parts(i)%x(d))
+            end do
+        end do
+        
+        !Determining number of grid cells in each direction
+        dcell = scale_k*hsml
+        maxgridx(:) = maxgridx(:) + 3._f*dcell
+        mingridx(:) = mingridx(:) - 3._f*dcell
+        ngridx(:) = int((maxgridx(:) - mingridx(:))/dcell) + 1
+        maxgridx(:) = mingridx(:) + ngridx(:)*dcell
         
         allocate( pincell(ngridx(1),ngridx(2),ngridx(3)),&
                     cells(maxpcell,ngridx(1),ngridx(2),ngridx(3)) )
@@ -120,31 +134,5 @@ contains
         end if
         
     end subroutine check_if_interact
-    
-    !==============================================================================================================================
-    subroutine bounding_box(minx,maxx,ng,dc)
-    
-        implicit none
-        real(f),intent(out):: minx(:),maxx(:),dc
-        integer,intent(out):: ng(:)
-        
-        !Determining bounding box extents
-        minx(:) = parts(1)%x(:)
-        maxx(:) = parts(1)%x(:)
-        do i = 2,ntotal_loc!+nhalo_loc+nvirt_loc+nghos_loc
-            do d = 1,dim
-                minx(d) = MIN(minx(d),parts(i)%x(d))
-                maxx(d) = MAX(maxx(d),parts(i)%x(d))
-            end do
-        end do
-        
-        !Determining number of grid cells in each direction
-        dc = scale_k*hsml
-        maxx(:) = maxx(:) + 3._f*dc
-        minx(:) = minx(:) - 3._f*dc
-        ng(:) = int((maxx(:) - minx(:))/dc) + 1
-        maxx(:) = minx(:) + ng(:)*dc
-        
-    end subroutine bounding_box
     
 end module flink_list_m
