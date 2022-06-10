@@ -84,8 +84,6 @@ contains
 	subroutine virt_part(generate)
 	! Generates the virtual particle configuration. Can change over time or remain static
 	! 2 cases: return only number of particles retrieved, or generating the particles
-    
-        use globvar_para, only: VirtPack
 		
 		implicit none
 		integer:: i,j,k,d,n
@@ -99,9 +97,6 @@ contains
 				nvirt = nlayer*(2*nlayer+pp)*(2*nlayer+qp)
 				
 			case (.true.)
-            
-                if (allocated(VirtPack)) deallocate(VirtPack)
-                allocate(VirtPack(nvirt))
 				
 				xmin_loc(:) = bounds_glob(1:dim,procid+1) - scale_k*hsml
 				xmax_loc(:) = bounds_glob(dim+1:2*dim,procid+1) + scale_k*hsml
@@ -119,12 +114,12 @@ contains
                             xi(3) = vzmin - (k-0.5_f)*dxo
                             if ( all( xi(:).ge.xmin_loc(:) .and. xi(:).le.xmax_loc(:) ) ) then
                                 nvirt_loc = nvirt_loc + 1
-                                VirtPack(nvirt_loc)%indglob = n
-                                VirtPack(nvirt_loc)%indloc = ntotal_loc+nhalo_loc+nvirt_loc
-                                VirtPack(nvirt_loc)%itype = -1
-                                VirtPack(nvirt_loc)%x(:) = xi(:)
-                                VirtPack(nvirt_loc)%vx(:) = 0._f
-                                VirtPack(nvirt_loc)%rho = irho
+                                parts(ntotal_loc+nhalo_loc+nvirt_loc)%indglob = n
+                                parts(ntotal_loc+nhalo_loc+nvirt_loc)%indloc = ntotal_loc+nhalo_loc+nvirt_loc
+                                parts(ntotal_loc+nhalo_loc+nvirt_loc)%itype = -1
+                                parts(ntotal_loc+nhalo_loc+nvirt_loc)%x(:) = xi(:)
+                                parts(ntotal_loc+nhalo_loc+nvirt_loc)%vx(:) = 0._f
+                                parts(ntotal_loc+nhalo_loc+nvirt_loc)%rho = irho
                             end if
                         end do
 					end do

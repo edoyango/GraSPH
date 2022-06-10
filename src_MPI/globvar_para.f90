@@ -16,7 +16,7 @@ module globvar_para
 	! particle send/recv arrays -------------------------------------------------------------------------------------------------------
 	integer,allocatable,public:: nphys_send(:),nphys_recv(:)
 	integer,allocatable,public:: nhalo_send(:),nhalo_recv(:)
-	type(particles),allocatable,public:: PhysPackSend(:,:),VirtPack(:)
+	type(particles),allocatable,public:: PhysPackSend(:,:)
 	
 	!ORB variables --------------------------------------------------------------------------------------------------------------------
 	integer,public:: maxnode,n_process_neighbour,leaf_node,repartition_mode
