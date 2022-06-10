@@ -22,7 +22,8 @@ contains
         integer,intent(in):: searchrange(2)
         integer,intent(inout):: nrequest,request(2*n_process_neighbour),n_recv_all,entrydepth
         integer:: d,i,j,k,pid,n,pos_recv,success
-        integer:: removal_list(searchrange(2)-searchrange(1)+2),nphys_send_all,diff_dest,ndiffuse_loc,ndiffuse_all,searchrange_next(2)
+        integer:: removal_list(searchrange(2)-searchrange(1)+2),nphys_send_all,diff_dest,ndiffuse_loc,ndiffuse_all,&
+            searchrange_next(2)
         real(f):: xmin_loc(dim),xmax_loc(dim),xmin_rem(dim),xmax_rem(dim),xi(dim),dr,dr_min
         integer:: status(2*n_process_neighbour,MPI_STATUS_SIZE)
         
@@ -318,7 +319,8 @@ contains
     
         implicit none
         integer,intent(in):: ki
-        integer:: n,i,j,k,pos0_recv,pos1_recv,request(2*n_process_neighbour),pid,status(MPI_STATUS_SIZE,2*n_process_neighbour),n_request
+        integer:: n,i,j,k,pos0_recv,pos1_recv,request(2*n_process_neighbour),pid,status(MPI_STATUS_SIZE,2*n_process_neighbour),&
+            n_request
     
         !3. halo particle send/receive ----------------------------------------------------------------------------------------------------
         n_request = 0

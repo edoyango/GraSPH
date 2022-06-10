@@ -24,8 +24,8 @@ contains
         
         implicit none
         real(f),parameter:: dcell=hsml*dcell_ORB
-        integer:: d,i,j,k,ngridx(dim),nphys_recv_all,request_phys(2*numprocs),request_halo(2*numprocs),searchrange_ini(2),n_request,&
-        status(MPI_STATUS_SIZE,4*numprocs),nphys_send_all,procrange_ini(2),tree_layers,gridind_ini(dim,2),diffusedepth
+        integer:: d,i,j,k,ngridx(dim),nphys_recv_all,request_phys(2*numprocs),request_halo(2*numprocs),searchrange_ini(2),&
+            n_request,status(MPI_STATUS_SIZE,4*numprocs),nphys_send_all,procrange_ini(2),tree_layers,gridind_ini(dim,2),diffusedepth
         real(f):: bounds_out(2*dim),mingridx_ini(dim),maxgridx_ini(dim),current_to_previous(dim,dim),box_ratio_current(dim,dim)
         
         !allocating partitioning arrays and initialising diagnostic variables -------------------------------------------------------------
@@ -42,7 +42,8 @@ contains
         ! Boundary Determiniation Algorithm ---------------------------------------------------------------------------------------
         repartition_mode = 1 !initially assumes no partition
         ! only checks if boundary needs updating every 50-100 time-steps
-        if ( (itimestep.eq.1) .or. ((itimestep-prev_part_tstep.ge.ORBcheck1) .and. (mod(itimestep-prev_part_tstep,ORBcheck2).eq.0)) ) then
+        if ( (itimestep.eq.1) .or. ((itimestep-prev_part_tstep.ge.ORBcheck1) .and. &
+            (mod(itimestep-prev_part_tstep,ORBcheck2).eq.0)) ) then
         
             ! checking if change in partilces on current process > 5%
             if (ntotal_loc.gt.prev_load+0.05_f*DBLE(ntotal)/DBLE(numprocs)) then
