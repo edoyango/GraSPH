@@ -21,7 +21,7 @@ contains
         implicit none
         integer,intent(in):: searchrange(2)
         integer,intent(inout):: nrequest,request(2*n_process_neighbour),n_recv_all,entrydepth
-        integer:: d,i,j,k,pid,n,pos_recv,success
+        integer:: d,i,j,pid,n,pos_recv,success
         integer:: removal_list(searchrange(2)-searchrange(1)+2),nphys_send_all,diff_dest,ndiffuse_loc,ndiffuse_all,&
             searchrange_next(2)
         real(f):: xmin_loc(dim),xmax_loc(dim),xmin_rem(dim),xmax_rem(dim),xi(dim),dr,dr_min
@@ -78,7 +78,8 @@ contains
                 ! particle belongs to non-neighbouring process. 
                 ! Evaluates closeness by considering minimum distance between particle and a processes edge,face, or vertice
                 ndiffuse_loc = ndiffuse_loc + 1
-                dr_min = huge(1_f)
+                dr_min = huge(1._f)
+                diff_dest = 0
                 do n = 1,n_process_neighbour
                     pid = proc_neighbour_list(n) + 1
                     dr = 0_f
@@ -192,8 +193,8 @@ contains
         integer,intent(inout):: nphys_recv_all,nrequest
         integer,intent(out):: request_out(2*n_process_neighbour)
         integer:: status(MPI_STATUS_SIZE,2*n_process_neighbour)
-        integer:: d,i,j,k,pid,n_send_all,n,pos0_recv,pos1_recv,pos0,pos1
-        real(f):: xmin_rem(dim),xmax_rem(dim),xi(dim),t1,t2,xmin_loc(dim),xmax_loc(dim),dr
+        integer:: i,j,pid,n,pos0_recv,pos1_recv,pos0,pos1
+        real(f):: xmin_rem(dim),xmax_rem(dim),xi(dim),xmin_loc(dim),xmax_loc(dim)
         logical:: wait_for_phys_then_reloop
         integer:: ones1D(ntotal_loc+nphys_recv_all),halo_pindex_0(ntotal_loc+nphys_recv_all)
     
@@ -319,8 +320,7 @@ contains
     
         implicit none
         integer,intent(in):: ki
-        integer:: n,i,j,k,pos0_recv,pos1_recv,request(2*n_process_neighbour),pid,status(MPI_STATUS_SIZE,2*n_process_neighbour),&
-            n_request
+        integer:: n,i,pos0_recv,pos1_recv,request(2*n_process_neighbour),pid,status(MPI_STATUS_SIZE,2*n_process_neighbour),n_request
     
         !3. halo particle send/receive ----------------------------------------------------------------------------------------------------
         n_request = 0

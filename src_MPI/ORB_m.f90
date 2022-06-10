@@ -24,8 +24,8 @@ contains
         
         implicit none
         real(f),parameter:: dcell=hsml*dcell_ORB
-        integer:: d,i,j,k,ngridx(dim),nphys_recv_all,request_phys(2*numprocs),request_halo(2*numprocs),searchrange_ini(2),&
-            n_request,status(MPI_STATUS_SIZE,4*numprocs),nphys_send_all,procrange_ini(2),tree_layers,gridind_ini(dim,2),diffusedepth
+        integer:: d,i,ngridx(dim),nphys_recv_all,request_phys(2*numprocs),request_halo(2*numprocs),searchrange_ini(2),&
+            n_request,status(MPI_STATUS_SIZE,4*numprocs),procrange_ini(2),tree_layers,gridind_ini(dim,2),diffusedepth
         real(f):: bounds_out(2*dim),mingridx_ini(dim),maxgridx_ini(dim),current_to_previous(dim,dim),box_ratio_current(dim,dim)
         
         !allocating partitioning arrays and initialising diagnostic variables -------------------------------------------------------------
@@ -181,7 +181,7 @@ contains
         real(f),intent(in):: dcell
         integer,intent(out):: ngridx(2)
         real(f),intent(out):: mingridx(2),maxgridx(2)
-        integer:: i,j,k,d,icell,jcell,n_nonzerocells,n_nonzerocells_perprocess(numprocs),n_nonzerocells_total,pid,displ(numprocs),&
+        integer:: i,icell,jcell,n_nonzerocells,n_nonzerocells_perprocess(numprocs),n_nonzerocells_total,pid,displ(numprocs),&
             cellmins(2),cellmaxs(2),cellrange(2),request,status(MPI_STATUS_SIZE)
         integer:: sendcount,recvcount(numprocs),Plist_size
         real(f):: maxx(2),minx(2)
@@ -257,9 +257,9 @@ contains
         implicit none
         integer,intent(in):: gridind_in(dim,2),node_in,nprocs_in,procrange_in(2),ntotal_in
         real(f),intent(in):: mingridx_in(dim),maxgridx_in(dim),dcell
-        integer:: i,j,k,d,node_out,gridind_out(dim,2),nprocs_out,ntotal_out,procrange_out(2),n_p,cax,np_per_node,pincol,&
+        integer:: i,j,node_out,gridind_out(dim,2),nprocs_out,ntotal_out,procrange_out(2),n_p,cax,np_per_node,pincol,&
             ngridx_trim(dim)
-        real(f):: t1,t2,bounds_out(2*dim)
+        real(f):: bounds_out(2*dim)
 
         !determining cut axis. 1 = x, 2 = y ---------------------------------------------------------------------------------------
         if (repartition_mode.eq.3) then
@@ -274,7 +274,7 @@ contains
         !cut location -------------------------------------------------------------------------------------------------------------
         i = gridind_in(cax,1) - 1
         n_p = 0
-        np_per_node = ceiling(real(nprocs_in)/2)/real(nprocs_in)*ntotal_in
+        np_per_node = int(ceiling(real(nprocs_in)/2)/real(nprocs_in)*ntotal_in)
         do while (n_p .lt. np_per_node)
             i = i + 1
             pincol = 0
@@ -332,7 +332,7 @@ contains
         implicit none
         integer,intent(in):: gridind_in(dim,2)
         integer,intent(out):: ngridx_trim(dim)
-        integer:: i,j,k,d,newi(2),newj(2),oldi(2),oldj(2)
+        integer:: i,j,newi(2),newj(2),oldi(2),oldj(2)
         
         oldi(:) = gridind_in(1,:)
         oldj(:) = gridind_in(2,:)
@@ -388,7 +388,7 @@ contains
         real(f),intent(in):: dcell
         integer,intent(out):: ngridx(:)
         real(f),intent(out):: mingridx(:),maxgridx(:)
-        integer:: i,j,k,d,n,icell,jcell,kcell,n_nonzerocells,n_nonzerocells_perprocess(numprocs),n_nonzerocells_total,pid,&
+        integer:: i,icell,jcell,kcell,n_nonzerocells,n_nonzerocells_perprocess(numprocs),n_nonzerocells_total,pid,&
                 displ(numprocs),cellmins(3),cellmaxs(3),cellrange(3),request,status(MPI_STATUS_SIZE)
         real(f):: minx(3),maxx(3)
         integer:: sendcount,recvcount(numprocs),Plist_size
@@ -467,9 +467,9 @@ contains
         implicit none
         integer,intent(in):: gridind_in(dim,2),node_in,nprocs_in,procrange_in(2),ntotal_in
         real(f),intent(in):: mingridx_in(dim),maxgridx_in(dim),dcell
-        integer:: i,j,k,d,node_out,gridind_out(dim,2),nprocs_out,ntotal_out,procrange_out(2),n_p,cax,np_per_node,pincol,&
+        integer:: i,node_out,gridind_out(dim,2),nprocs_out,ntotal_out,procrange_out(2),n_p,cax,np_per_node,pincol,&
         ngridx_trim(dim),A(3)
-        real(f):: t1,t2,bounds_out(2*dim)
+        real(f):: bounds_out(2*dim)
 
         !determining cut axis. 1 = x, 2 = y ---------------------------------------------------------------------------------------
         if (repartition_mode.eq.3) then
@@ -486,10 +486,10 @@ contains
         !cut location -------------------------------------------------------------------------------------------------------------
         i = gridind_in(cax,1) - 1
         n_p = 0
-        np_per_node = ceiling(real(nprocs_in)/2)/real(nprocs_in)*ntotal_in
+        pincol = 0
+        np_per_node = int(ceiling(real(nprocs_in)/2)/real(nprocs_in)*ntotal_in)
         do while (n_p .lt. np_per_node)
             i = i + 1
-            pincol = 0
             if (cax .eq. 1) then
                 pincol = SUM(pincell_ORB_3D(&
                     i,&
@@ -553,11 +553,14 @@ contains
         implicit none
         integer,intent(in):: gridind_in(dim,2)
         integer,intent(out):: ngridx_trim(dim)
-        integer:: i,j,k,d,newi(2),newj(2),newk(2),oldi(2),oldj(2),oldk(2)
+        integer:: i,j,k,newi(2),newj(2),newk(2),oldi(2),oldj(2),oldk(2)
         
         oldi(:) = gridind_in(1,:)
         oldj(:) = gridind_in(2,:)
         oldk(:) = gridind_in(3,:)
+        newi(:) = gridind_in(1,:)
+        newj(:) = gridind_in(2,:)
+        newk(:) = gridind_in(3,:)
     
         !Trimming input grid ------------------------------------------------------------------------------------------------------
         !reducing x-length of grid
@@ -702,7 +705,7 @@ contains
     ! process are the processes that use node 2 as a west edge.
         
         implicit none
-        integer:: i,j,k,d,pid,ID_node,start_node,blah,direction_skip
+        integer:: ID_node
         
         !Initialization
         if (.not.allocated(node_cut)) allocate( node_cut(2*dim) )
@@ -734,7 +737,7 @@ contains
         use globvar_para,    only: proc_neighbour_list,n_process_neighbour,bounds_glob
         
         implicit none
-        integer:: i,j,k,d,pid
+        integer:: pid
         real(f):: bounds_loc_min(dim),bounds_loc_max(dim),bounds_rem_min(dim),bounds_rem_max(dim)
         
         !Checking if potential neighbours overlap with local process. Overlap = adjacent.

@@ -1,6 +1,6 @@
 program SPH
     
-    use globvar,             only: ntotal,nvirt,scale_k,allocateGlobalArrays,deallocateGlobalArrays
+    use globvar,             only: ntotal,scale_k,allocateGlobalArrays,deallocateGlobalArrays
     use globvar_para,         only: ierr,procid,numprocs,MPI_ftype
     use mpi
     use param,                 only: f,skf

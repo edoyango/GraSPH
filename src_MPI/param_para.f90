@@ -39,7 +39,7 @@ contains
     
         implicit none
         type(particles):: parts_dummy(2)
-        integer:: blockl(7),type(7)
+        integer:: blockl(7),type(7),tmptype
         integer(KIND=MPI_ADDRESS_KIND):: disp(7),lb,ext
         
         ! Obtaining memory address of each block in derived type
@@ -62,16 +62,17 @@ contains
         type(4:7) = MPI_ftype
         
         ! Creating MPI user type
-        call MPI_TYPE_CREATE_STRUCT(7, blockl, disp, type, parttype, ierr)
-        call MPI_TYPE_COMMIT(parttype, ierr)
+        call MPI_TYPE_CREATE_STRUCT(7, blockl, disp, type, tmptype, ierr)
+        call MPI_TYPE_COMMIT(tmptype, ierr)
         
         ! Calculating distance in memory between consecutive elements in array of defined type
         call MPI_GET_ADDRESS(parts_dummy(1)%indglob, disp(1), ierr)
         call MPI_GET_ADDRESS(parts_dummy(2)%indglob, disp(2), ierr)
         ! Resizing array to account for any "padding". lb = lowerbound
         lb = 0; ext = disp(2)-disp(1)
-        call MPI_TYPE_CREATE_RESIZED(parttype, lb, ext, parttype, ierr)
+        call MPI_TYPE_CREATE_RESIZED(tmptype, lb, ext, parttype, ierr)
         call MPI_TYPE_COMMIT(parttype, ierr)
+        call MPI_TYPE_FREE(tmptype,ierr)
         
         ! Repeating process for halo exchanges
         ! Setting up type for initial halo particle exchange
@@ -88,14 +89,15 @@ contains
         type(1:2) = MPI_INTEGER
         type(3:5) = MPI_ftype
         
-        call MPI_TYPE_CREATE_STRUCT(5, blockl, disp, type, halotype, ierr)
-        call MPI_TYPE_COMMIT(halotype, ierr)
+        call MPI_TYPE_CREATE_STRUCT(5, blockl, disp, type, tmptype, ierr)
+        call MPI_TYPE_COMMIT(tmptype, ierr)
         
         call MPI_GET_ADDRESS(parts_dummy(1)%indglob, disp(1), ierr)
         call MPI_GET_ADDRESS(parts_dummy(2)%indglob, disp(2), ierr)
         lb = 0; ext = disp(2)-disp(1)
-        call MPI_TYPE_CREATE_RESIZED(halotype, lb, ext, halotype, ierr)
+        call MPI_TYPE_CREATE_RESIZED(tmptype, lb, ext, halotype, ierr)
         call MPI_TYPE_COMMIT(halotype, ierr)
+        call MPI_TYPE_FREE(tmptype,ierr)
         
         ! Setting up type for halo particle updates (updates only need density, velocity)
         call MPI_GET_ADDRESS(parts_dummy(1)%rho    , disp(1), ierr)
@@ -107,14 +109,15 @@ contains
         
         type(1:2) = MPI_ftype
         
-        call MPI_TYPE_CREATE_STRUCT(2, blockl, disp, type, haloupdatetype, ierr)
-        call MPI_TYPE_COMMIT(haloupdatetype, ierr)
+        call MPI_TYPE_CREATE_STRUCT(2, blockl, disp, type, tmptype, ierr)
+        call MPI_TYPE_COMMIT(tmptype, ierr)
         
         call MPI_GET_ADDRESS(parts_dummy(1)%rho, disp(1), ierr)
         call MPI_GET_ADDRESS(parts_dummy(2)%rho, disp(2), ierr)
         lb = 0; ext = disp(2)-disp(1)
-        call MPI_TYPE_CREATE_RESIZED(haloupdatetype, lb, ext, haloupdatetype, ierr)
+        call MPI_TYPE_CREATE_RESIZED(tmptype, lb, ext, haloupdatetype, ierr)
         call MPI_TYPE_COMMIT(haloupdatetype, ierr)
+        call MPI_TYPE_FREE(tmptype,ierr)
         
     end subroutine CreateMPIType !--------------------------------------------------------------------
     

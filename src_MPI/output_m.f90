@@ -12,7 +12,7 @@ module output_m
     implicit none
     character(len=220),private:: filepath
     character(len=4),private::number
-    integer,private:: n,i,j,k,d,request(4),status(MPI_STATUS_SIZE),posrange(2)
+    integer,private:: n,i,request(4),status(MPI_STATUS_SIZE),posrange(2)
     integer(HID_T),private:: fid,real_group_id,virt_group_id,ghos_group_id
     integer(HSIZE_T),private:: global_dims(2)
     integer(HSSIZE_T),private:: displ(2)

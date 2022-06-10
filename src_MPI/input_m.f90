@@ -26,8 +26,7 @@ contains
     
         implicit none
         logical,intent(in):: generate
-        integer:: i,j,k,d,n,n_loc,n_loc_i,n_start,n_done
-        real(f):: xi,yi
+        integer:: i,j,k,n,n_loc,n_loc_i,n_start,n_done
     
         select case (generate)
             
@@ -86,7 +85,7 @@ contains
     ! 2 cases: return only number of particles retrieved, or generating the particles
         
         implicit none
-        integer:: i,j,k,d,n
+        integer:: i,j,k,n
         real(f):: xi(dim),xmin_loc(dim),xmax_loc(dim)
         logical,intent(in):: generate
         
@@ -133,7 +132,7 @@ contains
     subroutine generate_ghost_part
         
         implicit none
-        integer:: i,j,k,d,ig
+        integer:: i,ig
         
         nghos_loc = 0
         
@@ -234,7 +233,7 @@ contains
     subroutine update_ghost_part
         
         implicit none
-        integer:: i,j,k,d,ig,ir
+        integer:: i,ig,ir
         
         do i = 1,nghos_loc
             ig = ntotal_loc+nhalo_loc+nvirt_loc+i

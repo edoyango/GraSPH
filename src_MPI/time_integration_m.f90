@@ -20,7 +20,7 @@ contains
     ! Subroutine responsible for the main time-integration loop
     
         implicit none     
-        integer:: i,j,k,d,n
+        integer:: i
         real(f),allocatable:: v_min(:,:),rho_min(:),dvxdt(:,:,:),drho(:,:)
         
         allocate(v_min(dim,maxnloc),rho_min(maxnloc),dvxdt(dim,maxnloc,4),drho(maxnloc,4))

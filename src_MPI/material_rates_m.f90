@@ -17,7 +17,7 @@ contains
         integer,intent(in):: ki
         type(interactions),intent(in):: pair
         real(f),intent(inout):: ardvxdt(dim,ntotal_loc+nvirt_loc+nhalo_loc+nghos_loc)
-        real(f):: dx(dim),piv(dim),muv,vr,rr,h,mrho
+        real(f):: dx(dim),piv(dim),muv,vr,rr,mrho
         
         dx(:) = pair%i%x(:) - pair%j%x(:)
         vr = DOT_PRODUCT(pair%i%vx(:) - pair%j%vx(:),dx(:))

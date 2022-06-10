@@ -79,7 +79,6 @@ contains
     ! down)
     
         implicit none
-        integer:: i,j,k,d
         
         if (procid .eq. 0) then
             call MPI_REDUCE(MPI_IN_PLACE,cputime,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
@@ -136,7 +135,7 @@ contains
     ! Prints load balance statistics. Called occasionally as determined by print_step
     
         implicit none
-        integer:: i,j,k,d,n_glob(numprocs,4),status(MPI_STATUS_SIZE,4),request(4),min_n(4),max_n(4),mean_n(4),stdev_n(4)
+        integer:: i,n_glob(numprocs,4),status(MPI_STATUS_SIZE,4),request(4),min_n(4),max_n(4),mean_n(4),stdev_n(4)
         
         call MPI_IGATHER(ntotal_loc,1,MPI_INTEGER,n_glob(:,1),1,MPI_INTEGER,0,MPI_COMM_WORLD,request(1),ierr)
         call MPI_IGATHER(nhalo_loc ,1,MPI_INTEGER,n_glob(:,2),1,MPI_INTEGER,0,MPI_COMM_WORLD,request(2),ierr)
@@ -158,7 +157,7 @@ contains
             do i = 1,numprocs
                 stdev_n(:) = stdev_n(:) + (n_glob(i,:)-mean_n(:))**2
             enddo
-            stdev_n(:) = SQRT(ABS(DBLE(stdev_n(:)))/numprocs)
+            stdev_n(:) = int(SQRT(ABS(DBLE(stdev_n(:)))/numprocs))
         
             write(*,*)'_______________________________________________________________________________'
             write(*,*)'  current number of time step =', itimestep,'    current time=', real(time)

@@ -12,7 +12,6 @@ contains
     ! required
         
         use globvar,             only: ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc,parts,pairs,t_dist,niac
-        use globvar_para,         only: procid,numprocs
         use mpi,                 only: MPI_WTIME
         use param,                 only: dim,rh0,c,gamma,f,g
         
@@ -22,7 +21,7 @@ contains
         implicit none
         integer,intent(in):: ki
         real(f),intent(out):: dvxdti(dim,ntotal_loc),drhoi(ntotal_loc)
-        integer:: i,j,k,d
+        integer:: k
         real(f),allocatable:: indvxdt(:,:),ardvxdt(:,:),exdvxdt(:,:),codrhodt(:)
         
         t_dist = t_dist - MPI_WTIME()

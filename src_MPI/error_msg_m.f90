@@ -16,7 +16,7 @@ contains
     !          = 8: Too many particle interactions
         
         use globvar,        only: itimestep
-        use globvar_para,    only: procid,numprocs,ierr
+        use globvar_para,    only: procid,ierr
         use mpi
         
         use summary_m,        only: print_summary
