@@ -6,8 +6,8 @@ module ORB_m
     use param,            only: f,dim,hsml
     
     public:: ORB
-    private:: particle_grid,particle_grid2D,particle_grid3D,ORB_bounds,ORB_bounds2D,ORB_bounds3D,P_trim2D,P_trim3D,&
-        data_to_next_node,ORB_boundingbox,potential_neighbour_process_search,subdomain_neighbour
+    private:: particle_grid,ORB_bounds,P_trim,data_to_next_node,ORB_boundingbox,potential_neighbour_process_search,&
+        subdomain_neighbour
     
 contains    
     !==============================================================================================================================
@@ -135,254 +135,11 @@ contains
     end subroutine ORB
     
     !==============================================================================================================================
-    subroutine particle_grid(ngridx,dcell,mingridx,maxgridx)
-    ! interface subroutine
-        
-        implicit none
-        real(f),intent(in):: dcell
-        integer,intent(out):: ngridx(dim)
-        real(f),intent(out):: mingridx(dim),maxgridx(dim)
-        
-        select case (dim)
-            case (2)
-                call particle_grid2D(ngridx,dcell,mingridx,maxgridx)
-            case (3)
-                call particle_grid3D(ngridx,dcell,mingridx,maxgridx)
-        end select
-        
-    end subroutine particle_grid
-    
-    !==============================================================================================================================
-    function ORB_bounds( gridind_in,nprocs_in,node_in,procrange_in,ntotal_in,dcell,mingridx_in,maxgridx_in ) result(bounds_out)
-    ! interface subroutine
-        
-        implicit none
-        integer,intent(in):: gridind_in(dim,2),nprocs_in,node_in,procrange_in(2),ntotal_in
-        real(f),intent(in):: dcell,mingridx_in(dim),maxgridx_in(dim)
-        real(f):: bounds_out(2*dim)
-        
-        select case (dim)
-            case (2)
-                bounds_out = ORB_bounds2D( gridind_in,nprocs_in,node_in,procrange_in,ntotal_in,dcell,mingridx_in,maxgridx_in )
-            case (3)
-                bounds_out = ORB_bounds3D( gridind_in,nprocs_in,node_in,procrange_in,ntotal_in,dcell,mingridx_in,maxgridx_in )
-        end select
-        
-    end function ORB_bounds
-    
-    !==============================================================================================================================
-    subroutine particle_grid2D( ngridx,dcell,mingridx,maxgridx )
+    subroutine particle_grid( ngridx,dcell,mingridx,maxgridx )
     ! Subroutine to create a uniform rectangular grid with square cells, and counting the number of particles contained within each
     ! cell. Each MPI process holds a global copy of the entire grid, in preperation for ORB
         
-        use globvar_para,    only: pincell_ORB_2D
-        
-        implicit none
-        real(f),intent(in):: dcell
-        integer,intent(out):: ngridx(2)
-        real(f),intent(out):: mingridx(2),maxgridx(2)
-        integer:: i,icell,jcell,n_nonzerocells,n_nonzerocells_perprocess(numprocs),n_nonzerocells_total,pid,displ(numprocs),&
-            cellmins(2),cellmaxs(2),cellrange(2),request,status(MPI_STATUS_SIZE)
-        integer:: sendcount,recvcount(numprocs),Plist_size
-        real(f):: maxx(2),minx(2)
-        integer,allocatable:: Plist_loc(:,:),Plist_all(:,:)
-        
-        call ORB_boundingbox(ngridx,minx,maxx,mingridx,maxgridx,cellmins,cellmaxs,cellrange,dcell,2)
-        
-        ! Creating list of non-zero grid cells ------------------------------------------------------------------------------------
-        Plist_size = MIN(ntotal_loc,PRODUCT(cellrange(:)))
-        allocate( pincell_ORB_2D(ngridx(1),ngridx(2)),&
-                Plist_loc(3,Plist_size) )
-                
-        pincell_ORB_2D(cellmins(1):cellmaxs(1),cellmins(2):cellmaxs(2)) = 0
-        
-        ! Counting particles in each cell
-        n_nonzerocells = 0
-        do i = 1,ntotal_loc
-            icell = int((parts(i)%x(1)-mingridx(1))/dcell) + 1
-            jcell = int((parts(i)%x(2)-mingridx(2))/dcell) + 1
-            if ( pincell_ORB_2D(icell,jcell).eq.0) then
-                n_nonzerocells = n_nonzerocells + 1
-                Plist_loc(1,n_nonzerocells) = icell
-                Plist_loc(2,n_nonzerocells) = jcell
-            endif
-            pincell_ORB_2D(icell,jcell) = pincell_ORB_2D(icell,jcell) + 1
-        enddo
-        
-        ! Exchanging info on how many non-zero cells each process has
-        call MPI_IALLGATHER(n_nonzerocells,1,MPI_INTEGER,n_nonzerocells_perprocess,1,MPI_INTEGER,MPI_COMM_WORLD,request,ierr)
-        
-        ! Populating Plist_loc with non-zero cell entries
-        do i = 1,n_nonzerocells
-            Plist_loc(3,i) = Pincell_ORB_2D(Plist_loc(1,i),Plist_loc(2,i))
-        enddo
-        
-        call MPI_WAIT(request,status,ierr)
-        
-        n_nonzerocells_total = 0
-        do pid = 1,numprocs
-            displ(pid) = n_nonzerocells_total
-            n_nonzerocells_total = n_nonzerocells_total + n_nonzerocells_perprocess(pid)
-        enddo
-        
-        allocate( Plist_all(3,n_nonzerocells_total) )
-        
-        ! Collecting all process' Plist_loc
-        displ = 3*displ
-        sendcount = 3*n_nonzerocells
-        recvcount = 3*n_nonzerocells_perprocess(:)
-        call MPI_IALLGATHERV(Plist_loc,sendcount,MPI_INTEGER,Plist_all,recvcount,displ,MPI_INTEGER,MPI_COMM_WORLD,request,ierr)
-        
-        pincell_ORB_2D(:,:) = 0
-        
-        call MPI_WAIT(request,status,ierr)
-        
-        ! populating the number of particles per cell
-        do i = 1,n_nonzerocells_total
-            pincell_ORB_2D(Plist_all(1,i),Plist_all(2,i)) = pincell_ORB_2D(Plist_all(1,i),Plist_all(2,i)) + Plist_all(3,i)
-        enddo
-        
-        deallocate( Plist_loc,Plist_all )
-    
-    end subroutine particle_grid2D
-    
-    !==============================================================================================================================
-    recursive function ORB_bounds2D( gridind_in,nprocs_in,node_in,procrange_in,ntotal_in,dcell,mingridx_in,maxgridx_in ) &
-        result(bounds_out)
-    ! Recursive function that performs the 'bisection' part of the ORB algorithm
-    
-        use globvar_para,    only: leaf_node,bounds_glob,pincell_ORB_2D
-        use param_para,        only: bound_extend
-    
-        implicit none
-        integer,intent(in):: gridind_in(dim,2),node_in,nprocs_in,procrange_in(2),ntotal_in
-        real(f),intent(in):: mingridx_in(dim),maxgridx_in(dim),dcell
-        integer:: i,j,node_out,gridind_out(dim,2),nprocs_out,ntotal_out,procrange_out(2),n_p,cax,np_per_node,pincol,&
-            ngridx_trim(dim)
-        real(f):: bounds_out(2*dim)
-
-        !determining cut axis. 1 = x, 2 = y ---------------------------------------------------------------------------------------
-        if (repartition_mode.eq.3) then
-            call P_trim2D(gridind_in,ngridx_trim)
-            cax = 1
-            if (ngridx_trim(2) .gt. ngridx_trim(1)) cax = 2
-            node_cax(node_in) = cax
-        else
-            cax = node_cax(node_in)
-        endif
-
-        !cut location -------------------------------------------------------------------------------------------------------------
-        i = gridind_in(cax,1) - 1
-        n_p = 0
-        np_per_node = int(ceiling(real(nprocs_in)/2)/real(nprocs_in)*ntotal_in)
-        do while (n_p .lt. np_per_node)
-            i = i + 1
-            pincol = 0
-            if (cax .eq. 1) then
-                do j = gridind_in(2,1),gridind_in(2,2)
-                    pincol = pincol + pincell_ORB_2D(i,j)
-                enddo
-            elseif (cax.eq.2) then
-                do j = gridind_in(1,1),gridind_in(1,2)
-                    pincol = pincol + pincell_ORB_2D(j,i)
-                enddo
-            endif
-            n_p = n_p + pincol
-        enddo
-    
-        if ( (np_per_node-(n_p-pincol).lt.n_p-np_per_node) ) then
-            i = i - 1
-            n_p = n_p - pincol
-        endif
-
-        !saving output information ------------------------------------------------------------------------------------------------
-        call data_to_next_node(procrange_in,gridind_in,nprocs_in,procid,n_p,i,node_in,ntotal_in,cax,procrange_out,gridind_out,&
-        nprocs_out,ntotal_out,node_out)
-        
-        !travelling to child node/saving boundary information ---------------------------------------------------------------------
-        if (nprocs_out .ne. 1) then
-            bounds_out = ORB_bounds2D( gridind_out,nprocs_out,node_out,procrange_out,ntotal_out,dcell,mingridx_in,maxgridx_in )
-        else
-            leaf_node = node_out
-            
-            bounds_out(1:dim) = mingridx_in(:) + (gridind_out(:,1)-1)*dcell
-            bounds_out(dim+1:2*dim) = mingridx_in(:) + gridind_out(:,2)*dcell
-            
-            if (repartition_mode.eq.3) call potential_neighbour_process_search(leaf_node)
-            
-            if (node_cut(1).eq.0) bounds_out(3) = bounds_out(3) + bound_extend*scale_k*hsml
-            if (node_cut(2).eq.0) bounds_out(1) = bounds_out(1) - bound_extend*scale_k*hsml
-            if (node_cut(3).eq.0) bounds_out(4) = bounds_out(4) + bound_extend*scale_k*hsml
-            if (node_cut(4).eq.0) bounds_out(2) = bounds_out(2) - bound_extend*scale_k*hsml
-            
-            call MPI_ALLGATHER(bounds_out,2*dim,MPI_ftype,bounds_glob,2*dim,MPI_ftype,MPI_COMM_WORLD,ierr)
-            
-            deallocate( pincell_ORB_2D )
-        
-        endif
-  
-    end function ORB_bounds2D
-    
-    !==============================================================================================================================
-    subroutine P_trim2D(gridind_in,ngridx_trim)
-    ! Trims particle-in-cell grid so as to obtain minimal bounding boxes to obtain accurate cut axis orientations
-        
-        use globvar_para,    only: pincell_ORB_2D
-        
-        implicit none
-        integer,intent(in):: gridind_in(dim,2)
-        integer,intent(out):: ngridx_trim(dim)
-        integer:: i,j,newi(2),newj(2),oldi(2),oldj(2)
-        
-        oldi(:) = gridind_in(1,:)
-        oldj(:) = gridind_in(2,:)
-    
-        !Trimming input grid ------------------------------------------------------------------------------------------------------
-        !reducing x-length of grid
-        !finding new start x-index
-        newstarti: do i = oldi(1),oldi(2)
-            if ( any(pincell_ORB_2D(i,oldj(1):oldj(2)).ne.0) ) then
-                newi(1) = i
-                exit newstarti
-            end if
-        end do newstarti
-
-        !finding new end x-index
-         newendi: do i = oldi(2),newi(1),-1
-            if ( any(pincell_ORB_2D(i,oldj(1):oldj(2)).ne.0) ) then
-                newi(2) = i
-                exit newendi
-            end if
-        end do newendi
-
-        !reducing y-length of grid
-        !finding new start y-index
-         newstartj: do j = oldj(1),oldj(2)
-            if ( any(pincell_ORB_2D(newi(1):newi(2),j).ne.0) ) then
-                newj(1) = j
-                exit newstartj
-            end if
-        end do newstartj
-
-        !finding new end y-index
-         newendj: do j = oldj(2),newj(1),-1
-            if ( any(pincell_ORB_2D(newi(1):newi(2),j).ne.0) ) then
-                newj(2) = j
-                exit newendj
-            end if
-        end do newendj
-
-         ngridx_trim(1) = newi(2) - newi(1) + 1
-        ngridx_trim(2) = newj(2) - newj(1) + 1
-
-    end subroutine P_trim2D
-    
-    !==============================================================================================================================
-    subroutine particle_grid3D( ngridx,dcell,mingridx,maxgridx )
-    ! Subroutine to create a uniform rectangular grid with square cells, and counting the number of particles contained within each
-    ! cell. Each MPI process holds a global copy of the entire grid, in preperation for ORB
-        
-        use globvar_para,    only: pincell_ORB_3D
+        use globvar_para,    only: pincell_ORB
         
         implicit none
         real(f),intent(in):: dcell
@@ -398,10 +155,10 @@ contains
         
         ! Creating list of non-zero grid cells ------------------------------------------------------------------------------------
         Plist_size = MIN(ntotal_loc,PRODUCT(cellrange(:)))
-        allocate( pincell_ORB_3D(ngridx(1),ngridx(2),ngridx(3)),&
+        allocate( pincell_ORB(ngridx(1),ngridx(2),ngridx(3)),&
                 Plist_loc(4,Plist_size) )
                 
-        pincell_ORB_3D(cellmins(1):cellmaxs(1),cellmins(2):cellmaxs(2),cellmins(3):cellmaxs(3)) = 0
+        pincell_ORB(cellmins(1):cellmaxs(1),cellmins(2):cellmaxs(2),cellmins(3):cellmaxs(3)) = 0
         
         ! Counting particles in each cell
         n_nonzerocells = 0
@@ -409,13 +166,13 @@ contains
             icell = int((parts(i)%x(1)-mingridx(1))/dcell) + 1
             jcell = int((parts(i)%x(2)-mingridx(2))/dcell) + 1
             kcell = int((parts(i)%x(3)-mingridx(3))/dcell) + 1
-            if ( pincell_ORB_3D(icell,jcell,kcell).eq.0) then
+            if ( pincell_ORB(icell,jcell,kcell).eq.0) then
                 n_nonzerocells = n_nonzerocells + 1
                 Plist_loc(1,n_nonzerocells) = icell
                 Plist_loc(2,n_nonzerocells) = jcell
                 Plist_loc(3,n_nonzerocells) = kcell
             endif
-            pincell_ORB_3D(icell,jcell,kcell) = pincell_ORB_3D(icell,jcell,kcell) + 1
+            pincell_ORB(icell,jcell,kcell) = pincell_ORB(icell,jcell,kcell) + 1
         enddo
         
         ! Exchanging info on how many non-zero cells each process has
@@ -423,7 +180,7 @@ contains
         
         ! Populating Plist_loc with non-zero cell entries
         do i = 1,n_nonzerocells
-            Plist_loc(4,i) = Pincell_ORB_3D(Plist_loc(1,i),Plist_loc(2,i),Plist_loc(3,i))
+            Plist_loc(4,i) = Pincell_ORB(Plist_loc(1,i),Plist_loc(2,i),Plist_loc(3,i))
         enddo
         
         call MPI_WAIT(request,status,ierr)
@@ -442,26 +199,26 @@ contains
         recvcount = 4*n_nonzerocells_perprocess(:)
         call MPI_IALLGATHERV(Plist_loc,sendcount,MPI_INTEGER,Plist_all,recvcount,displ,MPI_INTEGER,MPI_COMM_WORLD,request,ierr)
         
-        pincell_ORB_3D(:,:,:) = 0
+        pincell_ORB(:,:,:) = 0
         
         call MPI_WAIT(request,status,ierr)
         
         ! populating the number of particles per cell
         do i = 1,n_nonzerocells_total
-            pincell_ORB_3D(Plist_all(1,i),Plist_all(2,i),Plist_all(3,i)) = &
-                pincell_ORB_3D(Plist_all(1,i),Plist_all(2,i),Plist_all(3,i)) + Plist_all(4,i)
+            pincell_ORB(Plist_all(1,i),Plist_all(2,i),Plist_all(3,i)) = &
+                pincell_ORB(Plist_all(1,i),Plist_all(2,i),Plist_all(3,i)) + Plist_all(4,i)
         enddo
         
         deallocate( Plist_loc,Plist_all )
     
-    end subroutine particle_grid3D
+    end subroutine particle_grid
     
     !==============================================================================================================================
-    recursive function ORB_bounds3D( gridind_in,nprocs_in,node_in,procrange_in,ntotal_in,dcell,mingridx_in,maxgridx_in ) &
+    recursive function ORB_bounds( gridind_in,nprocs_in,node_in,procrange_in,ntotal_in,dcell,mingridx_in,maxgridx_in ) &
         result(bounds_out)
     ! Recursive function that performs the 'bisection' part of the ORB algorithm
     
-        use globvar_para,    only: leaf_node,bounds_glob,pincell_ORB_3D
+        use globvar_para,    only: leaf_node,bounds_glob,pincell_ORB
         use param_para,        only: bound_extend
     
         implicit none
@@ -473,7 +230,7 @@ contains
 
         !determining cut axis. 1 = x, 2 = y ---------------------------------------------------------------------------------------
         if (repartition_mode.eq.3) then
-            call P_trim3D(gridind_in,ngridx_trim)
+            call P_trim(gridind_in,ngridx_trim)
             A(1) = ngridx_trim(2)*ngridx_trim(3); A(2) = ngridx_trim(1)*ngridx_trim(3); A(3) = ngridx_trim(1)*ngridx_trim(2)
             if ( (A(1).le.A(2)) .and. (A(1).le.A(3)) ) cax = 1
             if ( (A(2).le.A(1)) .and. (A(2).le.A(3)) ) cax = 2
@@ -491,17 +248,17 @@ contains
         do while (n_p .lt. np_per_node)
             i = i + 1
             if (cax .eq. 1) then
-                pincol = SUM(pincell_ORB_3D(&
+                pincol = SUM(pincell_ORB(&
                     i,&
                     gridind_in(2,1):gridind_in(2,2),&
                     gridind_in(3,1):gridind_in(3,2)))
             elseif (cax .eq. 2) then
-                pincol = SUM(pincell_ORB_3D(&
+                pincol = SUM(pincell_ORB(&
                     gridind_in(1,1):gridind_in(1,2),&
                     i,&
                     gridind_in(3,1):gridind_in(3,2)))
             else
-                pincol = SUM(pincell_ORB_3D(&
+                pincol = SUM(pincell_ORB(&
                     gridind_in(1,1):gridind_in(1,2),&
                     gridind_in(2,1):gridind_in(2,2),&
                     i))
@@ -520,7 +277,7 @@ contains
         
         !travelling to child node/saving boundary information ---------------------------------------------------------------------
         if (nprocs_out .ne. 1) then
-            bounds_out = ORB_bounds3D( gridind_out,nprocs_out,node_out,procrange_out,ntotal_out,dcell,mingridx_in,maxgridx_in )
+            bounds_out = ORB_bounds( gridind_out,nprocs_out,node_out,procrange_out,ntotal_out,dcell,mingridx_in,maxgridx_in )
         else
             leaf_node = node_out
             
@@ -538,17 +295,17 @@ contains
 
             call MPI_ALLGATHER(bounds_out,2*dim,MPI_ftype,bounds_glob,2*dim,MPI_ftype,MPI_COMM_WORLD,ierr)
             
-            deallocate( pincell_ORB_3D )
+            deallocate( pincell_ORB )
         
         endif
   
-    end function ORB_bounds3D
+    end function ORB_bounds
     
     !==============================================================================================================================
-    subroutine P_trim3D(gridind_in,ngridx_trim)
+    subroutine P_trim(gridind_in,ngridx_trim)
     ! Trims particle-in-cell grid so as to obtain minimal bounding boxes to obtain accurate cut axis orientations
         
-        use globvar_para,    only: pincell_ORB_3D
+        use globvar_para,    only: pincell_ORB
         
         implicit none
         integer,intent(in):: gridind_in(dim,2)
@@ -566,7 +323,7 @@ contains
         !reducing x-length of grid
         !finding new start x-index
         newstarti: do i = oldi(1),oldi(2)
-            if ( any(pincell_ORB_3D(i,oldj(1):oldj(2),oldk(1):oldk(2)).ne.0) ) then
+            if ( any(pincell_ORB(i,oldj(1):oldj(2),oldk(1):oldk(2)).ne.0) ) then
                 newi(1) = i
                 exit newstarti
             end if
@@ -574,7 +331,7 @@ contains
 
         !finding new end x-index
          newendi: do i = oldi(2),newi(1),-1
-            if ( any(pincell_ORB_3D(i,oldj(1):oldj(2),oldk(1):oldk(2)).ne.0) ) then
+            if ( any(pincell_ORB(i,oldj(1):oldj(2),oldk(1):oldk(2)).ne.0) ) then
                 newi(2) = i
                 exit newendi
             end if
@@ -583,7 +340,7 @@ contains
         !reducing y-length of grid
         !finding new start y-index
          newstartj: do j = oldj(1),oldj(2)
-            if ( any(pincell_ORB_3D(newi(1):newi(2),j,oldk(1):oldk(2)).ne.0) ) then
+            if ( any(pincell_ORB(newi(1):newi(2),j,oldk(1):oldk(2)).ne.0) ) then
                 newj(1) = j
                 exit newstartj
             end if
@@ -591,7 +348,7 @@ contains
 
         !finding new end y-index
          newendj: do j = oldj(2),newj(1),-1
-            if ( any(pincell_ORB_3D(newi(1):newi(2),j,oldk(1):oldk(2)).ne.0) ) then
+            if ( any(pincell_ORB(newi(1):newi(2),j,oldk(1):oldk(2)).ne.0) ) then
                 newj(2) = j
                 exit newendj
             end if
@@ -600,7 +357,7 @@ contains
         !reducing z-length of grid
         !finding new start z-index
          newstartk: do k = oldk(1),oldk(2)
-            if ( any(pincell_ORB_3D(newi(1):newi(2),oldj(1):oldj(2),k).ne.0) ) then
+            if ( any(pincell_ORB(newi(1):newi(2),oldj(1):oldj(2),k).ne.0) ) then
                 newk(1) = k
                 exit newstartk
             end if
@@ -608,7 +365,7 @@ contains
 
         !finding new end z-index
          newendk: do k = oldk(2),newk(1),-1
-            if ( any(pincell_ORB_3D(newi(1):newi(2),oldj(1):oldj(2),k).ne.0) ) then
+            if ( any(pincell_ORB(newi(1):newi(2),oldj(1):oldj(2),k).ne.0) ) then
                 newk(2) = k
                 exit newendk
             end if
@@ -618,7 +375,7 @@ contains
         ngridx_trim(2) = newj(2) - newj(1) + 1
         ngridx_trim(3) = newk(2) - newk(1) + 1
 
-    end subroutine P_trim3D
+    end subroutine P_trim
 
     !==============================================================================================================================
     subroutine data_to_next_node(procrange_in,gridind_in,nprocs_in,procid,n_p,ind,node_in,ntotal_in,cax,procrange_out,gridind_out,&
