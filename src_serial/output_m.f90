@@ -32,7 +32,7 @@ contains
         call h5open_f(ierr)
         
         ! Creating output file
-        call h5fcreate_f(trim(output_directory)//"/f_out"//number//".hdf5",h5F_ACC_TRUNC_F,file_id,ierr)
+        call h5fcreate_f(trim(output_directory)//"/sph_out"//number//".h5",h5F_ACC_TRUNC_F,file_id,ierr)
         
         ! Creating groups for each of real, virtual, and ghost particles
         call h5gcreate_f(file_id,"real",real_group_id,ierr)

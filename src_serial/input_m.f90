@@ -1,10 +1,10 @@
 module input_m
-	
+    
     use datatypes, only: particles
-	use globvar, only: parts,pairs,ntotal,nvirt,nghos,scale_k,niac
-	use param, only: dim,f,dxo,mp,np,op,pp,qp,rp,nlayer,irho,hsml,mass,rh0,gamma,c
-	
-	use output_m, only: write_ini_config
+    use globvar, only: parts,pairs,ntotal,nvirt,nghos,scale_k,niac
+    use param, only: dim,f,dxo,mp,np,op,pp,qp,rp,nlayer,irho,hsml,mass,rh0,gamma,c
+    
+    use output_m, only: write_ini_config
     
     real(f),parameter:: vxmin = 0._f, vymin = 0._f, vzmin = 0._f, &
         vxmax = vxmin + pp*dxo, vymax = vymin + qp*dxo, vzmax = vzmin + rp*dxo
@@ -12,198 +12,69 @@ module input_m
         rxmax = rxmin + mp*dxo, rymax = rymin + np*dxo, rzmax = rzmin + op*dxo
     
     integer,allocatable:: gind(:),vw(:)
-	
-	public:: input,virt_part
-	private:: input2D,input3D,virt_part2D,virt_part3D,vxmin,vymin,vzmin,vxmax,vymax,vzmax,rxmin,rymin,rzmin,rxmax,rymax,rzmax
-	
+    
+    public:: input,virt_part
+    private:: vxmin,vymin,vzmin,vxmax,vymax,vzmax,rxmin,rymin,rzmin,rxmax,rymax,rzmax
+    
 contains
-	
-	!==============================================================================================================================
-	subroutine input(generate)
-	! interface subroutine for initial particle config in the 2D and 3D case
-	
-		implicit none
-		logical,intent(in):: generate
-	
-		select case (dim)
-			case(2)
-				call input2D(generate)
-			case(3)
-				call input3D(generate)
-		end select
-	
-	end subroutine input
-	
-	!==============================================================================================================================
-	subroutine virt_part(generate)
-	! interface subroutine for virtual particle config in the 2D and 3D case
-	
-		implicit none
-		logical,intent(in):: generate
-		
-		select case (dim)
-			case(2)
-				call virt_part2D(generate)
-			case(3)
-				call virt_part3D(generate)
-		end select
-		
-	end subroutine virt_part
-
-	!==============================================================================================================================
-	subroutine input2D(generate)
-	
-		implicit none
-		logical,intent(in):: generate
-		integer:: i,j,d,n
-		real(f):: xi,yi
-		
-		select case (generate)
-		
-			case (.false.)
-				
-				ntotal = mp*op
-				
-			case (.true.)
-			
-				n = 0
-				do i = 1, mp
-					do j = 1, op
-						n = n + 1
-						parts(n)%ind = n
-						parts(n)%x(1) = (i-0.5_f)*dxo
-						parts(n)%x(2) = (j-0.5_f)*dxo
-						parts(n)%vx(:) = 0_f
-						parts(n)%itype = 1
-						parts(n)%rho = irho
-						parts(n)%p = 0_f
-					enddo
-				enddo
-				
-				call write_ini_config
-			
-		end select
-	
-	end subroutine input2D
-	
-	!==============================================================================================================================
-	subroutine input3D(generate)
-	
-		implicit none
-		logical,intent(in):: generate
-		integer:: i,j,k,d,n
-		real(f):: xi,yi,zi
-		
-		select case (generate)
-		
-			case (.false.)
-				
-				ntotal = mp*np*op
-				
-			case (.true.)
-			
-				n = 0
-				do i = 1, mp
-					do j = 1, np
-						do k = 1,op
-							n = n + 1
-							parts(n)%ind = n
-							parts(n)%x(1) = (i-0.5_f)*dxo
-							parts(n)%x(2) = (j-0.5_f)*dxo
-							parts(n)%x(3) = (k-0.5_f)*dxo
-							parts(n)%vx(:) = 0_f
-							parts(n)%itype = 1
-							parts(n)%rho = irho
-							parts(n)%p = 0_f
-						end do
-					end do
-				end do
-				
-				call write_ini_config
-			
-		end select
-	
-	end subroutine input3D
-	
-	!==============================================================================================================================
-	subroutine virt_part2D(generate)
-		
-		implicit none
-		logical,intent(in):: generate
-		integer:: i,j,k,d,n
-		
-		select case (generate)
-			
-			case (.false.)
-				
-				nvirt = 2*rp + 2*pp
-				
-			case (.true.)
-				
-				n = ntotal
-				
-				!---Virtual particle on the lower boundary
-				do i = 1, pp
-					n = n + 1
-					parts(n)%ind = n
-					parts(n)%x(1) = vxmin + (i-0.5_f)*dxo
-					parts(n)%x(2) = vymin - 0.5_f*dxo
-					parts(n)%vx(:) = 0_f
-				enddo
-				
-				!---Virtual particle on the upper boundary
-				do i = 1, pp
-					n = n + 1
-					parts(n)%ind = n
-					parts(n)%x(1) = vxmin + (i-0.5_f)*dxo
-					parts(n)%x(2) = vymax - 1.5_f*dxo
-					parts(n)%vx(:) = 0_f
-				enddo
-				
-				!---Virtual particle on the left boundary
-				do i = 1, rp
-					n = n + 1
-					parts(n)%ind = n
-					parts(n)%x(1) = vxmin - 0.5_f*dxo
-					parts(n)%x(2) = vymin + (i-1.5_f)*dxo
-					parts(n)%vx(:) = 0_f
-				enddo
-				
-				!---Virtual particle on the right boundary
-				do i = 1, rp
-					n = n + 1
-					parts(n)%ind = n
-					parts(n)%x(1) = vxmax + 0.5_f*dxo
-					parts(n)%x(2) = vymin + (i-1.5_f)*dxo
-					parts(n)%vx(:) = 0_f
-				enddo
-	
-				parts(ntotal+1:ntotal+nvirt)%rho = irho
-				parts(ntotal+1:ntotal+nvirt)%p = 0_f
-				parts(ntotal+1:ntotal+nvirt)%itype = -1
-				
-		end select
-	
-	end subroutine virt_part2D
-	
-	!==============================================================================================================================
-	subroutine virt_part3D(generate)
-		
-		implicit none
-		logical,intent(in):: generate
-		integer:: i,j,k,d,n
-		
-		select case (generate)
-			
-			case (.false.)
-				
-				nvirt = (pp+2*nlayer)*(qp+2*nlayer)*nlayer
-				
-			case (.true.)
-				
-				n = ntotal
-				
-				do i = 1-nlayer,pp+nlayer
+    
+    !==============================================================================================================================
+    subroutine input(generate)
+    
+        implicit none
+        logical,intent(in):: generate
+        integer:: i,j,k,d,n
+        real(f):: xi,yi,zi
+        
+        select case (generate)
+        
+            case (.false.)
+                
+                ntotal = mp*np*op
+                
+            case (.true.)
+            
+                n = 0
+                do i = 1, mp
+                    do j = 1, np
+                        do k = 1,op
+                            n = n + 1
+                            parts(n)%ind = n
+                            parts(n)%x(1) = (i-0.5_f)*dxo
+                            parts(n)%x(2) = (j-0.5_f)*dxo
+                            parts(n)%x(3) = (k-0.5_f)*dxo
+                            parts(n)%vx(:) = 0_f
+                            parts(n)%itype = 1
+                            parts(n)%rho = irho
+                            parts(n)%p = 0_f
+                        end do
+                    end do
+                end do
+                
+                call write_ini_config
+            
+        end select
+    
+    end subroutine input
+    
+    !==============================================================================================================================
+    subroutine virt_part(generate)
+        
+        implicit none
+        logical,intent(in):: generate
+        integer:: i,j,k,d,n
+        
+        select case (generate)
+            
+            case (.false.)
+                
+                nvirt = (pp+2*nlayer)*(qp+2*nlayer)*nlayer
+                
+            case (.true.)
+                
+                n = ntotal
+                
+                do i = 1-nlayer,pp+nlayer
                     do j = 1-nlayer,qp+nlayer
                         do k = 1,nlayer
                                 n = n + 1
@@ -216,13 +87,13 @@ contains
                     end do
                 end do
                 
-				parts(ntotal+1:ntotal+nvirt)%rho = irho
-				parts(ntotal+1:ntotal+nvirt)%p = 0_f
-				parts(ntotal+1:ntotal+nvirt)%itype = -1
-				
-		end select
-	
-	end subroutine virt_part3D
+                parts(ntotal+1:ntotal+nvirt)%rho = irho
+                parts(ntotal+1:ntotal+nvirt)%p = 0_f
+                parts(ntotal+1:ntotal+nvirt)%itype = -1
+                
+        end select
+    
+    end subroutine virt_part
     
     !==============================================================================================================================
     subroutine generate_ghost_part
@@ -372,17 +243,17 @@ contains
         end do
         
         do k = 1,niac
-            
-            if (pairs(k)%i%itype < 0 .and. pairs(k)%j%itype > 0) then
-                tmp = mass*pairs(k)%w/pairs(k)%j%rho
-                vw(pairs(k)%i%ind-ntotal) = vw(pairs(k)%i%ind-ntotal) + tmp
-                pairs(k)%i%rho = pairs(k)%i%rho + mass*pairs(k)%w
-                pairs(k)%i%vx(:) = pairs(k)%i%vx(:) - pairs(k)%j%vx(:)*tmp
-            else if (pairs(k)%j%itype < 0 .and. pairs(k)%i%itype > 0) then
-                tmp = mass*pairs(k)%w/pairs(k)%i%rho
-                vw(pairs(k)%j%ind-ntotal) = vw(pairs(k)%j%ind-ntotal) + tmp
-                pairs(k)%j%rho = pairs(k)%j%rho + mass*pairs(k)%w
-                pairs(k)%j%vx(:) = pairs(k)%j%vx(:) - pairs(k)%i%vx(:)*tmp
+            i = pairs(k)%i; j = pairs(k)%j
+            if (parts(i)%itype < 0 .and. parts(j)%itype > 0) then
+                tmp = mass*pairs(k)%w/parts(j)%rho
+                vw(parts(i)%ind-ntotal) = vw(parts(i)%ind-ntotal) + tmp
+                parts(i)%rho = parts(i)%rho + mass*pairs(k)%w
+                parts(i)%vx(:) = parts(i)%vx(:) - parts(j)%vx(:)*tmp
+            else if (parts(j)%itype < 0 .and. parts(i)%itype > 0) then
+                tmp = mass*pairs(k)%w/parts(i)%rho
+                vw(parts(j)%ind-ntotal) = vw(parts(j)%ind-ntotal) + tmp
+                parts(j)%rho = parts(j)%rho + mass*pairs(k)%w
+                parts(j)%vx(:) = parts(j)%vx(:) - parts(i)%vx(:)*tmp
             end if
         
         end do

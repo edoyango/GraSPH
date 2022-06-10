@@ -8,7 +8,7 @@ module globvar
     type(particles),allocatable,target,public:: parts(:)
     
     ! interaction array
-    type(interactions),allocatable,public:: pairs(:)
+    type(interactions),allocatable:: pairs(:)
     
     !global 1D variables
     integer,public:: ntotal,nvirt,nghos

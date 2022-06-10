@@ -6,11 +6,7 @@ module flink_list_m
     
     use kernel_m, only: kernel
     
-    type particleincellarray
-        type(particles),pointer:: p
-    end type particleincellarray
-    
-    public:: flink_list,particleincellarray
+    public:: flink_list
     private:: check_if_interact
 
 contains
@@ -23,8 +19,7 @@ contains
         integer,parameter:: maxpcell=125
         integer:: ngridx(dim),i,j,k,d,icell,jcell,kcell,xi,yi,zi,jth
         real(f):: mingridx(dim),maxgridx(dim),dcell
-        integer,allocatable:: pincell(:,:,:),gridind(:,:)
-        type(particleincellarray),allocatable:: cells(:,:,:,:)
+        integer,allocatable:: pincell(:,:,:),gridind(:,:),cells(:,:,:,:)
         integer,parameter:: sweep(3,13) = reshape((/-1,-1,-1,&
                                                     -1,-1, 0,&
                                                     -1,-1, 1,&
@@ -68,7 +63,7 @@ contains
             jcell = gridind(2,i)
             kcell = gridind(3,i)
             pincell(icell,jcell,kcell) = pincell(icell,jcell,kcell) + 1
-            cells(pincell(icell,jcell,kcell),icell,jcell,kcell)%p => parts(i)
+            cells(pincell(icell,jcell,kcell),icell,jcell,kcell) = i
         enddo
         
         niac = 0
@@ -80,7 +75,8 @@ contains
                     
                 ! finding pairs within cell icell,jcell
                 do j = 1,pincell(icell,jcell,kcell)
-                    if (i < cells(j,icell,jcell,kcell)%p%ind) call check_if_interact(parts(i),cells(j,icell,jcell,kcell)%p)
+                    jth = cells(j,icell,jcell,kcell)
+                    if (i < cells(j,icell,jcell,kcell)) call check_if_interact(parts(i),parts(jth))
                 end do
             end if
                         
@@ -91,7 +87,8 @@ contains
                 zi = kcell + sweep(3,k)
                 
                 do j = 1,pincell(xi,yi,zi)
-                    call check_if_interact(parts(i),cells(j,xi,yi,zi)%p)
+                    jth = cells(j,xi,yi,zi)
+                    call check_if_interact(parts(i),parts(jth))
                 end do
             end do
                     
@@ -104,7 +101,7 @@ contains
     ! subroutine to chekc if two particles are interacting and consequently adding to pair list
         
         implicit none
-        type(particles),intent(in),target:: p_i,p_j
+        type(particles),intent(in):: p_i,p_j
         real(f):: dxiac(dim),r
         
         ! only consider interactions when real-real are involved
@@ -114,8 +111,8 @@ contains
             if (r < hsml*scale_k) then
                 niac = niac + 1
                 if (niac < maxinter) then
-                    pairs(niac)%i => p_i
-                    pairs(niac)%j => p_j
+                    pairs(niac)%i = p_i%ind
+                    pairs(niac)%j = p_j%ind
                     call kernel(r,dxiac,hsml,pairs(niac)%w,pairs(niac)%dwdx(:))
                 else
                     print *,' >>> Error <<< : Too many interactions'
