@@ -6,8 +6,7 @@ module ORB_m
     use param,            only: f,dim,hsml
     
     public:: ORB
-    private:: particle_grid,ORB_bounds,P_trim,data_to_next_node,ORB_boundingbox,potential_neighbour_process_search,&
-        subdomain_neighbour
+    private:: particle_grid,ORB_bounds,P_trim,data_to_next_node,potential_neighbour_process_search,subdomain_neighbour
     
 contains    
     !==============================================================================================================================
@@ -145,13 +144,39 @@ contains
         real(f),intent(in):: dcell
         integer,intent(out):: ngridx(:)
         real(f),intent(out):: mingridx(:),maxgridx(:)
-        integer:: i,icell,jcell,kcell,n_nonzerocells,n_nonzerocells_perprocess(numprocs),n_nonzerocells_total,pid,&
-                displ(numprocs),cellmins(3),cellmaxs(3),cellrange(3),request,status(MPI_STATUS_SIZE)
+        integer:: i,d,icell,jcell,kcell,n_nonzerocells,n_nonzerocells_perprocess(numprocs),n_nonzerocells_total,pid,&
+                displ(numprocs),cellmins(3),cellmaxs(3),cellrange(3),request(2),status(MPI_STATUS_SIZE,2)
         real(f):: minx(3),maxx(3)
         integer:: sendcount,recvcount(numprocs),Plist_size
         integer,allocatable:: Plist_loc(:,:),Plist_all(:,:)
         
-        call ORB_boundingbox(ngridx,minx,maxx,mingridx,maxgridx,cellmins,cellmaxs,cellrange,dcell,3)
+        ! Local max, min, in each direction ---------------------------------------------------------------------------------------
+        minx(1:dim) = parts(1)%x(1:dim)
+        maxx(1:dim) = parts(1)%x(1:dim)
+        do i = 2,ntotal_loc
+            do d = 1,dim
+                if (parts(i)%x(d).gt.maxx(d)) maxx(d) = parts(i)%x(d)
+                if (parts(i)%x(d).lt.minx(d)) minx(d) = parts(i)%x(d)
+            end do
+        end do
+        
+        ! Global max, min, in each direction --------------------------------------------------------------------------------------
+        call MPI_IALLREDUCE(maxx(:),maxgridx(:),dim,MPI_ftype,MPI_MAX,MPI_COMM_WORLD,request(1),ierr) !finding max over all processes
+        call MPI_IALLREDUCE(minx(:),mingridx(:),dim,MPI_ftype,MPI_MIN,MPI_COMM_WORLD,request(2),ierr) !finding min over all processes
+        
+        call MPI_WAITALL(2,request,status,ierr)
+        
+        mingridx(:) = mingridx(:) - dcell
+        maxgridx(:) = maxgridx(:) + dcell
+        
+        ! Number of grid cells and adjusting max extent in each direction ---------------------------------------------------------
+        ngridx(:) = int((maxgridx(:)-mingridx(:))/dcell) + 1
+        maxgridx(:) = mingridx(:) + dcell*ngridx(:)
+        
+        ! Reducing search area by locating indices in which local particles are contained within
+        cellmins(:) = int((minx(:) - mingridx(:))/dcell) + 1
+        cellmaxs(:) = int((maxx(:) - mingridx(:))/dcell) + 1
+        cellrange(:) = cellmaxs(:) - cellmins(:) + 1
         
         ! Creating list of non-zero grid cells ------------------------------------------------------------------------------------
         Plist_size = MIN(ntotal_loc,PRODUCT(cellrange(:)))
@@ -176,14 +201,14 @@ contains
         enddo
         
         ! Exchanging info on how many non-zero cells each process has
-        call MPI_IALLGATHER(n_nonzerocells,1,MPI_INTEGER,n_nonzerocells_perprocess,1,MPI_INTEGER,MPI_COMM_WORLD,request,ierr)
+        call MPI_IALLGATHER(n_nonzerocells,1,MPI_INTEGER,n_nonzerocells_perprocess,1,MPI_INTEGER,MPI_COMM_WORLD,request(1),ierr)
         
         ! Populating Plist_loc with non-zero cell entries
         do i = 1,n_nonzerocells
             Plist_loc(4,i) = Pincell_ORB(Plist_loc(1,i),Plist_loc(2,i),Plist_loc(3,i))
         enddo
         
-        call MPI_WAIT(request,status,ierr)
+        call MPI_WAIT(request(1),status(:,1),ierr)
         
         n_nonzerocells_total = 0
         do pid = 1,numprocs
@@ -197,11 +222,11 @@ contains
         displ = 4*displ
         sendcount = 4*n_nonzerocells
         recvcount = 4*n_nonzerocells_perprocess(:)
-        call MPI_IALLGATHERV(Plist_loc,sendcount,MPI_INTEGER,Plist_all,recvcount,displ,MPI_INTEGER,MPI_COMM_WORLD,request,ierr)
+        call MPI_IALLGATHERV(Plist_loc,sendcount,MPI_INTEGER,Plist_all,recvcount,displ,MPI_INTEGER,MPI_COMM_WORLD,request(1),ierr)
         
         pincell_ORB(:,:,:) = 0
         
-        call MPI_WAIT(request,status,ierr)
+        call MPI_WAIT(request(1),status(:,1),ierr)
         
         ! populating the number of particles per cell
         do i = 1,n_nonzerocells_total
@@ -225,7 +250,7 @@ contains
         integer,intent(in):: gridind_in(dim,2),node_in,nprocs_in,procrange_in(2),ntotal_in
         real(f),intent(in):: mingridx_in(dim),maxgridx_in(dim),dcell
         integer:: i,node_out,gridind_out(dim,2),nprocs_out,ntotal_out,procrange_out(2),n_p,cax,np_per_node,pincol,&
-        ngridx_trim(dim),A(3)
+        ngridx_trim(dim),A(3),procrange_lo(2),procrange_hi(2)
         real(f):: bounds_out(2*dim)
 
         !determining cut axis. 1 = x, 2 = y ---------------------------------------------------------------------------------------
@@ -272,8 +297,28 @@ contains
         endif
         
         !saving output information ------------------------------------------------------------------------------------------------
-        call data_to_next_node(procrange_in,gridind_in,nprocs_in,procid,n_p,i,node_in,ntotal_in,cax,procrange_out,gridind_out,&
-        nprocs_out,ntotal_out,node_out)
+        procrange_lo(1) = procrange_in(1)
+        procrange_lo(2) = procrange_in(1) + ceiling(real(nprocs_in)/2)-1
+        procrange_hi(1) = procrange_lo(2) + 1
+        procrange_hi(2) = procrange_lo(1) + nprocs_in - 1
+        gridind_out(:,1) = gridind_in(:,1)
+        gridind_out(:,2) = gridind_in(:,2)
+        
+        if (procid.le.procrange_lo(2)) then
+            node_out = 2*node_in
+            procrange_out = procrange_lo
+            ntotal_out = n_p
+            gridind_out(cax,1) = gridind_in(cax,1)
+            gridind_out(cax,2) = i
+        else
+            node_out = 2*node_in + 1
+            procrange_out = procrange_hi
+            ntotal_out = ntotal_in - n_p
+            gridind_out(cax,1) = i + 1
+            gridind_out(cax,2) = gridind_in(cax,2)
+        endif
+        
+        nprocs_out = procrange_out(2) - procrange_out(1) + 1
         
         !travelling to child node/saving boundary information ---------------------------------------------------------------------
         if (nprocs_out .ne. 1) then
@@ -377,81 +422,6 @@ contains
 
     end subroutine P_trim
 
-    !==============================================================================================================================
-    subroutine data_to_next_node(procrange_in,gridind_in,nprocs_in,procid,n_p,ind,node_in,ntotal_in,cax,procrange_out,gridind_out,&
-    nprocs_out,ntotal_out,node_out)
-    ! helper subroutine for ORB_bounds to determine which node the process is travelling to
-    
-        implicit none
-        integer,intent(in):: procrange_in(2),gridind_in(dim,2),nprocs_in,procid,n_p,ind,node_in,ntotal_in,cax
-        integer,intent(out):: procrange_out(2),gridind_out(dim,2),nprocs_out,ntotal_out,node_out
-        integer:: procrange_lo(2),procrange_hi(2)
-        
-        procrange_lo(1) = procrange_in(1)
-        procrange_lo(2) = procrange_in(1) + ceiling(real(nprocs_in)/2)-1
-        procrange_hi(1) = procrange_lo(2) + 1
-        procrange_hi(2) = procrange_lo(1) + nprocs_in - 1
-        gridind_out(:,1) = gridind_in(:,1)
-        gridind_out(:,2) = gridind_in(:,2)
-        
-        if (procid.le.procrange_lo(2)) then
-            node_out = 2*node_in
-            procrange_out = procrange_lo
-            ntotal_out = n_p
-            gridind_out(cax,1) = gridind_in(cax,1)
-            gridind_out(cax,2) = ind
-        else
-            node_out = 2*node_in + 1
-            procrange_out = procrange_hi
-            ntotal_out = ntotal_in - n_p
-            gridind_out(cax,1) = ind + 1
-            gridind_out(cax,2) = gridind_in(cax,2)
-        endif
-        
-        nprocs_out = procrange_out(2) - procrange_out(1) + 1
-        
-    end subroutine data_to_next_node
-    
-    !==============================================================================================================================
-    subroutine ORB_boundingbox(ngridx,minx,maxx,mingridx,maxgridx,cellmins,cellmaxs,cellrange,dcell,ndims)
-    ! shared subroutine for 2D, 3D particle_grid subroutines to determine bounding box of all particles.
-        
-        integer,intent(in):: ndims
-        real(f),intent(in):: dcell
-        integer,intent(out):: ngridx(ndims),cellmins(ndims),cellmaxs(ndims),cellrange(ndims)
-        real(f),intent(out):: minx(ndims),maxx(ndims),mingridx(ndims),maxgridx(ndims)
-        integer:: i,d,request(2),status(MPI_STATUS_SIZE,2)
-        
-        ! Local max, min, in each direction ---------------------------------------------------------------------------------------
-        minx(1:ndims) = parts(1)%x(1:ndims)
-        maxx(1:ndims) = parts(1)%x(1:ndims)
-        do i = 2,ntotal_loc
-            do d = 1,ndims
-                if (parts(i)%x(d).gt.maxx(d)) maxx(d) = parts(i)%x(d)
-                if (parts(i)%x(d).lt.minx(d)) minx(d) = parts(i)%x(d)
-            end do
-        end do
-        
-        ! Global max, min, in each direction --------------------------------------------------------------------------------------
-        call MPI_IALLREDUCE(maxx(:),maxgridx(:),ndims,MPI_ftype,MPI_MAX,MPI_COMM_WORLD,request(1),ierr) !finding max over all processes
-        call MPI_IALLREDUCE(minx(:),mingridx(:),ndims,MPI_ftype,MPI_MIN,MPI_COMM_WORLD,request(2),ierr) !finding min over all processes
-        
-        call MPI_WAITALL(2,request,status,ierr)
-        
-        mingridx(:) = mingridx(:) - dcell
-        maxgridx(:) = maxgridx(:) + dcell
-        
-        ! Number of grid cells and adjusting max extent in each direction ---------------------------------------------------------
-        ngridx(:) = int((maxgridx(:)-mingridx(:))/dcell) + 1
-        maxgridx(:) = mingridx(:) + dcell*ngridx(:)
-        
-        ! Reducing search area by locating indices in which local particles are contained within
-        cellmins(:) = int((minx(:) - mingridx(:))/dcell) + 1
-        cellmaxs(:) = int((maxx(:) - mingridx(:))/dcell) + 1
-        cellrange(:) = cellmaxs(:) - cellmins(:) + 1
-        
-    end subroutine ORB_boundingbox
-    
     !==============================================================================================================================
     subroutine potential_neighbour_process_search(ID_node)
     ! Used to determine which nodes are located at the edge of the domain in each direction.
