@@ -15,8 +15,7 @@ contains
     ! Subroutine to write data to disk. Called intermittently, determined by save_step supplied at run-time
     
         use globvar,    only: itimestep,save_step
-        use param,      only: output_phys,output_virt
-        
+            
         implicit none
         integer(HID_T):: file_id,real_group_id,virt_group_id,ghos_group_id
         integer(HSIZE_T):: data_dims(2)

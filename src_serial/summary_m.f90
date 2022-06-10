@@ -39,7 +39,6 @@ contains
         
         implicit none
         character(len=100):: args(3)
-        integer:: ierr
         
         if (command_argument_count().lt.3) then
             write(*,'(A92)') '!!!ERROR!!! --- 3 commandline arguments must be provided: maxtimestep, print_step, save_step'
@@ -66,7 +65,6 @@ contains
     subroutine print_summary
     
         implicit none
-        integer:: i,j,k,d
         
         write (*,*)'================================= TIME SUMMARY ================================'
         write (*,*)'Average Total CPU time = ', cputime
@@ -79,7 +77,7 @@ contains
     
         implicit none
         integer,allocatable:: ns(:)
-        integer:: maxp,minp,sumiac,maxiac,miniac,noiac,i,j,k,d
+        integer:: maxp,minp,sumiac,maxiac,miniac,noiac,i,j,k
         
         write(*,*)'_______________________________________________________________________________'
         write(*,*)'  current number of time step =', itimestep,'     current time=', real(time)

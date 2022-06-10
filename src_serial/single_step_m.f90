@@ -18,8 +18,7 @@ contains
         implicit none
         integer,intent(in):: ki
         real(f),intent(out):: dvxdti(dim,ntotal),drhoi(ntotal)
-        integer:: i,j,k,d
-        real(f):: t1,t2
+        integer:: i,j,k
         real(f),allocatable:: indvxdt(:,:),ardvxdt(:,:),exdvxdt(:,:),cdrhodt(:)
         
         allocate( indvxdt(dim,ntotal+nvirt+nghos),&

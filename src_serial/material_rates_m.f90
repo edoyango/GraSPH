@@ -16,7 +16,7 @@ contains
         type(particles),intent(in):: p_i,p_j
         real(f),intent(in):: dwdx(dim)
         real(f),intent(inout):: ardvxdt(dim,ntotal+nvirt+nghos)
-        real(f):: dx(dim),piv(dim),muv,vr,rr,h,mrho
+        real(f):: dx(dim),piv(dim),muv,vr,rr,mrho
         
         dx(:) = p_i%x(:) - p_j%x(:)
         vr = DOT_PRODUCT(p_i%vx(:) - p_j%vx(:),dx(:))

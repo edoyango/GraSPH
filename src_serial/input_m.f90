@@ -11,7 +11,8 @@ module input_m
     real(f),parameter:: rxmin = 0._f, rymin = 0._f, rzmin = 0._f, &
         rxmax = rxmin + mp*dxo, rymax = rymin + np*dxo, rzmax = rzmin + op*dxo
     
-    integer,allocatable:: gind(:),vw(:)
+    integer,allocatable:: gind(:)
+    real(f),allocatable:: vw(:)
     
     public:: input,virt_part
     private:: vxmin,vymin,vzmin,vxmax,vymax,vzmax,rxmin,rymin,rzmin,rxmax,rymax,rzmax
@@ -23,8 +24,7 @@ contains
     
         implicit none
         logical,intent(in):: generate
-        integer:: i,j,k,d,n
-        real(f):: xi,yi,zi
+        integer:: i,j,k,n
         
         select case (generate)
         
@@ -62,7 +62,7 @@ contains
         
         implicit none
         logical,intent(in):: generate
-        integer:: i,j,k,d,n
+        integer:: i,j,k,n
         
         select case (generate)
             
@@ -99,7 +99,7 @@ contains
     subroutine generate_ghost_part
         
         implicit none
-        integer:: i,j,k,d,ig
+        integer:: i,ig
         
         nghos = 0
         
@@ -200,7 +200,7 @@ contains
     subroutine update_ghost_part
         
         implicit none
-        integer:: i,j,k,d,ig,ir
+        integer:: i,ig,ir
         
         do i = 1,nghos
             ig = ntotal+nvirt+i
@@ -233,7 +233,7 @@ contains
     subroutine update_virt_part
     
         implicit none
-        integer:: i,j,k,d,iv,ir
+        integer:: i,j,k
         real(f):: tmp
         
         vw(:) = 0._f
@@ -259,7 +259,7 @@ contains
         end do
         
         do i = 1,nvirt
-            if (vw(i) .ne. 0._f) then
+            if (vw(i) > 0._f) then
                 parts(ntotal+i)%rho = parts(ntotal+i)%rho/vw(i)
                 parts(ntotal+i)%vx(:) = parts(ntotal+i)%vx(:)/vw(i)
             else
