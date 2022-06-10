@@ -6,7 +6,7 @@ module ORB_m
     use param,            only: f,dim,hsml
     
     public:: ORB
-    private:: particle_grid,ORB_bounds,P_trim,data_to_next_node,potential_neighbour_process_search,subdomain_neighbour
+    private:: particle_grid,ORB_bounds,P_trim,potential_neighbour_process_search,subdomain_neighbour
     
 contains    
     !==============================================================================================================================
