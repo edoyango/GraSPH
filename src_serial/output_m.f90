@@ -1,33 +1,33 @@
 module output_m
-	
-	use globvar, only: ntotal,nvirt,nghos,parts
-	use param, only: output_directory,f,dim
+    
+    use globvar, only: ntotal,nvirt,nghos,parts
+    use param, only: output_directory,f,dim
     
     use hdf5
     use h5lt
-	
-	integer,private:: i,d
+    
+    integer,private:: i
 
 contains
 
-	!==============================================================================================================================
-	subroutine output( ) 
-	! Subroutine to write data to disk. Called intermittently, determined by save_step supplied at run-time
-	
-		use globvar,	only: itimestep,save_step
-		use param,		only: output_phys,output_virt
-		
-		implicit none
-        integer(HID_T):: file_id,real_group_id,virt_group_id,ghos_group_id,dspace_id,dset_id
+    !==============================================================================================================================
+    subroutine output( ) 
+    ! Subroutine to write data to disk. Called intermittently, determined by save_step supplied at run-time
+    
+        use globvar,    only: itimestep,save_step
+        use param,      only: output_phys,output_virt
+        
+        implicit none
+        integer(HID_T):: file_id,real_group_id,virt_group_id,ghos_group_id
         integer(HSIZE_T):: data_dims(2)
-		integer:: n,ierr
-		character(len=4)::number
+        integer:: n,ierr
+        character(len=4)::number
         integer,allocatable:: idatatmp(:,:)
         real(f),allocatable:: fdatatmp(:,:)
-		
-		n = itimestep/save_step
-		write(number,'(I4.4)') n
-
+        
+        n = itimestep/save_step
+        write(number,'(I4.4)') n
+    
         ! Initializing hdf5 interface
         call h5open_f(ierr)
         
@@ -116,13 +116,13 @@ contains
         
         ! position
         do i = ntotal+1,ntotal+nvirt
-            fdatatmp(:,i) = parts(i)%x(:)
+            fdatatmp(:,i-ntotal) = parts(i)%x(:)
         end do
         call H5LTmake_dataset_double_f(file_id,'virt/x',2,data_dims,fdatatmp,ierr)
         
         ! velocity
         do i = ntotal+1,ntotal+nvirt
-            fdatatmp(:,i) = parts(i)%vx(:)
+            fdatatmp(:,i-ntotal) = parts(i)%vx(:)
         end do
         call H5LTmake_dataset_double_f(file_id,'virt/v',2,data_dims,fdatatmp,ierr)
         
@@ -164,13 +164,13 @@ contains
         
         ! position
         do i = ntotal+nvirt+1,ntotal+nvirt+nghos
-            fdatatmp(:,i) = parts(i)%x(:)
+            fdatatmp(:,i-ntotal-nvirt) = parts(i)%x(:)
         end do
         call H5LTmake_dataset_double_f(file_id,'ghos/x',2,data_dims,fdatatmp,ierr)
         
         ! velocity
         do i = ntotal+nvirt+1,ntotal+nvirt+nghos
-            fdatatmp(:,i) = parts(i)%vx(:)
+            fdatatmp(:,i-ntotal-nvirt) = parts(i)%vx(:)
         end do
         call H5LTmake_dataset_double_f(file_id,'ghos/v',2,data_dims,fdatatmp,ierr)
         
@@ -190,26 +190,26 @@ contains
         
         call h5fclose_f(file_id,ierr)
         
-	end subroutine output
-	
-	!==============================================================================================================================
-	subroutine write_ini_config
-	! Subroutine for writing initial configuration data using intrinsic IO
-	
-		implicit none
+    end subroutine output
+    
+    !==============================================================================================================================
+    subroutine write_ini_config
+    ! Subroutine for writing initial configuration data using intrinsic IO
+    
+        implicit none
         
         open(1,file=trim(output_directory)//"/ini_ind.dat",form='unformatted',access='stream',status='replace')        
-		open(2,file=trim(output_directory)//"/ini_xv.dat",form='unformatted',access='stream',status='replace')
-		open(3,file=trim(output_directory)//"/ini_state.dat",form='unformatted',access='stream',status='replace')
-		
-		do i = 1, ntotal 
+        open(2,file=trim(output_directory)//"/ini_xv.dat",form='unformatted',access='stream',status='replace')
+        open(3,file=trim(output_directory)//"/ini_state.dat",form='unformatted',access='stream',status='replace')
+        
+        do i = 1, ntotal 
             write(1) parts(i)%ind, 0, parts(i)%itype
-			write(2) parts(i)%x(:), parts(i)%vx(:)
-			write(3) parts(i)%rho, parts(i)%p
-		end do
-		
-		close(1); close(2); close(3)
-		
-	end subroutine write_ini_config
+            write(2) parts(i)%x(:), parts(i)%vx(:)
+            write(3) parts(i)%rho, parts(i)%p
+        end do
+        
+        close(1); close(2); close(3)
+        
+    end subroutine write_ini_config
     
 end module output_m
