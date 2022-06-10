@@ -29,9 +29,8 @@ contains
     ! save as above, but for 3D
         
         implicit none
-        integer,allocatable,device:: pincell(:,:,:)
+        integer,allocatable,device:: pincell(:,:,:),cells(:,:,:,:)
         integer:: i,j,k,d,istat
-        type(particleincellarray),allocatable,device:: cells(:,:,:,:)
         type(dim3),parameter:: nthreads=dim3(16,8,8)
         
         dcell = scale_k*hsml
@@ -93,9 +92,9 @@ contains
         integer,intent(in):: nt,nv,ng,ngx(dim)
         real(f),intent(in):: mingx(dim)
         real(f),intent(in),value:: dc
-        type(particles),intent(in),target:: pts(nt+nv+ng)
+        type(particles),intent(in):: pts(nt+nv+ng)
         integer,intent(inout):: p(ngx(1),ngx(2),ngx(3))
-        type(particleincellarray),intent(out):: c(maxpcell3D,ngx(1),ngx(2),ngx(3))
+        integer,intent(out):: c(maxpcell3D,ngx(1),ngx(2),ngx(3))
         integer:: ind,icell,jcell,kcell,i,j,k,d
         
         ! global thread index
@@ -105,7 +104,7 @@ contains
             jcell = int((pts(i)%x(2)-mingx(2))/dc)+1
             kcell = int((pts(i)%x(3)-mingx(3))/dc)+1
             ind = atomicadd(p(icell,jcell,kcell),1)
-            c(ind+1,icell,jcell,kcell)%p => pts(i)
+            c(ind+1,icell,jcell,kcell) = i
         end if
 
     end subroutine populate
@@ -114,14 +113,13 @@ contains
     attributes(global) subroutine sweep(dc,nt,nv,ng,mingx,ngx,pts,p,c,nij,pij)
     
         implicit none
-        integer,intent(in):: nt,nv,ng,ngx(dim),p(ngx(1),ngx(2),ngx(3))
+        integer,intent(in):: nt,nv,ng,ngx(dim),p(ngx(1),ngx(2),ngx(3)),c(maxpcell3D,ngx(1),ngx(2),ngx(3)) 
         real(f),intent(in):: mingx(dim)
         real(f),intent(in),value:: dc
-        type(particleincellarray),intent(in):: c(maxpcell3D,ngx(1),ngx(2),ngx(3)) 
-        type(particles),intent(in),target:: pts(nt+nv+ng)
+        type(particles),intent(in):: pts(nt+nv+ng)
         integer,intent(out):: nij(nt+nv+ng)
         type(interactions),intent(out):: pij(maxinter_perp,nt+nv+ng)
-        integer:: i,j,k,d,xi,yi,zi,icell,jcell,kcell
+        integer:: i,j,k,d,xi,yi,zi,icell,jcell,kcell,jth
         integer,parameter:: sweepinds(3,13) = reshape((/-1,-1,-1,&
                                                     -1,-1, 0,&
                                                     -1,-1, 1,&
@@ -146,9 +144,10 @@ contains
             kcell = int((pts(i)%x(3)-mingx(3))/dc) + 1
             if (p(icell,jcell,kcell) > 1) then
                 do j = 1,p(icell,jcell,kcell)
-                    if (c(j,icell,jcell,kcell)%p%ind > i) then
+                    jth = c(j,icell,jcell,kcell)
+                    if (jth > i) then
                         ! only consider interactions when real particles are involved
-                        call check_if_interact(pts(i),c(j,icell,jcell,kcell)%p,nij(i),pij(:,i))
+                        call check_if_interact(pts(i),pts(jth),nij(i),pij(:,i))
                     end if
                 end do
             end if
@@ -158,7 +157,8 @@ contains
                 zi = kcell + sweepinds(3,k)
                 do j = 1,p(xi,yi,zi)
                     ! only consider interactions when real particles are involved
-                    call check_if_interact(pts(i),c(j,xi,yi,zi)%p,nij(i),pij(:,i))
+                    jth = c(j,xi,yi,zi)
+                    call check_if_interact(pts(i),pts(jth),nij(i),pij(:,i))
                 end do
             end do
         end if
@@ -170,7 +170,7 @@ contains
     ! subroutine to chekc if two particles are interacting and consequently adding to pair list
         
         implicit none
-        type(particles),target,intent(in):: p_i,p_j
+        type(particles),intent(in):: p_i,p_j
         integer,intent(inout):: nij
         type(interactions),intent(inout):: pij(maxinter_perp)
         real(f):: dxiac(dim),r
@@ -182,8 +182,8 @@ contains
             if (r < hsml*scale_k_d) then
                 nij = nij + 1
                 if (nij < maxinter_perp) then
-                    pij(nij)%i => p_i
-                    pij(nij)%j => p_j
+                    pij(nij)%i = p_i%ind
+                    pij(nij)%j = p_j%ind
                     call kernel(r,dxiac(:),hsml,pij(nij)%w,pij(nij)%dwdx(:))
                 else
                     print *,' >>> Error <<< : Too many interactions'

@@ -75,7 +75,8 @@ contains
                     indvxdt(:,i) = 0_f
                     codrhodt(i) = 0_f
                 end do
-                call single_step_kernel<<<(ntotal+nvirt+nghos)/32+1,32>>>(ki,ntotal_d,nvirt_d,nghos_d,niac_d,pairs_d,ardvxdt,exdvxdt,indvxdt,codrhodt)
+                call single_step_kernel<<<(ntotal+nvirt+nghos)/32+1,32>>>(ki,ntotal_d,nvirt_d,nghos_d,niac_d,pairs_d,parts_d,&
+                    ardvxdt,exdvxdt,indvxdt,codrhodt)
                 ! launching GPU kernel to update particles' speed and density
                 call RK4_update<<<ntotal/1024+1,1024>>>(ki,ntotal_d,v_min,rho_min,ardvxdt,exdvxdt,indvxdt,codrhodt,dvxdt,drho)
                 call update_ghost_part<<<nghos/1024+1,1024>>>(ntotal_d,nvirt_d,nghos_d,parts_d,gind)
@@ -140,11 +141,11 @@ contains
                     parts_d(i)%vx(:) = v_min(:,i) + dt*dvxdt(:,i,3)
                     parts_d(i)%rho = rho_min(i) + dt*drhodt(i,3)
                 case(4)
-                    parts_d(i)%vx(:) = v_min(:,i) + dt/6_f*(dvxdt(:,i,1) + 2_f*dvxdt(:,i,2) + 2_f*dvxdt(:,i,3) + dvxdt(:,i,4))
-                    parts_d(i)%rho = rho_min(i) + dt/6_f*(drhodt(i,1) + 2_f*drhodt(i,2) + 2_f*drhodt(i,3) + drhodt(i,4))
+                    parts_d(i)%vx(:) = v_min(:,i) + dt/6_f*(dvxdt(:,i,1) + 2._f*dvxdt(:,i,2) + 2._f*dvxdt(:,i,3) + dvxdt(:,i,4))
+                    parts_d(i)%rho = rho_min(i) + dt/6_f*(drhodt(i,1) + 2._f*drhodt(i,2) + 2._f*drhodt(i,3) + drhodt(i,4))
                     parts_d(i)%x(:) = parts_d(i)%x(:) + dt*parts_d(i)%vx(:)
             end select
-            parts_d(i)%p = rh0*c**2*((parts_d(i)%rho/rh0)**gamma-1_f)/gamma
+            parts_d(i)%p = rh0*c**2*((parts_d(i)%rho/rh0)**gamma-1._f)/gamma
             
         end if
         

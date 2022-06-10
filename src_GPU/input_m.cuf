@@ -361,12 +361,13 @@ contains
     end subroutine update_ghost_part
     
     !===============================================================================================================================
-    attributes(global) subroutine vmat_update(nt,nv,ng,nij,pij,vw)
+    attributes(global) subroutine vmat_update(nt,nv,ng,nij,pij,pts,vw)
     
         implicit none
         integer,intent(in):: nt,nv,ng,nij(nt+nv+ng)
         type(interactions),intent(in):: pij(maxinter_perp,nt+nv+ng)
         real(f),intent(inout):: vw(nv)
+        type(particles),intent(inout):: pts(nt+nv+ng)
         integer:: i,j,k,d
         real(f):: tmp,tmp2
         
@@ -374,41 +375,42 @@ contains
         
         if (i<=nt+nv+ng) then
             do k = 1,nij(i)
-                if (pij(k,i)%i%itype < 0 .and. pij(k,i)%j%itype > 0) then
-                    tmp = mass*pij(k,i)%w/pij(k,i)%j%rho
-                    tmp2 = atomicadd(vw(pij(k,i)%i%ind-nt),tmp)
-                    tmp2 = atomicadd(pij(k,i)%i%rho,mass*pij(k,i)%w)
-                    select case (pij(k,i)%i%itype)
+                j = pij(k,i)%j
+                if (pts(i)%itype < 0 .and. pts(j)%itype > 0) then
+                    tmp = mass*pij(k,i)%w/pts(j)%rho
+                    tmp2 = atomicadd(vw(pts(i)%ind-nt),tmp)
+                    tmp2 = atomicadd(pts(i)%rho,mass*pij(k,i)%w)
+                    select case (pts(i)%itype)
                         case(-1) ! top-bottom walls
-                            tmp2 = atomicadd(pij(k,i)%i%vx(1),-pij(k,i)%j%vx(1)*tmp)
-                            tmp2 = atomicadd(pij(k,i)%i%vx(2),-pij(k,i)%j%vx(2)*tmp)
-                            tmp2 = atomicadd(pij(k,i)%i%vx(3),-pij(k,i)%j%vx(3)*tmp)
+                            tmp2 = atomicadd(pts(i)%vx(1),-pts(j)%vx(1)*tmp)
+                            tmp2 = atomicadd(pts(i)%vx(2),-pts(j)%vx(2)*tmp)
+                            tmp2 = atomicadd(pts(i)%vx(3),-pts(j)%vx(3)*tmp)
                         case(-2) ! north-south walls
-                            tmp2 = atomicadd(pij(k,i)%i%vx(1), pij(k,i)%j%vx(1)*tmp)
-                            tmp2 = atomicadd(pij(k,i)%i%vx(2),-pij(k,i)%j%vx(2)*tmp)
-                            tmp2 = atomicadd(pij(k,i)%i%vx(3), pij(k,i)%j%vx(3)*tmp)
+                            tmp2 = atomicadd(pts(i)%vx(1), pts(j)%vx(1)*tmp)
+                            tmp2 = atomicadd(pts(i)%vx(2),-pts(j)%vx(2)*tmp)
+                            tmp2 = atomicadd(pts(i)%vx(3), pts(j)%vx(3)*tmp)
                         case(-3) ! east-west walls
-                            tmp2 = atomicadd(pij(k,i)%i%vx(1),-pij(k,i)%j%vx(1)*tmp)
-                            tmp2 = atomicadd(pij(k,i)%i%vx(2), pij(k,i)%j%vx(2)*tmp)
-                            tmp2 = atomicadd(pij(k,i)%i%vx(3), pij(k,i)%j%vx(3)*tmp)
+                            tmp2 = atomicadd(pts(i)%vx(1),-pts(j)%vx(1)*tmp)
+                            tmp2 = atomicadd(pts(i)%vx(2), pts(j)%vx(2)*tmp)
+                            tmp2 = atomicadd(pts(i)%vx(3), pts(j)%vx(3)*tmp)
                     end select
-                else if (pij(k,i)%j%itype < 0 .and. pij(k,i)%i%itype > 0) then
-                    tmp = mass*pij(k,i)%w/pij(k,i)%i%rho
-                    tmp2 = atomicadd(vw(pij(k,i)%j%ind-nt),tmp)
-                    tmp2 = atomicadd(pij(k,i)%j%rho,mass*pij(k,i)%w)
-                    select case (pij(k,i)%j%itype)
+                else if (pts(j)%itype < 0 .and. pts(i)%itype > 0) then
+                    tmp = mass*pij(k,i)%w/pts(i)%rho
+                    tmp2 = atomicadd(vw(pts(j)%ind-nt),tmp)
+                    tmp2 = atomicadd(pts(j)%rho,mass*pij(k,i)%w)
+                    select case (pts(j)%itype)
                         case(-1) ! top-bottom walls
-                            tmp2 = atomicadd(pij(k,i)%j%vx(1),-pij(k,i)%i%vx(1)*tmp)
-                            tmp2 = atomicadd(pij(k,i)%j%vx(2),-pij(k,i)%i%vx(2)*tmp)
-                            tmp2 = atomicadd(pij(k,i)%j%vx(3),-pij(k,i)%i%vx(3)*tmp)
+                            tmp2 = atomicadd(pts(j)%vx(1),-pts(i)%vx(1)*tmp)
+                            tmp2 = atomicadd(pts(j)%vx(2),-pts(i)%vx(2)*tmp)
+                            tmp2 = atomicadd(pts(j)%vx(3),-pts(i)%vx(3)*tmp)
                         case(-2) ! north-south walls
-                            tmp2 = atomicadd(pij(k,i)%j%vx(1), pij(k,i)%i%vx(1)*tmp)
-                            tmp2 = atomicadd(pij(k,i)%j%vx(2),-pij(k,i)%i%vx(2)*tmp)
-                            tmp2 = atomicadd(pij(k,i)%j%vx(3), pij(k,i)%i%vx(3)*tmp)
+                            tmp2 = atomicadd(pts(j)%vx(1), pts(i)%vx(1)*tmp)
+                            tmp2 = atomicadd(pts(j)%vx(2),-pts(i)%vx(2)*tmp)
+                            tmp2 = atomicadd(pts(j)%vx(3), pts(i)%vx(3)*tmp)
                         case(-3) ! east-west walls
-                            tmp2 = atomicadd(pij(k,i)%j%vx(1),-pij(k,i)%i%vx(1)*tmp)
-                            tmp2 = atomicadd(pij(k,i)%j%vx(2), pij(k,i)%i%vx(2)*tmp)
-                            tmp2 = atomicadd(pij(k,i)%j%vx(3), pij(k,i)%i%vx(3)*tmp)
+                            tmp2 = atomicadd(pts(j)%vx(1),-pts(i)%vx(1)*tmp)
+                            tmp2 = atomicadd(pts(j)%vx(2), pts(i)%vx(2)*tmp)
+                            tmp2 = atomicadd(pts(j)%vx(3), pts(i)%vx(3)*tmp)
                     end select
                 end if
             end do

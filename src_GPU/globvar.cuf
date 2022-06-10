@@ -6,8 +6,8 @@ module globvar
     implicit none
     
     ! particle array
-    type(particles),allocatable,target,public:: parts(:)
-    type(particles),allocatable,target,device,public:: parts_d(:)
+    type(particles),allocatable,public:: parts(:)
+    type(particles),allocatable,device,public:: parts_d(:)
     
     ! interaction array
     type(interactions),allocatable,public:: pairs(:,:)
