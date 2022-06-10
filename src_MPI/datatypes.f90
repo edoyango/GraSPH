@@ -13,7 +13,7 @@ module datatypes
     
     !variable to store particle interaction information
     type interactions
-        type(particles),pointer:: i,j
+        integer:: i,j
         real(f):: w,dwdx(dim)
     end type interactions
     

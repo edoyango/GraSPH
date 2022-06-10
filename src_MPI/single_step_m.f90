@@ -21,7 +21,7 @@ contains
         implicit none
         integer,intent(in):: ki
         real(f),intent(out):: dvxdti(dim,ntotal_loc),drhoi(ntotal_loc)
-        integer:: k
+        integer:: i,j,k
         real(f),allocatable:: indvxdt(:,:),ardvxdt(:,:),exdvxdt(:,:),codrhodt(:)
         
         t_dist = t_dist - MPI_WTIME()
@@ -44,21 +44,24 @@ contains
         exdvxdt(dim,1:ntotal_loc) = -g
         
         do k = 1,niac
-                
-            if (pairs(k)%i%itype > 0 .and. pairs(k)%j%itype < 0) then
-                call virt_mirror(pairs(k)%i,pairs(k)%j)
-            elseif (pairs(k)%i%itype < 0 .and. pairs(k)%j%itype > 0) then
-                call virt_mirror(pairs(k)%j,pairs(k)%i)
+            
+            i = pairs(k)%i
+            j = pairs(k)%j
+            
+            if (parts(i)%itype > 0 .and. parts(j)%itype < 0) then
+                call virt_mirror(parts(i),parts(j))
+            elseif (parts(i)%itype < 0 .and. parts(j)%itype > 0) then
+                call virt_mirror(parts(j),parts(i))
             end if
             
             !Internal force due to pressure
-            call int_force(ki,pairs(k),indvxdt)
+            call int_force(ki,parts(i),parts(j),pairs(k)%dwdx,indvxdt)
             
             !Artificial viscosity:
-            call art_visc(ki,pairs(k),ardvxdt)
+            call art_visc(ki,parts(i),parts(j),pairs(k)%dwdx,ardvxdt)
             
             !Density approximation or change rate
-            call con_density(ki,pairs(k),codrhodt)
+            call con_density(ki,parts(i),parts(j),pairs(k)%dwdx,codrhodt)
             
         end do
         

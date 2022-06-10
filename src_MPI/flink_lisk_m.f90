@@ -8,15 +8,8 @@ module flink_list_m
     use error_msg_m,    only: error_msg
     use kernel_m,        only: kernel
     
-    type particleincellarray
-        type(particles),pointer:: p
-    end type particleincellarray
-    
-    integer,private:: i,j,k,d,icell,jcell,kcell,xi,yi,zi
-    real(f),private:: dcell
-    
     public:: flink_list
-    private:: particleincellarray,check_if_interact
+    private:: check_if_interact
         
 contains
 
@@ -26,10 +19,9 @@ contains
         
         implicit none
         integer,parameter:: maxpcell=125
-        integer:: ngridx(3)
-        real(f):: mingridx(3),maxgridx(3)
-        integer,allocatable:: pincell(:,:,:),gridind(:,:)
-        type(particleincellarray),allocatable:: cells(:,:,:,:)
+        integer:: ngridx(3),jth,i,j,k,d,icell,jcell,kcell,xi,yi,zi
+        real(f):: mingridx(3),maxgridx(3),dcell
+        integer,allocatable:: pincell(:,:,:),gridind(:,:),cells(:,:,:,:)
         integer,parameter:: sweep(3,13) = reshape((/-1,-1,-1,&
                                                     -1,-1, 0,&
                                                     -1,-1, 1,&
@@ -73,15 +65,16 @@ contains
             jcell = gridind(2,i) 
             kcell = gridind(3,i) 
             pincell(icell,jcell,kcell) = pincell(icell,jcell,kcell) + 1
-            cells(pincell(icell,jcell,kcell),icell,jcell,kcell)%p => parts(i)
+            cells(pincell(icell,jcell,kcell),icell,jcell,kcell) = i
         enddo
         
         niac = 0
         do i = 1,ntotal_loc+nhalo_loc+nvirt_loc+nghos_loc
             icell = gridind(1,i); jcell = gridind(2,i); kcell = gridind(3,i)
             do j = 1,pincell(icell,jcell,kcell)
-                if (cells(j,icell,jcell,kcell)%p%indloc > parts(i)%indloc) then
-                    call check_if_interact(parts(i),cells(j,icell,jcell,kcell)%p)
+                jth = cells(j,icell,jcell,kcell)
+                if (jth > i) then
+                    call check_if_interact(parts(i),parts(jth))
                 end if
             end do
             do k = 1,13
@@ -89,7 +82,8 @@ contains
                 yi = jcell + sweep(2,k)
                 zi = kcell + sweep(3,k)
                 do j = 1,pincell(xi,yi,zi)
-                    call check_if_interact(parts(i),cells(j,xi,yi,zi)%p)
+                    jth = cells(j,xi,yi,zi)
+                    call check_if_interact(parts(i),parts(jth))
                 end do
             end do
         end do
@@ -101,7 +95,7 @@ contains
     ! subroutine to chekc if two particles are interacting and consequently adding to pair list
         
         implicit none
-        type(particles),intent(in),target:: p_i,p_j
+        type(particles),intent(in):: p_i,p_j
         real(f):: dxiac(dim),r
         
         ! only consider interactions when real-real are involved
@@ -111,8 +105,8 @@ contains
             if (r <= hsml*scale_k) then
                 niac = niac + 1
                 if (niac < maxinter) then
-                    pairs(niac)%i => p_i
-                    pairs(niac)%j => p_j
+                    pairs(niac)%i = p_i%indloc
+                    pairs(niac)%j = p_j%indloc
                     call kernel(r,dxiac,hsml,pairs(niac)%w,pairs(niac)%dwdx(:))
                 else
                     print *,' >>> Error <<< : Too many interactions'
