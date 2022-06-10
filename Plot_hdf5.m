@@ -39,7 +39,7 @@ axis equal; hold on
 %% Initial configuration
 colours = rand(numprocs,3);
 
-for i=1:20
+for i=1:13
     %% formatting plot
     clf(hf,'reset'); axis equal; hold on;
 
