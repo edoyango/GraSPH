@@ -42,9 +42,9 @@ contains
         
         ! Transferring necessary data to GPU
         allocate(v_min(dim,ntotal),rho_min(ntotal),dvxdt(dim,ntotal,4),drho(ntotal,4))
-        allocate(exdvxdt(dim,ntotal+nvirt+int(0.2*ntotal)),ardvxdt(dim,ntotal+nvirt+int(0.2*ntotal)),&
-            indvxdt(dim,ntotal+nvirt+int(0.2*ntotal)),codrhodt(ntotal+nvirt+int(0.2*ntotal)))
-        allocate(gind(int(0.2*ntotal)))
+        allocate(exdvxdt(dim,2*ntotal+nvirt),ardvxdt(dim,2*ntotal+nvirt),&
+            indvxdt(dim,2*ntotal+nvirt),codrhodt(2*ntotal+nvirt))
+        allocate(gind(ntotal))
         
         call initial_host2device
         
@@ -58,14 +58,11 @@ contains
                 v_min(:,i) = parts_d(i)%vx(:)
                 parts_d(i)%p = rh0*c**2*((parts_d(i)%rho/rh0)**gamma-1._f)/gamma
             end do
-            
             nghos_d = 0
             call generate_ghost_part<<<ntotal/128+1,128>>>(ntotal_d,nvirt_d,nghos_d,parts_d,gind)
             nghos = nghos_d
-            
             !Interaction parameters, calculating neighboring particles
             call flink_list
-
             ! Beginning RK4 update (4 updates per timestep)
             do ki = 1,4
             
@@ -78,14 +75,10 @@ contains
                     indvxdt(:,i) = 0_f
                     codrhodt(i) = 0_f
                 end do
-                
                 call single_step_kernel<<<(ntotal+nvirt+nghos)/32+1,32>>>(ki,ntotal_d,nvirt_d,nghos_d,niac_d,pairs_d,ardvxdt,exdvxdt,indvxdt,codrhodt)
-                
                 ! launching GPU kernel to update particles' speed and density
                 call RK4_update<<<ntotal/1024+1,1024>>>(ki,ntotal_d,v_min,rho_min,ardvxdt,exdvxdt,indvxdt,codrhodt,dvxdt,drho)
-                
                 call update_ghost_part<<<nghos/1024+1,1024>>>(ntotal_d,nvirt_d,nghos_d,parts_d,gind)
-                
             end do
             
             ! Update time
@@ -140,7 +133,7 @@ contains
             dvxdt(:,i,ki) = indvxdt(:,i) + exdvxdt(:,i) + ardvxdt(:,i)
             drhodt(i,ki) = codrhodt(i)
             select case(ki)
-                case(1,2)
+                case default
                     parts_d(i)%vx(:) = v_min(:,i) + 0.5_f*dt*dvxdt(:,i,ki)
                     parts_d(i)%rho = rho_min(i) + 0.5_f*dt*drhodt(i,ki)
                 case(3)

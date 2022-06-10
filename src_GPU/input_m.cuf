@@ -353,6 +353,8 @@ contains
                     pts(nt+nv+i)%vx(1) = -pts(j)%vx(1)
                     pts(nt+nv+i)%vx(2) = -pts(j)%vx(2)
                     pts(nt+nv+i)%vx(3) =  pts(j)%vx(3)
+                case default
+                    pts(nt+nv+i)%vx(:) = 0._f
             end select
         end if
     

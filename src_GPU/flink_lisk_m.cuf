@@ -38,7 +38,7 @@ contains
         minx =  HUGE(1._f); miny =  HUGE(1._f); minz =  HUGE(1._f)
         maxx = -HUGE(1._f); maxy = -HUGE(1._f); maxz = -HUGE(1._f)
         !Determining bounding box extents
-        !$cuf kernel do <<<(ntotal+nvirt)/128+1,128>>>
+        !$cuf kernel do <<<(ntotal+nvirt+nghos)/128+1,128>>>
         do i = 1,ntotal+nvirt+nghos
             minx = min(minx,parts_d(i)%x(1))
             miny = min(miny,parts_d(i)%x(2))
