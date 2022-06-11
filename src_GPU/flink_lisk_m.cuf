@@ -1,252 +1,257 @@
 module flink_list_m
-    
-    use datatypes, only: particles,interactions
-    use globvar, only: parts_d,pairs_d,niac_d,ntotal_d,nvirt_d,maxinter_perp,scale_k,ntotal,nvirt,ntotal_d,nvirt_d,scale_k_d,test_time,nghos_d,nghos
-    use param, only: f,hsml,dim
-    
-    use cudafor
-    
+
+   use datatypes, only: particles, interactions
+   use globvar, only: parts_d, pairs_d, niac_d, ntotal_d, nvirt_d, maxinter_perp, scale_k, ntotal, nvirt, ntotal_d, &
+                      nvirt_d, scale_k_d, test_time, nghos_d, nghos
+   use param, only: f, hsml, dim
+
+   use cudafor
+
 !~     use kernel_m, only: kernel
-    
-    integer,parameter:: maxpcell3D=64,maxpcell2D=16
-    integer:: ngridx(dim)
-    real(f):: mingridx(dim),maxgridx(dim),dcell
-    integer,device:: ngridx_d(dim)
-    real(f),device:: mingridx_d(dim),maxgridx_d(dim),minx,miny,minz,maxx,maxy,maxz
-    type(dim3):: nblocks
-    
-    type particleincellarray
-        type(particles),pointer:: p
-    end type particleincellarray
-    
-    public:: flink_list,particleincellarray
-    private:: check_if_interact,bounding_box
+
+   integer, parameter:: maxpcell3D = 64, maxpcell2D = 16
+   integer:: ngridx(dim)
+   real(f):: mingridx(dim), maxgridx(dim), dcell
+   integer, device:: ngridx_d(dim)
+   real(f), device:: mingridx_d(dim), maxgridx_d(dim), minx, miny, minz, maxx, maxy, maxz
+   type(dim3):: nblocks
+
+   type particleincellarray
+      type(particles), pointer:: p
+   end type particleincellarray
+
+   public:: flink_list, particleincellarray
+   private:: check_if_interact, bounding_box
 
 contains
-    
-    !==============================================================================================================================
-    subroutine flink_list( )
-    ! save as above, but for 3D
-        
-        implicit none
-        integer,allocatable,device:: pincell(:,:,:),cells(:,:,:,:)
-        integer:: i,j,k,d,istat
-        type(dim3),parameter:: nthreads=dim3(16,8,8)
-        
-        dcell = scale_k*hsml
-        minx =  HUGE(1._f); miny =  HUGE(1._f); minz =  HUGE(1._f)
-        maxx = -HUGE(1._f); maxy = -HUGE(1._f); maxz = -HUGE(1._f)
-        !Determining bounding box extents
-        !$cuf kernel do <<<(ntotal+nvirt+nghos)/128+1,128>>>
-        do i = 1,ntotal+nvirt+nghos
-            minx = min(minx,parts_d(i)%x(1))
-            miny = min(miny,parts_d(i)%x(2))
-            minz = min(minz,parts_d(i)%x(3))
-            maxx = max(maxx,parts_d(i)%x(1))
-            maxy = max(maxy,parts_d(i)%x(2))
-            maxz = max(maxz,parts_d(i)%x(3))
-        end do
-        mingridx(1) = minx-2._f*dcell; mingridx(2) = miny-2._f*dcell; mingridx(3) = minz-2._f*dcell
-        maxgridx(1) = maxx+2._f*dcell; maxgridx(2) = maxy+2._f*dcell; maxgridx(3) = maxz+2._f*dcell
-        ngridx(:) = int((maxgridx(:)-mingridx(:))/dcell) + 1
-        maxgridx(:) = mingridx(:) + ngridx*dcell
-        ngridx_d(:) = ngridx(:)
-        mingridx_d = mingridx
-        maxgridx_d = maxgridx
 
-        allocate( pincell(ngridx(1),ngridx(2),ngridx(3)),&
-                    cells(maxpcell3D,ngridx(1),ngridx(2),ngridx(3)) )
-        
-        nblocks = dim3(ngridx(1)/nthreads%x+1,ngridx(2)/nthreads%y+1,ngridx(3)/nthreads%y+1)
-        
-        call zero_pincell<<<nblocks,nthreads>>>(ngridx_d,pincell)
-        
-        call populate<<<(ntotal+nvirt+nghos)/32+1,32>>>(dcell,ntotal_d,nvirt_d,nghos_d,mingridx_d,ngridx_d,parts_d,pincell,cells)
-                                                        
-        call sweep<<<(ntotal+nvirt+nghos)/32+1,32>>>(dcell,ntotal_d,nvirt_d,nghos_d,mingridx_d,ngridx_d,parts_d,pincell,cells,niac_d,pairs_d)
+   !==============================================================================================================================
+   subroutine flink_list()
+      ! save as above, but for 3D
 
-        deallocate( pincell,cells )
-        
-    end subroutine flink_list
-    
-    !==============================================================================================================================
-    attributes(global) subroutine zero_pincell(ng,p)
-    ! helper function to zero pincell array on GPU
-    
-        implicit none
-        integer,intent(in):: ng(dim)
-        integer,intent(out):: p(ng(1),ng(2),ng(3))
-        integer:: i,j,k
-        
-        i = blockDim%x*(blockIdx%x-1)+threadIdx%x
-        j = blockDim%y*(blockIdx%y-1)+threadIdx%y
-        k = blockDim%z*(blockIdx%z-1)+threadIdx%z
-        if ( i <= ng(1) .and. j <= ng(2) .and. k <= ng(3) ) p(i,j,k) = 0
-        
-    end subroutine zero_pincell
-    
-    !==============================================================================================================================
-    attributes(global) subroutine populate(dc,nt,nv,ng,mingx,ngx,pts,p,c)
-    
-        implicit none
-        integer,intent(in):: nt,nv,ng,ngx(dim)
-        real(f),intent(in):: mingx(dim)
-        real(f),intent(in),value:: dc
-        type(particles),intent(in):: pts(nt+nv+ng)
-        integer,intent(inout):: p(ngx(1),ngx(2),ngx(3))
-        integer,intent(out):: c(maxpcell3D,ngx(1),ngx(2),ngx(3))
-        integer:: ind,icell,jcell,kcell,i,j,k,d
-        
-        ! global thread index
-        i = blockDim%x*(blockIdx%x-1)+threadIdx%x
-        if (i<=nt+nv+ng) then
-            icell = int((pts(i)%x(1)-mingx(1))/dc)+1
-            jcell = int((pts(i)%x(2)-mingx(2))/dc)+1
-            kcell = int((pts(i)%x(3)-mingx(3))/dc)+1
-            ind = atomicadd(p(icell,jcell,kcell),1)
-            c(ind+1,icell,jcell,kcell) = i
-        end if
+      implicit none
+      integer, allocatable, device:: pincell(:, :, :), cells(:, :, :, :)
+      integer:: i, j, k, d, istat
+      type(dim3), parameter:: nthreads = dim3(16, 8, 8)
 
-    end subroutine populate
-    
-    !==============================================================================================================================
-    attributes(global) subroutine sweep(dc,nt,nv,ng,mingx,ngx,pts,p,c,nij,pij)
-    
-        implicit none
-        integer,intent(in):: nt,nv,ng,ngx(dim),p(ngx(1),ngx(2),ngx(3)),c(maxpcell3D,ngx(1),ngx(2),ngx(3)) 
-        real(f),intent(in):: mingx(dim)
-        real(f),intent(in),value:: dc
-        type(particles),intent(in):: pts(nt+nv+ng)
-        integer,intent(out):: nij(nt+nv+ng)
-        type(interactions),intent(out):: pij(maxinter_perp,nt+nv+ng)
-        integer:: i,j,k,d,xi,yi,zi,icell,jcell,kcell,jth
-        integer,parameter:: sweepinds(3,13) = reshape((/-1,-1,-1,&
-                                                    -1,-1, 0,&
-                                                    -1,-1, 1,&
-                                                    -1, 0,-1,&
-                                                    -1, 0, 0,&
-                                                    -1, 0, 1,&
-                                                    -1, 1,-1,&
-                                                    -1, 1, 0,&
-                                                    -1, 1, 1,&
-                                                     0,-1,-1,&
-                                                     0,-1, 0,&
-                                                     0,-1, 1,&
-                                                     0, 0,-1/),(/3,13/))
-        
-        i = blockDim%x*(blockIdx%x-1)+threadIdx%x
-        
-        ! Beginning sweep
-        if (i<=nt+nv+ng) then
-            nij(i) = 0
-            icell = int((pts(i)%x(1)-mingx(1))/dc) + 1
-            jcell = int((pts(i)%x(2)-mingx(2))/dc) + 1
-            kcell = int((pts(i)%x(3)-mingx(3))/dc) + 1
-            if (p(icell,jcell,kcell) > 1) then
-                do j = 1,p(icell,jcell,kcell)
-                    jth = c(j,icell,jcell,kcell)
-                    if (jth > i) then
-                        ! only consider interactions when real particles are involved
-                        call check_if_interact(pts(i),pts(jth),nij(i),pij(:,i))
-                    end if
-                end do
-            end if
-            do k = 1,13
-                xi = icell + sweepinds(1,k)
-                yi = jcell + sweepinds(2,k)
-                zi = kcell + sweepinds(3,k)
-                do j = 1,p(xi,yi,zi)
-                    ! only consider interactions when real particles are involved
-                    jth = c(j,xi,yi,zi)
-                    call check_if_interact(pts(i),pts(jth),nij(i),pij(:,i))
-                end do
+      dcell = scale_k*hsml
+      minx = HUGE(1._f); miny = HUGE(1._f); minz = HUGE(1._f)
+      maxx = -HUGE(1._f); maxy = -HUGE(1._f); maxz = -HUGE(1._f)
+      !Determining bounding box extents
+      !$cuf kernel do <<<(ntotal+nvirt+nghos)/128+1,128>>>
+      do i = 1, ntotal + nvirt + nghos
+         minx = min(minx, parts_d(i)%x(1))
+         miny = min(miny, parts_d(i)%x(2))
+         minz = min(minz, parts_d(i)%x(3))
+         maxx = max(maxx, parts_d(i)%x(1))
+         maxy = max(maxy, parts_d(i)%x(2))
+         maxz = max(maxz, parts_d(i)%x(3))
+      end do
+      mingridx(1) = minx - 2._f*dcell; mingridx(2) = miny - 2._f*dcell; mingridx(3) = minz - 2._f*dcell
+      maxgridx(1) = maxx + 2._f*dcell; maxgridx(2) = maxy + 2._f*dcell; maxgridx(3) = maxz + 2._f*dcell
+      ngridx(:) = int((maxgridx(:) - mingridx(:))/dcell) + 1
+      maxgridx(:) = mingridx(:) + ngridx*dcell
+      ngridx_d(:) = ngridx(:)
+      mingridx_d = mingridx
+      maxgridx_d = maxgridx
+
+      allocate (pincell(ngridx(1), ngridx(2), ngridx(3)), &
+                cells(maxpcell3D, ngridx(1), ngridx(2), ngridx(3)))
+
+      nblocks = dim3(ngridx(1)/nthreads%x + 1, ngridx(2)/nthreads%y + 1, ngridx(3)/nthreads%y + 1)
+
+      call zero_pincell <<< nblocks, nthreads >>> (ngridx_d, pincell)
+
+      call populate <<< (ntotal + nvirt + nghos)/32 + 1, 32 >>> (dcell, ntotal_d, nvirt_d, nghos_d, mingridx_d, ngridx_d, &
+                                                                 parts_d, pincell, cells)
+
+      call sweep <<< (ntotal + nvirt + nghos)/32 + 1, 32 >>> (dcell, ntotal_d, nvirt_d, nghos_d, mingridx_d, &
+                                                              ngridx_d, parts_d, pincell, cells, niac_d, pairs_d)
+
+      deallocate (pincell, cells)
+
+   end subroutine flink_list
+
+   !==============================================================================================================================
+   attributes(global) subroutine zero_pincell(ng, p)
+      ! helper function to zero pincell array on GPU
+
+      implicit none
+      integer, intent(in):: ng(dim)
+      integer, intent(out):: p(ng(1), ng(2), ng(3))
+      integer:: i, j, k
+
+      i = blockDim%x*(blockIdx%x - 1) + threadIdx%x
+      j = blockDim%y*(blockIdx%y - 1) + threadIdx%y
+      k = blockDim%z*(blockIdx%z - 1) + threadIdx%z
+      if (i <= ng(1) .and. j <= ng(2) .and. k <= ng(3)) p(i, j, k) = 0
+
+   end subroutine zero_pincell
+
+   !==============================================================================================================================
+   attributes(global) subroutine populate(dc, nt, nv, ng, mingx, ngx, pts, p, c)
+
+      implicit none
+      integer, intent(in):: nt, nv, ng, ngx(dim)
+      real(f), intent(in):: mingx(dim)
+      real(f), intent(in), value:: dc
+      type(particles), intent(in):: pts(nt + nv + ng)
+      integer, intent(inout):: p(ngx(1), ngx(2), ngx(3))
+      integer, intent(out):: c(maxpcell3D, ngx(1), ngx(2), ngx(3))
+      integer:: ind, icell, jcell, kcell, i, j, k, d
+
+      ! global thread index
+      i = blockDim%x*(blockIdx%x - 1) + threadIdx%x
+      if (i <= nt + nv + ng) then
+         icell = int((pts(i)%x(1) - mingx(1))/dc) + 1
+         jcell = int((pts(i)%x(2) - mingx(2))/dc) + 1
+         kcell = int((pts(i)%x(3) - mingx(3))/dc) + 1
+         ind = atomicadd(p(icell, jcell, kcell), 1)
+         c(ind + 1, icell, jcell, kcell) = i
+      end if
+
+   end subroutine populate
+
+   !==============================================================================================================================
+   attributes(global) subroutine sweep(dc, nt, nv, ng, mingx, ngx, pts, p, c, nij, pij)
+
+      implicit none
+      integer, intent(in):: nt, nv, ng, ngx(dim), p(ngx(1), ngx(2), ngx(3)), c(maxpcell3D, ngx(1), ngx(2), ngx(3))
+      real(f), intent(in):: mingx(dim)
+      real(f), intent(in), value:: dc
+      type(particles), intent(in):: pts(nt + nv + ng)
+      integer, intent(out):: nij(nt + nv + ng)
+      type(interactions), intent(out):: pij(maxinter_perp, nt + nv + ng)
+      integer:: i, j, k, d, xi, yi, zi, icell, jcell, kcell, jth
+      integer, parameter:: sweepinds(3, 13) = reshape((/-1, -1, -1, &
+                                                        -1, -1, 0, &
+                                                        -1, -1, 1, &
+                                                        -1, 0, -1, &
+                                                        -1, 0, 0, &
+                                                        -1, 0, 1, &
+                                                        -1, 1, -1, &
+                                                        -1, 1, 0, &
+                                                        -1, 1, 1, &
+                                                        0, -1, -1, &
+                                                        0, -1, 0, &
+                                                        0, -1, 1, &
+                                                        0, 0, -1/), (/3, 13/))
+
+      i = blockDim%x*(blockIdx%x - 1) + threadIdx%x
+
+      ! Beginning sweep
+      if (i <= nt + nv + ng) then
+         nij(i) = 0
+         icell = int((pts(i)%x(1) - mingx(1))/dc) + 1
+         jcell = int((pts(i)%x(2) - mingx(2))/dc) + 1
+         kcell = int((pts(i)%x(3) - mingx(3))/dc) + 1
+         if (p(icell, jcell, kcell) > 1) then
+            do j = 1, p(icell, jcell, kcell)
+               jth = c(j, icell, jcell, kcell)
+               if (jth > i) then
+                  ! only consider interactions when real particles are involved
+                  call check_if_interact(pts(i), pts(jth), nij(i), pij(:, i))
+               end if
             end do
-        end if
-        
-    end subroutine sweep
-    
-    !==============================================================================================================================
-    attributes(device) subroutine check_if_interact(p_i,p_j,nij,pij)
-    ! subroutine to chekc if two particles are interacting and consequently adding to pair list
-        
-        implicit none
-        type(particles),intent(in):: p_i,p_j
-        integer,intent(inout):: nij
-        type(interactions),intent(inout):: pij(maxinter_perp)
-        real(f):: dxiac(dim),r
-        
-        ! only consider interactions when real particles are involved
-        if ( p_i%ind/=p_j%ind .and. (p_i%itype == 1 .or. p_j%itype == 1)) then
-            dxiac(:) = p_i%x(:) - p_j%x(:)
-            r = SQRT(SUM(dxiac*dxiac))
-            if (r < hsml*scale_k_d) then
-                nij = nij + 1
-                if (nij < maxinter_perp) then
-                    pij(nij)%i = p_i%ind
-                    pij(nij)%j = p_j%ind
-                    call kernel(r,dxiac(:),hsml,pij(nij)%w,pij(nij)%dwdx(:))
-                else
-                    print *,' >>> Error <<< : Too many interactions'
-                    stop
-                end if
+         end if
+         do k = 1, 13
+            xi = icell + sweepinds(1, k)
+            yi = jcell + sweepinds(2, k)
+            zi = kcell + sweepinds(3, k)
+            do j = 1, p(xi, yi, zi)
+               ! only consider interactions when real particles are involved
+               jth = c(j, xi, yi, zi)
+               call check_if_interact(pts(i), pts(jth), nij(i), pij(:, i))
+            end do
+         end do
+      end if
+
+   end subroutine sweep
+
+   !==============================================================================================================================
+   attributes(device) subroutine check_if_interact(p_i, p_j, nij, pij)
+      ! subroutine to chekc if two particles are interacting and consequently adding to pair list
+
+      implicit none
+      type(particles), intent(in):: p_i, p_j
+      integer, intent(inout):: nij
+      type(interactions), intent(inout):: pij(maxinter_perp)
+      real(f):: dxiac(dim), r
+
+      ! only consider interactions when real particles are involved
+      if (p_i%ind /= p_j%ind .and. (p_i%itype == 1 .or. p_j%itype == 1)) then
+         dxiac(:) = p_i%x(:) - p_j%x(:)
+         r = SQRT(SUM(dxiac*dxiac))
+         if (r < hsml*scale_k_d) then
+            nij = nij + 1
+            if (nij < maxinter_perp) then
+               pij(nij)%i = p_i%ind
+               pij(nij)%j = p_j%ind
+               call kernel(r, dxiac(:), hsml, pij(nij)%w, pij(nij)%dwdx(:))
+            else
+               print *, ' >>> Error <<< : Too many interactions'
+               stop
             end if
-        end if
-        
-    end subroutine check_if_interact
-    
-    !==============================================================================================================================
-    attributes(device) subroutine kernel(r,dx,thsml,tw,tdwdx)   
-    ! Contains the kernels
-    
-        use param,         only: skf,pi,dims=>dim
-        
-        implicit none
-        real(f),intent(in):: dx(dims),r,thsml
-        real(f),intent(out):: tdwdx(dims),tw
-        real(f):: q,factor
-        
-        q = r/thsml
-        
-        SELECT CASE (SKF)
-            CASE (1) ! cubic
-                if (dims==2) factor = 10._f/(7._f*pi*thsml*thsml)
-                if (dims==3) factor = 1_f/(pi*thsml*thsml*thsml)
-                tw = factor*(0.25_f*MAX(0._f,2._f-q)**3 - MAX(0._f,1._f-q)**3)
-                tdwdx = -factor*3._f*(0.25_f*MAX(0._f,2._f-q)**2 - MAX(0._f,1._f-q)**2)*dx(:)/(r*thsml)
-            CASE (2) ! quartic
-                if (dims==2) factor = 96_f/(1199_f*pi*thsml*thsml)
-                if (dims==3) factor = 1_f/(20_f*pi*thsml*thsml*thsml)
-                tw = factor*(MAX(0._f,2.5_f-q)**4 - 5_f*MAX(0._f,1.5_f-q)**4 + 10_f*MAX(0._f,0.5_f-q)**4)
-                tdwdx(:) = -factor*4._f*(MAX(0._f,2.5_f-q)**3 - 5_f*MAX(0._f,1.5_f-q)**3 + 10_f*MAX(0._f,0.5_f-q)**3)*dx(:)/(r*thsml)
-            CASE (3) ! quintic
-                if (dims==2) factor = 7_f/(478_f*pi*thsml*thsml)
-                if (dims==3) factor = 1_f/(120_f*pi*thsml*thsml*thsml)
-                tw = factor*(MAX(0._f,3._f-q)**5 - 6._f*MAX(0._f,2._f-q)**5 + 15._f*MAX(0._f,1._f-q)**5)
-                tdwdx(:) = -factor*5._f*(MAX(0._f,3._f-q)**4 - 6._f*MAX(0._f,2._f-q)**4 + 15._f*MAX(0._f,1._f-q)**4)*dx(:)/(r*thsml)
-            CASE (4) ! Wenland Quintic C2
-                if (dims==2) factor = 7._f/(64._f*pi*thsml*thsml)
-                if (dims==3) factor = 21._f/(256._f*pi*thsml*thsml*thsml)
-                tw = factor*MAX(0._f,2._f-q)**4*(2._f*q+1._f)
-                tdwdx(:) = -factor*10._f*q*MAX(0._f,2._f-q)**3*dx(:)/(r*thsml)
-            CASE (5) ! Wenland Quintic C4
-                if (dims==2) factor = 3._f/(1024._f*pi*thsml*thsml)
-                if (dims==3) factor = 165._f/(65536._f*pi*thsml*thsml*thsml)
-                tw = factor*MAX(0._f,2._f-q)**6*(35._f*q**2 + 36._f*q + 12._f)
-                tdwdx(:) = -factor*56._f*q*MAX(0._f,2._f-q)**5*(5._f*q+2._f)*dx(:)/(r*thsml)
-            CASE (6) ! Wenland Quintic C6
-                if (dims==2) factor = 39._f/(14336._f*pi*thsml*thsml)
-                if (dims==3) factor = 1365._f/(524288._f*pi*thsml*thsml*thsml)
-                tw = factor*MAX(0._f,2._f-q)**8*(16._f*q**3 + 25_f*q**2 + 16._f*q + 4._f)
-                tdwdx(:) = -factor*22._f*q*(8._f*q**2 + 7._f*q + 2._f)*MAX(0._f,2._f-q)**7*dx(:)/(r*thsml)
-            CASE (7) ! gaussian
-                factor = 1_f/(thsml**dims*pi**(0.5_f*dims))
-                if (q.ge.0_f .and. q.le.3_f) then
-                    tw = factor*exp(-q*q)
-                    tdwdx(:) = tw*2_f*dx(:)/(thsml*thsml)
-                end if
-            
-        END SELECT
-        
-    end subroutine kernel
-    
+         end if
+      end if
+
+   end subroutine check_if_interact
+
+   !==============================================================================================================================
+   attributes(device) subroutine kernel(r, dx, thsml, tw, tdwdx)
+      ! Contains the kernels
+
+      use param, only: skf, pi, dims => dim
+
+      implicit none
+      real(f), intent(in):: dx(dims), r, thsml
+      real(f), intent(out):: tdwdx(dims), tw
+      real(f):: q, factor
+
+      q = r/thsml
+
+      SELECT CASE (SKF)
+      CASE (1) ! cubic
+         if (dims == 2) factor = 10._f/(7._f*pi*thsml*thsml)
+         if (dims == 3) factor = 1_f/(pi*thsml*thsml*thsml)
+         tw = factor*(0.25_f*MAX(0._f, 2._f - q)**3 - MAX(0._f, 1._f - q)**3)
+         tdwdx = -factor*3._f*(0.25_f*MAX(0._f, 2._f - q)**2 - MAX(0._f, 1._f - q)**2)*dx(:)/(r*thsml)
+      CASE (2) ! quartic
+         if (dims == 2) factor = 96_f/(1199_f*pi*thsml*thsml)
+         if (dims == 3) factor = 1_f/(20_f*pi*thsml*thsml*thsml)
+         tw = factor*(MAX(0._f, 2.5_f - q)**4 - 5_f*MAX(0._f, 1.5_f - q)**4 + 10_f*MAX(0._f, 0.5_f - q)**4)
+         tdwdx(:) = &
+            -factor*4._f*(MAX(0._f, 2.5_f - q)**3 - 5_f*MAX(0._f, 1.5_f - q)**3 + 10_f*MAX(0._f, 0.5_f - q)**3)*dx(:)/(r*thsml)
+      CASE (3) ! quintic
+         if (dims == 2) factor = 7_f/(478_f*pi*thsml*thsml)
+         if (dims == 3) factor = 1_f/(120_f*pi*thsml*thsml*thsml)
+         tw = factor*(MAX(0._f, 3._f - q)**5 - 6._f*MAX(0._f, 2._f - q)**5 + 15._f*MAX(0._f, 1._f - q)**5)
+         tdwdx(:) = &
+            -factor*5._f*(MAX(0._f, 3._f - q)**4 - 6._f*MAX(0._f, 2._f - q)**4 + 15._f*MAX(0._f, 1._f - q)**4)*dx(:)/(r*thsml)
+      CASE (4) ! Wenland Quintic C2
+         if (dims == 2) factor = 7._f/(64._f*pi*thsml*thsml)
+         if (dims == 3) factor = 21._f/(256._f*pi*thsml*thsml*thsml)
+         tw = factor*MAX(0._f, 2._f - q)**4*(2._f*q + 1._f)
+         tdwdx(:) = -factor*10._f*q*MAX(0._f, 2._f - q)**3*dx(:)/(r*thsml)
+      CASE (5) ! Wenland Quintic C4
+         if (dims == 2) factor = 3._f/(1024._f*pi*thsml*thsml)
+         if (dims == 3) factor = 165._f/(65536._f*pi*thsml*thsml*thsml)
+         tw = factor*MAX(0._f, 2._f - q)**6*(35._f*q**2 + 36._f*q + 12._f)
+         tdwdx(:) = -factor*56._f*q*MAX(0._f, 2._f - q)**5*(5._f*q + 2._f)*dx(:)/(r*thsml)
+      CASE (6) ! Wenland Quintic C6
+         if (dims == 2) factor = 39._f/(14336._f*pi*thsml*thsml)
+         if (dims == 3) factor = 1365._f/(524288._f*pi*thsml*thsml*thsml)
+         tw = factor*MAX(0._f, 2._f - q)**8*(16._f*q**3 + 25_f*q**2 + 16._f*q + 4._f)
+         tdwdx(:) = -factor*22._f*q*(8._f*q**2 + 7._f*q + 2._f)*MAX(0._f, 2._f - q)**7*dx(:)/(r*thsml)
+      CASE (7) ! gaussian
+         factor = 1_f/(thsml**dims*pi**(0.5_f*dims))
+         if (q .ge. 0_f .and. q .le. 3_f) then
+            tw = factor*exp(-q*q)
+            tdwdx(:) = tw*2_f*dx(:)/(thsml*thsml)
+         end if
+
+      END SELECT
+
+   end subroutine kernel
+
 end module flink_list_m

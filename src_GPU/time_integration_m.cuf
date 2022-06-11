@@ -1,154 +1,157 @@
 module time_integration_m
-    
-    use datatypes, only: particles,interactions
-    use globvar, only: time,cputime,output_time,test_time,print_step,save_step,itimestep,maxtimestep,parts_d,parts,ntotal,nvirt,&
-        ntotal_d,nvirt_d,niac_d,pairs_d,maxinter_perp,nghos_d,nghos,scale_k_d
-    use param, only: f,dim,rh0,gamma,c,dt,mass,g,irho,hsml
-    
-    use cudafor
-    
-    use input_m, only: vmat_update,update_ghost_part,generate_ghost_part
-    use globvar, only: initial_host2device
-    use flink_list_m, only: flink_list
-    use output_m, only: output
-    use summary_m, only: print_update
-    use single_step_m, only: single_step_kernel
-    
-    public:: time_integration
-    private:: part_props_start,zero_rate_arrays,RK4_update
+
+   use datatypes, only: particles, interactions
+   use globvar, only: time, cputime, output_time, test_time, print_step, save_step, itimestep, maxtimestep, parts_d, &
+                      parts, ntotal, nvirt, ntotal_d, nvirt_d, niac_d, pairs_d, maxinter_perp, nghos_d, nghos, scale_k_d
+   use param, only: f, dim, rh0, gamma, c, dt, mass, g, irho, hsml
+
+   use cudafor
+
+   use input_m, only: vmat_update, update_ghost_part, generate_ghost_part
+   use globvar, only: initial_host2device
+   use flink_list_m, only: flink_list
+   use output_m, only: output
+   use summary_m, only: print_update
+   use single_step_m, only: single_step_kernel
+
+   public:: time_integration
+   private:: part_props_start, zero_rate_arrays, RK4_update
 
 contains
 
-    !==============================================================================================================================
-    subroutine time_integration( )
-    ! Subroutine responsible for the main time-integration loop
-    
-        implicit none     
-        integer:: i,j,k,d,n,istat,ki
-        real(f),allocatable,device:: v_min(:,:),rho_min(:),dvxdt(:,:,:),drho(:,:)
-        real:: tmpTime
-        type(cudaEvent):: startEvent,stopEvent,startOutputEvent,stopOutputEvent,startTestEvent,stopTestEvent
-        real(f),device,allocatable:: exdvxdt(:,:),ardvxdt(:,:),indvxdt(:,:),codrhodt(:)
-        integer,device,allocatable:: gind(:)
-        
-        ! creating cuda events and recording start event
-        istat = cudaEventCreate(startEvent)
-        istat = cudaEventCreate(stopEvent)
-        istat = cudaEventCreate(startOutputEvent)
-        istat = cudaEventCreate(stopOutputEvent)
-        istat = cudaEventCreate(startTestEvent)
-        istat = cudaEventCreate(stopTestEvent)
-        istat = cudaEventRecord(startEvent,0)
-        
-        ! Transferring necessary data to GPU
-        allocate(v_min(dim,ntotal),rho_min(ntotal),dvxdt(dim,ntotal,4),drho(ntotal,4))
-        allocate(exdvxdt(dim,2*ntotal+nvirt),ardvxdt(dim,2*ntotal+nvirt),&
-            indvxdt(dim,2*ntotal+nvirt),codrhodt(2*ntotal+nvirt))
-        allocate(gind(ntotal))
-        
-        call initial_host2device
-        
-        ! Time-integration (Leap-Frog)
-        do itimestep = 1, maxtimestep
-        
-            ! Save particles' velocity, density information at start of time-step
+   !==============================================================================================================================
+   subroutine time_integration()
+      ! Subroutine responsible for the main time-integration loop
+
+      implicit none
+      integer:: i, j, k, d, n, istat, ki
+      real(f), allocatable, device:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drho(:, :)
+      real:: tmpTime
+      type(cudaEvent):: startEvent, stopEvent, startOutputEvent, stopOutputEvent, startTestEvent, stopTestEvent
+      real(f), device, allocatable:: exdvxdt(:, :), ardvxdt(:, :), indvxdt(:, :), codrhodt(:)
+      integer, device, allocatable:: gind(:)
+
+      ! creating cuda events and recording start event
+      istat = cudaEventCreate(startEvent)
+      istat = cudaEventCreate(stopEvent)
+      istat = cudaEventCreate(startOutputEvent)
+      istat = cudaEventCreate(stopOutputEvent)
+      istat = cudaEventCreate(startTestEvent)
+      istat = cudaEventCreate(stopTestEvent)
+      istat = cudaEventRecord(startEvent, 0)
+
+      ! Transferring necessary data to GPU
+      allocate (v_min(dim, ntotal), rho_min(ntotal), dvxdt(dim, ntotal, 4), drho(ntotal, 4))
+      allocate (exdvxdt(dim, 2*ntotal + nvirt), ardvxdt(dim, 2*ntotal + nvirt), &
+                indvxdt(dim, 2*ntotal + nvirt), codrhodt(2*ntotal + nvirt))
+      allocate (gind(ntotal))
+
+      call initial_host2device
+
+      ! Time-integration (Leap-Frog)
+      do itimestep = 1, maxtimestep
+
+         ! Save particles' velocity, density information at start of time-step
+         !$cuf kernel do <<<(ntotal)/128+1,128>>>
+         do i = 1, ntotal
+            rho_min(i) = parts_d(i)%rho
+            v_min(:, i) = parts_d(i)%vx(:)
+            parts_d(i)%p = rh0*c**2*((parts_d(i)%rho/rh0)**gamma - 1._f)/gamma
+         end do
+         nghos_d = 0
+         call generate_ghost_part <<< ntotal/128 + 1, 128 >>> (ntotal_d, nvirt_d, nghos_d, parts_d, gind)
+         nghos = nghos_d
+         !Interaction parameters, calculating neighboring particles
+         call flink_list
+         ! Beginning RK4 update (4 updates per timestep)
+         do ki = 1, 4
+
+            ! launching GPU kernel to calculate accelerations and density changes
             !$cuf kernel do <<<(ntotal)/128+1,128>>>
-            do i = 1,ntotal
-                rho_min(i) = parts_d(i)%rho
-                v_min(:,i) = parts_d(i)%vx(:)
-                parts_d(i)%p = rh0*c**2*((parts_d(i)%rho/rh0)**gamma-1._f)/gamma
+            do i = 1, ntotal
+               exdvxdt(1:dim - 1, i) = 0_f
+               exdvxdt(dim, i) = -g
+               ardvxdt(:, i) = 0_f
+               indvxdt(:, i) = 0_f
+               codrhodt(i) = 0_f
             end do
-            nghos_d = 0
-            call generate_ghost_part<<<ntotal/128+1,128>>>(ntotal_d,nvirt_d,nghos_d,parts_d,gind)
+            call single_step_kernel <<< (ntotal + nvirt + nghos)/32 + 1, 32 >>> (ki, ntotal_d, nvirt_d, nghos_d, &
+                                                                                 niac_d, pairs_d, parts_d, ardvxdt, &
+                                                                                 exdvxdt, indvxdt, codrhodt)
+            ! launching GPU kernel to update particles' speed and density
+            call RK4_update <<< ntotal/1024 + 1, 1024 >>> (ki, ntotal_d, v_min, rho_min, ardvxdt, exdvxdt, indvxdt, &
+                                                           codrhodt, dvxdt, drho)
+            call update_ghost_part <<< nghos/1024 + 1, 1024 >>> (ntotal_d, nvirt_d, nghos_d, parts_d, gind)
+         end do
+
+         ! Update time
+         time = time + dt
+
+         ! write output data
+         if (mod(itimestep, save_step) .eq. 0) then
+            ! start timing of write time
+            istat = cudaEventRecord(startOutputEvent, 0)
+            ! transfer particle data from GPU to CPU
+            parts = parts_d
             nghos = nghos_d
-            !Interaction parameters, calculating neighboring particles
-            call flink_list
-            ! Beginning RK4 update (4 updates per timestep)
-            do ki = 1,4
-            
-                ! launching GPU kernel to calculate accelerations and density changes
-                !$cuf kernel do <<<(ntotal)/128+1,128>>>
-                do i = 1,ntotal
-                    exdvxdt(1:dim-1,i) = 0_f
-                    exdvxdt(dim,i) = -g
-                    ardvxdt(:,i) = 0_f
-                    indvxdt(:,i) = 0_f
-                    codrhodt(i) = 0_f
-                end do
-                call single_step_kernel<<<(ntotal+nvirt+nghos)/32+1,32>>>(ki,ntotal_d,nvirt_d,nghos_d,niac_d,pairs_d,parts_d,&
-                    ardvxdt,exdvxdt,indvxdt,codrhodt)
-                ! launching GPU kernel to update particles' speed and density
-                call RK4_update<<<ntotal/1024+1,1024>>>(ki,ntotal_d,v_min,rho_min,ardvxdt,exdvxdt,indvxdt,codrhodt,dvxdt,drho)
-                call update_ghost_part<<<nghos/1024+1,1024>>>(ntotal_d,nvirt_d,nghos_d,parts_d,gind)
-            end do
-            
-            ! Update time
-            time = time + dt
-            
-            ! write output data
-            if (mod(itimestep,save_step).eq.0) then
-                ! start timing of write time
-                istat = cudaEventRecord(startOutputEvent,0)
-                ! transfer particle data from GPU to CPU
-                parts = parts_d
-                nghos = nghos_d
-                call output
-                ! End timing of output time
-                istat = cudaEventRecord(stopOutputEvent,0)
-                istat = cudaEventSynchronize(stopOutputEvent)
-                istat = cudaEventElapsedTime(tmpTime,startOutputEvent,stopOutputEvent)
-                output_time = output_time + tmpTime/1000.
-            end if 
-            
-            if (mod(itimestep,print_step).eq.0) then
-                istat = cudaEventRecord(stopEvent,0)
-                istat = cudaEventSynchronize(stopEvent)
-                istat = cudaEventElapsedTime(cputime,startEvent,stopEvent)
-                cputime = cputime/1000.
-                call print_update
-            end if
-        
-        enddo
-        
-        ! Ending timing of compute
-        istat = cudaEventRecord(stopEvent,0)
-        istat = cudaEventSynchronize(stopEvent)
-        istat = cudaEventElapsedTime(cputime,startEvent,stopEvent)
-        cputime = cputime/1000.
-        
-    end subroutine time_integration
-        
-    !===============================================================================================================================
-    attributes(global) subroutine RK4_update(ki,nt,v_min,rho_min,ardvxdt,exdvxdt,indvxdt,codrhodt,dvxdt,drhodt)
-    
-        implicit none
-        integer,intent(in),value:: ki
-        integer,intent(in):: nt
-        real(f),intent(in):: v_min(dim,nt),rho_min(nt),ardvxdt(dim,nt),exdvxdt(dim,nt),indvxdt(dim,nt),codrhodt(nt)
-        real(f),intent(inout):: dvxdt(dim,nt,4),drhodt(nt,4)
-        integer:: i
-        
-        i = blockDim%x*(blockIdx%x-1)+threadIdx%x
-        
-        if (i<=nt) then
-            dvxdt(:,i,ki) = indvxdt(:,i) + exdvxdt(:,i) + ardvxdt(:,i)
-            drhodt(i,ki) = codrhodt(i)
-            select case(ki)
-                case default
-                    parts_d(i)%vx(:) = v_min(:,i) + 0.5_f*dt*dvxdt(:,i,ki)
-                    parts_d(i)%rho = rho_min(i) + 0.5_f*dt*drhodt(i,ki)
-                case(3)
-                    parts_d(i)%vx(:) = v_min(:,i) + dt*dvxdt(:,i,3)
-                    parts_d(i)%rho = rho_min(i) + dt*drhodt(i,3)
-                case(4)
-                    parts_d(i)%vx(:) = v_min(:,i) + dt/6_f*(dvxdt(:,i,1) + 2._f*dvxdt(:,i,2) + 2._f*dvxdt(:,i,3) + dvxdt(:,i,4))
-                    parts_d(i)%rho = rho_min(i) + dt/6_f*(drhodt(i,1) + 2._f*drhodt(i,2) + 2._f*drhodt(i,3) + drhodt(i,4))
-                    parts_d(i)%x(:) = parts_d(i)%x(:) + dt*parts_d(i)%vx(:)
-            end select
-            parts_d(i)%p = rh0*c**2*((parts_d(i)%rho/rh0)**gamma-1._f)/gamma
-            
-        end if
-        
-    end subroutine RK4_update
-    
+            call output
+            ! End timing of output time
+            istat = cudaEventRecord(stopOutputEvent, 0)
+            istat = cudaEventSynchronize(stopOutputEvent)
+            istat = cudaEventElapsedTime(tmpTime, startOutputEvent, stopOutputEvent)
+            output_time = output_time + tmpTime/1000.
+         end if
+
+         if (mod(itimestep, print_step) .eq. 0) then
+            istat = cudaEventRecord(stopEvent, 0)
+            istat = cudaEventSynchronize(stopEvent)
+            istat = cudaEventElapsedTime(cputime, startEvent, stopEvent)
+            cputime = cputime/1000.
+            call print_update
+         end if
+
+      end do
+
+      ! Ending timing of compute
+      istat = cudaEventRecord(stopEvent, 0)
+      istat = cudaEventSynchronize(stopEvent)
+      istat = cudaEventElapsedTime(cputime, startEvent, stopEvent)
+      cputime = cputime/1000.
+
+   end subroutine time_integration
+
+   !===============================================================================================================================
+   attributes(global) subroutine RK4_update(ki, nt, v_min, rho_min, ardvxdt, exdvxdt, indvxdt, codrhodt, dvxdt, drhodt)
+
+      implicit none
+      integer, intent(in), value:: ki
+      integer, intent(in):: nt
+      real(f), intent(in):: v_min(dim, nt), rho_min(nt), ardvxdt(dim, nt), exdvxdt(dim, nt), indvxdt(dim, nt), codrhodt(nt)
+      real(f), intent(inout):: dvxdt(dim, nt, 4), drhodt(nt, 4)
+      integer:: i
+
+      i = blockDim%x*(blockIdx%x - 1) + threadIdx%x
+
+      if (i <= nt) then
+         dvxdt(:, i, ki) = indvxdt(:, i) + exdvxdt(:, i) + ardvxdt(:, i)
+         drhodt(i, ki) = codrhodt(i)
+         select case (ki)
+         case default
+            parts_d(i)%vx(:) = v_min(:, i) + 0.5_f*dt*dvxdt(:, i, ki)
+            parts_d(i)%rho = rho_min(i) + 0.5_f*dt*drhodt(i, ki)
+         case (3)
+            parts_d(i)%vx(:) = v_min(:, i) + dt*dvxdt(:, i, 3)
+            parts_d(i)%rho = rho_min(i) + dt*drhodt(i, 3)
+         case (4)
+            parts_d(i)%vx(:) = v_min(:, i) + &
+                               dt/6_f*(dvxdt(:, i, 1) + 2._f*dvxdt(:, i, 2) + 2._f*dvxdt(:, i, 3) + dvxdt(:, i, 4))
+            parts_d(i)%rho = rho_min(i) + dt/6_f*(drhodt(i, 1) + 2._f*drhodt(i, 2) + 2._f*drhodt(i, 3) + drhodt(i, 4))
+            parts_d(i)%x(:) = parts_d(i)%x(:) + dt*parts_d(i)%vx(:)
+         end select
+         parts_d(i)%p = rh0*c**2*((parts_d(i)%rho/rh0)**gamma - 1._f)/gamma
+
+      end if
+
+   end subroutine RK4_update
+
 end module time_integration_m
