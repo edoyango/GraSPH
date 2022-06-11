@@ -272,7 +272,7 @@ contains
     end subroutine update_virt_part
     
     !==============================================================================================================================
-    subroutine virt_mirror(pr,pv)
+    pure subroutine virt_mirror(pr,pv)
     
         implicit none
         type(particles),intent(in):: pr
