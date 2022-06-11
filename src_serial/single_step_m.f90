@@ -34,22 +34,24 @@ contains
         
         ! looping through interaction pairs to calculate forces/density change
         do k = 1,niac
+        
             i = pairs(k)%i
             j = pairs(k)%j
+            
             if (parts(i)%itype > 0 .and. parts(j)%itype < 0) then
                 call virt_mirror(parts(i),parts(j))
             elseif (parts(i)%itype < 0 .and. parts(j)%itype > 0) then
                 call virt_mirror(parts(j),parts(i))
             end if
                 
-                !Density approximation or change rate
-                call con_density(ki,parts(i),parts(j),pairs(k)%dwdx,cdrhodt)
-                
-                !Internal force due to pressure
-                call int_force(ki,parts(i),parts(j),pairs(k)%dwdx,indvxdt)
-                
-                !Artificial viscosity:
-                call art_visc(ki,parts(i),parts(j),pairs(k)%dwdx,ardvxdt)
+            !Density approximation or change rate
+            call con_density(ki,parts(i),parts(j),pairs(k)%dwdx,cdrhodt(i),cdrhodt(j))
+            
+            !Internal force due to pressure
+            call int_force(ki,parts(i),parts(j),pairs(k)%dwdx,indvxdt(:,i),indvxdt(:,j))
+            
+            !Artificial viscosity:
+            call art_visc(ki,parts(i),parts(j),pairs(k)%dwdx,ardvxdt(:,i),ardvxdt(:,j))
                 
         end do
         

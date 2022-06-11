@@ -34,11 +34,11 @@ contains
                     call virt_mirror(pts(j),pts(i))
                 end if
                 
-                call con_density(ki,nt,nv,ng,pts(i),pts(j),pij(k,i)%dwdx,codrhodt)
+                call con_density(ki,nt,nv,ng,pts(i),pts(j),pij(k,i)%dwdx,codrhodt(i),codrhodt(j))
                     
-                call int_force(ki,nt,nv,ng,pts(i),pts(j),pij(k,i)%dwdx,indvxdt)
+                call int_force(ki,nt,nv,ng,pts(i),pts(j),pij(k,i)%dwdx,indvxdt(:,i),indvxdt(:,j))
                     
-                call art_visc(ki,nt,nv,ng,pts(i),pts(j),pij(k,i)%dwdx,ardvxdt)
+                call art_visc(ki,nt,nv,ng,pts(i),pts(j),pij(k,i)%dwdx,ardvxdt(:,i),indvxdt(:,j))
                     
             end do
         end if
@@ -69,7 +69,7 @@ contains
     end subroutine virt_mirror
     
     !=================================================================================
-    attributes(device) subroutine art_visc(ki,nt,nv,ng,p_i,p_j,dwdx,ardvxdt)
+    attributes(device) subroutine art_visc(ki,nt,nv,ng,p_i,p_j,dwdx,ardvxdti,ardvxdtj)
     
         use param, only: alpha,beta,etq,hsml,c
     
@@ -77,7 +77,7 @@ contains
         integer,intent(in):: ki,nt,nv,ng
         type(particles),intent(in):: p_i,p_j
         real(f),intent(in):: dwdx(dim)
-        real(f),intent(inout):: ardvxdt(dim,nt+nv+ng)
+        real(f),intent(inout):: ardvxdti(dim),ardvxdtj(dim)
         real(f):: dx(dim),piv(dim),muv,vr,rr,h,mrho,dvx(dim),tmp
         integer:: d
         
@@ -92,14 +92,14 @@ contains
         piv  = (beta*muv - alpha*c)*muv/mrho*dwdx(:)
         
         do d = 1,dim
-            tmp = atomicAdd(ardvxdt(d,p_i%ind),-mass*piv(d))
-            tmp = atomicAdd(ardvxdt(d,p_j%ind),mass*piv(d))
+            tmp = atomicAdd(ardvxdti(d),-mass*piv(d))
+            tmp = atomicAdd(ardvxdtj(d), mass*piv(d))
         end do
     
     end subroutine art_visc
     
     !=================================================================================
-    attributes(device) subroutine ext_force(ki,nt,nv,ng,p_i,p_j,dwdx,exdvxdt)
+    attributes(device) subroutine ext_force(ki,nt,nv,ng,p_i,p_j,dwdx,exdvxdti,exdvxdtj)
         
         use param, only: p1,p2,rr0,dd
     
@@ -107,7 +107,7 @@ contains
         integer,intent(in):: ki,nt,nv,ng
         type(particles),intent(in):: p_i,p_j
         real(f),intent(in):: dwdx(dim)
-        real(f),intent(inout):: exdvxdt(dim,nt+nv+ng)
+        real(f),intent(inout):: exdvxdti(dim),exdvxdtj(dim)
         real(f):: dx(dim),rr,fo,tmp
         integer:: d
         
@@ -117,48 +117,48 @@ contains
         if (rr.lt.rr0) then
             fo = ((rr0/rr)**p1-(rr0/rr)**p2)/rr**2
             do d = 1,dim
-                tmp = atomicAdd(exdvxdt(d,p_i%ind),dd*dx(d)*fo)
-                tmp = atomicAdd(exdvxdt(d,p_j%ind),-dd*dx(d)*fo)
+                tmp = atomicAdd(exdvxdti(d), dd*dx(d)*fo)
+                tmp = atomicAdd(exdvxdtj(d),-dd*dx(d)*fo)
             end do
         endif
     
     end subroutine ext_force
     
     !=================================================================================
-    attributes(device) subroutine int_force(ki,nt,nv,ng,p_i,p_j,dwdx,indvxdt)
+    attributes(device) subroutine int_force(ki,nt,nv,ng,p_i,p_j,dwdx,indvxdti,indvxdtj)
     
         implicit none
         integer,intent(in):: ki,nt,nv,ng
         type(particles),intent(in):: p_i,p_j
         real(f),intent(in):: dwdx(dim)
-        real(f),intent(inout):: indvxdt(dim,nt+nv+ng)
+        real(f),intent(inout):: indvxdti(dim),indvxdtj(dim)
         real(f):: h(dim),tmp
         integer:: d
         
         h = -(p_i%p/p_i%rho**2 + p_j%p/p_j%rho**2)*dwdx(:)
         do d = 1,dim
-            tmp = atomicAdd(indvxdt(d,p_i%ind),mass*h(d))
-            tmp = atomicAdd(indvxdt(d,p_j%ind),-mass*h(d))
+            tmp = atomicAdd(indvxdti(d), mass*h(d))
+            tmp = atomicAdd(indvxdtj(d),-mass*h(d))
         end do
     
     end subroutine int_force
     
     !=================================================================================
-    attributes(device) subroutine con_density(ki,nt,nv,ng,p_i,p_j,dwdx,codrhodt)
+    attributes(device) subroutine con_density(ki,nt,nv,ng,p_i,p_j,dwdx,codrhodti,codrhodtj)
     
         implicit none
         integer,intent(in):: ki,nt,nv,ng
         type(particles),intent(in):: p_i,p_j
         real(f),intent(in):: dwdx(dim)
-        real(f),intent(inout):: codrhodt(nt+nv+ng)
+        real(f),intent(inout):: codrhodti,codrhodtj
         real(f):: dvx(dim),vcc,tmp
         
         dvx(:) = p_i%vx(:) - p_j%vx(:)
     
         vcc = DOT_PRODUCT(dvx(:),dwdx(:))
         
-        tmp = atomicAdd(codrhodt(p_i%ind),mass*vcc)
-        tmp = atomicAdd(codrhodt(p_j%ind),mass*vcc)
+        tmp = atomicAdd(codrhodti,mass*vcc)
+        tmp = atomicAdd(codrhodtj,mass*vcc)
         
     end subroutine con_density
 

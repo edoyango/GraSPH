@@ -55,13 +55,13 @@ contains
             end if
             
             !Internal force due to pressure
-            call int_force(ki,parts(i),parts(j),pairs(k)%dwdx,indvxdt)
+            call int_force(ki,parts(i),parts(j),pairs(k)%dwdx,indvxdt(:,i),indvxdt(:,j))
             
             !Artificial viscosity:
-            call art_visc(ki,parts(i),parts(j),pairs(k)%dwdx,ardvxdt)
+            call art_visc(ki,parts(i),parts(j),pairs(k)%dwdx,ardvxdt(:,i),ardvxdt(:,j))
             
             !Density approximation or change rate
-            call con_density(ki,parts(i),parts(j),pairs(k)%dwdx,codrhodt)
+            call con_density(ki,parts(i),parts(j),pairs(k)%dwdx,codrhodt(i),codrhodt(j))
             
         end do
         

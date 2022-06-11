@@ -9,7 +9,7 @@ module material_rates_m
 contains
     
     !=================================================================================
-    subroutine art_visc(ki,p_i,p_j,dwdx,ardvxdt)
+    subroutine art_visc(ki,p_i,p_j,dwdx,ardvxdti,ardvxdtj)
     
         use param, only: alpha,beta,etq,hsml,c
     
@@ -17,7 +17,7 @@ contains
         integer,intent(in):: ki
         type(particles),intent(in):: p_i,p_j
         real(f),intent(in):: dwdx(dim)
-        real(f),intent(inout):: ardvxdt(dim,ntotal_loc+nvirt_loc+nhalo_loc+nghos_loc)
+        real(f),intent(inout):: ardvxdti(dim),ardvxdtj(dim)
         real(f):: dx(dim),piv(dim),muv,vr,rr,mrho
         
         dx(:) = p_i%x(:) - p_j%x(:)
@@ -30,13 +30,13 @@ contains
         mrho = 0.5_f*(p_i%rho + p_j%rho)
         piv  = (beta*muv - alpha*c)*muv/mrho*dwdx(:)
         
-        ardvxdt(:,p_i%indloc) = ardvxdt(:,p_i%indloc) - mass*piv(:)
-        ardvxdt(:,p_j%indloc) = ardvxdt(:,p_j%indloc) + mass*piv(:)
+        ardvxdti(:) = ardvxdti(:) - mass*piv(:)
+        ardvxdtj(:) = ardvxdtj(:) + mass*piv(:)
     
     end subroutine art_visc
     
     !=================================================================================
-    subroutine ext_force(ki,p_i,p_j,dwdx,exdvxdt)
+    subroutine ext_force(ki,p_i,p_j,dwdx,exdvxdti,exdvxdtj)
         
         use param, only: p1,p2,rr0,dd
     
@@ -44,7 +44,7 @@ contains
         integer,intent(in):: ki
         type(particles),intent(in):: p_i,p_j
         real(f),intent(in):: dwdx(dim)
-        real(f),intent(inout):: exdvxdt(dim,ntotal_loc+nvirt_loc+nhalo_loc+nghos_loc)
+        real(f),intent(inout):: exdvxdti(dim),exdvxdtj(dim)
         real(f):: dx(dim),rr,f
         
         dx(:) = p_i%x(:) - p_j%x(:)
@@ -52,44 +52,44 @@ contains
         
         if (rr.lt.rr0) then
             f = ((rr0/rr)**p1-(rr0/rr)**p2)/rr**2
-            exdvxdt(:,p_i%indloc) = exdvxdt(:,p_i%indloc) + dd*dx(:)*f
-            exdvxdt(:,p_j%indloc) = exdvxdt(:,p_j%indloc) - dd*dx(:)*f
+            exdvxdti(:) = exdvxdti(:) + dd*dx(:)*f
+            exdvxdtj(:) = exdvxdtj(:) - dd*dx(:)*f
         endif
     
     end subroutine ext_force
     
     !=================================================================================
-    subroutine int_force(ki,p_i,p_j,dwdx,indvxdt)
+    subroutine int_force(ki,p_i,p_j,dwdx,indvxdti,indvxdtj)
     
         implicit none
         integer,intent(in):: ki
         type(particles),intent(in):: p_i,p_j
         real(f),intent(in):: dwdx(dim)
-        real(f),intent(inout):: indvxdt(dim,ntotal_loc+nvirt_loc+nhalo_loc+nghos_loc)
+        real(f),intent(inout):: indvxdti(dim),indvxdtj(dim)
         real(f):: h(dim)
         
         h = -(p_i%p/p_i%rho**2 + p_j%p/p_j%rho**2)*dwdx(:)
-        indvxdt(:,p_i%indloc) = indvxdt(:,p_i%indloc) + mass*h(:)
-        indvxdt(:,p_j%indloc) = indvxdt(:,p_j%indloc) - mass*h(:)
+        indvxdti(:) = indvxdti(:) + mass*h(:)
+        indvxdtj(:) = indvxdtj(:) - mass*h(:)
     
     end subroutine int_force
     
     !=================================================================================
-    subroutine con_density(ki,p_i,p_j,dwdx,codrhodt)
+    subroutine con_density(ki,p_i,p_j,dwdx,codrhodti,codrhodtj)
     
         implicit none
         integer,intent(in):: ki
         type(particles),intent(in):: p_i,p_j
         real(f),intent(in):: dwdx(dim)
-        real(f),intent(inout):: codrhodt(ntotal_loc+nvirt_loc+nhalo_loc+nghos_loc)
+        real(f),intent(inout):: codrhodti,codrhodtj
         real(f):: dvx(dim),vcc
         
         dvx(:) = p_i%vx(:) - p_j%vx(:)
                 
         vcc = DOT_PRODUCT(dvx(:),dwdx(:))
         
-        codrhodt(p_i%indloc) = codrhodt(p_i%indloc) + mass*vcc
-        codrhodt(p_j%indloc) = codrhodt(p_j%indloc) + mass*vcc
+        codrhodti = codrhodti + mass*vcc
+        codrhodtj = codrhodtj + mass*vcc
         
     end subroutine con_density
 
