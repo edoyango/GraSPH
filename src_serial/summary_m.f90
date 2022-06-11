@@ -25,13 +25,8 @@ contains
       call date_and_time(datstr, timstr)
 
       !Write out the date and time.
-      write (output, "(/A)") "                  Date = "//datstr(7:8)//"/"// &
-         datstr(5:6)//"/"// &
-         datstr(1:4)
-      write (output, "(A)") "                  Time = "//timstr(1:2)//":"// &
-         timstr(3:4)//":"// &
-         timstr(5:10)
-      write (output, *)
+      write (output, "(/31x,A)") "Date = "//datstr(7:8)//"/"//datstr(5:6)//"/"//datstr(1:4)
+      write (output, "(30x,A)") "Time = "//timstr(1:2)//":"//timstr(3:4)//":"//timstr(5:10)
 
    end subroutine time_print
 
