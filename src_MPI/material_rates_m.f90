@@ -9,7 +9,7 @@ module material_rates_m
 contains
     
     !=================================================================================
-    subroutine art_visc(ki,p_i,p_j,dwdx,ardvxdti,ardvxdtj)
+    pure subroutine art_visc(ki,p_i,p_j,dwdx,ardvxdti,ardvxdtj)
     
         use param, only: alpha,beta,etq,hsml,c
     
@@ -36,7 +36,7 @@ contains
     end subroutine art_visc
     
     !=================================================================================
-    subroutine ext_force(ki,p_i,p_j,dwdx,exdvxdti,exdvxdtj)
+    pure subroutine ext_force(ki,p_i,p_j,dwdx,exdvxdti,exdvxdtj)
         
         use param, only: p1,p2,rr0,dd
     
@@ -59,7 +59,7 @@ contains
     end subroutine ext_force
     
     !=================================================================================
-    subroutine int_force(ki,p_i,p_j,dwdx,indvxdti,indvxdtj)
+    pure subroutine int_force(ki,p_i,p_j,dwdx,indvxdti,indvxdtj)
     
         implicit none
         integer,intent(in):: ki
@@ -75,7 +75,7 @@ contains
     end subroutine int_force
     
     !=================================================================================
-    subroutine con_density(ki,p_i,p_j,dwdx,codrhodti,codrhodtj)
+    pure subroutine con_density(ki,p_i,p_j,dwdx,codrhodti,codrhodtj)
     
         implicit none
         integer,intent(in):: ki

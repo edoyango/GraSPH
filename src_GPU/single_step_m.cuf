@@ -69,7 +69,7 @@ contains
     end subroutine virt_mirror
     
     !=================================================================================
-    attributes(device) subroutine art_visc(ki,nt,nv,ng,p_i,p_j,dwdx,ardvxdti,ardvxdtj)
+    attributes(device) pure subroutine art_visc(ki,nt,nv,ng,p_i,p_j,dwdx,ardvxdti,ardvxdtj)
     
         use param, only: alpha,beta,etq,hsml,c
     
@@ -99,7 +99,7 @@ contains
     end subroutine art_visc
     
     !=================================================================================
-    attributes(device) subroutine ext_force(ki,nt,nv,ng,p_i,p_j,dwdx,exdvxdti,exdvxdtj)
+    attributes(device) pure subroutine ext_force(ki,nt,nv,ng,p_i,p_j,dwdx,exdvxdti,exdvxdtj)
         
         use param, only: p1,p2,rr0,dd
     
@@ -125,7 +125,7 @@ contains
     end subroutine ext_force
     
     !=================================================================================
-    attributes(device) subroutine int_force(ki,nt,nv,ng,p_i,p_j,dwdx,indvxdti,indvxdtj)
+    attributes(device) pure subroutine int_force(ki,nt,nv,ng,p_i,p_j,dwdx,indvxdti,indvxdtj)
     
         implicit none
         integer,intent(in):: ki,nt,nv,ng
@@ -144,7 +144,7 @@ contains
     end subroutine int_force
     
     !=================================================================================
-    attributes(device) subroutine con_density(ki,nt,nv,ng,p_i,p_j,dwdx,codrhodti,codrhodtj)
+    attributes(device) pure subroutine con_density(ki,nt,nv,ng,p_i,p_j,dwdx,codrhodti,codrhodtj)
     
         implicit none
         integer,intent(in):: ki,nt,nv,ng
