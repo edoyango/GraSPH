@@ -27,13 +27,8 @@ contains
       call date_and_time(datstr, timstr)
 
       !Write out the date and time.
-      write (output, "(/A)") "                  Date = "//datstr(7:8)//"/"// &
-         datstr(5:6)//"/"// &
-         datstr(1:4)
-      write (output, "(A)") "                  Time = "//timstr(1:2)//":"// &
-         timstr(3:4)//":"// &
-         timstr(5:10)
-      write (output, *)
+      write (output, "(/31x,A)") "Date = "//datstr(7:8)//"/"//datstr(5:6)//"/"//datstr(1:4)
+      write (output, "(30x,A)") "Time = "//timstr(1:2)//":"//timstr(3:4)//":"//timstr(5:10)
 
    end subroutine time_print
 
@@ -46,8 +41,9 @@ contains
 
       if (command_argument_count() .lt. 3) then
          if (procid .eq. 0) then
-            write (*, '(A92)') '!!!ERROR!!! --- 3 commandline arguments must be provided: maxtimestep, print_step, save_step'
-            write (*, '(A33)') '                Program ending...'
+            write (*, '(A79)') '!!!ERROR!!! --- 3 commandline arguments must be provided: maxtimestep,'
+            write (*, '(A56)') '                print_step, save_step. Program ending...'
+            stop
          end if
          call MPI_ABORT(MPI_COMM_WORLD, 100, ierr)
       else
@@ -91,34 +87,34 @@ contains
          t_dist = t_dist/numprocs
          output_time = output_time/numprocs
 
-         write (*, *) '================================= TIME SUMMARY ================================'
-         write (*, *) 'Average Total CPU time = ', cputime
-         write (*, *) 'Average Partition time = ', t_graph
-         write (*, *) 'Average Send/recv time = ', t_dist
-         write (*, *) 'Average Output time =    ', output_time
-         write (*, *) '============================== PARTITION SUMMARY =============================='
-         write (*, *) '            Number of Partitions = ', n_parts
+         write (*, '(A79)') '================================= TIME SUMMARY ================================'
+         write (*, '(A29,F14.7)') 'Average Total CPU time (s) = ', cputime+t_graph+t_dist+output_time
+         write (*, '(A29,F14.7)') 'Average Partition time (s) = ', t_graph
+         write (*, '(A29,F14.7)') 'Average Send/recv time (s) = ', t_dist
+         write (*, '(A29,F14.7)') 'Average Output time (s) =    ', output_time
+         write (*, '(A79)') '============================== PARTITION SUMMARY =============================='
+         write (*, '(A35,I7)') '            Number of Partitions = ', n_parts
          if (n_parts .eq. 1) then
-            write (*, *) '    Avg Timesteps B/N Partitions =          N/A'
-            write (*, *) '    Max Timesteps B/N Partitions =          N/A'
-            write (*, *) '    Min Timesteps B/N Partitions =          N/A'
+            write (*, '(A42)') '    Avg Timesteps B/N Partitions =     N/A'
+            write (*, '(A42)') '    Max Timesteps B/N Partitions =     N/A'
+            write (*, '(A42)') '    Min Timesteps B/N Partitions =     N/A'
          else
-            write (*, *) '    Avg Timesteps B/N Partitions = ', (prev_part_tstep - 1)/(n_parts - 1)
-            write (*, *) '    Max Timesteps B/N Partitions = ', maxtstep_bn_part
-            write (*, *) '    Min Timesteps B/N Partitions = ', mintstep_bn_part
+            write (*, '(A35,I7)') '    Avg Timesteps B/N Partitions = ', (prev_part_tstep - 1)/(n_parts - 1)
+            write (*, '(A35,I7)') '    Max Timesteps B/N Partitions = ', maxtstep_bn_part
+            write (*, '(A35,I7)') '    Min Timesteps B/N Partitions = ', mintstep_bn_part
          end if
 
-         write (*, *) ' '
-         write (*, *) 'Number of Cut Axis Reorientation = ', n_reorients
+         write (*, *)
+         write (*, '(A35,I7)') 'Number of Cut Axis Reorientation = ', n_reorients
 
          if (n_reorients .eq. 1) then
-            write (*, *) 'Avg Timesteps B/N Reorientations =          N/A'
-            write (*, *) 'Max Timesteps B/N Reorientations =          N/A'
-            write (*, *) 'Min Timesteps B/N Reorientations =          N/A'
+            write (*, '(A42)') 'Avg Timesteps B/N Reorientations =     N/A'
+            write (*, '(A42)') 'Max Timesteps B/N Reorientations =     N/A'
+            write (*, '(A42)') 'Min Timesteps B/N Reorientations =     N/A'
          else
-            write (*, *) 'Avg Timesteps B/N Reorientations = ', (prev_reorient_tstep - 1)/(n_reorients - 1)
-            write (*, *) 'Max Timesteps B/N Reorientations = ', maxtstep_bn_reorient
-            write (*, *) 'Min Timesteps B/N Reorientations = ', mintstep_bn_reorient
+            write (*, '(A35,I7)') 'Avg Timesteps B/N Reorientations = ', (prev_reorient_tstep - 1)/(n_reorients - 1)
+            write (*, '(A35,I7)') 'Max Timesteps B/N Reorientations = ', maxtstep_bn_reorient
+            write (*, '(A35,I7)') 'Min Timesteps B/N Reorientations = ', mintstep_bn_reorient
          end if
       else
          call MPI_REDUCE(cputime, cputime_total, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
@@ -160,11 +156,11 @@ contains
          end do
          stdev_n(:) = int(SQRT(ABS(DBLE(stdev_n(:)))/numprocs))
 
-         write (*, *) '_______________________________________________________________________________'
-         write (*, *) '  current number of time step =', itimestep, '    current time=', real(time)
-         write (*, *) '                                                 Walltime    =', &
-            real(cputime + t_dist + t_graph + output_time)
-         write (*, *) '_______________________________________________________________________________'
+         write (*, '(A79)') '_______________________________________________________________________________'
+         write (*, '(A22,I7,A1,I7,9x,A19,F14.7)') '  current time step = ', itimestep, '/', maxtimestep, &
+            'current time (s) = ', real(cputime + t_dist + t_graph + output_time)
+         write (*, '(A65,F14.7)') '                                                  Walltime (s) = ', real(cputime)
+         write (*, '(A79)') '_______________________________________________________________________________'
          write (*, 9999) 'ntotal_loc statistics: mean = ', mean_n(1), ' stdev = ', stdev_n(1)
          write (*, 9999) '                       min  = ', min_n(1), ' max   = ', max_n(1)
          write (*, 9999) ' nhalo_loc statistics: mean = ', mean_n(2), ' stdev = ', stdev_n(2)

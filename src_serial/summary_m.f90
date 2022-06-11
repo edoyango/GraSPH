@@ -42,8 +42,8 @@ contains
       character(len=100):: args(3)
 
       if (command_argument_count() .lt. 3) then
-         write (*, '(A92)') '!!!ERROR!!! --- 3 commandline arguments must be provided: maxtimestep, print_step, save_step'
-         write (*, '(A33)') '                Program ending...'
+         write (*, '(A79)') '!!!ERROR!!! --- 3 commandline arguments must be provided: maxtimestep,'
+         write (*, '(A56)') '                print_step, save_step. Program ending...'
          stop
       else
          call get_command_argument(1, args(1))
@@ -67,9 +67,9 @@ contains
 
       implicit none
 
-      write (*, *) '================================= TIME SUMMARY ================================'
-      write (*, *) 'Average Total CPU time = ', cputime
-      write (*, *) 'Average Output time =     ', output_time
+      write (*, '(A79)') '================================= TIME SUMMARY ================================'
+      write (*, '(A29,F14.7)') 'Average Total CPU time (s) = ', cputime
+      write (*, '(A29,F14.7)') 'Average Output time (s) =    ', output_time
 
    end subroutine print_summary
 
@@ -80,10 +80,11 @@ contains
       integer, allocatable:: ns(:)
       integer:: maxp, minp, sumiac, maxiac, miniac, noiac, i, j, k
 
-      write (*, *) '_______________________________________________________________________________'
-      write (*, *) '  current number of time step =', itimestep, '     current time=', real(time)
-      write (*, *) '                                                 Walltime    =', real(cputime)
-      write (*, *) '_______________________________________________________________________________'
+      write (*, '(A79)') '_______________________________________________________________________________'
+      write (*, '(A22,I7,A1,I7,9x,A19,F14.7)') '  current time step = ', itimestep, '/', maxtimestep, &
+         'current time (s) = ', real(time)
+      write (*, '(A65,F14.7)') '                                                  Walltime (s) = ', real(cputime)
+      write (*, '(A79)') '_______________________________________________________________________________'
 
       !Statistics for the interaction, Print information to screen
       allocate (ns(ntotal + nvirt + nghos))
@@ -99,7 +100,7 @@ contains
       noiac = 0
       miniac = huge(1)
       maxp = 1
-      do i = 1, ntotal + nvirt
+      do i = 1, ntotal + nvirt + nghos
          sumiac = sumiac + ns(parts(i)%ind)
          if (ns(parts(i)%ind) > maxiac) then
             maxiac = ns(parts(i)%ind)
@@ -112,12 +113,13 @@ contains
          if (ns(parts(i)%ind) .eq. 0) noiac = noiac + 1
       end do
 
-      print *, ' >> Statistics: interactions per particle:'
-      print *, '**** Particle:', maxp, ' maximal interactions:', maxiac
-      print *, '**** Particle:', minp, ' minimal interactions:', miniac
-      print *, '**** Average :', real(sumiac)/real(ntotal)
-      print *, '**** Total pairs : ', niac
-      print *, '**** Particles with no interactions:', noiac
+      write (*, '(A40,I7)') ' >> Statistics: no. of ghost particles: ', nghos
+      write (*, '(A42)') ' >> Statistics: interactions per particle:'
+      write (*, '(A14,I7,A23,I4)') '    Particle: ', maxp, ' maximal interactions: ', maxiac
+      write (*, '(A14,I7,A23,I4)') '    Particle: ', minp, ' minimal interactions: ', miniac
+      write (*, '(A14,F14.7)') '    Average : ', real(sumiac)/real(ntotal + nvirt + nghos)
+      write (*, '(A18,I9)') '    Total pairs : ', sumiac
+      write (*, '(A36,I7)') '    Particles with no interactions: ', noiac
 
    end subroutine print_update
 
