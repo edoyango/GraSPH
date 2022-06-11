@@ -4,7 +4,7 @@ module param_para
 
     use datatypes,         only: particles
     use globvar_para,     only: parttype,halotype,haloupdatetype,ierr,MPI_ftype
-    use mpi
+    use mpi_f08
     use param,             only: dim,f
 
 ! parameters for ORB algorithm
@@ -39,7 +39,8 @@ contains
     
         implicit none
         type(particles):: parts_dummy(2)
-        integer:: blockl(7),type(7),tmptype
+        integer:: blockl(7)
+        type(MPI_Datatype):: type(7),tmptype
         integer(KIND=MPI_ADDRESS_KIND):: disp(7),lb,ext
         
         ! Obtaining memory address of each block in derived type
@@ -125,7 +126,7 @@ contains
         
         implicit none
         integer,intent(in):: ftype
-        integer:: MPI_ftype
+        type(MPI_Datatype):: MPI_ftype
         integer,parameter:: dp = kind(1_f), sp = kind(1.)
         
         select case(ftype)

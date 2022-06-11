@@ -3,7 +3,7 @@ module ORB_sr_m
     use globvar,         only: ntotal_loc,nhalo_loc,parts,maxnloc,itimestep,scale_k
     use globvar_para,    only: procid,numprocs,PhysPackSend,bounds_glob,n_process_neighbour,proc_neighbour_list,nphys_send,&
                         nphys_recv,parttype,ierr
-    use mpi
+    use mpi_f08
     use param,            only: f,dim,hsml
     use error_msg_m,    only: error_msg
     
@@ -20,12 +20,13 @@ contains
         
         implicit none
         integer,intent(in):: searchrange(2)
-        integer,intent(inout):: nrequest,request(2*n_process_neighbour),n_recv_all,entrydepth
+        integer,intent(inout):: nrequest,n_recv_all,entrydepth
+        type(MPI_Request),intent(inout):: request(2*n_process_neighbour)
         integer:: d,i,j,pid,n,pos_recv,success
         integer:: removal_list(searchrange(2)-searchrange(1)+2),nphys_send_all,diff_dest,ndiffuse_loc,ndiffuse_all,&
             searchrange_next(2)
         real(f):: xmin_loc(dim),xmax_loc(dim),xmin_rem(dim),xmax_rem(dim),xi(dim),dr,dr_min
-        integer:: status(2*n_process_neighbour,MPI_STATUS_SIZE)
+        type(MPI_STATUS):: status(2*n_process_neighbour)
         
         ! Initialization
         success = 1
@@ -189,10 +190,10 @@ contains
         use param_para,        only: halotype,haloupdatetype
     
         implicit none
-        integer,intent(inout):: request_in(2*n_process_neighbour)
+        type(MPI_Request),intent(inout):: request_in(2*n_process_neighbour)
         integer,intent(inout):: nphys_recv_all,nrequest
-        integer,intent(out):: request_out(2*n_process_neighbour)
-        integer:: status(MPI_STATUS_SIZE,2*n_process_neighbour)
+        type(MPI_Request),intent(out):: request_out(2*n_process_neighbour)
+        type(MPI_Status):: status(2*n_process_neighbour)
         integer:: i,j,pid,n,pos0_recv,pos1_recv,pos0,pos1
         real(f):: xmin_rem(dim),xmax_rem(dim),xi(dim),xmin_loc(dim),xmax_loc(dim)
         logical:: wait_for_phys_then_reloop
@@ -242,7 +243,7 @@ contains
             pos0 = ntotal_loc+1
             pos1 = ntotal_loc+nphys_recv_all
             wait_for_phys_then_reloop = .false.
-            call MPI_WAITALL(nrequest,request_in,status(:,1:nrequest),ierr) !wait for new physical particles to arrive
+            call MPI_WAITALL(nrequest,request_in,status(1:nrequest),ierr) !wait for new physical particles to arrive
             goto 1
         end if
     
@@ -320,7 +321,9 @@ contains
     
         implicit none
         integer,intent(in):: ki
-        integer:: n,i,pos0_recv,pos1_recv,request(2*n_process_neighbour),pid,status(MPI_STATUS_SIZE,2*n_process_neighbour),n_request
+        integer:: n,i,pos0_recv,pos1_recv,pid,n_request
+        type(MPI_Request):: request(2*n_process_neighbour)
+        type(MPI_Status):: status(2*n_process_neighbour)
     
         !3. halo particle send/receive ----------------------------------------------------------------------------------------------------
         n_request = 0

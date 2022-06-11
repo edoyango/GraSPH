@@ -2,6 +2,7 @@ module globvar_para
 ! A module that contains global variables that are needed for the parallel scheme
     
     use datatypes,    only: particles
+    use mpi_f08
     use param,        only: f,dim
     
     implicit none
@@ -10,8 +11,8 @@ module globvar_para
     integer,public:: procid,numprocs,ierr
     
     ! derived MPI tpes
-    integer,public:: parttype,halotype,haloupdatetype,MPI_ftype
-    integer,allocatable,public:: halotype_indexed(:),haloupdatetype_indexed(:)
+    type(MPI_Datatype):: MPI_ftype,parttype,halotype,haloupdatetype
+    type(MPI_Datatype),allocatable,public:: halotype_indexed(:),haloupdatetype_indexed(:)
 
     ! particle send/recv arrays -------------------------------------------------------------------------------------------------------
     integer,allocatable,public:: nphys_send(:),nphys_recv(:)

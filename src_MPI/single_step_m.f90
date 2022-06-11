@@ -12,7 +12,7 @@ contains
     ! required
         
         use globvar,             only: ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc,parts,pairs,t_dist,niac
-        use mpi,                 only: MPI_WTIME
+        use mpi_f08,                 only: MPI_WTIME
         use param,                 only: dim,rh0,c,gamma,f,g
         
         use material_rates_m,    only: int_force,art_visc,con_density,ext_force

@@ -3,7 +3,7 @@ module input_m
     use datatypes,      only: particles
     use globvar,        only: ntotal,nvirt,ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc,parts,scale_k,maxnloc
     use globvar_para,    only: procid,numprocs,bounds_glob
-    use mpi
+    use mpi_f08
     use param,            only: dim,irho,dxo,f,hsml,mp,np,op,pp,qp,rp,nlayer
     use error_msg_m,    only: error_msg
     use output_m,        only: write_ini_config

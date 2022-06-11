@@ -5,7 +5,7 @@ module summary_m
     use globvar_para,    only: procid,numprocs,mintstep_bn_part,mintstep_bn_reorient,maxtstep_bn_part,maxtstep_bn_reorient,&
                         prev_part_tstep,prev_reorient_tstep,n_parts,n_reorients,ierr
     use param,          only: f
-    use mpi
+    use mpi_f08
     
 contains
     
@@ -79,12 +79,13 @@ contains
     ! down)
     
         implicit none
+        double precision:: cputime_total,t_graph_total,t_dist_total,output_time_total
         
         if (procid .eq. 0) then
-            call MPI_REDUCE(MPI_IN_PLACE,cputime,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-            call MPI_REDUCE(MPI_IN_PLACE,t_graph,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-            call MPI_REDUCE(MPI_IN_PLACE,t_dist,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-            call MPI_REDUCE(MPI_IN_PLACE,output_time,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+            call MPI_REDUCE(cputime,cputime_total,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+            call MPI_REDUCE(t_graph,t_graph_total,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+            call MPI_REDUCE(t_dist,t_dist_total,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+            call MPI_REDUCE(output_time,output_time_total,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
             cputime = cputime/numprocs
             t_graph = t_graph/numprocs
             t_dist = t_dist/numprocs
@@ -120,10 +121,10 @@ contains
                 write (*,*)'Min Timesteps B/N Reorientations = ', mintstep_bn_reorient
             endif
         else
-            call MPI_REDUCE(cputime,cputime,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-            call MPI_REDUCE(t_graph,t_graph,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-            call MPI_REDUCE(t_dist,t_dist,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-            call MPI_REDUCE(output_time,output_time,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+            call MPI_REDUCE(cputime,cputime_total,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+            call MPI_REDUCE(t_graph,t_graph_total,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+            call MPI_REDUCE(t_dist,t_dist_total,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+            call MPI_REDUCE(output_time,output_time_total,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
         endif
         
         
@@ -135,7 +136,9 @@ contains
     ! Prints load balance statistics. Called occasionally as determined by print_step
     
         implicit none
-        integer:: i,n_glob(numprocs,4),status(MPI_STATUS_SIZE,4),request(4),min_n(4),max_n(4),mean_n(4),stdev_n(4)
+        integer:: i,n_glob(numprocs,4),min_n(4),max_n(4),mean_n(4),stdev_n(4)
+        type(MPI_Request):: request(4)
+        type(MPI_Status):: status(MPI_STATUS_SIZE*4)
         
         call MPI_IGATHER(ntotal_loc,1,MPI_INTEGER,n_glob(:,1),1,MPI_INTEGER,0,MPI_COMM_WORLD,request(1),ierr)
         call MPI_IGATHER(nhalo_loc ,1,MPI_INTEGER,n_glob(:,2),1,MPI_INTEGER,0,MPI_COMM_WORLD,request(2),ierr)

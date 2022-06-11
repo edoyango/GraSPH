@@ -17,7 +17,7 @@ contains
         
         use globvar,        only: itimestep
         use globvar_para,    only: procid,ierr
-        use mpi
+        use mpi_f08
         
         use summary_m,        only: print_summary
     

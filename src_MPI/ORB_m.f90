@@ -2,7 +2,7 @@ module ORB_m
 
     use globvar,        only: scale_k,parts,ntotal_loc
     use globvar_para,    only: procid,numprocs,ierr,MPI_ftype,repartition_mode,node_cax,node_cut
-    use mpi
+    use mpi_f08
     use param,            only: f,dim,hsml
     
     public:: ORB
@@ -23,9 +23,11 @@ contains
         
         implicit none
         real(f),parameter:: dcell=hsml*dcell_ORB
-        integer:: d,i,ngridx(dim),nphys_recv_all,request_phys(2*numprocs),request_halo(2*numprocs),searchrange_ini(2),&
-            n_request,status(MPI_STATUS_SIZE,4*numprocs),procrange_ini(2),tree_layers,gridind_ini(dim,2),diffusedepth
+        integer:: d,i,ngridx(dim),nphys_recv_all,searchrange_ini(2),n_request,procrange_ini(2),tree_layers,gridind_ini(dim,2),&
+            diffusedepth,repartition_mode_loc
         real(f):: bounds_out(2*dim),mingridx_ini(dim),maxgridx_ini(dim),current_to_previous(dim,dim),box_ratio_current(dim,dim)
+        type(MPI_Status):: status(4*numprocs)
+        type(MPI_Request):: request_phys(2*numprocs),request_halo(2*numprocs)
         
         !allocating partitioning arrays and initialising diagnostic variables -------------------------------------------------------------
         t_graph = t_graph - MPI_WTIME() ! commence timing of ORB algoirthm
@@ -46,10 +48,10 @@ contains
         
             ! checking if change in partilces on current process > 5%
             if (ntotal_loc.gt.prev_load+0.05_f*DBLE(ntotal)/DBLE(numprocs)) then
-                repartition_mode = 2
+                repartition_mode_loc = 2
             endif
         
-            call MPI_ALLREDUCE(MPI_IN_PLACE,repartition_mode,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,ierr)
+            call MPI_ALLREDUCE(repartition_mode_loc,repartition_mode,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,ierr)
         
             if ( (repartition_mode.gt.1) .or. (itimestep.eq.1) ) then
             
@@ -126,7 +128,7 @@ contains
         end do
         
         ! wait for halo particle distribution to complete
-        call MPI_WAITALL(n_request,request_halo(1:n_request),status(:,1:n_request),ierr)
+        call MPI_WAITALL(n_request,request_halo(1:n_request),status(1:n_request),ierr)
         
         parts(ntotal_loc+1:ntotal_loc+nhalo_loc)%itype = 2
         t_dist = t_dist + MPI_WTIME()
@@ -145,10 +147,12 @@ contains
         integer,intent(out):: ngridx(:)
         real(f),intent(out):: mingridx(:),maxgridx(:)
         integer:: i,d,icell,jcell,kcell,n_nonzerocells,n_nonzerocells_perprocess(numprocs),n_nonzerocells_total,pid,&
-                displ(numprocs),cellmins(3),cellmaxs(3),cellrange(3),request(2),status(MPI_STATUS_SIZE,2)
+                displ(numprocs),cellmins(3),cellmaxs(3),cellrange(3)
         real(f):: minx(3),maxx(3)
         integer:: sendcount,recvcount(numprocs),Plist_size
         integer,allocatable:: Plist_loc(:,:),Plist_all(:,:)
+        type(MPI_Status):: status(2)
+        type(MPI_Request):: request(2)
         
         ! Local max, min, in each direction ---------------------------------------------------------------------------------------
         minx(1:dim) = parts(1)%x(1:dim)
@@ -208,7 +212,7 @@ contains
             Plist_loc(4,i) = Pincell_ORB(Plist_loc(1,i),Plist_loc(2,i),Plist_loc(3,i))
         enddo
         
-        call MPI_WAIT(request(1),status(:,1),ierr)
+        call MPI_WAIT(request(1),status(1),ierr)
         
         n_nonzerocells_total = 0
         do pid = 1,numprocs
@@ -226,7 +230,7 @@ contains
         
         pincell_ORB(:,:,:) = 0
         
-        call MPI_WAIT(request(1),status(:,1),ierr)
+        call MPI_WAIT(request(1),status(1),ierr)
         
         ! populating the number of particles per cell
         do i = 1,n_nonzerocells_total

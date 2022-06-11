@@ -5,17 +5,19 @@ module output_m
     use param,            only: f,dim,output_directory,output_phys,output_halo,output_virt,output_flt_type
     
     use hdf5
-    use mpi
+    use mpi_f08
     
     use hdf5_parallel_io_helper_m, only: hdf5_parallel_fileopen,hdf5_parallel_write
     
     implicit none
     character(len=220),private:: filepath
     character(len=4),private::number
-    integer,private:: n,i,request(4),status(MPI_STATUS_SIZE),posrange(2)
+    integer,private:: n,i,posrange(2)
     integer(HID_T),private:: fid,real_group_id,virt_group_id,ghos_group_id
     integer(HSIZE_T),private:: global_dims(2)
     integer(HSSIZE_T),private:: displ(2)
+    type(MPI_Request):: request(4)
+    type(MPI_Status):: status(4)
     
     public:: output,write_ini_config
     
@@ -60,7 +62,7 @@ contains
         
         ! Writing data for real particles ------------------------------------------------------------------------------------------
         ! defining array shapes and displacments
-        call MPI_WAIT(request(1),status,ierr) ! Waiting for non-blocking exchange to complete
+        call MPI_WAIT(request(1),status(1),ierr) ! Waiting for non-blocking exchange to complete
         
         global_dims(:) = [dim,ntotal]
         displ(:) = [0,SUM(ntotal_glob(1:procid))] ! hdf5 works with 0-indexing
@@ -70,7 +72,7 @@ contains
         
         ! Writing data for halo particles ------------------------------------------------------------------------------------------
         ! defining array shapes and displacments
-        call MPI_WAIT(request(2),status,ierr) ! Waiting for non-blocking exchange to complete
+        call MPI_WAIT(request(2),status(2),ierr) ! Waiting for non-blocking exchange to complete
         
         global_dims(:) = [dim,sum(nhalo_glob)]
         displ(:) = [0,SUM(nhalo_glob(1:procid))] ! hdf5 works with 0-indexing
@@ -80,7 +82,7 @@ contains
         
         ! Writing data for virtual particles ---------------------------------------------------------------------------------------
         ! defining array shapes and displacments
-        call MPI_WAIT(request(3),status,ierr) ! Waiting for non-blocking exchange to complete
+        call MPI_WAIT(request(3),status(3),ierr) ! Waiting for non-blocking exchange to complete
         
         global_dims(:) = [dim,sum(nvirt_glob)]
         displ(:) = [0,SUM(nvirt_glob(1:procid))] ! hdf5 works with 0-indexing
@@ -90,7 +92,7 @@ contains
 
         ! Writing data for ghost particles -----------------------------------------------------------------------------------------
         ! defining array shapes and displacments
-        call MPI_WAIT(request(4),status,ierr) ! Waiting for non-blocking exchange to complete
+        call MPI_WAIT(request(4),status(4),ierr) ! Waiting for non-blocking exchange to complete
         
         global_dims(:) = [dim,sum(nghos_glob)]
         displ(:) = [0,SUM(nghos_glob(1:procid))] ! hdf5 works with 0-indexing
@@ -134,7 +136,7 @@ contains
         call h5gcreate_f(fid,"ghos",ghos_group_id,ierr)
         call h5gclose_f(ghos_group_id,ierr)
         
-        call MPI_WAIT(request(1),status,ierr)
+        call MPI_WAIT(request(1),status(1),ierr)
         
         global_dims(:) = [dim,ntotal]
         displ(:) = [0,SUM(ntotal_glob(1:procid))] ! hdf5 works with 0-indexing

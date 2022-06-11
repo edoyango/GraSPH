@@ -2,7 +2,7 @@ program SPH
     
     use globvar,             only: ntotal,scale_k,allocateGlobalArrays,deallocateGlobalArrays
     use globvar_para,         only: ierr,procid,numprocs,MPI_ftype
-    use mpi
+    use mpi_f08
     use param,                 only: f,skf
     use param_para,         only: CreateMPIType,Select_MPI_ftype
     

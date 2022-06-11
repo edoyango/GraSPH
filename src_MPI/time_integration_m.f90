@@ -3,7 +3,7 @@ module time_integration_m
     use globvar,        only: parts,ntotal_loc,time,cputime,output_time,t_graph,t_dist,test_time,itimestep,maxtimestep,&
                         print_step,save_step,maxnloc
     use globvar_para,    only: procid,numprocs
-    use mpi
+    use mpi_f08
     use param,            only: f,dim,dt
     
     use input_m,        only: gind,generate_ghost_part

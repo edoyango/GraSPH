@@ -1,7 +1,7 @@
 module hdf5_parallel_io_helper_m
 
     use hdf5
-    use mpi
+    use mpi ! would prefer to use mpi_f08, but hdf5 doesn't play nicely with it
     
     interface hdf5_parallel_write
         module procedure hdf5_parallel_write_dbl_r1,hdf5_parallel_write_dbl_r2,hdf5_parallel_write_int_r1
@@ -24,7 +24,7 @@ contains
         
         ! creating file access property list
         call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, ierr)
-        ! 
+        
         call h5pset_fapl_mpio_f(plist_id,MPI_COMM_WORLD,MPI_INFO_NULL,ierr)
         call h5fcreate_f(fname, H5F_ACC_TRUNC_F, fid, ierr, access_prp = plist_id)
         call h5pclose_f(plist_id,ierr)
