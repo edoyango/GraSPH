@@ -18,11 +18,11 @@ FCFLAGS_gnu_debug="-Og -g -fcheck=all -fbacktrace -fimplicit-none -pedantic -Wal
 FCFLAGS_intel="-O3 -ipo -traceback -module obj"
 FCFLAGS_intel_debug="-g -traceback -check all -module obj"
 FCFLAGS_CUDA="-Mcuda -Minfo -Iobj -module obj"
-FCFLAGS_CUDA_debug="-g -C -traceback -Iobj -module obj"
+FCFLAGS_CUDA_debug="-Mcuda -Minfo -g -C -traceback -Iobj -module obj"
 MKFILES_DIR=makefiles
 MKFILE_serial=makefile.serial
-MKFILE_MPI=makefile.MPI
-MKFILE_CUDA=makefile.CUDA
+MKFILE_MPI=makefile.mpi
+MKFILE_CUDA=makefile.cuda
 
 case "$1" in
 	"serial-gnu")
@@ -41,27 +41,27 @@ case "$1" in
 		FCFLAGS="$FCFLAGS $FCFLAGS_intel_debug"
 		MKFILE=$MKFILE_serial
 		;;
-	"MPI-gnu")
+	"mpi-gnu")
 		FCFLAGS="$FCFLAGS $FCFLAGS_gnu"
 		MKFILE=$MKFILE_MPI
 		;;
-	"MPI-intel")
+	"mpi-intel")
 		FCFLAGS="$FCFLAGS $FCFLAGS_intel"
 		MKFILE=$MKFILE_MPI
 		;;
-	"MPI-gnu-debug")
+	"mpi-gnu-debug")
 		FCFLAGS="$FCFLAGS $FCFLAGS_gnu_debug"
 		MKFILE=$MKFILE_MPI
 		;;
-	"MPI-intel-debug")
+	"mpi-intel-debug")
 		FCFLAGS="$FCFLAGS $FCFLAGS_intel_debug"
 		MKFILE=$MKFILE_MPI
 		;;
-	"CUDA")
+	"cuda")
 		FCFLAGS="$FCFLAGS $FCFLAGS_CUDA"
 		MKFILE=$MKFILE_CUDA
 		;;
-	"CUDA-debug")
+	"cuda-debug")
 		FCFLAGS="$FCFLAGS $FCFLAGS_CUDA_debug"
 		MKFILE=$MKFILE_CUDA
 		;;
@@ -87,5 +87,6 @@ case "$1" in
 		exit 1
 
 esac
+
 echo $MKFILES_DIR/$MKFILE
 make -f $MKFILES_DIR/$MKFILE FCFLAGS="$FCFLAGS"
