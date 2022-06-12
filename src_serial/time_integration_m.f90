@@ -25,11 +25,11 @@ contains
       real(f), intent(inout):: time, cputime, output_time, test_time
       type(particles), intent(inout):: parts(:)
       type(interactions), intent(inout):: pairs(:)
-      integer:: i, itimestep
+      integer:: i, itimestep, ki
       real(f):: t1, t2, t3, t4
-      real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drho(:, :)
+      real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drhodt(:, :)
 
-      allocate (v_min(dim, ntotal), rho_min(ntotal), dvxdt(dim, ntotal, 4), drho(ntotal, 4))
+      allocate (v_min(dim, ntotal), rho_min(ntotal), dvxdt(dim, ntotal, 4), drhodt(ntotal, 4))
 
       call CPU_TIME(t1)
 
@@ -48,66 +48,18 @@ contains
          !Interaction parameters, calculating neighboring particles
          call flink_list(scale_k, ntotal, nvirt, nghos, parts, niac, pairs)
 
-!~                call update_virt_part
+         do ki = 1, 4
 
-         ! calculating forces (k1)
-         call single_step(1, ntotal, nvirt, nghos, niac, pairs, parts, dvxdt(:, :, 1), drho(:, 1))
+            ! calculating rate of change of speed and density on particles
+            call single_step(ki, ntotal, nvirt, nghos, niac, pairs, parts, dvxdt(:, :, ki), drhodt(:, ki))
 
-         ! updating data for mid-timestep base on k1
-         do i = 1, ntotal
-            parts(i)%vx(:) = v_min(:, i) + 0.5_f*dt*dvxdt(:, i, 1)
-            parts(i)%rho = rho_min(i) + 0.5_f*dt*drho(i, 1)
-            parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1_f)/gamma
+            ! applying update to particles
+            call RK4_update(ki, ntotal, v_min, rho_min, dvxdt, drhodt, parts)
+
+            ! updating ghost particles to reflect real particles
+            call update_ghost_part(ntotal, nvirt, nghos, gind, parts)
+
          end do
-
-         call update_ghost_part(ntotal, nvirt, nghos, gind, parts)
-
-!~                call update_virt_part
-
-         ! calculating forces (k2)
-         call single_step(2, ntotal, nvirt, nghos, niac, pairs, parts, dvxdt(:, :, 2), drho(:, 2))
-
-         ! updating data for mid-timestep base on k2
-         do i = 1, ntotal
-            parts(i)%vx(:) = v_min(:, i) + 0.5_f*dt*dvxdt(:, i, 2)
-            parts(i)%rho = rho_min(i) + 0.5_f*dt*drho(i, 2)
-            parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1_f)/gamma
-         end do
-
-         call update_ghost_part(ntotal, nvirt, nghos, gind, parts)
-
-!~                call update_virt_part
-
-         ! calculating forces (k3)
-         call single_step(3, ntotal, nvirt, nghos, niac, pairs, parts, dvxdt(:, :, 3), drho(:, 3))
-
-         ! updating data for mid-timestep base on k3
-         do i = 1, ntotal
-            parts(i)%vx(:) = v_min(:, i) + dt*dvxdt(:, i, 3)
-            parts(i)%rho = rho_min(i) + dt*drho(i, 3)
-            parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1_f)/gamma
-         end do
-
-         call update_ghost_part(ntotal, nvirt, nghos, gind, parts)
-
-!~                call update_virt_part
-
-         call single_step(4, ntotal, nvirt, nghos, niac, pairs, parts, dvxdt(:, :, 4), drho(:, 4))
-
-         ! updating data for mid-timestep base on k1, k2, k3, k4
-         do i = 1, ntotal
-            parts(i)%vx(:) = v_min(:, i) + dt/6_f*(dvxdt(:, i, 1) + 2_f*dvxdt(:, i, 2) + 2_f*dvxdt(:, i, 3) + dvxdt(:, i, 4))
-
-            parts(i)%rho = rho_min(i) + dt/6_f*(drho(i, 1) + 2_f*drho(i, 2) + 2_f*drho(i, 3) + drho(i, 4))
-
-            parts(i)%x(:) = parts(i)%x(:) + dt*parts(i)%vx(:)
-
-            parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1_f)/gamma
-         end do
-
-         call update_ghost_part(ntotal, nvirt, nghos, gind, parts)
-
-!~                call update_virt_part
 
          time = time + dt
 
@@ -133,5 +85,38 @@ contains
       cputime = t2 - t1
 
    end subroutine time_integration
+
+   pure subroutine RK4_update(ki, ntotal, v_min, rho_min, dvxdt, drhodt, parts)
+
+      implicit none
+      integer, intent(in):: ki, ntotal
+      real(f), intent(in):: v_min(:, :), rho_min(:), dvxdt(:, :, :), drhodt(:, :)
+      type(particles), intent(inout):: parts(:)
+      integer:: i
+
+      select case (ki)
+      case default
+         do i = 1, ntotal
+            parts(i)%vx(:) = v_min(:, i) + 0.5_f*dt*dvxdt(:, i, ki)
+            parts(i)%rho = rho_min(i) + 0.5_f*dt*drhodt(i, ki)
+            parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1._f)/gamma
+         end do
+      case (3)
+         do i = 1, ntotal
+            parts(i)%vx(:) = v_min(:, i) + dt*dvxdt(:, i, 3)
+            parts(i)%rho = rho_min(i) + dt*drhodt(i, 3)
+            parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1._f)/gamma
+         end do
+      case (4)
+         do i = 1, ntotal
+            parts(i)%vx(:) = v_min(:, i) + &
+                             dt/6_f*(dvxdt(:, i, 1) + 2._f*dvxdt(:, i, 2) + 2._f*dvxdt(:, i, 3) + dvxdt(:, i, 4))
+            parts(i)%rho = rho_min(i) + dt/6_f*(drhodt(i, 1) + 2._f*drhodt(i, 2) + 2._f*drhodt(i, 3) + drhodt(i, 4))
+            parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1._f)/gamma
+            parts(i)%x(:) = parts(i)%x(:) + dt*parts(i)%vx(:)
+         end do
+      end select
+
+   end subroutine RK4_update
 
 end module time_integration_m
