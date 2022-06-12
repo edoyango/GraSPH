@@ -24,6 +24,8 @@ MKFILE_serial=makefile.serial
 MKFILE_MPI=makefile.mpi
 MKFILE_CUDA=makefile.cuda
 
+make -f $MKFILES_DIR/$MKFILE_serial clean
+
 case "$1" in
 	"serial-gnu")
 		FCFLAGS="$FCLAGS $FCFLAGS_gnu"

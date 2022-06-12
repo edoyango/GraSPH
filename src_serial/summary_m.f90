@@ -1,7 +1,7 @@
 module summary_m
 
-   use globvar, only: ntotal, nvirt, nghos, niac, pairs, parts, maxtimestep, print_step, save_step, cputime, output_time, &
-                      itimestep, time
+   use datatypes, only: particles, interactions
+   use param, only: f
 
    public:: time_print, preamble, print_summary, print_update
 
@@ -31,9 +31,10 @@ contains
    end subroutine time_print
 
    !==================================================================================================================================
-   subroutine preamble
+   subroutine preamble(maxtimestep, print_step, save_step)
 
       implicit none
+      integer, intent(out):: maxtimestep, print_step, save_step
       character(len=100):: args(3)
 
       if (command_argument_count() .lt. 3) then
@@ -58,9 +59,10 @@ contains
    end subroutine preamble
 
    !==================================================================================================================================
-   subroutine print_summary
+   subroutine print_summary(cputime, output_time)
 
       implicit none
+      real(f), intent(in):: cputime, output_time
 
       write (*, '(A79)') '================================= TIME SUMMARY ================================'
       write (*, '(A29,F14.7)') 'Average Total CPU time (s) = ', cputime
@@ -69,9 +71,13 @@ contains
    end subroutine print_summary
 
    !==================================================================================================================================
-   subroutine print_update
+   subroutine print_update(itimestep, maxtimestep, ntotal, nvirt, nghos, niac, parts, pairs, time, cputime, output_time)
 
       implicit none
+      integer, intent(in):: ntotal, nvirt, nghos, niac, itimestep, maxtimestep
+      type(particles), intent(in):: parts(:)
+      type(interactions), intent(in):: pairs(:)
+      real(f), intent(in):: time, cputime, output_time
       integer, allocatable:: ns(:)
       integer:: maxp, minp, sumiac, maxiac, miniac, noiac, i, j, k
 

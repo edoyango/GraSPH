@@ -7,7 +7,7 @@ module kernel_m
 contains
 
    !==============================================================================================================================
-   subroutine kernel(r, dx, thsml, tw, tdwdx)
+   pure subroutine kernel(r, dx, thsml, tw, tdwdx)
       ! Contains the kernels
       ! NB: DIM is a gfortran function where DIM(x,y) = MAX(0,x-y). DIM is slightly faster.
 
@@ -65,7 +65,7 @@ contains
    end subroutine kernel
 
    !==============================================================================================================================
-   function kernel_k(skf) result(scale_k)
+   pure function kernel_k(skf) result(scale_k)
       ! setting k parameter for kernel radius (r = kh)
 
       implicit none

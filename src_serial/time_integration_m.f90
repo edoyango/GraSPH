@@ -1,7 +1,6 @@
 module time_integration_m
 
-   use globvar, only: time, cputime, output_time, test_time, ntotal, nvirt, parts, print_step, save_step, itimestep, maxtimestep
-   use input_m, only: gind, vw
+   use datatypes, only: particles, interactions
    use param, only: f, dim, rh0, gamma, c, dt
 
    use flink_list_m, only: flink_list
@@ -15,16 +14,22 @@ module time_integration_m
 contains
 
    !==============================================================================================================================
-   subroutine time_integration()
+   subroutine time_integration(time, cputime, output_time, test_time, ntotal, nvirt, nghos, parts, print_step, save_step, &
+                               maxtimestep, niac, pairs, scale_k, gind)
       ! Subroutine responsible for the main time-integration loop
 
       implicit none
-      integer:: i
+      integer, intent(in):: ntotal, nvirt, print_step, save_step, maxtimestep
+      real(f), intent(in):: scale_k
+      integer, intent(inout):: niac, nghos, gind(:)
+      real(f), intent(inout):: time, cputime, output_time, test_time
+      type(particles), intent(inout):: parts(:)
+      type(interactions), intent(inout):: pairs(:)
+      integer:: i, itimestep
       real(f):: t1, t2, t3, t4
       real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drho(:, :)
 
       allocate (v_min(dim, ntotal), rho_min(ntotal), dvxdt(dim, ntotal, 4), drho(ntotal, 4))
-      allocate (gind(ntotal), vw(nvirt))
 
       call CPU_TIME(t1)
 
@@ -38,15 +43,15 @@ contains
             parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1_f)/gamma
          end do
 
-         call generate_ghost_part
+         call generate_ghost_part(scale_k, ntotal, nvirt, nghos, parts, gind)
 
          !Interaction parameters, calculating neighboring particles
-         call flink_list
+         call flink_list(scale_k, ntotal, nvirt, nghos, parts, niac, pairs)
 
 !~                call update_virt_part
 
          ! calculating forces (k1)
-         call single_step(1, dvxdt(:, :, 1), drho(:, 1))
+         call single_step(1, ntotal, nvirt, nghos, niac, pairs, parts, dvxdt(:, :, 1), drho(:, 1))
 
          ! updating data for mid-timestep base on k1
          do i = 1, ntotal
@@ -55,12 +60,12 @@ contains
             parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1_f)/gamma
          end do
 
-         call update_ghost_part
+         call update_ghost_part(ntotal, nvirt, nghos, gind, parts)
 
 !~                call update_virt_part
 
          ! calculating forces (k2)
-         call single_step(2, dvxdt(:, :, 2), drho(:, 2))
+         call single_step(2, ntotal, nvirt, nghos, niac, pairs, parts, dvxdt(:, :, 2), drho(:, 2))
 
          ! updating data for mid-timestep base on k2
          do i = 1, ntotal
@@ -69,12 +74,12 @@ contains
             parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1_f)/gamma
          end do
 
-         call update_ghost_part
+         call update_ghost_part(ntotal, nvirt, nghos, gind, parts)
 
 !~                call update_virt_part
 
          ! calculating forces (k3)
-         call single_step(3, dvxdt(:, :, 3), drho(:, 3))
+         call single_step(3, ntotal, nvirt, nghos, niac, pairs, parts, dvxdt(:, :, 3), drho(:, 3))
 
          ! updating data for mid-timestep base on k3
          do i = 1, ntotal
@@ -83,11 +88,11 @@ contains
             parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1_f)/gamma
          end do
 
-         call update_ghost_part
+         call update_ghost_part(ntotal, nvirt, nghos, gind, parts)
 
 !~                call update_virt_part
 
-         call single_step(4, dvxdt(:, :, 4), drho(:, 4))
+         call single_step(4, ntotal, nvirt, nghos, niac, pairs, parts, dvxdt(:, :, 4), drho(:, 4))
 
          ! updating data for mid-timestep base on k1, k2, k3, k4
          do i = 1, ntotal
@@ -100,7 +105,7 @@ contains
             parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1_f)/gamma
          end do
 
-         call update_ghost_part
+         call update_ghost_part(ntotal, nvirt, nghos, gind, parts)
 
 !~                call update_virt_part
 
@@ -110,7 +115,7 @@ contains
 
          ! write output data
          if (mod(itimestep, save_step) .eq. 0) then
-            call output()
+            call output(itimestep, save_step, ntotal, nvirt, nghos, parts)
          end if
 
          call CPU_TIME(t4)
@@ -119,7 +124,7 @@ contains
          if (mod(itimestep, print_step) .eq. 0) then
             call CPU_TIME(t2)
             cputime = t2 - t1
-            call print_update
+            call print_update(itimestep, maxtimestep, ntotal, nvirt, nghos, niac, parts, pairs, time, cputime, output_time)
          end if
 
       end do

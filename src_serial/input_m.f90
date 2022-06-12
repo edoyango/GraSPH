@@ -1,104 +1,118 @@
 module input_m
 
-   use datatypes, only: particles
-   use globvar, only: parts, pairs, ntotal, nvirt, nghos, scale_k, niac
+   use datatypes, only: particles, interactions
    use param, only: dim, f, dxo, mp, np, op, pp, qp, rp, nlayer, irho, hsml, mass, rh0, gamma, c
-
-   use output_m, only: write_ini_config
 
    real(f), parameter:: vxmin = 0._f, vymin = 0._f, vzmin = 0._f, &
                         vxmax = vxmin + pp*dxo, vymax = vymin + qp*dxo, vzmax = vzmin + rp*dxo
    real(f), parameter:: rxmin = 0._f, rymin = 0._f, rzmin = 0._f, &
                         rxmax = rxmin + mp*dxo, rymax = rymin + np*dxo, rzmax = rzmin + op*dxo
 
-   integer, allocatable:: gind(:)
-   real(f), allocatable:: vw(:)
-
-   public:: input, virt_part
+   public:: generate_real_part, generate_virt_part, return_ntotal, return_nvirt
    private:: vxmin, vymin, vzmin, vxmax, vymax, vzmax, rxmin, rymin, rzmin, rxmax, rymax, rzmax
 
 contains
 
    !==============================================================================================================================
-   subroutine input(generate)
+   pure function return_ntotal() result(ntotal)
 
       implicit none
-      logical, intent(in):: generate
-      integer:: i, j, k, n
+      integer:: ntotal
 
-      select case (generate)
+      ntotal = mp*np*op
 
-      case (.false.)
-
-         ntotal = mp*np*op
-
-      case (.true.)
-
-         n = 0
-         do i = 1, mp
-            do j = 1, np
-               do k = 1, op
-                  n = n + 1
-                  parts(n)%ind = n
-                  parts(n)%x(1) = (i - 0.5_f)*dxo
-                  parts(n)%x(2) = (j - 0.5_f)*dxo
-                  parts(n)%x(3) = (k - 0.5_f)*dxo
-                  parts(n)%vx(:) = 0_f
-                  parts(n)%itype = 1
-                  parts(n)%rho = irho
-                  parts(n)%p = 0_f
-               end do
-            end do
-         end do
-
-         call write_ini_config
-
-      end select
-
-   end subroutine input
+   end function return_ntotal
 
    !==============================================================================================================================
-   subroutine virt_part(generate)
+   pure function return_nvirt() result(nvirt)
 
       implicit none
-      logical, intent(in):: generate
-      integer:: i, j, k, n
+      integer:: nvirt
 
-      select case (generate)
+      nvirt = (pp + 2*nlayer)*(qp + 2*nlayer)*nlayer
 
-      case (.false.)
-
-         nvirt = (pp + 2*nlayer)*(qp + 2*nlayer)*nlayer
-
-      case (.true.)
-
-         n = ntotal
-
-         do i = 1 - nlayer, pp + nlayer
-            do j = 1 - nlayer, qp + nlayer
-               do k = 1, nlayer
-                  n = n + 1
-                  parts(n)%ind = n
-                  parts(n)%x(1) = vxmin + (i - 0.5_f)*dxo
-                  parts(n)%x(2) = vymin + (j - 0.5_f)*dxo
-                  parts(n)%x(3) = vzmin - (k - 0.5_f)*dxo
-                  parts(n)%vx(:) = 0._f
-               end do
-            end do
-         end do
-
-         parts(ntotal + 1:ntotal + nvirt)%rho = irho
-         parts(ntotal + 1:ntotal + nvirt)%p = 0_f
-         parts(ntotal + 1:ntotal + nvirt)%itype = -1
-
-      end select
-
-   end subroutine virt_part
+   end function return_nvirt
 
    !==============================================================================================================================
-   subroutine generate_ghost_part
+   subroutine allocatePersistentArrays(ntotal, nvirt, parts, pairs, gind)
 
       implicit none
+      integer, intent(in):: ntotal, nvirt
+      type(particles), allocatable, intent(out):: parts(:)
+      type(interactions), allocatable, intent(out):: pairs(:)
+      integer, allocatable, intent(out):: gind(:)
+      integer:: maxn, maxinter
+
+      maxn = 2*ntotal + nvirt
+      maxinter = 262*maxn
+
+      allocate (parts(maxn), pairs(maxinter), gind(ntotal))
+
+   end subroutine allocatePersistentArrays
+
+   !==============================================================================================================================
+   pure subroutine generate_real_part(ntotal, parts)
+
+      implicit none
+      integer, intent(in):: ntotal
+      type(particles), intent(out):: parts(:)
+      integer:: i, j, k, n
+
+      n = 0
+      do i = 1, mp
+         do j = 1, np
+            do k = 1, op
+               n = n + 1
+               parts(n)%ind = n
+               parts(n)%x(1) = (i - 0.5_f)*dxo
+               parts(n)%x(2) = (j - 0.5_f)*dxo
+               parts(n)%x(3) = (k - 0.5_f)*dxo
+               parts(n)%vx(:) = 0_f
+               parts(n)%itype = 1
+               parts(n)%rho = irho
+               parts(n)%p = 0_f
+            end do
+         end do
+      end do
+
+   end subroutine generate_real_part
+
+   !==============================================================================================================================
+   pure subroutine generate_virt_part(ntotal, nvirt, parts)
+
+      implicit none
+      integer, intent(in):: ntotal, nvirt
+      type(particles), intent(out):: parts(:)
+      integer:: i, j, k, n
+
+      n = ntotal
+      do i = 1 - nlayer, pp + nlayer
+         do j = 1 - nlayer, qp + nlayer
+            do k = 1, nlayer
+               n = n + 1
+               parts(n)%ind = n
+               parts(n)%x(1) = vxmin + (i - 0.5_f)*dxo
+               parts(n)%x(2) = vymin + (j - 0.5_f)*dxo
+               parts(n)%x(3) = vzmin - (k - 0.5_f)*dxo
+               parts(n)%vx(:) = 0._f
+            end do
+         end do
+      end do
+
+      parts(ntotal + 1:ntotal + nvirt)%rho = irho
+      parts(ntotal + 1:ntotal + nvirt)%p = 0_f
+      parts(ntotal + 1:ntotal + nvirt)%itype = -1
+
+   end subroutine generate_virt_part
+
+   !==============================================================================================================================
+   pure subroutine generate_ghost_part(scale_k, ntotal, nvirt, nghos, parts, gind)
+
+      implicit none
+      real(f), intent(in):: scale_k
+      integer, intent(in):: ntotal, nvirt
+      type(particles), intent(inout):: parts(:)
+      integer, intent(out):: nghos, gind(:)
       integer:: i, ig
 
       nghos = 0
@@ -197,9 +211,11 @@ contains
    end subroutine generate_ghost_part
 
    !==============================================================================================================================
-   subroutine update_ghost_part
+   pure subroutine update_ghost_part(ntotal, nvirt, nghos, gind, parts)
 
       implicit none
+      integer, intent(in):: ntotal, nvirt, nghos, gind(:)
+      type(particles), intent(inout):: parts(:)
       integer:: i, ig, ir
 
       do i = 1, nghos
@@ -230,13 +246,18 @@ contains
    end subroutine update_ghost_part
 
    !==============================================================================================================================
-   subroutine update_virt_part
+   subroutine update_virt_part(ki, ntotal, nvirt, parts, niac, pairs, vw)
 
       implicit none
+      integer, intent(in):: ki, ntotal, nvirt, niac
+      type(interactions), intent(in):: pairs(:)
+      type(particles), intent(inout):: parts(:)
+      real(f), intent(inout):: vw(:)
       integer:: i, j, k
       real(f):: tmp
 
-      vw(:) = 0._f
+      if (ki == 1) vw(:) = 0._f
+
       do i = 1, nvirt
          parts(ntotal + i)%rho = 0._f
          parts(ntotal + i)%vx(:) = 0._f
