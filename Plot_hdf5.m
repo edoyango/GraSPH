@@ -39,7 +39,7 @@ axis equal; hold on
 %% Initial configuration
 colours = rand(numprocs,3);
 
-for i=1:13
+for i=1
     %% formatting plot
     clf(hf,'reset'); axis equal; hold on;
 
@@ -74,7 +74,7 @@ for i=1:13
         [rx,rv,rrho,rp,rind,rprocid,rtype] = ...
             read_h5_data(file_path,'real');
     catch
-        fprintf('Failed to find ghost particle data');
+        fprintf('Failed to find real particle data\n');
     end
     
     % Halo particle data
@@ -82,7 +82,7 @@ for i=1:13
         [vx,vv,vrho,vp,vind,vprocid,vtype] = ...
             read_h5_data(file_path,'virt');
     catch
-        fprintf('Failed to find ghost particle data');
+        fprintf('Failed to find virtual particle data\n');
     end
 
     % Virtual particle data
@@ -90,7 +90,7 @@ for i=1:13
         [hx,hv,hrho,hp,hind,hprocid,htype] = ...
             read_h5_data(file_path,'halo');
     catch
-        fprintf('Failed to find ghost particle data');
+        fprintf('Failed to find ghost particle data\n');
     end
 
     % Ghost particle data
@@ -98,13 +98,13 @@ for i=1:13
         [gx,gv,grho,gp,gind,gprocid,gtype] = ...
             read_h5_data(['sph_out',index,'.h5'],'ghos');
     catch
-        fprintf('Failed to find ghost particle data');
+        fprintf('Failed to find ghost particle data\n');
     end
 
 
     %% Choosing which quantities to plot and plotting physical particles
-%     pquant = sqrt(sum(rv(:,:).^2,1));   % speed
-    pquant = rprocid;
+    pquant = sqrt(sum(rv(:,:).^2,1));   % speed
+%     pquant = rprocid;
 %     pquant = [1,0,0]                                      % All particles red
 %     ind = find(rprocid==0); rx = rx(:,ind); pquant = pquant(ind);
     b = plot_helper(rx,pquant,25,'.');
@@ -113,7 +113,7 @@ for i=1:13
 
     %% plotting halo particles
 %     hquant = [0 1 1];
-    hquant = hv;
+%     hquant = hv;
 
 %     ind = find(hprocid==2); hx = hx(:,ind); hquant = hquant(ind); 
 %     b = plot_helper(hx,hquant,25,'x');
