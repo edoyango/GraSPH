@@ -2,7 +2,7 @@ module time_integration_m
 
    use datatypes, only: particles, interactions
    use globvar, only: time, cputime, output_time, test_time, print_step, save_step, itimestep, maxtimestep, parts_d, &
-                      parts, ntotal, nvirt, ntotal_d, nvirt_d, niac_d, pairs_d, maxinter_perp, nghos_d, nghos, scale_k_d,niac
+                      parts, ntotal, nvirt, ntotal_d, nvirt_d, niac_d, pairs_d, maxinter_perp, nghos_d, nghos, scale_k_d,niac,scale_k
    use param, only: f, dim, rh0, gamma, c, dt, mass, g, irho, hsml
 
    use cudafor
@@ -62,7 +62,7 @@ contains
          call generate_ghost_part <<< ntotal/128 + 1, 128 >>> (ntotal_d, nvirt_d, nghos_d, parts_d, gind)
          nghos = nghos_d
          !Interaction parameters, calculating neighboring particles
-         call flink_list
+         call flink_list(scale_k,maxinter_perp,ntotal,nvirt,nghos,ntotal_d,nvirt_d,nghos_d,parts_d,niac_d,pairs_d)
          ! Beginning RK4 update (4 updates per timestep)
          do ki = 1, 4
 
