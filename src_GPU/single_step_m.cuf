@@ -1,7 +1,6 @@
 module single_step_m
 
    use datatypes, only: interactions, particles
-   use globvar, only: maxinter_perp
    use param, only: dim, f, g, mass
 
    public:: single_step_kernel
@@ -10,12 +9,13 @@ module single_step_m
 contains
 
    !==============================================================================================================================
-   attributes(global) pure subroutine single_step_kernel(ki, nt, nv, ng, nij, pij, pts, ardvxdt, exdvxdt, indvxdt, codrhodt)
+   attributes(global) pure subroutine single_step_kernel(ki, maxinter_perp, nt, nv, ng, nij, pij, pts, ardvxdt, exdvxdt, &
+                                                         indvxdt, codrhodt)
 
       implicit none
-      integer, intent(in), value:: ki
+      integer, intent(in), value:: ki, maxinter_perp
       integer, intent(in):: nt, nv, ng, nij(nt + nv + ng)
-      type(interactions), intent(in):: pij(maxinter_perp, nt + nv + ng)
+      type(interactions), intent(in):: pij(:, :)
       type(particles), intent(inout):: pts(nt + nv + ng)
       real(f), intent(inout):: ardvxdt(dim, nt + nv + ng), exdvxdt(dim, nt + nv + ng), indvxdt(dim, nt + nv + ng), &
                                codrhodt(nt + nv + ng)

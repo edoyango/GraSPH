@@ -1,43 +1,50 @@
 program SPH
 
-   use globvar, only: allocateGlobalArrays, deallocateGlobalArrays, scale_k, ntotal, nvirt,print_step, save_step, maxtimestep, cputime, output_time, test_time, maxinter_perp, ntotal, nvirt, nghos, parts, parts_d, niac, niac_d, pairs, pairs_d
-   use param, only: skf
+   use datatypes, only: particles, interactions
+   use param, only: skf, f
 
-   use input_m, only: input, virt_part
+   use input_m, only: return_ntotal, return_nvirt, allocatePersistentArrays, generate_real_part, generate_virt_part
    use kernel_m, only: kernel_k
+   use output_m, only: output
    use summary_m, only: preamble, time_print, print_summary
    use time_integration_m, only: time_integration
 
    implicit none
-   integer:: maxn
+   integer:: maxn, ntotal, nvirt, nghos, print_step, save_step, maxtimestep
+   real(f):: scale_k, cputime, output_time, test_time
+   integer, allocatable:: niac(:)
+   integer, allocatable, device:: niac_d(:)
+   type(particles), allocatable:: parts(:)
+   type(particles), allocatable, device:: parts_d(:)
+   type(interactions), allocatable:: pairs(:, :)
+   type(interactions), allocatable, device:: pairs_d(:, :)
+   integer, parameter:: maxinter_perp = 135
 
    !Printing preamble to screen
-   call preamble
+   call preamble(maxtimestep, print_step, save_step)
 
    ! setting k parameter for kernel radius (r = kh)
    scale_k = kernel_k(skf)
 
-   call input(.false.)
-   call virt_part(.false.)
+   ntotal = return_ntotal()
+   nvirt = return_nvirt()
 
    write (*, '(A24,1x,I9,1x,A19)') 'Total simulation size of', ntotal, 'physical particles.'
    write (*, '(A24,1x,I9,1x,A19)') '                        ', nvirt, 'virtual particles.'
 
-   call allocateGlobalArrays()
-   maxn = 2*ntotal+nvirt
+   call allocatePersistentArrays(ntotal, nvirt, maxn, maxinter_perp, parts, parts_d, pairs, pairs_d, niac, niac_d)
 
    !Creat physical and virtual boundary particles
-   call input(.true.)
-   call virt_part(.true.)
+   call generate_real_part(ntotal, parts)
+   call generate_virt_part(ntotal, nvirt, parts)
+   call output(0, save_step, ntotal, nvirt, 0, parts)
 
    !Entering discretized time-integration loop
-   call time_integration(scale_k,print_step, save_step, maxtimestep, cputime, output_time, test_time, maxinter_perp, maxn, ntotal, nvirt, nghos, parts, parts_d, niac, niac_d, pairs, pairs_d)
+   call time_integration(scale_k,print_step, save_step, maxtimestep, cputime, output_time, test_time, maxinter_perp, maxn, &
+   ntotal, nvirt, nghos, parts, parts_d, niac, niac_d, pairs, pairs_d)
 
    !Printing post-amble to terminal
    call time_print
-   call print_summary
-
-   !Cleaning up
-   call deallocateGlobalArrays
+   call print_summary(cputime, output_time)
 
 end

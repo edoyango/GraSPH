@@ -5,22 +5,22 @@ module output_m
 
    use hdf5
    use h5lt
-   
+
    private
    public:: output
 
 contains
 
    !==============================================================================================================================
-   subroutine output(itimestep,save_step,ntotal,nvirt,nghos,parts)
+   subroutine output(itimestep, save_step, ntotal, nvirt, nghos, parts)
       ! Subroutine to write data to disk. Called intermittently, determined by save_step supplied at run-time
 
       implicit none
-      integer,intent(in):: itimestep,save_step,ntotal,nvirt,nghos
-      type(particles),intent(in):: parts(:)
+      integer, intent(in):: itimestep, save_step, ntotal, nvirt, nghos
+      type(particles), intent(in):: parts(:)
       integer(HID_T):: file_id, real_group_id, virt_group_id, ghos_group_id
       character(len=4)::number
-      integer:: n,ierr
+      integer:: n, ierr
 
       n = itimestep/save_step
       write (number, '(I4.4)') n
@@ -57,7 +57,7 @@ contains
       character(*), intent(in):: group_label
       type(particles), intent(in):: pts_in(:)
       integer(HSIZE_T):: data_dims(2)
-      integer:: nelem, i,ierr
+      integer:: nelem, i, ierr
       integer, allocatable:: idatatmp(:, :)
       real(f), allocatable:: fdatatmp(:, :)
 

@@ -37,12 +37,19 @@ module globvar
 contains
 
    !==============================================================================================================================
-   subroutine allocateGlobalArrays
+   subroutine allocateGlobalArrays(ntotal, nvirt, maxn, maxinter_perp, parts, parts_d, pairs, pairs_d, niac, niac_d)
 
       implicit none
+      integer, intent(in):: ntotal, nvirt, maxinter_perp
+      integer, intent(out):: maxn
+      integer, allocatable, intent(inout):: niac(:)
+      integer, allocatable, intent(inout), device:: niac_d(:)
+      type(particles), allocatable, intent(inout):: parts(:)
+      type(particles), allocatable, intent(inout), device:: parts_d(:)
+      type(interactions), allocatable, intent(inout):: pairs(:, :)
+      type(interactions), allocatable, intent(inout), device:: pairs_d(:, :)
 
       maxn = 2*ntotal + nvirt!+int(0.2*ntotal)
-      maxinter = maxinter_perp*maxn
 
       allocate (parts(maxn), parts_d(maxn))
       allocate (pairs(maxinter_perp, maxn), pairs_d(maxinter_perp, maxn))
@@ -51,9 +58,13 @@ contains
    end subroutine allocateGlobalArrays
 
    !==============================================================================================================================
-   subroutine deallocateGlobalArrays
+   subroutine deallocateGlobalArrays(parts, parts_d, pairs, pairs_d)
 
       implicit none
+      type(particles), allocatable, intent(inout):: parts(:)
+      type(particles), allocatable, intent(inout), device:: parts_d(:)
+      type(interactions), allocatable, intent(inout):: pairs(:, :)
+      type(interactions), allocatable, intent(inout), device:: pairs_d(:, :)
 
       deallocate (parts, parts_d)
       deallocate (pairs, pairs_d)

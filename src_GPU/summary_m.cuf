@@ -1,8 +1,6 @@
 module summary_m
 
-   use globvar, only: ntotal, nvirt, nghos, niac, pairs, parts, maxtimestep, print_step, save_step, cputime, output_time, &
-                      itimestep, time, niac, niac_d
-
+   private
    public:: time_print, preamble, print_summary, print_update
 
 contains
@@ -31,9 +29,10 @@ contains
    end subroutine time_print
 
    !==================================================================================================================================
-   subroutine preamble
+   subroutine preamble(maxtimestep, print_step, save_step)
 
       implicit none
+      integer, intent(out):: maxtimestep, print_step, save_step
       character(len=100):: args(3)
       integer:: ierr
 
@@ -59,9 +58,10 @@ contains
    end subroutine preamble
 
    !==================================================================================================================================
-   subroutine print_summary
+   subroutine print_summary(cputime, output_time)
 
       implicit none
+      real, intent(in):: cputime, output_time
       integer:: i, j, k, d
 
       write (*, '(A79)') '================================= TIME SUMMARY ================================'
@@ -71,11 +71,11 @@ contains
    end subroutine print_summary
 
    !==================================================================================================================================
-   subroutine print_update(itimestep,maxtimestep,cputime,time,ntotal,nvirt,nghos,niac)
+   subroutine print_update(itimestep, maxtimestep, cputime, time, ntotal, nvirt, nghos, niac)
 
       implicit none
-      integer,intent(in):: itimestep,maxtimestep,ntotal,nvirt,nghos,niac(:)
-      real, intent(in):: cputime,time
+      integer, intent(in):: itimestep, maxtimestep, ntotal, nvirt, nghos, niac(:)
+      real, intent(in):: cputime, time
       integer:: maxp, minp, sumiac, maxiac, miniac, noiac, i, j, k, d
 
       write (*, '(A79)') '_______________________________________________________________________________'
