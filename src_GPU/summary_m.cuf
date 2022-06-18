@@ -71,9 +71,10 @@ contains
    end subroutine print_summary
 
    !==================================================================================================================================
-   subroutine print_update
+   subroutine print_update(ntotal,nvirt,nghos,niac)
 
       implicit none
+      integer,intent(in):: ntotal,nvirt,nghos,niac(:)
       integer:: maxp, minp, sumiac, maxiac, miniac, noiac, i, j, k, d
 
       write (*, '(A79)') '_______________________________________________________________________________'
@@ -83,7 +84,6 @@ contains
       write (*, '(A79)') '_______________________________________________________________________________'
 
       !Statistics for the interaction, Print information to screen
-      niac = niac_d
       sumiac = 0
       maxiac = -huge(1)
       noiac = 0

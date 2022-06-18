@@ -10,7 +10,7 @@ module single_step_m
 contains
 
    !==============================================================================================================================
-   attributes(global) subroutine single_step_kernel(ki, nt, nv, ng, nij, pij, pts, ardvxdt, exdvxdt, indvxdt, codrhodt)
+   attributes(global) pure subroutine single_step_kernel(ki, nt, nv, ng, nij, pij, pts, ardvxdt, exdvxdt, indvxdt, codrhodt)
 
       implicit none
       integer, intent(in), value:: ki
@@ -47,7 +47,7 @@ contains
    end subroutine single_step_kernel
 
    !==============================================================================================================================
-   attributes(device) subroutine virt_mirror(pr, pv)
+   attributes(device) pure subroutine virt_mirror(pr, pv)
 
       use input_m, only: vzmin
 
