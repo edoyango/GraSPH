@@ -1,19 +1,12 @@
 module flink_list_m
 
    use datatypes, only: particles, interactions
-   !use globvar, only: parts_d, pairs_d, niac_d, ntotal_d, nvirt_d, maxinter_perp, scale_k, ntotal, nvirt, ntotal_d, &
-   !                   nvirt_d, scale_k_d, test_time, nghos_d, nghos
    use param, only: f, hsml, dim
 
    use cudafor
 
    private
-   integer, parameter:: maxpcell3D = 64, maxpcell2D = 16
-   integer:: ngridx(dim)
-   real(f):: mingridx(dim), maxgridx(dim), dcell
-   integer, device:: ngridx_d(dim)
-   real(f), device:: mingridx_d(dim), maxgridx_d(dim), minx, miny, minz, maxx, maxy, maxz
-   type(dim3):: nblocks
+   integer, parameter:: maxpcell = 64
 
    public:: flink_list
 
@@ -31,9 +24,13 @@ contains
       integer,device,intent(out):: niac_d(:)
       type(interactions),device,intent(out):: pairs_d(:,:)
       integer, allocatable, device:: pincell(:, :, :), cells(:, :, :, :)
-      integer:: i, j, k, d, istat
+      integer:: i, j, k, d, istat, ngridx(dim)
+      real(f):: mingridx(dim), maxgridx(dim), dcell
+      integer, device:: ngridx_d(dim)
+      real(f), device:: mingridx_d(dim), maxgridx_d(dim), minx, miny, minz, maxx, maxy, maxz
       type(dim3), parameter:: nthreads = dim3(16, 8, 8)
       integer, managed:: ierr
+      type(dim3):: nblocks
 
       dcell = scale_k*hsml
       minx = HUGE(1._f); miny = HUGE(1._f); minz = HUGE(1._f)
@@ -57,7 +54,7 @@ contains
       maxgridx_d = maxgridx
 
       allocate (pincell(ngridx(1), ngridx(2), ngridx(3)), &
-                cells(maxpcell3D, ngridx(1), ngridx(2), ngridx(3)))
+                cells(maxpcell, ngridx(1), ngridx(2), ngridx(3)))
 
       nblocks = dim3(ngridx(1)/nthreads%x + 1, ngridx(2)/nthreads%y + 1, ngridx(3)/nthreads%y + 1)
 
@@ -103,7 +100,7 @@ contains
       real(f), intent(in), value:: dc
       type(particles), intent(in):: pts(nt + nv + ng)
       integer, intent(inout):: p(ngx(1), ngx(2), ngx(3))
-      integer, intent(out):: c(maxpcell3D, ngx(1), ngx(2), ngx(3))
+      integer, intent(out):: c(maxpcell, ngx(1), ngx(2), ngx(3))
       integer:: ind, icell, jcell, kcell, i, j, k, d
 
       ! global thread index
@@ -122,7 +119,7 @@ contains
    attributes(global) pure subroutine sweep(maxint, sk, dc, nt, nv, ng, mingx, ngx, pts, p, c, nij, pij, ierr)
 
       implicit none
-      integer, intent(in):: nt, nv, ng, ngx(dim), p(ngx(1), ngx(2), ngx(3)), c(maxpcell3D, ngx(1), ngx(2), ngx(3))
+      integer, intent(in):: nt, nv, ng, ngx(dim), p(ngx(1), ngx(2), ngx(3)), c(maxpcell, ngx(1), ngx(2), ngx(3))
       real(f), intent(in):: mingx(dim)
       real(f), intent(in), value:: dc,sk
       integer, intent(in), value:: maxint
