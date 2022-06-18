@@ -4,19 +4,25 @@ module ORB_m
    use globvar_para, only: procid, numprocs, ierr, MPI_ftype, repartition_mode, node_cax, node_cut
    use mpi_f08
    use param, only: f, dim, hsml
-
+   
+   private
+   !Partition frequency variables
+   real(f):: box_ratio_previous(dim,dim) = TINY(1.)
+   integer:: maxnode, prev_load
+   integer,allocatable:: pincell_ORB(:, :, :)
+   
+   integer, public:: mintstep_bn_part = HUGE(1), mintstep_bn_reorient = HUGE(1), maxtstep_bn_part = 0, maxtstep_bn_reorient = 0, &
+                     prev_part_tstep, prev_reorient_tstep, n_parts = 0, n_reorients = 0
+   
    public:: ORB
-   private:: particle_grid, ORB_bounds, P_trim, potential_neighbour_process_search, subdomain_neighbour
 
 contains
    !==============================================================================================================================
    subroutine ORB
       ! Container subroutine for the bulk of the ORB algorithm, including the initial exchange of physical and halo particles
       use globvar, only: itimestep, ntotal, nhalo_loc, t_graph, t_dist
-      use globvar_para, only: n_reorients, n_parts, mintstep_bn_part, maxtstep_bn_part, mintstep_bn_reorient, &
-                              maxtstep_bn_reorient, box_ratio_previous, maxnode, bounds_glob, node_segment, prev_part_tstep, &
-                              prev_reorient_tstep, nphys_send, nphys_recv, nhalo_send, nhalo_recv, halotype_indexed, &
-                              haloupdatetype_indexed, prev_load, n_process_neighbour, proc_neighbour_list
+      use globvar_para, only: bounds_glob, nphys_send, nphys_recv, nhalo_send, nhalo_recv, halotype_indexed, &
+                              haloupdatetype_indexed, n_process_neighbour, proc_neighbour_list
 
       use param_para, only: dcell_ORB, ORBcheck1, ORBcheck2, box_ratio_threshold
       use ORB_sr_m, only: ORB_sendrecv_diffuse, ORB_sendrecv_halo
@@ -37,8 +43,7 @@ contains
          maxnode = 2*2**tree_layers - 1
          allocate (bounds_glob(2*dim, numprocs), &
                    proc_neighbour_list(numprocs), &
-                   node_cax(maxnode), &
-                   node_segment(maxnode))
+                   node_cax(maxnode))
       end if
 
       ! Boundary Determiniation Algorithm ---------------------------------------------------------------------------------------
@@ -141,8 +146,6 @@ contains
    subroutine particle_grid(ngridx, dcell, mingridx, maxgridx)
       ! Subroutine to create a uniform rectangular grid with square cells, and counting the number of particles contained within each
       ! cell. Each MPI process holds a global copy of the entire grid, in preperation for ORB
-
-      use globvar_para, only: pincell_ORB
 
       implicit none
       real(f), intent(in):: dcell
@@ -251,7 +254,7 @@ contains
       result(bounds_out)
       ! Recursive function that performs the 'bisection' part of the ORB algorithm
 
-      use globvar_para, only: leaf_node, bounds_glob, pincell_ORB
+      use globvar_para, only: leaf_node, bounds_glob
       use param_para, only: bound_extend
 
       implicit none
@@ -357,8 +360,6 @@ contains
    !==============================================================================================================================
    subroutine P_trim(gridind_in, ngridx_trim)
       ! Trims particle-in-cell grid so as to obtain minimal bounding boxes to obtain accurate cut axis orientations
-
-      use globvar_para, only: pincell_ORB
 
       implicit none
       integer, intent(in):: gridind_in(dim, 2)

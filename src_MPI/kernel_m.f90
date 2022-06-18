@@ -1,13 +1,14 @@
 module kernel_m
 
    use param, only: f
-
+   
+   private
    public:: kernel, kernel_k
 
 contains
 
    !==============================================================================================================================
-   subroutine kernel(r, dx, thsml, tw, tdwdx)
+   pure subroutine kernel(r, dx, thsml, tw, tdwdx)
       ! Contains the kernels
 
       use param, only: dims => dim, skf, pi
@@ -64,7 +65,7 @@ contains
    end subroutine kernel
 
    !==============================================================================================================================
-   function kernel_k(skf) result(scale_k)
+   pure function kernel_k(skf) result(scale_k)
       ! setting k parameter for kernel radius (r = kh)
 
       implicit none
@@ -73,11 +74,11 @@ contains
 
       select case (skf)
       case (1, 4, 5, 6)
-         scale_k = 2_f
+         scale_k = 2._f
       case (2)
          scale_k = 2.5_f
       case (3, 7)
-         scale_k = 3_f
+         scale_k = 3._f
       end select
 
    end function kernel_k

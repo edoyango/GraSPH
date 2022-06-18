@@ -5,9 +5,10 @@ module ORB_sr_m
                            nphys_recv, parttype, ierr
    use mpi_f08
    use param, only: f, dim, hsml
-   use error_msg_m, only: error_msg
-   use output_m, only: output
-
+   !use error_msg_m, only: error_msg
+   !use output_m, only: output
+   
+   private
    public:: ORB_sendrecv_diffuse, ORB_sendrecv_halo, ORB_sendrecv_haloupdate
 
 contains
@@ -121,7 +122,7 @@ contains
       ! Calculating total number of physical particles to be received. Check if this exceeds particle array boundaries
       n_recv_all = SUM(nphys_recv)
       
-      if (ntotal_loc + n_recv_all .gt. maxnloc) call error_msg(2, parts(ntotal_loc)%indloc)
+      !if (ntotal_loc + n_recv_all .gt. maxnloc) call error_msg(2, parts(ntotal_loc)%indloc)
 
       ! Non-blocking sends to exchange physical particles that have moved processes ---------------------------------------------------
       pos_recv = ntotal_loc + 1
@@ -183,8 +184,8 @@ contains
       !predetermined subdomain boundaires.
       !Note: subdomain boundaries are used as inputs (bounds_glob).
 
-      use globvar_para, only: halo_pindex, nhalo_send, nhalo_recv, halotype_indexed, haloupdatetype_indexed
-      use param_para, only: halotype, haloupdatetype
+      use globvar_para, only: halo_pindex, nhalo_send, nhalo_recv, halotype_indexed, haloupdatetype_indexed, halotype, &
+      haloupdatetype
 
       implicit none
       type(MPI_Request), intent(inout):: request_in(2*n_process_neighbour)
@@ -277,7 +278,7 @@ contains
 
       ! stopping program if array bounds are exceeded
       nhalo_loc = SUM(nhalo_recv)
-      if (ntotal_loc + nhalo_loc .gt. maxnloc) call error_msg(3, parts(i)%indloc)
+      !if (ntotal_loc + nhalo_loc .gt. maxnloc) call error_msg(3, parts(i)%indloc)
 
       nrequest = 0
       ! Creating communicator for indexed struct comms
@@ -313,8 +314,7 @@ contains
    subroutine ORB_sendrecv_haloupdate(ki)
       ! Reduced version of ORB_sendrecv_halo where no searching occurs (only the exchange)
 
-      use globvar_para, only: halotype_indexed, haloupdatetype_indexed, nhalo_recv, nhalo_send
-      use param_para, only: haloupdatetype
+      use globvar_para, only: halotype_indexed, haloupdatetype_indexed, nhalo_recv, nhalo_send, haloupdatetype
 
       implicit none
       integer, intent(in):: ki

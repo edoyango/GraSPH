@@ -5,7 +5,7 @@ module input_m
    use globvar_para, only: procid, numprocs, bounds_glob
    use mpi_f08
    use param, only: dim, irho, dxo, f, hsml, mp, np, op, pp, qp, rp, nlayer
-   use error_msg_m, only: error_msg
+   !use error_msg_m, only: error_msg
    use output_m, only: write_ini_config
 
    real(f), parameter:: vxmin = 0._f, vymin = 0._f, vzmin = 0._f, &
@@ -47,7 +47,7 @@ contains
          n_done = n_start + n_loc_i - 1
 
          ! stopping program if array bounds are exceeded
-         if ((procid .eq. 0) .and. (n_loc .gt. maxnloc)) call error_msg(1, 1)
+         !if ((procid .eq. 0) .and. (n_loc .gt. maxnloc)) call error_msg(1, 1)
 
          ! intitial setup
          n = 0
@@ -129,9 +129,12 @@ contains
    end subroutine virt_part
 
    !==============================================================================================================================
-   subroutine generate_ghost_part
+   pure subroutine generate_ghost_part(ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc,parts,gind)
 
       implicit none
+      integer,intent(in):: ntotal_loc,nhalo_loc,nvirt_loc
+      type(particles),intent(inout):: parts(:)
+      integer,intent(out):: nghos_loc,gind(:)
       integer:: i, ig
 
       nghos_loc = 0
@@ -230,9 +233,11 @@ contains
    end subroutine generate_ghost_part
 
    !==============================================================================================================================
-   subroutine update_ghost_part
+   pure subroutine update_ghost_part(ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc,parts)
 
       implicit none
+      integer,intent(in):: ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc
+      type(particles),intent(inout):: parts(:)
       integer:: i, ig, ir
 
       do i = 1, nghos_loc
@@ -263,7 +268,7 @@ contains
    end subroutine update_ghost_part
 
    !==============================================================================================================================
-   subroutine virt_mirror(pr, pv)
+   pure subroutine virt_mirror(pr, pv)
 
       implicit none
       type(particles), intent(in):: pr

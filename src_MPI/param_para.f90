@@ -7,6 +7,7 @@ module param_para
    use mpi_f08
    use param, only: dim, f
 
+   private
 ! parameters for ORB algorithm
 ! dcell_ORB = size of each cell used to draw subdomain boundaries (in multiples of hsml)
 !             smaller -> better partition, but slower and requires more memory.

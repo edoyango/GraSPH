@@ -1,9 +1,9 @@
 module material_rates_m
 
    use datatypes, only: particles
-   use globvar, only: ntotal_loc, nvirt_loc, nhalo_loc, nghos_loc
    use param, only: mass, dim, f
-
+   
+   private
    public:: art_visc, ext_force, int_force, con_density
 
 contains

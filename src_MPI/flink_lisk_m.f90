@@ -1,25 +1,29 @@
 module flink_list_m
 
-   use datatypes, only: particles
-   use globvar, only: ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, scale_k, niac, pairs, maxinter
+   use datatypes, only: particles, interactions
    use globvar_para, only: procid, numprocs
    use param, only: dim, hsml, f
 
-   use error_msg_m, only: error_msg
+   !use error_msg_m, only: error_msg
    use kernel_m, only: kernel
-
+   
+   private
    public:: flink_list
-   private:: check_if_interact
 
 contains
 
    !==============================================================================================================================
-   subroutine flink_list()
+   subroutine flink_list(maxinter,scale_k,ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc,niac,parts,pairs)
       ! save as above, but for 3D
 
       implicit none
+      integer,intent(in):: maxinter,ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc
+      real(f),intent(in):: scale_k
+      type(particles),intent(in):: parts(:)
+      integer,intent(out):: niac
+      type(interactions),intent(out):: pairs(:)
       integer, parameter:: maxpcell = 125
-      integer:: ngridx(3), jth, i, j, k, d, icell, jcell, kcell, xi, yi, zi
+      integer:: ngridx(3), jth, i, j, k, d, icell, jcell, kcell, xi, yi, zi, ierr
       real(f):: mingridx(3), maxgridx(3), dcell
       integer, allocatable:: pincell(:, :, :), gridind(:, :), cells(:, :, :, :)
       integer, parameter:: sweep(3, 13) = reshape((/-1, -1, -1, &
@@ -69,12 +73,13 @@ contains
       end do
 
       niac = 0
+      ierr = 0
       do i = 1, ntotal_loc + nhalo_loc + nvirt_loc + nghos_loc
          icell = gridind(1, i); jcell = gridind(2, i); kcell = gridind(3, i)
          do j = 1, pincell(icell, jcell, kcell)
             jth = cells(j, icell, jcell, kcell)
             if (jth > i) then
-               call check_if_interact(parts(i), parts(jth))
+               call check_if_interact(maxinter,scale_k,parts(i), parts(jth), niac, pairs, ierr)
             end if
          end do
          do k = 1, 13
@@ -83,19 +88,29 @@ contains
             zi = kcell + sweep(3, k)
             do j = 1, pincell(xi, yi, zi)
                jth = cells(j, xi, yi, zi)
-               call check_if_interact(parts(i), parts(jth))
+               call check_if_interact(maxinter,scale_k,parts(i), parts(jth), niac, pairs, ierr)
             end do
          end do
       end do
+      
+      if (ierr == 1) then
+         print *, ' >>> Error <<< : Too many interactions'
+         stop
+      end if
 
    end subroutine flink_list
 
    !==============================================================================================================================
-   subroutine check_if_interact(p_i, p_j)
+   pure subroutine check_if_interact(maxinter,scale_k,p_i, p_j, niac, pairs, ierr)
       ! subroutine to chekc if two particles are interacting and consequently adding to pair list
 
       implicit none
+      integer,intent(in):: maxinter
+      real(f),intent(in):: scale_k
       type(particles), intent(in):: p_i, p_j
+      integer,intent(inout):: niac
+      type(interactions),intent(inout):: pairs(:)
+      integer,intent(inout):: ierr
       real(f):: dxiac(dim), r
 
       ! only consider interactions when real-real are involved
@@ -109,8 +124,7 @@ contains
                pairs(niac)%j = p_j%indloc
                call kernel(r, dxiac, hsml, pairs(niac)%w, pairs(niac)%dwdx(:))
             else
-               print *, ' >>> Error <<< : Too many interactions'
-               stop
+               ierr = 1
             end if
          end if
       end if

@@ -7,16 +7,15 @@ datatypes.o \
 globvar.o \
 globvar_para.o \
 param_para.o \
-summary_m.o \
-error_msg_m.o \
 material_rates_m.o \
 hdf5_parallel_io_helper_m.o \
 output_m.o \
 input_m.o \
-kernel_m.o \
-flink_lisk_m.o \
 ORB_sr_m.o \
 ORB_m.o \
+summary_m.o \
+kernel_m.o \
+flink_lisk_m.o \
 single_step_m.o \
 time_integration_m.o \
 main.o

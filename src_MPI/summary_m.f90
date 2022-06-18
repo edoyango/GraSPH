@@ -2,8 +2,9 @@ module summary_m
 
    use globvar, only: ntotal_loc, nhalo_loc, nvirt_loc, niac, maxtimestep, print_step, save_step, itimestep, time, cputime, &
                       t_graph, t_dist, output_time
-   use globvar_para, only: procid, numprocs, mintstep_bn_part, mintstep_bn_reorient, maxtstep_bn_part, maxtstep_bn_reorient, &
-                           prev_part_tstep, prev_reorient_tstep, n_parts, n_reorients, ierr
+   use globvar_para, only: procid, numprocs, ierr
+   use ORB_m, only: mintstep_bn_part, mintstep_bn_reorient, maxtstep_bn_part, maxtstep_bn_reorient, prev_part_tstep, &
+                    prev_reorient_tstep, n_parts, n_reorients
    use param, only: f
    use mpi_f08
 
