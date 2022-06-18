@@ -6,6 +6,7 @@ module ORB_sr_m
    use mpi_f08
    use param, only: f, dim, hsml
    use error_msg_m, only: error_msg
+   use output_m, only: output
 
    public:: ORB_sendrecv_diffuse, ORB_sendrecv_halo, ORB_sendrecv_haloupdate
 
@@ -30,13 +31,6 @@ contains
 
       ! Initialization
       success = 1
-
-      ! if entrydepth > 1, then diffusion is occuring. Wait for ongoing comms to complete. Update ntotal_loc as required.
-      if (entrydepth .gt. 0) then
-         call MPI_WAITALL(nrequest, request, status, ierr)
-         ntotal_loc = ntotal_loc + n_recv_all
-         deallocate (PhysPackSend)
-      end if
 
       xmin_loc(:) = bounds_glob(1:dim, procid + 1)
       xmax_loc(:) = bounds_glob(dim + 1:2*dim, procid + 1)
@@ -67,7 +61,7 @@ contains
                pid = proc_neighbour_list(n) + 1
                xmin_rem(:) = bounds_glob(1:dim, pid) ! min boundary for remote process, pid
                xmax_rem(:) = bounds_glob(dim + 1:2*dim, pid) ! max boundary for remote process, pid
-               if (all([xi(:) .ge. xmin_rem(:), xi(:) .lt. xmax_rem(:)])) then
+               if (.not.any([xi(:) .lt. xmin_rem(:), xi(:) .ge. xmax_rem(:)])) then
 
                   nphys_send(n) = nphys_send(n) + 1
                   PhysPackSend(nphys_send(n), n) = parts(i)
@@ -93,7 +87,6 @@ contains
                   dr_min = dr
                end if
             end do
-
             nphys_send(diff_dest) = nphys_send(diff_dest) + 1
             PhysPackSend(nphys_send(diff_dest), diff_dest) = parts(i)
 
@@ -127,6 +120,7 @@ contains
 
       ! Calculating total number of physical particles to be received. Check if this exceeds particle array boundaries
       n_recv_all = SUM(nphys_recv)
+      
       if (ntotal_loc + n_recv_all .gt. maxnloc) call error_msg(2, parts(ntotal_loc)%indloc)
 
       ! Non-blocking sends to exchange physical particles that have moved processes ---------------------------------------------------
@@ -136,19 +130,19 @@ contains
 
          pid = proc_neighbour_list(n)
 
-         if (nphys_recv(n) .gt. 0) then
-
-            nrequest = nrequest + 1
-            call MPI_IRECV(parts(pos_recv)%indglob, nphys_recv(n), parttype, pid, 0, MPI_COMM_WORLD, request(nrequest), ierr)
-
-            pos_recv = pos_recv + nphys_recv(n)
-
-         end if
-
          if (nphys_send(n) .gt. 0) then
 
             nrequest = nrequest + 1
-            call MPI_ISEND(PhysPackSend(1, n)%indglob, nphys_send(n), parttype, pid, 0, MPI_COMM_WORLD, request(nrequest), ierr)
+            call MPI_ISEND(PhysPackSend(1, n), nphys_send(n), parttype, pid, 0, MPI_COMM_WORLD, request(nrequest), ierr)
+
+         end if
+         
+         if (nphys_recv(n) .gt. 0) then
+
+            nrequest = nrequest + 1
+            call MPI_IRECV(parts(pos_recv), nphys_recv(n), parttype, pid, 0, MPI_COMM_WORLD, request(nrequest), ierr)
+
+            pos_recv = pos_recv + nphys_recv(n)
 
          end if
 
@@ -157,7 +151,6 @@ contains
       ! if subdomain boundary update has occurred, check if diffusion is necessary.
       ! Perform if necessary
       if (repartition_mode .ge. 2) then
-
          ! Checking if any process has particles that need to be diffused
          call MPI_ALLREDUCE(ndiffuse_loc, ndiffuse_all, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
 
@@ -171,7 +164,11 @@ contains
             end if
 
             entrydepth = entrydepth + 1
-            searchrange_next = (/ntotal_loc + 1, ntotal_loc + n_recv_all/)
+            searchrange_next = [ntotal_loc + 1, ntotal_loc + n_recv_all]
+            ! diffusion is occuring. Wait for ongoing comms to complete. Update ntotal_loc as required.
+            call MPI_WAITALL(nrequest, request, status, ierr)
+            ntotal_loc = ntotal_loc + n_recv_all
+            deallocate (PhysPackSend)
             success = ORB_sendrecv_diffuse(entrydepth, searchrange_next, nrequest, request, n_recv_all)
          end if
       end if
@@ -296,7 +293,7 @@ contains
 
             nrequest = nrequest + 1
 
-            call MPI_IRECV(parts(pos0_recv)%indglob, nhalo_recv(n), halotype, pid, 0, MPI_COMM_WORLD, request_out(nrequest), ierr)
+            call MPI_IRECV(parts(pos0_recv), nhalo_recv(n), halotype, pid, 0, MPI_COMM_WORLD, request_out(nrequest), ierr)
 
          end if
 
@@ -304,7 +301,7 @@ contains
 
             nrequest = nrequest + 1
 
-            call MPI_ISEND(parts(1)%indglob, 1, halotype_indexed(n), pid, 0, MPI_COMM_WORLD, request_out(nrequest), ierr)
+            call MPI_ISEND(parts(1), 1, halotype_indexed(n), pid, 0, MPI_COMM_WORLD, request_out(nrequest), ierr)
 
          end if
 
@@ -339,14 +336,14 @@ contains
             pos1_recv = pos0_recv - 1 + nhalo_recv(n)
 
             n_request = n_request + 1
-            call MPI_IRECV(parts(pos0_recv)%rho, nhalo_recv(n), haloupdatetype, pid, 0, MPI_COMM_WORLD, request(n_request), ierr)
+            call MPI_IRECV(parts(pos0_recv), nhalo_recv(n), haloupdatetype, pid, 0, MPI_COMM_WORLD, request(n_request), ierr)
 
          end if
 
          if (nhalo_send(n) .gt. 0) then
 
             n_request = n_request + 1
-            call MPI_ISEND(parts(1)%rho, 1, haloupdatetype_indexed(n), pid, 0, MPI_COMM_WORLD, request(n_request), ierr)
+            call MPI_ISEND(parts(1), 1, haloupdatetype_indexed(n), pid, 0, MPI_COMM_WORLD, request(n_request), ierr)
 
          end if
 

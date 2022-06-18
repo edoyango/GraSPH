@@ -41,9 +41,10 @@ contains
       type(particles):: parts_dummy(2)
       integer:: blockl(7)
       type(MPI_Datatype):: type(7), tmptype
-      integer(KIND=MPI_ADDRESS_KIND):: disp(7), lb, ext
+      integer(KIND=MPI_ADDRESS_KIND):: disp(7), lb, ext, basedisp
 
       ! Obtaining memory address of each block in derived type
+      call MPI_GET_ADDRESS(parts_dummy(1), basedisp, ierr)
       call MPI_GET_ADDRESS(parts_dummy(1)%indglob, disp(1), ierr)
       call MPI_GET_ADDRESS(parts_dummy(1)%indloc, disp(2), ierr)
       call MPI_GET_ADDRESS(parts_dummy(1)%itype, disp(3), ierr)
@@ -53,7 +54,7 @@ contains
       call MPI_GET_ADDRESS(parts_dummy(1)%vx(1), disp(7), ierr)
 
       ! Converting absolute addressed to relative address (relative to indglob)
-      disp(:) = disp(:) - disp(1)
+      disp(:) = disp(:) - basedisp
 
       ! Size of each block in derived type
       blockl(:) = (/1, 1, 1, 1, 1, dim, dim/)
@@ -67,8 +68,8 @@ contains
       call MPI_TYPE_COMMIT(tmptype, ierr)
 
       ! Calculating distance in memory between consecutive elements in array of defined type
-      call MPI_GET_ADDRESS(parts_dummy(1)%indglob, disp(1), ierr)
-      call MPI_GET_ADDRESS(parts_dummy(2)%indglob, disp(2), ierr)
+      call MPI_GET_ADDRESS(parts_dummy(1), disp(1), ierr)
+      call MPI_GET_ADDRESS(parts_dummy(2), disp(2), ierr)
       ! Resizing array to account for any "padding". lb = lowerbound
       lb = 0; ext = disp(2) - disp(1)
       call MPI_TYPE_CREATE_RESIZED(tmptype, lb, ext, parttype, ierr)
@@ -77,13 +78,14 @@ contains
 
       ! Repeating process for halo exchanges
       ! Setting up type for initial halo particle exchange
+      call MPI_GET_ADDRESS(parts_dummy(1), basedisp, ierr)
       call MPI_GET_ADDRESS(parts_dummy(1)%indglob, disp(1), ierr)
       call MPI_GET_ADDRESS(parts_dummy(1)%itype, disp(2), ierr)
       call MPI_GET_ADDRESS(parts_dummy(1)%rho, disp(3), ierr)
       call MPI_GET_ADDRESS(parts_dummy(1)%x(1), disp(4), ierr)
       call MPI_GET_ADDRESS(parts_dummy(1)%vx(1), disp(5), ierr)
 
-      disp(:) = disp(:) - disp(1)
+      disp(:) = disp(:) - basedisp
 
       blockl(1:5) = (/1, 1, 1, dim, dim/)
 
@@ -93,18 +95,19 @@ contains
       call MPI_TYPE_CREATE_STRUCT(5, blockl, disp, type, tmptype, ierr)
       call MPI_TYPE_COMMIT(tmptype, ierr)
 
-      call MPI_GET_ADDRESS(parts_dummy(1)%indglob, disp(1), ierr)
-      call MPI_GET_ADDRESS(parts_dummy(2)%indglob, disp(2), ierr)
+      call MPI_GET_ADDRESS(parts_dummy(1), disp(1), ierr)
+      call MPI_GET_ADDRESS(parts_dummy(2), disp(2), ierr)
       lb = 0; ext = disp(2) - disp(1)
       call MPI_TYPE_CREATE_RESIZED(tmptype, lb, ext, halotype, ierr)
       call MPI_TYPE_COMMIT(halotype, ierr)
       call MPI_TYPE_FREE(tmptype, ierr)
 
       ! Setting up type for halo particle updates (updates only need density, velocity)
+      call MPI_GET_ADDRESS(parts_dummy(1), basedisp, ierr)
       call MPI_GET_ADDRESS(parts_dummy(1)%rho, disp(1), ierr)
       call MPI_GET_ADDRESS(parts_dummy(1)%vx(1), disp(2), ierr)
 
-      disp(:) = disp(:) - disp(1)
+      disp(:) = disp(:) - basedisp
 
       blockl(1:2) = (/1, dim/)
 
