@@ -71,10 +71,11 @@ contains
    end subroutine print_summary
 
    !==================================================================================================================================
-   subroutine print_update(ntotal,nvirt,nghos,niac)
+   subroutine print_update(itimestep,maxtimestep,cputime,time,ntotal,nvirt,nghos,niac)
 
       implicit none
-      integer,intent(in):: ntotal,nvirt,nghos,niac(:)
+      integer,intent(in):: itimestep,maxtimestep,ntotal,nvirt,nghos,niac(:)
+      real, intent(in):: cputime,time
       integer:: maxp, minp, sumiac, maxiac, miniac, noiac, i, j, k, d
 
       write (*, '(A79)') '_______________________________________________________________________________'

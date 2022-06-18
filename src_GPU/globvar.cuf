@@ -31,7 +31,7 @@ module globvar
    !timing
    real, public:: cputime, output_time = 0., test_time = 0.
 
-   public:: allocateGlobalArrays, deallocateGlobalArrays, initial_host2device
+   public:: allocateGlobalArrays, deallocateGlobalArrays
 
 ! subroutines to allocate and deallocate global arrays
 contains
@@ -49,19 +49,6 @@ contains
       allocate (niac(maxn), niac_d(maxn))
 
    end subroutine allocateGlobalArrays
-
-   !==============================================================================================================================
-   subroutine initial_host2device
-
-      implicit none
-
-      parts_d(:) = parts(:)
-      ntotal_d = ntotal
-      nvirt_d = nvirt
-      nghos_d = 0
-      scale_k_d = scale_k
-
-   end subroutine initial_host2device
 
    !==============================================================================================================================
    subroutine deallocateGlobalArrays

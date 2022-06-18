@@ -5,14 +5,14 @@ module input_m
    use param, only: dim, f, dxo, mp, np, op, pp, qp, rp, nlayer, irho, g, gamma, c, hsml, mass
 
    use output_m, only: output
-
+   
+   private
    real(f), parameter:: vxmin = 0._f, vymin = 0._f, vzmin = 0._f, &
                         vxmax = vxmin + pp*dxo, vymax = vymin + qp*dxo, vzmax = vzmin + rp*dxo
    real(f), parameter:: rxmin = 0._f, rymin = 0._f, rzmin = 0._f, &
                         rxmax = rxmin + mp*dxo, rymax = rymin + np*dxo, rzmax = rzmin + op*dxo
-
+   
    public:: input, virt_part
-   private:: input2D, input3D, virt_part2D, virt_part3D
 
 contains
 
@@ -96,9 +96,10 @@ contains
    end subroutine virt_part
 
    !===============================================================================================================================
-   attributes(global) pure subroutine generate_ghost_part(nt, nv, ng, pts, gind)
+   attributes(global) pure subroutine generate_ghost_part(scale_k,nt, nv, ng, pts, gind)
 
       implicit none
+      real(f), value, intent(in):: scale_k
       integer, intent(in):: nt, nv
       integer, intent(inout):: ng
       type(particles), intent(inout):: pts(2*nt + nv)
@@ -108,7 +109,7 @@ contains
       i = blockDim%x*(blockIdx%x - 1) + threadIdx%x
 
       if (i <= nt) then
-         if (abs(pts(i)%x(1) - vxmin) < hsml*scale_k_d) then
+         if (abs(pts(i)%x(1) - vxmin) < hsml*scale_k) then
             tmpi = atomicadd(ng, 1)
             pts(nt + nv + tmpi + 1) = pts(i)
             gind(tmpi + 1) = pts(i)%ind
@@ -117,7 +118,7 @@ contains
             pts(nt + nv + tmpi + 1)%x(1) = -pts(nt + nv + tmpi + 1)%x(1) + 2._f*vxmin
             pts(nt + nv + tmpi + 1)%vx(1) = -pts(nt + nv + tmpi + 1)%vx(1)
          end if
-         if (abs(pts(i)%x(1) - vxmax) < hsml*scale_k_d) then
+         if (abs(pts(i)%x(1) - vxmax) < hsml*scale_k) then
             tmpi = atomicadd(ng, 1)
             pts(nt + nv + tmpi + 1) = pts(i)
             gind(tmpi + 1) = pts(i)%ind
@@ -126,7 +127,7 @@ contains
             pts(nt + nv + tmpi + 1)%x(1) = -pts(nt + nv + tmpi + 1)%x(1) + 2._f*vxmax
             pts(nt + nv + tmpi + 1)%vx(1) = -pts(nt + nv + tmpi + 1)%vx(1)
          end if
-         if (abs(pts(i)%x(2) - vymin) < hsml*scale_k_d) then
+         if (abs(pts(i)%x(2) - vymin) < hsml*scale_k) then
             tmpi = atomicadd(ng, 1)
             pts(nt + nv + tmpi + 1) = pts(i)
             gind(tmpi + 1) = pts(i)%ind
@@ -135,7 +136,7 @@ contains
             pts(nt + nv + tmpi + 1)%x(2) = -pts(nt + nv + tmpi + 1)%x(2) + 2._f*vymin
             pts(nt + nv + tmpi + 1)%vx(2) = -pts(nt + nv + tmpi + 1)%vx(2)
          end if
-         if (abs(pts(i)%x(2) - vymax) < hsml*scale_k_d) then
+         if (abs(pts(i)%x(2) - vymax) < hsml*scale_k) then
             tmpi = atomicadd(ng, 1)
             pts(nt + nv + tmpi + 1) = pts(i)
             gind(tmpi + 1) = pts(i)%ind
@@ -144,7 +145,7 @@ contains
             pts(nt + nv + tmpi + 1)%x(2) = -pts(nt + nv + tmpi + 1)%x(2) + 2._f*vymax
             pts(nt + nv + tmpi + 1)%vx(2) = -pts(nt + nv + tmpi + 1)%vx(2)
          end if
-         if ((pts(i)%x(1) - vxmin)**2 + (pts(i)%x(2) - vymin)**2 < (hsml*scale_k_d)**2) then
+         if ((pts(i)%x(1) - vxmin)**2 + (pts(i)%x(2) - vymin)**2 < (hsml*scale_k)**2) then
             tmpi = atomicadd(ng, 1)
             pts(nt + nv + tmpi + 1) = pts(i)
             gind(tmpi + 1) = pts(i)%ind
@@ -155,7 +156,7 @@ contains
             pts(nt + nv + tmpi + 1)%vx(1) = -pts(nt + nv + tmpi + 1)%vx(1)
             pts(nt + nv + tmpi + 1)%vx(2) = -pts(nt + nv + tmpi + 1)%vx(2)
          end if
-         if ((pts(i)%x(1) - vxmin)**2 + (pts(i)%x(2) - vymax)**2 < (hsml*scale_k_d)**2) then
+         if ((pts(i)%x(1) - vxmin)**2 + (pts(i)%x(2) - vymax)**2 < (hsml*scale_k)**2) then
             tmpi = atomicadd(ng, 1)
             pts(nt + nv + tmpi + 1) = pts(i)
             gind(tmpi + 1) = pts(i)%ind
@@ -177,7 +178,7 @@ contains
             pts(nt + nv + tmpi + 1)%vx(1) = -pts(nt + nv + tmpi + 1)%vx(1)
             pts(nt + nv + tmpi + 1)%vx(2) = -pts(nt + nv + tmpi + 1)%vx(2)
          end if
-         if ((pts(i)%x(1) - vxmax)**2 + (pts(i)%x(2) - vymax)**2 < (hsml*scale_k_d)**2) then
+         if ((pts(i)%x(1) - vxmax)**2 + (pts(i)%x(2) - vymax)**2 < (hsml*scale_k)**2) then
             tmpi = atomicadd(ng, 1)
             pts(nt + nv + tmpi + 1) = pts(i)
             gind(tmpi + 1) = pts(i)%ind

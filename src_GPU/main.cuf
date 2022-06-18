@@ -1,6 +1,6 @@
 program SPH
 
-   use globvar, only: allocateGlobalArrays, deallocateGlobalArrays, scale_k, ntotal, nvirt
+   use globvar, only: allocateGlobalArrays, deallocateGlobalArrays, scale_k, ntotal, nvirt,print_step, save_step, maxtimestep, cputime, output_time, test_time, maxinter_perp, ntotal, nvirt, nghos, parts, parts_d, niac, niac_d, pairs, pairs_d
    use param, only: skf
 
    use input_m, only: input, virt_part
@@ -9,6 +9,7 @@ program SPH
    use time_integration_m, only: time_integration
 
    implicit none
+   integer:: maxn
 
    !Printing preamble to screen
    call preamble
@@ -23,13 +24,14 @@ program SPH
    write (*, '(A24,1x,I9,1x,A19)') '                        ', nvirt, 'virtual particles.'
 
    call allocateGlobalArrays()
+   maxn = 2*ntotal+nvirt
 
    !Creat physical and virtual boundary particles
    call input(.true.)
    call virt_part(.true.)
 
    !Entering discretized time-integration loop
-   call time_integration
+   call time_integration(scale_k,print_step, save_step, maxtimestep, cputime, output_time, test_time, maxinter_perp, maxn, ntotal, nvirt, nghos, parts, parts_d, niac, niac_d, pairs, pairs_d)
 
    !Printing post-amble to terminal
    call time_print
