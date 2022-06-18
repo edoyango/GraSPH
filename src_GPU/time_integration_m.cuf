@@ -80,7 +80,7 @@ contains
                                                                                  exdvxdt, indvxdt, codrhodt)
             ! launching GPU kernel to update particles' speed and density
             call RK4_update <<< ntotal/1024 + 1, 1024 >>> (ki, ntotal_d, v_min, rho_min, ardvxdt, exdvxdt, indvxdt, &
-                                                           codrhodt, dvxdt, drho)
+                                                           codrhodt, dvxdt, drho, parts_d)
             call update_ghost_part <<< nghos/1024 + 1, 1024 >>> (ntotal_d, nvirt_d, nghos_d, parts_d, gind)
          end do
 
@@ -106,10 +106,15 @@ contains
             istat = cudaEventRecord(stopEvent, 0)
             istat = cudaEventSynchronize(stopEvent)
             istat = cudaEventElapsedTime(cputime, startEvent, stopEvent)
+            istat = cudaEventRecord(startOutputEvent, 0)
             niac(:) = niac_d(:)
             nghos = nghos_d
             cputime = cputime/1000.
             call print_update(ntotal,nvirt,nghos,niac)
+            istat = cudaEventRecord(stopOutputEvent, 0)
+            istat = cudaEventSynchronize(stopOutputEvent)
+            istat = cudaEventElapsedTime(tmpTime, startOutputEvent, stopOutputEvent)
+            output_time = output_time + tmpTime/1000.
          end if
 
       end do
@@ -123,13 +128,14 @@ contains
    end subroutine time_integration
 
    !===============================================================================================================================
-   attributes(global) subroutine RK4_update(ki, nt, v_min, rho_min, ardvxdt, exdvxdt, indvxdt, codrhodt, dvxdt, drhodt)
+   attributes(global) pure subroutine RK4_update(ki, nt, v_min, rho_min, ardvxdt, exdvxdt, indvxdt, codrhodt, dvxdt, drhodt, pts)
 
       implicit none
       integer, intent(in), value:: ki
       integer, intent(in):: nt
       real(f), intent(in):: v_min(dim, nt), rho_min(nt), ardvxdt(dim, nt), exdvxdt(dim, nt), indvxdt(dim, nt), codrhodt(nt)
       real(f), intent(inout):: dvxdt(dim, nt, 4), drhodt(nt, 4)
+      type(particles), intent(inout):: pts(nt)
       integer:: i
 
       i = blockDim%x*(blockIdx%x - 1) + threadIdx%x
