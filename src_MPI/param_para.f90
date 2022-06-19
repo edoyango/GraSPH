@@ -3,7 +3,7 @@
 module param_para
 
    use datatypes, only: particles
-   use globvar_para, only: parttype, halotype, haloupdatetype, ierr, MPI_ftype
+   use globvar_para, only: parttype, halotype, haloupdatetype, MPI_ftype
    use mpi_f08
    use param, only: dim, f
 
@@ -40,7 +40,7 @@ contains
 
       implicit none
       type(particles):: parts_dummy(2)
-      integer:: blockl(7)
+      integer:: blockl(7), ierr
       type(MPI_Datatype):: type(7), tmptype
       integer(KIND=MPI_ADDRESS_KIND):: disp(7), lb, ext, basedisp
 

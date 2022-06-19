@@ -1,7 +1,7 @@
 module output_m
 
    use globvar, only: ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, itimestep, save_step, ntotal, nvirt, maxnloc
-   use globvar_para, only: ierr, MPI_ftype
+   use globvar_para, only: MPI_ftype
    use param, only: f, dim, output_directory, output_phys, output_halo, output_virt, output_flt_type
 
    use hdf5
@@ -29,7 +29,7 @@ contains
 
       implicit none
       integer,intent(in):: procid,numprocs
-      integer:: ntotal_glob(numprocs), nhalo_glob(numprocs), nvirt_glob(numprocs), nghos_glob(numprocs)
+      integer:: ntotal_glob(numprocs), nhalo_glob(numprocs), nvirt_glob(numprocs), nghos_glob(numprocs), ierr
 
       ! Exchanging how many particles each process will output data for
       call MPI_IALLGATHER(ntotal_loc, 1, MPI_INTEGER, ntotal_glob, 1, MPI_INTEGER, MPI_COMM_WORLD, request(1), ierr)
@@ -115,7 +115,7 @@ contains
 
       implicit none
       integer,intent(in):: procid,numprocs
-      integer:: ntotal_glob(numprocs), posrange(2)
+      integer:: ntotal_glob(numprocs), posrange(2), ierr
 
       ! Exchanging how many particles each process will output data for
       call MPI_IALLGATHER(ntotal_loc, 1, MPI_INTEGER, ntotal_glob, 1, MPI_INTEGER, MPI_COMM_WORLD, request(1), ierr)

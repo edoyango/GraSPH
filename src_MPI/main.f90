@@ -1,7 +1,7 @@
 program SPH
 
    use globvar, only: ntotal, scale_k, allocateGlobalArrays, deallocateGlobalArrays
-   use globvar_para, only: ierr, MPI_ftype
+   use globvar_para, only: MPI_ftype
    use mpi_f08
    use param, only: f, skf
    use param_para, only: CreateMPIType, Select_MPI_ftype
@@ -12,7 +12,7 @@ program SPH
    use time_integration_m, only: time_integration
 
    implicit none
-   integer:: procid,numprocs
+   integer:: procid,numprocs, ierr
 
    !Initializing MPI
    call MPI_INIT(ierr)

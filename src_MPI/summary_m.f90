@@ -2,9 +2,6 @@ module summary_m
 
    use globvar, only: ntotal_loc, nhalo_loc, nvirt_loc, niac, maxtimestep, print_step, save_step, itimestep, time, cputime, &
                       t_graph, t_dist, output_time
-   use globvar_para, only: ierr
-   use ORB_m, only: mintstep_bn_part, mintstep_bn_reorient, maxtstep_bn_part, maxtstep_bn_reorient, prev_part_tstep, &
-                    prev_reorient_tstep, n_parts, n_reorients
    use param, only: f
    use mpi_f08
 
@@ -39,6 +36,7 @@ contains
 
       implicit none
       integer,intent(in):: procid,numprocs
+      integer:: ierr
       character(len=100):: args(3)
 
       if (command_argument_count() .lt. 3) then
@@ -75,9 +73,10 @@ contains
    subroutine print_summary(procid,numprocs)
       ! Obtains and prints final MPI summary data e.g. number of partitions, cut axes reorientations, and average wall-times (broken
       ! down)
-
+      use ORB_m, only: partition_track
       implicit none
       integer,intent(in):: procid,numprocs
+      integer:: ierr
       double precision:: cputime_total, t_graph_total, t_dist_total, output_time_total
 
       if (procid .eq. 0) then
@@ -96,28 +95,28 @@ contains
          write (*, '(A29,F14.7)') 'Average Send/recv time (s) = ', t_dist
          write (*, '(A29,F14.7)') 'Average Output time (s) =    ', output_time
          write (*, '(A79)') '============================== PARTITION SUMMARY =============================='
-         write (*, '(A35,I7)') '            Number of Partitions = ', n_parts
-         if (n_parts .eq. 1) then
+         write (*, '(A35,I7)') '            Number of Partitions = ', partition_track%n_parts
+         if (partition_track%n_parts .eq. 1) then
             write (*, '(A42)') '    Avg Timesteps B/N Partitions =     N/A'
             write (*, '(A42)') '    Max Timesteps B/N Partitions =     N/A'
             write (*, '(A42)') '    Min Timesteps B/N Partitions =     N/A'
          else
-            write (*, '(A35,I7)') '    Avg Timesteps B/N Partitions = ', (prev_part_tstep - 1)/(n_parts - 1)
-            write (*, '(A35,I7)') '    Max Timesteps B/N Partitions = ', maxtstep_bn_part
-            write (*, '(A35,I7)') '    Min Timesteps B/N Partitions = ', mintstep_bn_part
+            write (*, '(A35,I7)') '    Avg Timesteps B/N Partitions = ', (partition_track%prev_part_tstep - 1)/(partition_track%n_parts - 1)
+            write (*, '(A35,I7)') '    Max Timesteps B/N Partitions = ', partition_track%maxtstep_bn_part
+            write (*, '(A35,I7)') '    Min Timesteps B/N Partitions = ', partition_track%mintstep_bn_part
          end if
 
          write (*, *)
-         write (*, '(A35,I7)') 'Number of Cut Axis Reorientation = ', n_reorients
+         write (*, '(A35,I7)') 'Number of Cut Axis Reorientation = ', partition_track%n_reorients
 
-         if (n_reorients .eq. 1) then
+         if (partition_track%n_reorients .eq. 1) then
             write (*, '(A42)') 'Avg Timesteps B/N Reorientations =     N/A'
             write (*, '(A42)') 'Max Timesteps B/N Reorientations =     N/A'
             write (*, '(A42)') 'Min Timesteps B/N Reorientations =     N/A'
          else
-            write (*, '(A35,I7)') 'Avg Timesteps B/N Reorientations = ', (prev_reorient_tstep - 1)/(n_reorients - 1)
-            write (*, '(A35,I7)') 'Max Timesteps B/N Reorientations = ', maxtstep_bn_reorient
-            write (*, '(A35,I7)') 'Min Timesteps B/N Reorientations = ', mintstep_bn_reorient
+            write (*, '(A35,I7)') 'Avg Timesteps B/N Reorientations = ', (partition_track%prev_reorient_tstep - 1)/(partition_track%n_reorients - 1)
+            write (*, '(A35,I7)') 'Max Timesteps B/N Reorientations = ', partition_track%maxtstep_bn_reorient
+            write (*, '(A35,I7)') 'Min Timesteps B/N Reorientations = ', partition_track%mintstep_bn_reorient
          end if
       else
          call MPI_REDUCE(cputime, cputime_total, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
@@ -134,7 +133,7 @@ contains
 
       implicit none
       integer,intent(in):: procid,numprocs
-      integer:: i, n_glob(numprocs, 4), min_n(4), max_n(4), mean_n(4), stdev_n(4)
+      integer:: i, n_glob(numprocs, 4), min_n(4), max_n(4), mean_n(4), stdev_n(4), ierr
       type(MPI_Request):: request(4)
       type(MPI_Status):: status(MPI_STATUS_SIZE*4)
 

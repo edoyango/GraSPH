@@ -1,7 +1,7 @@
 module ORB_m
 
    use globvar, only: scale_k, parts, ntotal_loc
-   use globvar_para, only: MPI_ftype, repartition_mode, node_cax, node_cut
+   use globvar_para, only: MPI_ftype, repartition_mode, node_cax, node_cut, binary_tree, partition_tracking
    use mpi_f08
    use param, only: f, dim, hsml
    
@@ -10,11 +10,10 @@ module ORB_m
    real(f):: box_ratio_previous(dim,dim) = TINY(1.)
    integer:: maxnode, prev_load
    integer,allocatable:: pincell_ORB(:, :, :)
+   type(binary_tree):: tree
+   type(partition_tracking):: partition_track
    
-   integer, public:: mintstep_bn_part = HUGE(1), mintstep_bn_reorient = HUGE(1), maxtstep_bn_part = 0, maxtstep_bn_reorient = 0, &
-                     prev_part_tstep, prev_reorient_tstep, n_parts = 0, n_reorients = 0
-   
-   public:: ORB
+   public:: ORB, partition_track
 
 contains
    !==============================================================================================================================
@@ -40,6 +39,7 @@ contains
       !allocating partitioning arrays and initialising diagnostic variables -------------------------------------------------------------
       t_graph = t_graph - MPI_WTIME() ! commence timing of ORB algoirthm
       if (itimestep .eq. 1) then
+         call tree%allocate_tree_arrays(numprocs)
          tree_layers = CEILING(LOG(DBLE(numprocs))/LOG(2d0))
          maxnode = 2*2**tree_layers - 1
          allocate (bounds_glob(2*dim, numprocs), &
@@ -50,8 +50,8 @@ contains
       ! Boundary Determiniation Algorithm ---------------------------------------------------------------------------------------
       repartition_mode = 1 !initially assumes no partition
       ! only checks if boundary needs updating every 50-100 time-steps
-      if ((itimestep .eq. 1) .or. ((itimestep - prev_part_tstep .ge. ORBcheck1) .and. &
-                                   (mod(itimestep - prev_part_tstep, ORBcheck2) .eq. 0))) then
+      if ((itimestep .eq. 1) .or. ((itimestep - partition_track%prev_part_tstep .ge. ORBcheck1) .and. &
+                                   (mod(itimestep - partition_track%prev_part_tstep, ORBcheck2) .eq. 0))) then
 
          ! checking if change in partilces on current process > 5%
          if (ntotal_loc .gt. prev_load + 0.05_f*DBLE(ntotal)/DBLE(numprocs)) then
@@ -62,12 +62,12 @@ contains
 
          if ((repartition_mode .gt. 1) .or. (itimestep .eq. 1)) then
 
-            n_parts = n_parts + 1
+            partition_track%n_parts = partition_track%n_parts + 1
             if (itimestep .ne. 1) then
-               mintstep_bn_part = min(mintstep_bn_part, itimestep - prev_part_tstep)
-               maxtstep_bn_part = max(maxtstep_bn_part, itimestep - prev_part_tstep)
+               partition_track%mintstep_bn_part = min(partition_track%mintstep_bn_part, itimestep - partition_track%prev_part_tstep)
+               partition_track%maxtstep_bn_part = max(partition_track%maxtstep_bn_part, itimestep - partition_track%prev_part_tstep)
             end if
-            prev_part_tstep = itimestep
+            partition_track%prev_part_tstep = itimestep
 
             ! Creating particle-in-cell grid
             call particle_grid(numprocs,ngridx, dcell, mingridx_ini, maxgridx_ini)
@@ -84,11 +84,11 @@ contains
             if (repartition_mode .eq. 3) then
                box_ratio_previous(:, :) = box_ratio_current(:, :)
                if (itimestep .ne. 1) then
-                  maxtstep_bn_reorient = max(maxtstep_bn_reorient, itimestep - prev_reorient_tstep)
-                  mintstep_bn_reorient = min(mintstep_bn_reorient, itimestep - prev_reorient_tstep)
+                  partition_track%maxtstep_bn_reorient = max(partition_track%maxtstep_bn_reorient, itimestep - partition_track%prev_reorient_tstep)
+                  partition_track%mintstep_bn_reorient = min(partition_track%mintstep_bn_reorient, itimestep - partition_track%prev_reorient_tstep)
                end if
-               prev_reorient_tstep = itimestep
-               n_reorients = n_reorients + 1
+               partition_track%prev_reorient_tstep = itimestep
+               partition_track%n_reorients = partition_track%n_reorients + 1
             end if
 
             ! determine subdomain boundaries using particle distribution
@@ -271,9 +271,9 @@ contains
          if ((A(1) .le. A(2)) .and. (A(1) .le. A(3))) cax = 1
          if ((A(2) .le. A(1)) .and. (A(2) .le. A(3))) cax = 2
          if ((A(3) .le. A(1)) .and. (A(3) .le. A(2))) cax = 3
-         node_cax(node_in) = cax
+         tree%node_cax(node_in) = cax
       else
-         cax = node_cax(node_in)
+         cax = tree%node_cax(node_in)
       end if
 
       !cut location -------------------------------------------------------------------------------------------------------------
@@ -453,14 +453,14 @@ contains
 
          if (mod(ID_node, 2) .eq. 0) then
             ID_node = ID_node/2
-            if ((node_cax(ID_node) .eq. 1) .and. (node_cut(1) .eq. 0)) node_cut(1) = ID_node !right face of process defined by 'parent'
-            if ((node_cax(ID_node) .eq. 2) .and. (node_cut(3) .eq. 0)) node_cut(3) = ID_node !top face of process defined by 'parent'
-            if ((node_cax(ID_node) .eq. 3) .and. (node_cut(5) .eq. 0)) node_cut(5) = ID_node !top face of process defined by 'parent'
+            if ((tree%node_cax(ID_node) .eq. 1) .and. (node_cut(1) .eq. 0)) node_cut(1) = ID_node !right face of process defined by 'parent'
+            if ((tree%node_cax(ID_node) .eq. 2) .and. (node_cut(3) .eq. 0)) node_cut(3) = ID_node !top face of process defined by 'parent'
+            if ((tree%node_cax(ID_node) .eq. 3) .and. (node_cut(5) .eq. 0)) node_cut(5) = ID_node !top face of process defined by 'parent'
          else
             ID_node = (ID_node - 1)/2
-            if ((node_cax(ID_node) .eq. 1) .and. (node_cut(2) .eq. 0)) node_cut(2) = ID_node !left of process defined by 'parent'
-            if ((node_cax(ID_node) .eq. 2) .and. (node_cut(4) .eq. 0)) node_cut(4) = ID_node !bottom of process defined by 'parent'
-            if ((node_cax(ID_node) .eq. 3) .and. (node_cut(6) .eq. 0)) node_cut(6) = ID_node !bottom face of process defined by 'parent'
+            if ((tree%node_cax(ID_node) .eq. 1) .and. (node_cut(2) .eq. 0)) node_cut(2) = ID_node !left of process defined by 'parent'
+            if ((tree%node_cax(ID_node) .eq. 2) .and. (node_cut(4) .eq. 0)) node_cut(4) = ID_node !bottom of process defined by 'parent'
+            if ((tree%node_cax(ID_node) .eq. 3) .and. (node_cut(6) .eq. 0)) node_cut(6) = ID_node !bottom face of process defined by 'parent'
          end if
 
       end do
