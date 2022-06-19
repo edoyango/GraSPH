@@ -1,7 +1,7 @@
 module ORB_m
 
    use globvar, only: scale_k, parts, ntotal_loc
-   use globvar_para, only: ierr, MPI_ftype, repartition_mode, node_cax, node_cut
+   use globvar_para, only: MPI_ftype, repartition_mode, node_cax, node_cut
    use mpi_f08
    use param, only: f, dim, hsml
    
@@ -31,8 +31,8 @@ contains
       implicit none
       integer,intent(in):: procid,numprocs
       real(f), parameter:: dcell = hsml*dcell_ORB
-      integer:: d, i, ngridx(dim), nphys_recv_all, searchrange_ini(2), n_request, procrange_ini(2), tree_layers, &
-                gridind_ini(dim, 2), diffusedepth, repartition_mode_loc
+      integer:: d, i, ngridx(dim), nphys_recv_all, n_request, procrange_ini(2), tree_layers, &
+                gridind_ini(dim, 2), repartition_mode_loc,ierr
       real(f):: bounds_out(2*dim), mingridx_ini(dim), maxgridx_ini(dim), current_to_previous(dim, dim), box_ratio_current(dim, dim)
       type(MPI_Status):: status(4*numprocs)
       type(MPI_Request):: request_phys(2*numprocs), request_halo(2*numprocs)
@@ -97,7 +97,7 @@ contains
             procrange_ini(1) = 0
             procrange_ini(2) = numprocs - 1
             bounds_out = ORB_bounds(procid,gridind_ini, numprocs, 1, procrange_ini, ntotal, dcell, mingridx_ini, maxgridx_ini)
-
+            
             call subdomain_neighbour(procid,numprocs)
 
             ! Updating sizes of select arrays to account for potential changes in neighbour list size
@@ -119,9 +119,7 @@ contains
       t_dist = t_dist - MPI_WTIME() ! commence timing of particle distribution
 
       ! physical particle distribution
-      diffusedepth = 0
-      searchrange_ini(:) = (/1, ntotal_loc/)
-      i = ORB_sendrecv_diffuse(procid,diffusedepth, searchrange_ini, n_request, request_phys, nphys_recv_all)
+      call ORB_sendrecv_diffuse(procid, n_request, request_phys, nphys_recv_all)
 
       ! halo particle distribution
       call ORB_sendrecv_halo(procid,request_phys, request_halo, nphys_recv_all, n_request)
@@ -136,7 +134,7 @@ contains
       end do
 
       ! wait for halo particle distribution to complete
-      call MPI_WAITALL(n_request, request_halo(1:n_request), status(1:n_request), ierr)
+      call MPI_WAITALL(n_request, request_halo, status, ierr)
 
       parts(ntotal_loc + 1:ntotal_loc + nhalo_loc)%itype = 2
       t_dist = t_dist + MPI_WTIME()
@@ -154,7 +152,7 @@ contains
       integer, intent(out):: ngridx(:)
       real(f), intent(out):: mingridx(:), maxgridx(:)
       integer:: i, d, icell, jcell, kcell, n_nonzerocells, n_nonzerocells_perprocess(numprocs), n_nonzerocells_total, pid, &
-                displ(numprocs), cellmins(3), cellmaxs(3), cellrange(3)
+                displ(numprocs), cellmins(3), cellmaxs(3), cellrange(3),ierr
       real(f):: minx(3), maxx(3)
       integer:: sendcount, recvcount(numprocs), Plist_size
       integer, allocatable:: Plist_loc(:, :), Plist_all(:, :)
@@ -263,7 +261,7 @@ contains
       integer, intent(in):: procid,gridind_in(dim, 2), node_in, nprocs_in, procrange_in(2), ntotal_in
       real(f), intent(in):: mingridx_in(dim), maxgridx_in(dim), dcell
       integer:: i, node_out, gridind_out(dim, 2), nprocs_out, ntotal_out, procrange_out(2), n_p, cax, np_per_node, pincol, &
-                ngridx_trim(dim), A(3), procrange_lo(2), procrange_hi(2)
+                ngridx_trim(dim), A(3), procrange_lo(2), procrange_hi(2),ierr
       real(f):: bounds_out(2*dim)
 
       !determining cut axis. 1 = x, 2 = y ---------------------------------------------------------------------------------------
@@ -335,7 +333,8 @@ contains
 
       !travelling to child node/saving boundary information ---------------------------------------------------------------------
       if (nprocs_out .ne. 1) then
-         bounds_out = ORB_bounds(procid,gridind_out, nprocs_out, node_out, procrange_out, ntotal_out, dcell, mingridx_in, maxgridx_in)
+         bounds_out = ORB_bounds(procid,gridind_out, nprocs_out, node_out, procrange_out, ntotal_out, dcell, mingridx_in, &
+         maxgridx_in)
       else
          leaf_node = node_out
 

@@ -14,168 +14,178 @@ module ORB_sr_m
 contains
 
    !==============================================================================================================================
-   recursive function ORB_sendrecv_diffuse(procid,entrydepth, searchrange, nrequest, request, n_recv_all) result(success)
+   subroutine ORB_sendrecv_diffuse(procid, nrequest, request, n_recv_all)
       ! Recursive function to exchange physical particles. In cases were subdomain boundaries are updated, the possibility of needing
       ! diffusion is considered
 
       use globvar_para, only: repartition_mode
 
       implicit none
-      integer, intent(in):: searchrange(2),procid
-      integer, intent(inout):: nrequest, n_recv_all, entrydepth
-      type(MPI_Request), intent(inout):: request(2*n_process_neighbour)
-      integer:: d, i, j, pid, n, pos_recv, success
-      integer:: removal_list(searchrange(2) - searchrange(1) + 2), nphys_send_all, diff_dest, ndiffuse_loc, ndiffuse_all, &
-                searchrange_next(2)
+      integer, intent(in):: procid
+      integer, intent(out):: nrequest,n_recv_all
+      type(MPI_Request), intent(out):: request(:)
+      integer:: d, i, j, pid, n, pos_recv, ierr
+      integer:: nphys_send_all, diff_dest, ndiffuse_loc, ndiffuse_all, &
+      searchrange(2), entrydepth
       real(f):: xmin_loc(dim), xmax_loc(dim), xmin_rem(dim), xmax_rem(dim), xi(dim), dr, dr_min
-      type(MPI_STATUS):: status(2*n_process_neighbour)
+      type(MPI_STATUS):: status(2*n_process_neighbour+1)
+      type(MPI_Request):: extra_request
+      logical:: diffuse
+      integer,allocatable:: removal_list(:)
 
       ! Initialization
-      success = 1
-
+      searchrange(:) = [1, ntotal_loc]
+      nrequest = 0
+      diffuse = .true.
+      entrydepth = 0
+      
       xmin_loc(:) = bounds_glob(1:dim, procid + 1)
       xmax_loc(:) = bounds_glob(dim + 1:2*dim, procid + 1)
-
-      ! Searching particles to remove within indices of searchrange(1) and searchrange(2), inclusive.
-      ! At node 0, searchrange(1:2) = [1,ntotal_loc)
-      nphys_send_all = 0
-      do i = searchrange(1), searchrange(2)
-         xi(:) = parts(i)%x(:)
-         if (any([xi(:) .lt. xmin_loc(:), xi(:) .ge. xmax_loc(:)])) then
-            nphys_send_all = nphys_send_all + 1
-            removal_list(nphys_send_all) = i
-         end if
-      end do
-      removal_list(nphys_send_all + 1) = 0 ! This is needed due to a quirk in the loop below
-
-      ! If there are any particles that do not belong to the host process,
-      ! begin searching for neighbouring processes to send the particle to.
-      ! If particle is not contained with subdomain boundaries, send the particle to nearest process neighbouring current host.
-      allocate (PhysPackSend(nphys_send_all, n_process_neighbour))
-      nphys_send(:) = 0
-      ndiffuse_loc = 0
-      if (nphys_send_all .gt. 0) then
-         loop_through_parts: do j = 1, nphys_send_all
-            i = removal_list(j)
-            xi(:) = parts(i)%x(:) !placeholder variable of particle position for code readibility
-            do n = 1, n_process_neighbour
-               pid = proc_neighbour_list(n) + 1
-               xmin_rem(:) = bounds_glob(1:dim, pid) ! min boundary for remote process, pid
-               xmax_rem(:) = bounds_glob(dim + 1:2*dim, pid) ! max boundary for remote process, pid
-               if (.not.any([xi(:) .lt. xmin_rem(:), xi(:) .ge. xmax_rem(:)])) then
-
-                  nphys_send(n) = nphys_send(n) + 1
-                  PhysPackSend(nphys_send(n), n) = parts(i)
-
-                  cycle loop_through_parts ! stop searching for a subdomain neighbour and move to next particle
-               end if
-            end do
-
-            ! particle belongs to non-neighbouring process.
-            ! Evaluates closeness by considering minimum distance between particle and a processes edge,face, or vertice
-            ndiffuse_loc = ndiffuse_loc + 1
-            dr_min = huge(1._f)
-            diff_dest = 0
-            do n = 1, n_process_neighbour
-               pid = proc_neighbour_list(n) + 1
-               dr = 0_f
-               do d = 1, dim
-                  dr = dr + MAX(0d0, bounds_glob(d, pid) - parts(i)%x(d), parts(i)%x(d) - bounds_glob(dim + d, pid))**2
-               end do
-               dr = SQRT(dr)
-               if (dr .lt. dr_min) then
-                  diff_dest = n
-                  dr_min = dr
-               end if
-            end do
-            nphys_send(diff_dest) = nphys_send(diff_dest) + 1
-            PhysPackSend(nphys_send(diff_dest), diff_dest) = parts(i)
-
-            !call error_msg(itimestep,procid,4,ind(i))
-         end do loop_through_parts
-      end if
-
-      ! Posting non-blocking send/recv to exchange info with neighers of no. particles being sent
-      do n = 1, n_process_neighbour
-         pid = proc_neighbour_list(n)
-         call MPI_IRECV(nphys_recv(n), 1, MPI_INTEGER, pid, 0, MPI_COMM_WORLD, request(2*n - 1), ierr)
-         call MPI_ISEND(nphys_send(n), 1, MPI_INTEGER, pid, 0, MPI_COMM_WORLD, request(2*n), ierr)
-      end do
-
-      ! Shifting information to remove sent particles
-      n = 0
-      if ((nphys_send_all .gt. 0) .and. (nphys_send_all .lt. ntotal_loc)) then
-         do i = removal_list(1), ntotal_loc
-            if (i .eq. removal_list(n + 1)) then
-               n = n + 1
-            else
-               parts(i - n) = parts(i) ! moving particle to new local position
+      
+      do while (diffuse)
+         
+         ! Searching particles to remove within indices of searchrange(1) and searchrange(2), inclusive.
+         ! At node 0, searchrange(1:2) = [1,ntotal_loc)
+         allocate(removal_list(ntotal_loc+1))
+         nphys_send_all = 0
+         do i = searchrange(1), searchrange(2)
+            xi(:) = parts(i)%x(:)
+            if (any([xi(:) .lt. xmin_loc(:), xi(:) .ge. xmax_loc(:)])) then
+               nphys_send_all = nphys_send_all + 1
+               removal_list(nphys_send_all) = i
             end if
          end do
-      end if
+         removal_list(nphys_send_all + 1) = 0 ! This is needed due to a quirk in the loop below
+         
+         ! If there are any particles that do not belong to the host process,
+         ! begin searching for neighbouring processes to send the particle to.
+         ! If particle is not contained with subdomain boundaries, send the particle to nearest process neighbouring current host.
+         allocate (PhysPackSend(nphys_send_all, n_process_neighbour))
+         nphys_send(:) = 0
+         ndiffuse_loc = 0
+         if (nphys_send_all .gt. 0) then
+            loop_through_parts: do j = 1, nphys_send_all
+               i = removal_list(j)
+               xi(:) = parts(i)%x(:) !placeholder variable of particle position for code readibility
+               do n = 1, n_process_neighbour
+                  pid = proc_neighbour_list(n) + 1
+                  xmin_rem(:) = bounds_glob(1:dim, pid) ! min boundary for remote process, pid
+                  xmax_rem(:) = bounds_glob(dim + 1:2*dim, pid) ! max boundary for remote process, pid
+                  if (.not.any([xi(:) .lt. xmin_rem(:), xi(:) .ge. xmax_rem(:)])) then
+         
+                     nphys_send(n) = nphys_send(n) + 1
+                     PhysPackSend(nphys_send(n), n) = parts(i)
+         
+                     cycle loop_through_parts ! stop searching for a subdomain neighbour and move to next particle
+                  end if
+               end do
+         
+               ! particle belongs to non-neighbouring process.
+               ! Evaluates closeness by considering minimum distance between particle and a processes edge,face, or vertice
+               ndiffuse_loc = ndiffuse_loc + 1
+               dr_min = huge(1._f)
+               diff_dest = 0
+               do n = 1, n_process_neighbour
+                  pid = proc_neighbour_list(n) + 1
+                  dr = 0_f
+                  do d = 1, dim
+                     dr = dr + MAX(0d0, bounds_glob(d, pid) - parts(i)%x(d), parts(i)%x(d) - bounds_glob(dim + d, pid))**2
+                  end do
+                  dr = SQRT(dr)
+                  if (dr .lt. dr_min) then
+                     diff_dest = n
+                     dr_min = dr
+                  end if
+               end do
+               nphys_send(diff_dest) = nphys_send(diff_dest) + 1
+               PhysPackSend(nphys_send(diff_dest), diff_dest) = parts(i)
+         
+               !call error_msg(itimestep,procid,4,ind(i))
+            end do loop_through_parts
+         end if
 
-      ntotal_loc = ntotal_loc - nphys_send_all
+         ! Posting non-blocking send/recv to exchange info with neighers of no. particles being sent
+         do n = 1, n_process_neighbour
+            pid = proc_neighbour_list(n)
+            call MPI_IRECV(nphys_recv(n), 1, MPI_INTEGER, pid, 0, MPI_COMM_WORLD, request(2*n - 1), ierr)
+            call MPI_ISEND(nphys_send(n), 1, MPI_INTEGER, pid, 0, MPI_COMM_WORLD, request(2*n), ierr)
+         end do
 
-      ! Wait for non-blocking send to complete
-      call MPI_WAITALL(2*n_process_neighbour, request, status, ierr)
+         ! Shifting information to remove sent particles
+         n = 0
+         if ((nphys_send_all .gt. 0) .and. (nphys_send_all .lt. ntotal_loc)) then
+            do i = removal_list(1), ntotal_loc
+               if (i .eq. removal_list(n + 1)) then
+                  n = n + 1
+               else
+                  parts(i - n) = parts(i) ! moving particle to new local position
+               end if
+            end do
+         end if
 
-      ! Calculating total number of physical particles to be received. Check if this exceeds particle array boundaries
-      n_recv_all = SUM(nphys_recv)
-      
-      !if (ntotal_loc + n_recv_all .gt. maxnloc) call error_msg(2, parts(ntotal_loc)%indloc)
+         ntotal_loc = ntotal_loc - nphys_send_all
 
-      ! Non-blocking sends to exchange physical particles that have moved processes ---------------------------------------------------
-      pos_recv = ntotal_loc + 1
-      nrequest = 0
-      do n = 1, n_process_neighbour
+         ! Wait for non-blocking send to complete
+         call MPI_WAITALL(2*n_process_neighbour, request, status, ierr)
 
-         pid = proc_neighbour_list(n)
+         ! Calculating total number of physical particles to be received. Check if this exceeds particle array boundaries
+         n_recv_all = SUM(nphys_recv)
+         
+         !if (ntotal_loc + n_recv_all .gt. maxnloc) call error_msg(2, parts(ntotal_loc)%indloc)
+         
+         ! Non-blocking sends to exchange physical particles that have moved processes ---------------------------------------------------
+         pos_recv = ntotal_loc + 1
+         nrequest = 0
+         do n = 1, n_process_neighbour
+         
+            pid = proc_neighbour_list(n)
+         
+            if (nphys_send(n) .gt. 0) then
+         
+               nrequest = nrequest + 1
+               call MPI_ISEND(PhysPackSend(1, n), nphys_send(n), parttype, pid, 0, MPI_COMM_WORLD, request(nrequest), ierr)
+            end if
+            
+            if (nphys_recv(n) .gt. 0) then
+         
+               nrequest = nrequest + 1
+               call MPI_IRECV(parts(pos_recv), nphys_recv(n), parttype, pid, 0, MPI_COMM_WORLD, request(nrequest), ierr)
+               pos_recv = pos_recv + nphys_recv(n)
+         
+            end if
+         
+         end do
 
-         if (nphys_send(n) .gt. 0) then
-
-            nrequest = nrequest + 1
-            call MPI_ISEND(PhysPackSend(1, n), nphys_send(n), parttype, pid, 0, MPI_COMM_WORLD, request(nrequest), ierr)
-
+         ! if subdomain boundary update has occurred, check if diffusion is necessary.
+         ! Perform if necessary
+         if (repartition_mode .ge. 2) then
+            ! Checking if any process has particles that need to be diffused
+            call MPI_IALLREDUCE(ndiffuse_loc, ndiffuse_all, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, extra_request, ierr)
+            call MPI_WAITALL(nrequest, request, status, ierr)
+            call MPI_WAIT(extra_request,status(1),ierr)
+            ! If any particles need to be diffused, repeat process on newly received particles
+            if (ndiffuse_all .eq. 0) then
+               diffuse = .false.
+            else
+               if (procid .eq. 0) then
+                  write (*, '(A48,I7)') 'Diffusion occuring... Current timestep:         ', itimestep
+                  write (*, '(A48,I7)') '                      Current depth:            ', entrydepth
+                  write (*, '(A48,I7)') '                      Particles to be diffused: ', ndiffuse_all
+               end if
+         
+               entrydepth = entrydepth + 1
+               searchrange = [ntotal_loc + 1, ntotal_loc + n_recv_all]
+               ! diffusion is occuring. Wait for ongoing comms to complete. Update ntotal_loc as required.
+               ntotal_loc = ntotal_loc + n_recv_all
+               deallocate (PhysPackSend,removal_list)
+            end if
+         else
+            diffuse = .false.
          end if
          
-         if (nphys_recv(n) .gt. 0) then
-
-            nrequest = nrequest + 1
-            call MPI_IRECV(parts(pos_recv), nphys_recv(n), parttype, pid, 0, MPI_COMM_WORLD, request(nrequest), ierr)
-
-            pos_recv = pos_recv + nphys_recv(n)
-
-         end if
-
       end do
 
-      ! if subdomain boundary update has occurred, check if diffusion is necessary.
-      ! Perform if necessary
-      if (repartition_mode .ge. 2) then
-         ! Checking if any process has particles that need to be diffused
-         call MPI_ALLREDUCE(ndiffuse_loc, ndiffuse_all, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
-
-         ! If any particles need to be diffused, repeat process on newly received particles
-         if (ndiffuse_all .ne. 0) then
-
-            if (procid .eq. 0) then
-               write (*, '(A48,I7)') 'Diffusion occuring... Current timestep:         ', itimestep
-               write (*, '(A48,I7)') '                      Current depth:            ', entrydepth
-               write (*, '(A48,I7)') '                      Particles to be diffused: ', ndiffuse_all
-            end if
-
-            entrydepth = entrydepth + 1
-            searchrange_next = [ntotal_loc + 1, ntotal_loc + n_recv_all]
-            ! diffusion is occuring. Wait for ongoing comms to complete. Update ntotal_loc as required.
-            call MPI_WAITALL(nrequest, request, status, ierr)
-            ntotal_loc = ntotal_loc + n_recv_all
-            deallocate (PhysPackSend)
-            success = ORB_sendrecv_diffuse(procid, entrydepth, searchrange_next, nrequest, request, n_recv_all)
-         end if
-      end if
-      success = 0
-
-   end function ORB_sendrecv_diffuse
+   end subroutine ORB_sendrecv_diffuse
 
    !==============================================================================================================================
    subroutine ORB_sendrecv_halo(procid,request_in, request_out, nphys_recv_all, nrequest)
@@ -189,9 +199,9 @@ contains
 
       implicit none
       integer,intent(in):: procid
-      type(MPI_Request), intent(inout):: request_in(2*n_process_neighbour)
+      type(MPI_Request), intent(inout):: request_in(:)
       integer, intent(inout):: nphys_recv_all, nrequest
-      type(MPI_Request), intent(out):: request_out(2*n_process_neighbour)
+      type(MPI_Request), intent(out):: request_out(:)
       type(MPI_Status):: status(2*n_process_neighbour)
       integer:: i, j, pid, n, pos0_recv, pos1_recv, pos0, pos1
       real(f):: xmin_rem(dim), xmax_rem(dim), xi(dim), xmin_loc(dim), xmax_loc(dim)
@@ -242,7 +252,7 @@ contains
          pos0 = ntotal_loc + 1
          pos1 = ntotal_loc + nphys_recv_all
          wait_for_phys_then_reloop = .false.
-         call MPI_WAITALL(nrequest, request_in, status(1:nrequest), ierr) !wait for new physical particles to arrive
+         call MPI_WAITALL(nrequest, request_in, status, ierr) !wait for new physical particles to arrive
          goto 1
       end if
 
