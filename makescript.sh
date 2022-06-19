@@ -15,8 +15,8 @@
 
 FCFLAGS_gnu="-O3 -flto -fbacktrace -fimplicit-none -pedantic -Wall -Wextra -Jobj"
 FCFLAGS_gnu_debug="-Og -g -fcheck=all -fbacktrace -fimplicit-none -pedantic -Wall -Wextra -Jobj"
-FCFLAGS_intel="-O3 -ipo -traceback -module obj"
-FCFLAGS_intel_debug="-g -traceback -check all -module obj"
+FCFLAGS_intel="-O3 -ipo -traceback -module obj -warn all"
+FCFLAGS_intel_debug="-g -traceback -check all -module obj -warn all"
 FCFLAGS_CUDA="-Mcuda -Minfo -Iobj -module obj"
 FCFLAGS_CUDA_debug="-Mcuda -Minfo -g -C -traceback -Iobj -module obj"
 MKFILES_DIR=makefiles
