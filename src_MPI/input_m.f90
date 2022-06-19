@@ -80,11 +80,12 @@ contains
    end subroutine input
 
    !==============================================================================================================================
-   subroutine virt_part(generate)
+   subroutine virt_part(procid,generate)
       ! Generates the virtual particle configuration. Can change over time or remain static
       ! 2 cases: return only number of particles retrieved, or generating the particles
 
       implicit none
+      integer,intent(in):: procid
       integer:: i, j, k, n
       real(f):: xi(dim), xmin_loc(dim), xmax_loc(dim)
       logical, intent(in):: generate

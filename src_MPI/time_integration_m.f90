@@ -21,13 +21,13 @@ module time_integration_m
 contains
 
    !==============================================================================================================================
-   subroutine time_integration
+   subroutine time_integration(procid,numprocs)
       ! Subroutine responsible for the main time-integration loop
 
       implicit none
+      integer,intent(in):: procid,numprocs
       integer:: i,ki
       real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drho(:, :)
-      
 
       allocate (v_min(dim, maxnloc), rho_min(maxnloc), dvxdt(dim, maxnloc, 4), drho(maxnloc, 4))
       allocate (gind(maxnloc))
@@ -94,7 +94,7 @@ contains
          output_time = output_time + MPI_WTIME()
 
          if (mod(itimestep, print_step) .eq. 0) then
-            call print_loadbalance
+            call print_loadbalance(procid,numprocs)
          end if
 
       end do

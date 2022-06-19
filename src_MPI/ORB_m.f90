@@ -121,13 +121,13 @@ contains
       ! physical particle distribution
       diffusedepth = 0
       searchrange_ini(:) = (/1, ntotal_loc/)
-      i = ORB_sendrecv_diffuse(diffusedepth, searchrange_ini, n_request, request_phys, nphys_recv_all)
+      i = ORB_sendrecv_diffuse(procid,diffusedepth, searchrange_ini, n_request, request_phys, nphys_recv_all)
 
       ! halo particle distribution
-      call ORB_sendrecv_halo(request_phys, request_halo, nphys_recv_all, n_request)
+      call ORB_sendrecv_halo(procid,request_phys, request_halo, nphys_recv_all, n_request)
 
       ! update virtual particles
-      call virt_part(.true.)
+      call virt_part(procid,.true.)
 
       if (repartition_mode .gt. 1) prev_load = ntotal_loc
 

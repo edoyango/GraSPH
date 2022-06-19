@@ -1,7 +1,6 @@
 module flink_list_m
 
    use datatypes, only: particles, interactions
-   use globvar_para, only: procid, numprocs
    use param, only: dim, hsml, f
 
    !use error_msg_m, only: error_msg

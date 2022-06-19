@@ -14,14 +14,14 @@ module ORB_sr_m
 contains
 
    !==============================================================================================================================
-   recursive function ORB_sendrecv_diffuse(entrydepth, searchrange, nrequest, request, n_recv_all) result(success)
+   recursive function ORB_sendrecv_diffuse(procid,entrydepth, searchrange, nrequest, request, n_recv_all) result(success)
       ! Recursive function to exchange physical particles. In cases were subdomain boundaries are updated, the possibility of needing
       ! diffusion is considered
 
       use globvar_para, only: repartition_mode
 
       implicit none
-      integer, intent(in):: searchrange(2)
+      integer, intent(in):: searchrange(2),procid
       integer, intent(inout):: nrequest, n_recv_all, entrydepth
       type(MPI_Request), intent(inout):: request(2*n_process_neighbour)
       integer:: d, i, j, pid, n, pos_recv, success
@@ -170,7 +170,7 @@ contains
             call MPI_WAITALL(nrequest, request, status, ierr)
             ntotal_loc = ntotal_loc + n_recv_all
             deallocate (PhysPackSend)
-            success = ORB_sendrecv_diffuse(entrydepth, searchrange_next, nrequest, request, n_recv_all)
+            success = ORB_sendrecv_diffuse(procid, entrydepth, searchrange_next, nrequest, request, n_recv_all)
          end if
       end if
       success = 0
@@ -178,7 +178,7 @@ contains
    end function ORB_sendrecv_diffuse
 
    !==============================================================================================================================
-   subroutine ORB_sendrecv_halo(request_in, request_out, nphys_recv_all, nrequest)
+   subroutine ORB_sendrecv_halo(procid,request_in, request_out, nphys_recv_all, nrequest)
 
       !subroutine responsible for sending sending halo particle information between processes, given
       !predetermined subdomain boundaires.
@@ -188,6 +188,7 @@ contains
       haloupdatetype
 
       implicit none
+      integer,intent(in):: procid
       type(MPI_Request), intent(inout):: request_in(2*n_process_neighbour)
       integer, intent(inout):: nphys_recv_all, nrequest
       type(MPI_Request), intent(out):: request_out(2*n_process_neighbour)

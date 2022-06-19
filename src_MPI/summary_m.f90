@@ -127,10 +127,11 @@ contains
    end subroutine print_summary
 
    !==================================================================================================================================
-   subroutine print_loadbalance
+   subroutine print_loadbalance(procid,numprocs)
       ! Prints load balance statistics. Called occasionally as determined by print_step
 
       implicit none
+      integer,intent(in):: procid,numprocs
       integer:: i, n_glob(numprocs, 4), min_n(4), max_n(4), mean_n(4), stdev_n(4)
       type(MPI_Request):: request(4)
       type(MPI_Status):: status(MPI_STATUS_SIZE*4)

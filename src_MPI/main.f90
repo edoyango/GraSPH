@@ -31,7 +31,7 @@ program SPH
 
    !Retrieving how many particles are to be generated. Hence the generate=.false.
    call input(.false.)
-   call virt_part(.false.)
+   call virt_part(procid,.false.)
 
    if (procid .eq. 0) write (*, '(A24,1x,I9,1x,A19)') 'Total simulation size of', ntotal, 'physical particles.'
 
@@ -42,7 +42,7 @@ program SPH
    call input(.true.)
 
    !Entering discretized time-integration loop
-   call time_integration()
+   call time_integration(procid,numprocs)
 
    !Printing post-amble to terminal
    if (procid .eq. 0) call time_print
