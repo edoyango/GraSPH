@@ -73,7 +73,7 @@ contains
       real(f):: scale_k
 
       select case (skf)
-      case (1, 4, 5, 6)
+      case default
          scale_k = 2._f
       case (2)
          scale_k = 2.5_f

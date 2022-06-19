@@ -203,10 +203,10 @@ contains
       integer, intent(inout):: nphys_recv_all, nrequest
       type(MPI_Request), intent(out):: request_out(:)
       type(MPI_Status):: status(2*n_process_neighbour)
-      integer:: i, j, pid, n, pos0_recv, pos1_recv, pos0, pos1
+      integer:: i, j, k, pid, n, pos0_recv, pos1_recv, pos0, pos1, maxloop
       real(f):: xmin_rem(dim), xmax_rem(dim), xi(dim), xmin_loc(dim), xmax_loc(dim)
-      logical:: wait_for_phys_then_reloop
       integer:: ones1D(ntotal_loc + nphys_recv_all), halo_pindex_0(ntotal_loc + nphys_recv_all)
+      logical:: wait_for_phys
 
       ! Initialization
       if (allocated(halo_pindex)) deallocate (halo_pindex)
@@ -216,9 +216,11 @@ contains
       nhalo_send(:) = 0
 
       if (nphys_recv_all .eq. 0) then
-         wait_for_phys_then_reloop = .false.
+         wait_for_phys = .false.
+         maxloop = 1
       else
-         wait_for_phys_then_reloop = .true.
+         wait_for_phys = .true.
+         maxloop = 2
       end if
 
       ! Halo particle send location determination
@@ -229,32 +231,33 @@ contains
       ! Begin search
       xmin_loc = bounds_glob(1:dim, procid + 1) + scale_k*hsml
       xmax_loc = bounds_glob(dim + 1:2*dim, procid + 1) - scale_k*hsml
-1     do i = pos0, pos1
-         xi(:) = parts(i)%x(:)
-         if (any([xi(:) .le. xmin_loc(:), xi(:) .ge. xmax_loc(:)])) then ! if particle is potentially neighbour's halo
-            do j = 1, n_process_neighbour
-               pid = proc_neighbour_list(j) + 1
-               xmin_rem(:) = bounds_glob(1:dim, pid) - scale_k*hsml
-               xmax_rem(:) = bounds_glob(dim + 1:2*dim, pid) + scale_k*hsml
-               if (all([xi(:) .ge. xmin_rem(:), xi(:) .le. xmax_rem(:)])) then
-
-                  nhalo_send(j) = nhalo_send(j) + 1
-                  halo_pindex(nhalo_send(j), j) = i
-
-               end if
-
-            end do
-         end if
+      do k = 1,maxloop
+         do i = pos0, pos1
+           xi(:) = parts(i)%x(:)
+           if (any([xi(:) .le. xmin_loc(:), xi(:) .ge. xmax_loc(:)])) then ! if particle is potentially neighbour's halo
+              do j = 1, n_process_neighbour
+                 pid = proc_neighbour_list(j) + 1
+                 xmin_rem(:) = bounds_glob(1:dim, pid) - scale_k*hsml
+                 xmax_rem(:) = bounds_glob(dim + 1:2*dim, pid) + scale_k*hsml
+                 if (all([xi(:) .ge. xmin_rem(:), xi(:) .le. xmax_rem(:)])) then
+        
+                    nhalo_send(j) = nhalo_send(j) + 1
+                    halo_pindex(nhalo_send(j), j) = i
+        
+                 end if
+        
+              end do
+           end if
+        end do
+        
+        ! Waiting for physical particles to complete exchange if needed
+        if (wait_for_phys_then_reloop) then
+           pos0 = ntotal_loc + 1
+           pos1 = ntotal_loc + nphys_recv_all
+           wait_for_phys = .false.
+           call MPI_WAITALL(nrequest, request_in, status, ierr) !wait for new physical particles to arrive
+        end if
       end do
-
-      ! Waiting for physical particles to complete exchange if needed
-      if (wait_for_phys_then_reloop) then
-         pos0 = ntotal_loc + 1
-         pos1 = ntotal_loc + nphys_recv_all
-         wait_for_phys_then_reloop = .false.
-         call MPI_WAITALL(nrequest, request_in, status, ierr) !wait for new physical particles to arrive
-         goto 1
-      end if
 
       ! Posting non-blocking send for nhalo_send exchange
       do n = 1, n_process_neighbour
