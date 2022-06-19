@@ -2,7 +2,7 @@ module ORB_sr_m
 
    use globvar, only: ntotal_loc, nhalo_loc, parts, maxnloc, itimestep, scale_k
    use globvar_para, only: PhysPackSend, bounds_glob, n_process_neighbour, proc_neighbour_list, nphys_send, &
-                           nphys_recv, parttype, ierr
+                           nphys_recv, parttype
    use mpi_f08
    use param, only: f, dim, hsml
    !use error_msg_m, only: error_msg
@@ -25,8 +25,7 @@ contains
       integer, intent(out):: nrequest,n_recv_all
       type(MPI_Request), intent(out):: request(:)
       integer:: d, i, j, pid, n, pos_recv, ierr
-      integer:: nphys_send_all, diff_dest, ndiffuse_loc, ndiffuse_all, &
-      searchrange(2), entrydepth
+      integer:: nphys_send_all, diff_dest, ndiffuse_loc, ndiffuse_all, searchrange(2), entrydepth
       real(f):: xmin_loc(dim), xmax_loc(dim), xmin_rem(dim), xmax_rem(dim), xi(dim), dr, dr_min
       type(MPI_STATUS):: status(2*n_process_neighbour+1)
       type(MPI_Request):: extra_request
@@ -203,7 +202,7 @@ contains
       integer, intent(inout):: nphys_recv_all, nrequest
       type(MPI_Request), intent(out):: request_out(:)
       type(MPI_Status):: status(2*n_process_neighbour)
-      integer:: i, j, k, pid, n, pos0_recv, pos1_recv, pos0, pos1, maxloop
+      integer:: i, j, k, pid, n, pos0_recv, pos1_recv, pos0, pos1, maxloop, ierr
       real(f):: xmin_rem(dim), xmax_rem(dim), xi(dim), xmin_loc(dim), xmax_loc(dim)
       integer:: ones1D(ntotal_loc + nphys_recv_all), halo_pindex_0(ntotal_loc + nphys_recv_all)
       logical:: wait_for_phys
@@ -232,7 +231,7 @@ contains
       xmin_loc = bounds_glob(1:dim, procid + 1) + scale_k*hsml
       xmax_loc = bounds_glob(dim + 1:2*dim, procid + 1) - scale_k*hsml
       do k = 1,maxloop
-         do i = pos0, pos1
+        do i = pos0, pos1
            xi(:) = parts(i)%x(:)
            if (any([xi(:) .le. xmin_loc(:), xi(:) .ge. xmax_loc(:)])) then ! if particle is potentially neighbour's halo
               do j = 1, n_process_neighbour
@@ -251,7 +250,7 @@ contains
         end do
         
         ! Waiting for physical particles to complete exchange if needed
-        if (wait_for_phys_then_reloop) then
+        if (wait_for_phys) then
            pos0 = ntotal_loc + 1
            pos1 = ntotal_loc + nphys_recv_all
            wait_for_phys = .false.
@@ -332,7 +331,7 @@ contains
 
       implicit none
       integer, intent(in):: ki
-      integer:: n, i, pos0_recv, pos1_recv, pid, n_request
+      integer:: n, i, pos0_recv, pos1_recv, pid, n_request, ierr
       type(MPI_Request):: request(2*n_process_neighbour)
       type(MPI_Status):: status(2*n_process_neighbour)
 
