@@ -1,7 +1,7 @@
 module ORB_sr_m
 
    use globvar, only: ntotal_loc, nhalo_loc, parts, maxnloc, itimestep, scale_k
-   use globvar_para, only: procid, numprocs, PhysPackSend, bounds_glob, n_process_neighbour, proc_neighbour_list, nphys_send, &
+   use globvar_para, only: PhysPackSend, bounds_glob, n_process_neighbour, proc_neighbour_list, nphys_send, &
                            nphys_recv, parttype, ierr
    use mpi_f08
    use param, only: f, dim, hsml

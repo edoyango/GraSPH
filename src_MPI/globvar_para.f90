@@ -8,7 +8,7 @@ module globvar_para
    implicit none
 
    ! basic MPI variables
-   integer, public:: procid, numprocs, ierr
+   integer, public:: ierr
 
    ! derived MPI tpes
    type(MPI_Datatype):: MPI_ftype, parttype, halotype, haloupdatetype

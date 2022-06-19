@@ -1,7 +1,7 @@
 program SPH
 
    use globvar, only: ntotal, scale_k, allocateGlobalArrays, deallocateGlobalArrays
-   use globvar_para, only: ierr, procid, numprocs, MPI_ftype
+   use globvar_para, only: ierr, MPI_ftype
    use mpi_f08
    use param, only: f, skf
    use param_para, only: CreateMPIType, Select_MPI_ftype
@@ -12,6 +12,7 @@ program SPH
    use time_integration_m, only: time_integration
 
    implicit none
+   integer:: procid,numprocs
 
    !Initializing MPI
    call MPI_INIT(ierr)
@@ -24,13 +25,13 @@ program SPH
    call CreateMPIType
 
    !Printing preamble to screen
-   call preamble
+   call preamble(procid,numprocs)
 
    ! retrieving kernel k parameter for use in the program
    scale_k = kernel_k(skf)
 
    !Retrieving how many particles are to be generated. Hence the generate=.false.
-   call input(.false.)
+   call input(procid,numprocs,.false.)
    call virt_part(procid,.false.)
 
    if (procid .eq. 0) write (*, '(A24,1x,I9,1x,A19)') 'Total simulation size of', ntotal, 'physical particles.'
@@ -39,14 +40,14 @@ program SPH
    call allocateGlobalArrays()
 
    !Created fluid domain using particles
-   call input(.true.)
+   call input(procid,numprocs,.true.)
 
    !Entering discretized time-integration loop
    call time_integration(procid,numprocs)
 
    !Printing post-amble to terminal
    if (procid .eq. 0) call time_print
-   call print_summary
+   call print_summary(procid,numprocs)
 
    !Cleaning up and ending MPI
    call deallocateGlobalArrays

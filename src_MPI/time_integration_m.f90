@@ -3,7 +3,6 @@ module time_integration_m
    use datatypes, only: particles, interactions
    use globvar, only: parts, ntotal_loc, time, cputime, output_time, t_graph, t_dist, test_time, itimestep, maxtimestep, &
                       print_step, save_step, maxnloc,nvirt_loc,nghos_loc,nhalo_loc,niac,pairs,maxinter,scale_k
-   use globvar_para, only: procid, numprocs
    use mpi_f08
    use param, only: f, dim, dt, rh0, c, gamma
 

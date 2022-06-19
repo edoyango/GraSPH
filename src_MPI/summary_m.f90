@@ -2,7 +2,7 @@ module summary_m
 
    use globvar, only: ntotal_loc, nhalo_loc, nvirt_loc, niac, maxtimestep, print_step, save_step, itimestep, time, cputime, &
                       t_graph, t_dist, output_time
-   use globvar_para, only: procid, numprocs, ierr
+   use globvar_para, only: ierr
    use ORB_m, only: mintstep_bn_part, mintstep_bn_reorient, maxtstep_bn_part, maxtstep_bn_reorient, prev_part_tstep, &
                     prev_reorient_tstep, n_parts, n_reorients
    use param, only: f
@@ -34,10 +34,11 @@ contains
    end subroutine time_print
 
    !==============================================================================================================================
-   subroutine preamble
+   subroutine preamble(procid,numprocs)
       ! Prints preamble information to terminal and checks that maxtimestep, print_step, save_step have been supplied
 
       implicit none
+      integer,intent(in):: procid,numprocs
       character(len=100):: args(3)
 
       if (command_argument_count() .lt. 3) then
@@ -71,11 +72,12 @@ contains
    end subroutine preamble
 
    !==============================================================================================================================
-   subroutine print_summary
+   subroutine print_summary(procid,numprocs)
       ! Obtains and prints final MPI summary data e.g. number of partitions, cut axes reorientations, and average wall-times (broken
       ! down)
 
       implicit none
+      integer,intent(in):: procid,numprocs
       double precision:: cputime_total, t_graph_total, t_dist_total, output_time_total
 
       if (procid .eq. 0) then

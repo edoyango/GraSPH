@@ -2,7 +2,7 @@ module input_m
 
    use datatypes, only: particles
    use globvar, only: ntotal, nvirt, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, scale_k, maxnloc
-   use globvar_para, only: procid, numprocs, bounds_glob
+   use globvar_para, only: bounds_glob
    use mpi_f08
    use param, only: dim, irho, dxo, f, hsml, mp, np, op, pp, qp, rp, nlayer
    !use error_msg_m, only: error_msg
@@ -20,11 +20,12 @@ module input_m
 contains
 
    !==============================================================================================================================
-   subroutine input(generate)
+   subroutine input(procid,numprocs,generate)
       ! Generates initial physical particle configuration.
       ! 2 cases: return only number of particles retrieved, or generating the particles
 
       implicit none
+      integer,intent(in):: procid,numprocs
       logical, intent(in):: generate
       integer:: i, j, k, n, n_loc, n_loc_i, n_start, n_done
 
