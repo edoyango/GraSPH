@@ -38,7 +38,7 @@ contains
          cputime = cputime - MPI_WTIME()
 
          ! distributing particles
-         call ORB
+         call ORB(procid,numprocs)
          
          do i = 1,ntotal_loc+nhalo_loc
             parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1_f)/gamma
