@@ -73,7 +73,7 @@ contains
             end do
          end do
 
-         call write_ini_config
+         call write_ini_config(procid,numprocs)
 
       end select
 

@@ -88,7 +88,7 @@ contains
 
          ! write output data
          if (mod(itimestep, save_step) .eq. 0) then
-            call output
+            call output(procid,numprocs)
          end if
 
          output_time = output_time + MPI_WTIME()
