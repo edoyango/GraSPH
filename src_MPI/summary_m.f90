@@ -101,7 +101,8 @@ contains
             write (*, '(A42)') '    Max Timesteps B/N Partitions =     N/A'
             write (*, '(A42)') '    Min Timesteps B/N Partitions =     N/A'
          else
-            write (*, '(A35,I7)') '    Avg Timesteps B/N Partitions = ', (partition_track%prev_part_tstep - 1)/(partition_track%n_parts - 1)
+            write (*, '(A35,I7)') '    Avg Timesteps B/N Partitions = ', (partition_track%prev_part_tstep - 1)/&
+            (partition_track%n_parts - 1)
             write (*, '(A35,I7)') '    Max Timesteps B/N Partitions = ', partition_track%maxtstep_bn_part
             write (*, '(A35,I7)') '    Min Timesteps B/N Partitions = ', partition_track%mintstep_bn_part
          end if
@@ -114,7 +115,8 @@ contains
             write (*, '(A42)') 'Max Timesteps B/N Reorientations =     N/A'
             write (*, '(A42)') 'Min Timesteps B/N Reorientations =     N/A'
          else
-            write (*, '(A35,I7)') 'Avg Timesteps B/N Reorientations = ', (partition_track%prev_reorient_tstep - 1)/(partition_track%n_reorients - 1)
+            write (*, '(A35,I7)') 'Avg Timesteps B/N Reorientations = ', (partition_track%prev_reorient_tstep - 1)/&
+            (partition_track%n_reorients - 1)
             write (*, '(A35,I7)') 'Max Timesteps B/N Reorientations = ', partition_track%maxtstep_bn_reorient
             write (*, '(A35,I7)') 'Min Timesteps B/N Reorientations = ', partition_track%mintstep_bn_reorient
          end if

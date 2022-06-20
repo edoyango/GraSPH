@@ -1,7 +1,7 @@
 module ORB_m
 
    use globvar, only: scale_k, parts, ntotal_loc
-   use globvar_para, only: MPI_ftype, repartition_mode, node_cax, node_cut, binary_tree, partition_tracking
+   use globvar_para, only: MPI_ftype, node_cax, node_cut, partition_tracking
    use mpi_f08
    use param, only: f, dim, hsml
    
@@ -10,7 +10,6 @@ module ORB_m
    real(f):: box_ratio_previous(dim,dim) = TINY(1.)
    integer:: maxnode, prev_load
    integer,allocatable:: pincell_ORB(:, :, :)
-   type(binary_tree):: tree
    type(partition_tracking):: partition_track
    
    public:: ORB, partition_track
@@ -31,7 +30,7 @@ contains
       integer,intent(in):: procid,numprocs
       real(f), parameter:: dcell = hsml*dcell_ORB
       integer:: d, i, ngridx(dim), nphys_recv_all, n_request, procrange_ini(2), tree_layers, &
-                gridind_ini(dim, 2), repartition_mode_loc,ierr
+                gridind_ini(dim, 2), repartition_mode_loc,ierr,repartition_mode
       real(f):: bounds_out(2*dim), mingridx_ini(dim), maxgridx_ini(dim), current_to_previous(dim, dim), box_ratio_current(dim, dim)
       type(MPI_Status):: status(4*numprocs)
       type(MPI_Request):: request_phys(2*numprocs), request_halo(2*numprocs)
@@ -39,7 +38,6 @@ contains
       !allocating partitioning arrays and initialising diagnostic variables -------------------------------------------------------------
       t_graph = t_graph - MPI_WTIME() ! commence timing of ORB algoirthm
       if (itimestep .eq. 1) then
-         call tree%allocate_tree_arrays(numprocs)
          tree_layers = CEILING(LOG(DBLE(numprocs))/LOG(2d0))
          maxnode = 2*2**tree_layers - 1
          allocate (bounds_glob(2*dim, numprocs), &
@@ -84,8 +82,10 @@ contains
             if (repartition_mode .eq. 3) then
                box_ratio_previous(:, :) = box_ratio_current(:, :)
                if (itimestep .ne. 1) then
-                  partition_track%maxtstep_bn_reorient = max(partition_track%maxtstep_bn_reorient, itimestep - partition_track%prev_reorient_tstep)
-                  partition_track%mintstep_bn_reorient = min(partition_track%mintstep_bn_reorient, itimestep - partition_track%prev_reorient_tstep)
+                  partition_track%maxtstep_bn_reorient = &
+                  max(partition_track%maxtstep_bn_reorient, itimestep - partition_track%prev_reorient_tstep)
+                  partition_track%mintstep_bn_reorient = &
+                  min(partition_track%mintstep_bn_reorient, itimestep - partition_track%prev_reorient_tstep)
                end if
                partition_track%prev_reorient_tstep = itimestep
                partition_track%n_reorients = partition_track%n_reorients + 1
@@ -96,7 +96,8 @@ contains
             gridind_ini(:, 2) = ngridx(:)
             procrange_ini(1) = 0
             procrange_ini(2) = numprocs - 1
-            bounds_out = ORB_bounds(procid,gridind_ini, numprocs, 1, procrange_ini, ntotal, dcell, mingridx_ini, maxgridx_ini)
+            bounds_out = ORB_bounds(procid,repartition_mode,gridind_ini, numprocs, 1, procrange_ini, ntotal, dcell, mingridx_ini, &
+            maxgridx_ini)
             
             call subdomain_neighbour(procid,numprocs)
 
@@ -119,7 +120,7 @@ contains
       t_dist = t_dist - MPI_WTIME() ! commence timing of particle distribution
 
       ! physical particle distribution
-      call ORB_sendrecv_diffuse(procid, n_request, request_phys, nphys_recv_all)
+      call ORB_sendrecv_diffuse(procid, repartition_mode, n_request, request_phys, nphys_recv_all)
 
       ! halo particle distribution
       call ORB_sendrecv_halo(procid,request_phys, request_halo, nphys_recv_all, n_request)
@@ -250,15 +251,15 @@ contains
    end subroutine particle_grid
 
    !==============================================================================================================================
-   recursive function ORB_bounds(procid,gridind_in, nprocs_in, node_in, procrange_in, ntotal_in, dcell, mingridx_in, maxgridx_in) &
-      result(bounds_out)
+   recursive function ORB_bounds(procid,repartition_mode,gridind_in, nprocs_in, node_in, procrange_in, ntotal_in, dcell, &
+   mingridx_in, maxgridx_in)       result(bounds_out)
       ! Recursive function that performs the 'bisection' part of the ORB algorithm
 
-      use globvar_para, only: leaf_node, bounds_glob
+      use globvar_para, only: bounds_glob
       use param_para, only: bound_extend
 
       implicit none
-      integer, intent(in):: procid,gridind_in(dim, 2), node_in, nprocs_in, procrange_in(2), ntotal_in
+      integer, intent(in):: procid,gridind_in(dim, 2), node_in, nprocs_in, procrange_in(2), ntotal_in, repartition_mode
       real(f), intent(in):: mingridx_in(dim), maxgridx_in(dim), dcell
       integer:: i, node_out, gridind_out(dim, 2), nprocs_out, ntotal_out, procrange_out(2), n_p, cax, np_per_node, pincol, &
                 ngridx_trim(dim), A(3), procrange_lo(2), procrange_hi(2),ierr
@@ -271,9 +272,9 @@ contains
          if ((A(1) .le. A(2)) .and. (A(1) .le. A(3))) cax = 1
          if ((A(2) .le. A(1)) .and. (A(2) .le. A(3))) cax = 2
          if ((A(3) .le. A(1)) .and. (A(3) .le. A(2))) cax = 3
-         tree%node_cax(node_in) = cax
+         node_cax(node_in) = cax
       else
-         cax = tree%node_cax(node_in)
+         cax = node_cax(node_in)
       end if
 
       !cut location -------------------------------------------------------------------------------------------------------------
@@ -333,15 +334,14 @@ contains
 
       !travelling to child node/saving boundary information ---------------------------------------------------------------------
       if (nprocs_out .ne. 1) then
-         bounds_out = ORB_bounds(procid,gridind_out, nprocs_out, node_out, procrange_out, ntotal_out, dcell, mingridx_in, &
-         maxgridx_in)
+         bounds_out = ORB_bounds(procid,repartition_mode,gridind_out, nprocs_out, node_out, procrange_out, ntotal_out, dcell, &
+         mingridx_in,        maxgridx_in)
       else
-         leaf_node = node_out
 
          bounds_out(1:dim) = mingridx_in(:) + (gridind_out(:, 1) - 1)*dcell
          bounds_out(dim + 1:2*dim) = mingridx_in(:) + gridind_out(:, 2)*dcell
 
-         if (repartition_mode .eq. 3) call potential_neighbour_process_search(leaf_node)
+         if (repartition_mode .eq. 3) call potential_neighbour_process_search(node_out)
 
          if (node_cut(1) .eq. 0) bounds_out(4) = bounds_out(4) + bound_extend*scale_k*hsml
          if (node_cut(2) .eq. 0) bounds_out(1) = bounds_out(1) - bound_extend*scale_k*hsml
@@ -453,14 +453,14 @@ contains
 
          if (mod(ID_node, 2) .eq. 0) then
             ID_node = ID_node/2
-            if ((tree%node_cax(ID_node) .eq. 1) .and. (node_cut(1) .eq. 0)) node_cut(1) = ID_node !right face of process defined by 'parent'
-            if ((tree%node_cax(ID_node) .eq. 2) .and. (node_cut(3) .eq. 0)) node_cut(3) = ID_node !top face of process defined by 'parent'
-            if ((tree%node_cax(ID_node) .eq. 3) .and. (node_cut(5) .eq. 0)) node_cut(5) = ID_node !top face of process defined by 'parent'
+            if ((node_cax(ID_node) .eq. 1) .and. (node_cut(1) .eq. 0)) node_cut(1) = ID_node !right face of process defined by 'parent'
+            if ((node_cax(ID_node) .eq. 2) .and. (node_cut(3) .eq. 0)) node_cut(3) = ID_node !top face of process defined by 'parent'
+            if ((node_cax(ID_node) .eq. 3) .and. (node_cut(5) .eq. 0)) node_cut(5) = ID_node !top face of process defined by 'parent'
          else
             ID_node = (ID_node - 1)/2
-            if ((tree%node_cax(ID_node) .eq. 1) .and. (node_cut(2) .eq. 0)) node_cut(2) = ID_node !left of process defined by 'parent'
-            if ((tree%node_cax(ID_node) .eq. 2) .and. (node_cut(4) .eq. 0)) node_cut(4) = ID_node !bottom of process defined by 'parent'
-            if ((tree%node_cax(ID_node) .eq. 3) .and. (node_cut(6) .eq. 0)) node_cut(6) = ID_node !bottom face of process defined by 'parent'
+            if ((node_cax(ID_node) .eq. 1) .and. (node_cut(2) .eq. 0)) node_cut(2) = ID_node !left of process defined by 'parent'
+            if ((node_cax(ID_node) .eq. 2) .and. (node_cut(4) .eq. 0)) node_cut(4) = ID_node !bottom of process defined by 'parent'
+            if ((node_cax(ID_node) .eq. 3) .and. (node_cut(6) .eq. 0)) node_cut(6) = ID_node !bottom face of process defined by 'parent'
          end if
 
       end do

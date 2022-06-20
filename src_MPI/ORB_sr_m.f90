@@ -14,14 +14,12 @@ module ORB_sr_m
 contains
 
    !==============================================================================================================================
-   subroutine ORB_sendrecv_diffuse(procid, nrequest, request, n_recv_all)
+   subroutine ORB_sendrecv_diffuse(procid, repartition_mode, nrequest, request, n_recv_all)
       ! Recursive function to exchange physical particles. In cases were subdomain boundaries are updated, the possibility of needing
       ! diffusion is considered
 
-      use globvar_para, only: repartition_mode
-
       implicit none
-      integer, intent(in):: procid
+      integer, intent(in):: procid, repartition_mode
       integer, intent(out):: nrequest,n_recv_all
       type(MPI_Request), intent(out):: request(:)
       integer:: d, i, j, pid, n, pos_recv, ierr
@@ -174,7 +172,7 @@ contains
          
                entrydepth = entrydepth + 1
                searchrange = [ntotal_loc + 1, ntotal_loc + n_recv_all]
-               ! diffusion is occuring. Wait for ongoing comms to complete. Update ntotal_loc as required.
+               ! Update ntotal_loc as required.
                ntotal_loc = ntotal_loc + n_recv_all
                deallocate (PhysPackSend,removal_list)
             end if

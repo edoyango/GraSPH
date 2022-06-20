@@ -17,7 +17,7 @@ module globvar_para
    type(particles), allocatable, public:: PhysPackSend(:, :)
 
    !ORB variables --------------------------------------------------------------------------------------------------------------------
-   integer, public:: maxnode, n_process_neighbour, leaf_node, repartition_mode
+   integer, public:: maxnode, n_process_neighbour
    integer, allocatable, public:: node_cax(:), proc_neighbour_list(:), node_cut(:), &
                                   halo_pindex(:, :)
    real(f), allocatable, public:: bounds_glob(:, :)
@@ -34,6 +34,13 @@ module globvar_para
       integer:: mintstep_bn_part = HUGE(1), mintstep_bn_reorient = HUGE(1), maxtstep_bn_part = 0, maxtstep_bn_reorient = 0, &
                      prev_part_tstep, prev_reorient_tstep, n_parts = 0, n_reorients = 0
    end type partition_tracking
+   
+   type, public:: neighbour_data
+      integer:: pid, bounds(2*dim)
+      type(MPI_Datatype):: halotype_indexed, haloupdatetype_indexed
+      integer, allocatable:: nphys_send(:), nphys_recv(:), nhalo_send(:), nhalo_recv(:), halo_pindex(:)
+      type(particles), allocatable:: PhysPackSend(:)
+   end type neighbour_data
    
 contains
 
