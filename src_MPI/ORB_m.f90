@@ -1,14 +1,14 @@
 module ORB_m
 
    use globvar, only: scale_k, parts, ntotal_loc
-   use globvar_para, only: MPI_ftype, node_cax, node_cut, partition_tracking, neighbour_data
+   use globvar_para, only: MPI_ftype, node_cax, partition_tracking, neighbour_data
    use mpi_f08
    use param, only: f, dim, hsml
    
    private
    !Partition frequency variables
    real(f):: box_ratio_previous(dim,dim) = TINY(1.)
-   integer:: maxnode, prev_load
+   integer:: maxnode, prev_load, node_cut(2*dim)
    integer,allocatable:: pincell_ORB(:, :, :)
    type(partition_tracking):: partition_track
    type(neighbour_data),allocatable:: neighbours(:)
@@ -433,9 +433,6 @@ contains
 
       implicit none
       integer:: ID_node
-
-      !Initialization
-      if (.not. allocated(node_cut)) allocate (node_cut(2*dim))
 
       !finding nodes that define edge for current process
       node_cut(:) = 0

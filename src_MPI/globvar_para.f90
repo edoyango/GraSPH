@@ -10,11 +10,12 @@ module globvar_para
    ! derived MPI tpes
    type(MPI_Datatype):: MPI_ftype, parttype, halotype, haloupdatetype
 
-   !ORB variables --------------------------------------------------------------------------------------------------------------------
+   !ORB variables ------------------------------------------------------------------------------------------------------------------
    integer, public:: maxnode, n_process_neighbour
    integer, allocatable, public:: node_cax(:), node_cut(:)
    real(f), allocatable, public:: bounds_glob(:, :)
    
+   !types --------------------------------------------------------------------------------------------------------------------------
    type, public:: binary_tree
       integer:: maxnode
       integer,allocatable:: node_cax(:)
@@ -39,7 +40,8 @@ module globvar_para
    end type neighbour_data
    
 contains
-
+   
+   !================================================================================================================================
    subroutine allocate_tree_arrays(self,numprocs)
 
       implicit none
@@ -53,6 +55,7 @@ contains
       
    end subroutine allocate_tree_arrays
    
+   !================================================================================================================================
    subroutine Pack_PhysPart(self,particle)
    
       implicit none
@@ -64,15 +67,14 @@ contains
       
    end subroutine Pack_PhysPart
    
-   subroutine create_indexed_halotypes(self)!(self,halo_pindex,nhalo_send)
+   !================================================================================================================================
+   subroutine create_indexed_halotypes(self)
    
       implicit none
-      !integer,intent(in):: halo_pindex(:),nhalo_send
       class(neighbour_data),intent(inout):: self
       integer:: halo_pindex_0(self%nhalo_send), ones1D(self%nhalo_send), ierr
       
       ones1D(:) = 1
-      !halo_pindex_0(:) = self%halo_pindex(1:self%nhalo_send)-1
       halo_pindex_0(:) = self%halo_pindex(1:self%nhalo_send)-1
       
       call MPI_TYPE_INDEXED(self%nhalo_send, ones1D, halo_pindex_0, halotype, self%halotype_indexed, ierr)

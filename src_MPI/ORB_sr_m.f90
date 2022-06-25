@@ -274,7 +274,6 @@ contains
       ntotal_loc = ntotal_loc + nphys_recv_all
       parts(1:ntotal_loc)%indloc = (/(i, i=1, ntotal_loc)/) ! updating all the loca indices of new physical particles
 
-      !deallocate (PhysPackSend)
       do i = 1,n_process_neighbour
          deallocate(neighbours(i)%PhysPackSend)
       end do
