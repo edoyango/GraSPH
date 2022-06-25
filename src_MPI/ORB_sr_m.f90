@@ -1,7 +1,7 @@
 module ORB_sr_m
 
    use globvar, only: ntotal_loc, nhalo_loc, parts, maxnloc, itimestep, scale_k
-   use globvar_para, only: bounds_glob, n_process_neighbour, parttype, neighbour_data
+   use globvar_para, only: n_process_neighbour, parttype, neighbour_data
    use mpi_f08
    use param, only: f, dim, hsml
    !use error_msg_m, only: error_msg
@@ -13,12 +13,13 @@ module ORB_sr_m
 contains
 
    !==============================================================================================================================
-   subroutine ORB_sendrecv_diffuse(procid, repartition_mode, neighbours, nrequest, request, n_recv_all)
+   subroutine ORB_sendrecv_diffuse(procid, bounds_loc, repartition_mode, neighbours, nrequest, request, n_recv_all)
       ! Recursive function to exchange physical particles. In cases were subdomain boundaries are updated, the possibility of needing
       ! diffusion is considered
 
       implicit none
       integer, intent(in):: procid, repartition_mode
+      real(f), intent(in):: bounds_loc(2*dim)
       type(neighbour_data), intent(inout):: neighbours(:)
       integer, intent(out):: nrequest, n_recv_all
       type(MPI_Request), intent(out):: request(:)
@@ -35,8 +36,8 @@ contains
       diffuse = .true.
       entrydepth = 0
 
-      xmin_loc(:) = bounds_glob(1:dim, procid + 1)
-      xmax_loc(:) = bounds_glob(dim + 1:2*dim, procid + 1)
+      xmin_loc(:) = bounds_loc(1:dim)!bounds_glob(1:dim, procid + 1)
+      xmax_loc(:) = bounds_loc(dim+1:2*dim)!bounds_glob(dim + 1:2*dim, procid + 1)
 
       do while (diffuse)
 
@@ -190,7 +191,7 @@ contains
    end subroutine ORB_sendrecv_diffuse
 
    !==============================================================================================================================
-   subroutine ORB_sendrecv_halo(procid, neighbours, request_in, request_out, nphys_recv_all, nrequest)
+   subroutine ORB_sendrecv_halo(procid, bounds_loc, neighbours, request_in, request_out, nphys_recv_all, nrequest)
 
       !subroutine responsible for sending sending halo particle information between processes, given
       !predetermined subdomain boundaires.
@@ -200,6 +201,7 @@ contains
 
       implicit none
       integer, intent(in):: procid
+      real(f), intent(in):: bounds_loc(2*dim)
       type(neighbour_data), intent(inout):: neighbours(:)
       type(MPI_Request), intent(inout):: request_in(:)
       integer, intent(inout):: nphys_recv_all, nrequest
@@ -230,8 +232,8 @@ contains
       pos1 = ntotal_loc
 
       ! Begin search
-      xmin_loc = bounds_glob(1:dim, procid + 1) + scale_k*hsml
-      xmax_loc = bounds_glob(dim + 1:2*dim, procid + 1) - scale_k*hsml
+      xmin_loc = bounds_loc(1:dim) + scale_k*hsml!bounds_glob(1:dim, procid + 1) + scale_k*hsml
+      xmax_loc = bounds_loc(dim+1:2*dim) - scale_k*hsml!bounds_glob(dim + 1:2*dim, procid + 1) - scale_k*hsml
       do k = 1, maxloop
          do i = pos0, pos1
             xi(:) = parts(i)%x(:)

@@ -2,7 +2,6 @@ module input_m
 
    use datatypes, only: particles
    use globvar, only: ntotal, nvirt, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, scale_k, maxnloc
-   use globvar_para, only: bounds_glob
    use mpi_f08
    use param, only: dim, irho, dxo, f, hsml, mp, np, op, pp, qp, rp, nlayer
    !use error_msg_m, only: error_msg
@@ -81,12 +80,13 @@ contains
    end subroutine input
 
    !==============================================================================================================================
-   subroutine virt_part(procid, generate)
+   subroutine virt_part(procid, generate, bounds_loc)
       ! Generates the virtual particle configuration. Can change over time or remain static
       ! 2 cases: return only number of particles retrieved, or generating the particles
 
       implicit none
       integer, intent(in):: procid
+      real(f), intent(in):: bounds_loc(2*dim)
       integer:: i, j, k, n
       real(f):: xi(dim), xmin_loc(dim), xmax_loc(dim)
       logical, intent(in):: generate
@@ -99,8 +99,8 @@ contains
 
       case (.true.)
 
-         xmin_loc(:) = bounds_glob(1:dim, procid + 1) - scale_k*hsml
-         xmax_loc(:) = bounds_glob(dim + 1:2*dim, procid + 1) + scale_k*hsml
+         xmin_loc(:) = bounds_loc(1:dim) - scale_k*hsml!bounds_glob(1:dim, procid + 1) - scale_k*hsml
+         xmax_loc(:) = bounds_loc(dim+1:2*dim) + scale_k*hsml!bounds_glob(dim + 1:2*dim, procid + 1) + scale_k*hsml
 
          nvirt_loc = 0
          n = ntotal ! counter used to track particle indices

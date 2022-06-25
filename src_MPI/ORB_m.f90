@@ -7,7 +7,7 @@ module ORB_m
 
    private
    !Partition frequency variables
-   real(f):: box_ratio_previous(dim, dim) = TINY(1.)
+   real(f):: box_ratio_previous(dim, dim) = TINY(1.), bounds_loc(2*dim)
    integer:: maxnode, prev_load, node_cut(2*dim)
    integer, allocatable:: pincell_ORB(:, :, :)
    type(partition_tracking):: partition_track
@@ -20,7 +20,6 @@ contains
    subroutine ORB(procid, numprocs)
       ! Container subroutine for the bulk of the ORB algorithm, including the initial exchange of physical and halo particles
       use globvar, only: itimestep, ntotal, nhalo_loc, t_graph, t_dist
-      use globvar_para, only: bounds_glob
 
       use param_para, only: dcell_ORB, ORBcheck1, ORBcheck2, box_ratio_threshold
       use ORB_sr_m, only: ORB_sendrecv_diffuse, ORB_sendrecv_halo
@@ -31,7 +30,8 @@ contains
       real(f), parameter:: dcell = hsml*dcell_ORB
       integer:: d, i, ngridx(dim), nphys_recv_all, n_request, procrange_ini(2), tree_layers, &
                 gridind_ini(dim, 2), repartition_mode_loc, ierr, repartition_mode
-      real(f):: bounds_out(2*dim), mingridx_ini(dim), maxgridx_ini(dim), current_to_previous(dim, dim), box_ratio_current(dim, dim)
+      real(f):: bounds_glob(2*dim,numprocs), mingridx_ini(dim), maxgridx_ini(dim), current_to_previous(dim, dim), &
+      box_ratio_current(dim, dim)
       type(MPI_Status):: status(4*numprocs)
       type(MPI_Request):: request_phys(2*numprocs), request_halo(2*numprocs)
 
@@ -41,8 +41,7 @@ contains
          allocate (neighbours(numprocs))
          tree_layers = CEILING(LOG(DBLE(numprocs))/LOG(2d0))
          maxnode = 2*2**tree_layers - 1
-         allocate (bounds_glob(2*dim, numprocs), &
-                   node_cax(maxnode))
+         allocate (node_cax(maxnode))
       end if
 
       ! Boundary Determiniation Algorithm ---------------------------------------------------------------------------------------
@@ -99,7 +98,9 @@ contains
             bounds_glob = ORB_bounds(procid, numprocs, repartition_mode, gridind_ini, numprocs, 1, procrange_ini, ntotal, dcell, &
                                      mingridx_ini, maxgridx_ini)
 
-            call subdomain_neighbour(procid, numprocs)
+            call subdomain_neighbour(procid, numprocs, bounds_glob)
+            
+            bounds_loc(:) = bounds_glob(:,procid+1)
 
          end if
 
@@ -110,13 +111,13 @@ contains
       t_dist = t_dist - MPI_WTIME() ! commence timing of particle distribution
 
       ! physical particle distribution
-      call ORB_sendrecv_diffuse(procid, repartition_mode, neighbours, n_request, request_phys, nphys_recv_all)
+      call ORB_sendrecv_diffuse(procid, bounds_loc, repartition_mode, neighbours, n_request, request_phys, nphys_recv_all)
 
       ! halo particle distribution
-      call ORB_sendrecv_halo(procid, neighbours, request_phys, request_halo, nphys_recv_all, n_request)
+      call ORB_sendrecv_halo(procid, bounds_loc, neighbours, request_phys, request_halo, nphys_recv_all, n_request)
 
       ! update virtual particles
-      call virt_part(procid, .true.)
+      call virt_part(procid, .true., bounds_loc)
 
       if (repartition_mode .gt. 1) prev_load = ntotal_loc
 
@@ -245,7 +246,6 @@ contains
                                  dcell, mingridx_in, maxgridx_in) result(bounds_glob)
       ! Recursive function that performs the 'bisection' part of the ORB algorithm
 
-      !use globvar_para, only: bounds_glob
       use param_para, only: bound_extend
 
       implicit none
@@ -455,13 +455,14 @@ contains
    end subroutine potential_neighbour_process_search
 
    !==============================================================================================================================
-   subroutine subdomain_neighbour(procid, numprocs)
+   subroutine subdomain_neighbour(procid, numprocs, bounds_glob)
       !creates list of adjacent subdomains for the local subdomain by searching potential neighbours and seeing if they overlap
 
-      use globvar_para, only: n_process_neighbour, bounds_glob
+      use globvar_para, only: n_process_neighbour
 
       implicit none
       integer, intent(in):: procid, numprocs
+      real(f), intent(in):: bounds_glob(2*dim,numprocs)
       integer:: pid
       real(f):: bounds_loc_min(dim), bounds_loc_max(dim), bounds_rem_min(dim), bounds_rem_max(dim)
 

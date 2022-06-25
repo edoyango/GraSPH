@@ -13,7 +13,6 @@ module globvar_para
    !ORB variables ------------------------------------------------------------------------------------------------------------------
    integer, public:: maxnode, n_process_neighbour
    integer, allocatable, public:: node_cax(:), node_cut(:)
-   real(f), allocatable, public:: bounds_glob(:, :)
 
    !types --------------------------------------------------------------------------------------------------------------------------
    type, public:: binary_tree
