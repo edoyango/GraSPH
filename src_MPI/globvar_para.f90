@@ -9,17 +9,10 @@ module globvar_para
 
    ! derived MPI tpes
    type(MPI_Datatype):: MPI_ftype, parttype, halotype, haloupdatetype
-   type(MPI_Datatype), allocatable, public:: halotype_indexed(:), haloupdatetype_indexed(:)
-
-   ! particle send/recv arrays -------------------------------------------------------------------------------------------------------
-   integer, allocatable, public:: nphys_send(:), nphys_recv(:)
-   integer, allocatable, public:: nhalo_send(:), nhalo_recv(:)
-   type(particles), allocatable, public:: PhysPackSend(:, :)
 
    !ORB variables --------------------------------------------------------------------------------------------------------------------
    integer, public:: maxnode, n_process_neighbour
-   integer, allocatable, public:: node_cax(:), proc_neighbour_list(:), node_cut(:), &
-                                  halo_pindex(:, :)
+   integer, allocatable, public:: node_cax(:), node_cut(:)
    real(f), allocatable, public:: bounds_glob(:, :)
    
    type, public:: binary_tree

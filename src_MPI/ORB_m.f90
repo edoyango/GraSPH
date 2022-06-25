@@ -20,8 +20,7 @@ contains
    subroutine ORB(procid,numprocs)
       ! Container subroutine for the bulk of the ORB algorithm, including the initial exchange of physical and halo particles
       use globvar, only: itimestep, ntotal, nhalo_loc, t_graph, t_dist
-      use globvar_para, only: bounds_glob, nphys_send, nphys_recv, nhalo_send, nhalo_recv, halotype_indexed, &
-                              haloupdatetype_indexed, n_process_neighbour, proc_neighbour_list
+      use globvar_para, only: bounds_glob
 
       use param_para, only: dcell_ORB, ORBcheck1, ORBcheck2, box_ratio_threshold
       use ORB_sr_m, only: ORB_sendrecv_diffuse, ORB_sendrecv_halo
@@ -43,7 +42,6 @@ contains
          tree_layers = CEILING(LOG(DBLE(numprocs))/LOG(2d0))
          maxnode = 2*2**tree_layers - 1
          allocate (bounds_glob(2*dim, numprocs), &
-                   proc_neighbour_list(numprocs), &
                    node_cax(maxnode))
       end if
 
@@ -102,16 +100,6 @@ contains
             maxgridx_ini)
             
             call subdomain_neighbour(procid,numprocs)
-
-            ! Updating sizes of select arrays to account for potential changes in neighbour list size
-            if (itimestep .ne. 1) deallocate (nphys_send, nphys_recv, nhalo_send, nhalo_recv, halotype_indexed, &
-                                              haloupdatetype_indexed)
-            allocate (nphys_send(n_process_neighbour), &
-                      nphys_recv(n_process_neighbour), &
-                      nhalo_send(n_process_neighbour), &
-                      nhalo_recv(n_process_neighbour), &
-                      halotype_indexed(n_process_neighbour), &
-                      haloupdatetype_indexed(n_process_neighbour))
 
          end if
 
@@ -473,7 +461,7 @@ contains
    subroutine subdomain_neighbour(procid,numprocs)
       !creates list of adjacent subdomains for the local subdomain by searching potential neighbours and seeing if they overlap
 
-      use globvar_para, only: proc_neighbour_list, n_process_neighbour, bounds_glob
+      use globvar_para, only: n_process_neighbour, bounds_glob
 
       implicit none
       integer,intent(in):: procid,numprocs
@@ -493,7 +481,6 @@ contains
             n_process_neighbour = n_process_neighbour + 1
             neighbours(n_process_neighbour)%pid = pid-1
             neighbours(n_process_neighbour)%bounds(:) = bounds_glob(:,pid)
-            proc_neighbour_list(n_process_neighbour) = pid - 1
          end if
       end do neighboursearch
 
