@@ -1,7 +1,7 @@
 module ORB_m
 
    use globvar, only: scale_k, parts, ntotal_loc
-   use globvar_para, only: MPI_ftype, node_cax, node_cut, partition_tracking
+   use globvar_para, only: MPI_ftype, node_cax, node_cut, partition_tracking, neighbour_data
    use mpi_f08
    use param, only: f, dim, hsml
    
@@ -11,8 +11,9 @@ module ORB_m
    integer:: maxnode, prev_load
    integer,allocatable:: pincell_ORB(:, :, :)
    type(partition_tracking):: partition_track
+   type(neighbour_data),allocatable:: neighbours(:)
    
-   public:: ORB, partition_track
+   public:: ORB, partition_track, neighbours
 
 contains
    !==============================================================================================================================
@@ -38,6 +39,7 @@ contains
       !allocating partitioning arrays and initialising diagnostic variables -------------------------------------------------------------
       t_graph = t_graph - MPI_WTIME() ! commence timing of ORB algoirthm
       if (itimestep .eq. 1) then
+         allocate(neighbours(numprocs))
          tree_layers = CEILING(LOG(DBLE(numprocs))/LOG(2d0))
          maxnode = 2*2**tree_layers - 1
          allocate (bounds_glob(2*dim, numprocs), &
@@ -120,10 +122,10 @@ contains
       t_dist = t_dist - MPI_WTIME() ! commence timing of particle distribution
 
       ! physical particle distribution
-      call ORB_sendrecv_diffuse(procid, repartition_mode, n_request, request_phys, nphys_recv_all)
+      call ORB_sendrecv_diffuse(procid, repartition_mode,neighbours, n_request, request_phys, nphys_recv_all)
 
       ! halo particle distribution
-      call ORB_sendrecv_halo(procid,request_phys, request_halo, nphys_recv_all, n_request)
+      call ORB_sendrecv_halo(procid,neighbours,request_phys, request_halo, nphys_recv_all, n_request)
 
       ! update virtual particles
       call virt_part(procid,.true.)
@@ -489,6 +491,8 @@ contains
             ! if local and remote process' extended boundaries don't overlap, check next process
             if (any([bounds_rem_max(:) < bounds_loc_min(:), bounds_rem_min(:) > bounds_loc_max(:)])) cycle neighboursearch
             n_process_neighbour = n_process_neighbour + 1
+            neighbours(n_process_neighbour)%pid = pid-1
+            neighbours(n_process_neighbour)%bounds(:) = bounds_glob(:,pid)
             proc_neighbour_list(n_process_neighbour) = pid - 1
          end if
       end do neighboursearch

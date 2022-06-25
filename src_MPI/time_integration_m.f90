@@ -8,7 +8,7 @@ module time_integration_m
 
    use input_m, only: gind, generate_ghost_part, update_ghost_part
    use flink_list_m, only: flink_list
-   use ORB_m, only: ORB
+   use ORB_m, only: ORB,neighbours
    use ORB_sr_m, only: ORB_sendrecv_haloupdate
    use output_m, only: output
    use single_step_m, only: single_step
@@ -60,7 +60,7 @@ contains
             ! update halo particles after first increment
             if (ki > 1) then
                t_dist = t_dist - MPI_WTIME()
-               call ORB_sendrecv_haloupdate(ki)
+               call ORB_sendrecv_haloupdate(ki,neighbours)
                t_dist = t_dist + MPI_WTIME()
             end if
             
