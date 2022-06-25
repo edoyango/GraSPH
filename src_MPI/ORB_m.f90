@@ -9,7 +9,6 @@ module ORB_m
    !Partition frequency variables
    real(f):: box_ratio_previous(dim, dim) = TINY(1.), bounds_loc(2*dim)
    integer:: maxnode, prev_load, node_cut(2*dim)
-   integer, allocatable:: pincell_ORB(:, :, :)
    type(partition_tracking):: partition_track
    type(neighbour_data), allocatable:: neighbours(:)
 
@@ -34,6 +33,7 @@ contains
       box_ratio_current(dim, dim)
       type(MPI_Status):: status(4*numprocs)
       type(MPI_Request):: request_phys(2*numprocs), request_halo(2*numprocs)
+      integer, allocatable:: pincell_ORB(:, :, :)
 
       !allocating partitioning arrays and initialising diagnostic variables -------------------------------------------------------------
       t_graph = t_graph - MPI_WTIME() ! commence timing of ORB algoirthm
@@ -67,7 +67,7 @@ contains
             partition_track%prev_part_tstep = itimestep
 
             ! Creating particle-in-cell grid
-            call particle_grid(numprocs, ngridx, dcell, mingridx_ini, maxgridx_ini)
+            call particle_grid(numprocs, ngridx, dcell, mingridx_ini, maxgridx_ini, pincell_ORB)
 
             ! Calculating current aspect ratio.
             do d = 1, dim
@@ -95,12 +95,14 @@ contains
             gridind_ini(:, 2) = ngridx(:)
             procrange_ini(1) = 0
             procrange_ini(2) = numprocs - 1
-            bounds_glob = ORB_bounds(procid, numprocs, repartition_mode, gridind_ini, numprocs, 1, procrange_ini, ntotal, dcell, &
-                                     mingridx_ini, maxgridx_ini)
+            bounds_glob = ORB_bounds(procid, numprocs, repartition_mode, gridind_ini, numprocs, 1, procrange_ini, ntotal, &
+            pincell_ORB, dcell,                                      mingridx_ini, maxgridx_ini)
 
             call subdomain_neighbour(procid, numprocs, bounds_glob)
             
             bounds_loc(:) = bounds_glob(:,procid+1)
+            
+            deallocate (pincell_ORB)
 
          end if
 
@@ -134,7 +136,7 @@ contains
    end subroutine ORB
 
    !==============================================================================================================================
-   subroutine particle_grid(numprocs, ngridx, dcell, mingridx, maxgridx)
+   subroutine particle_grid(numprocs, ngridx, dcell, mingridx, maxgridx, pincell_ORB)
       ! Subroutine to create a uniform rectangular grid with square cells, and counting the number of particles contained within each
       ! cell. Each MPI process holds a global copy of the entire grid, in preperation for ORB
 
@@ -143,6 +145,7 @@ contains
       real(f), intent(in):: dcell
       integer, intent(out):: ngridx(:)
       real(f), intent(out):: mingridx(:), maxgridx(:)
+      integer, allocatable, intent(out):: pincell_ORB(:,:,:)
       integer:: i, d, icell, jcell, kcell, n_nonzerocells, n_nonzerocells_perprocess(numprocs), n_nonzerocells_total, pid, &
                 displ(numprocs), cellmins(3), cellmaxs(3), cellrange(3), ierr
       real(f):: minx(3), maxx(3)
@@ -243,13 +246,14 @@ contains
 
    !==============================================================================================================================
    recursive function ORB_bounds(procid, numprocs, repartition_mode, gridind_in, nprocs_in, node_in, procrange_in, ntotal_in, &
-                                 dcell, mingridx_in, maxgridx_in) result(bounds_glob)
+                                 pincell_ORB, dcell, mingridx_in, maxgridx_in) result(bounds_glob)
       ! Recursive function that performs the 'bisection' part of the ORB algorithm
 
       use param_para, only: bound_extend
 
       implicit none
-      integer, intent(in):: procid, numprocs, gridind_in(dim, 2), node_in, nprocs_in, procrange_in(2), ntotal_in, repartition_mode
+      integer, intent(in):: procid, numprocs, gridind_in(dim, 2), node_in, nprocs_in, procrange_in(2), ntotal_in, &
+      repartition_mode, pincell_ORB(:,:,:)
       real(f), intent(in):: mingridx_in(dim), maxgridx_in(dim), dcell
       integer:: i, node_out, gridind_out(dim, 2), nprocs_out, ntotal_out, procrange_out(2), n_p, cax, np_per_node, pincol, &
                 ngridx_trim(dim), A(3), procrange_lo(2), procrange_hi(2), ierr
@@ -257,7 +261,7 @@ contains
 
       !determining cut axis. 1 = x, 2 = y ---------------------------------------------------------------------------------------
       if (repartition_mode .eq. 3) then
-         call P_trim(gridind_in, ngridx_trim)
+         call P_trim(gridind_in, ngridx_trim, pincell_ORB)
          A(1) = ngridx_trim(2)*ngridx_trim(3); A(2) = ngridx_trim(1)*ngridx_trim(3); A(3) = ngridx_trim(1)*ngridx_trim(2)
          if ((A(1) .le. A(2)) .and. (A(1) .le. A(3))) cax = 1
          if ((A(2) .le. A(1)) .and. (A(2) .le. A(3))) cax = 2
@@ -325,7 +329,7 @@ contains
       !travelling to child node/saving boundary information ---------------------------------------------------------------------
       if (nprocs_out .ne. 1) then
          bounds_glob = ORB_bounds(procid, numprocs, repartition_mode, gridind_out, nprocs_out, node_out, procrange_out, &
-                                  ntotal_out, dcell, mingridx_in, maxgridx_in)
+                                  ntotal_out, pincell_ORB, dcell, mingridx_in, maxgridx_in)
       else
 
          bounds_out(1:dim) = mingridx_in(:) + (gridind_out(:, 1) - 1)*dcell
@@ -342,18 +346,16 @@ contains
 
          call MPI_ALLGATHER(bounds_out, 2*dim, MPI_ftype, bounds_glob, 2*dim, MPI_ftype, MPI_COMM_WORLD, ierr)
 
-         deallocate (pincell_ORB)
-
       end if
 
    end function ORB_bounds
 
    !==============================================================================================================================
-   subroutine P_trim(gridind_in, ngridx_trim)
+   subroutine P_trim(gridind_in, ngridx_trim, pincell_ORB)
       ! Trims particle-in-cell grid so as to obtain minimal bounding boxes to obtain accurate cut axis orientations
 
       implicit none
-      integer, intent(in):: gridind_in(dim, 2)
+      integer, intent(in):: gridind_in(dim, 2), pincell_ORB(:,:,:)
       integer, intent(out):: ngridx_trim(dim)
       integer:: i, j, k, newi(2), newj(2), newk(2), oldi(2), oldj(2), oldk(2)
 

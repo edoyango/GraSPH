@@ -18,7 +18,6 @@ module globvar_para
    type, public:: binary_tree
       integer:: maxnode
       integer, allocatable:: node_cax(:)
-      real(f), allocatable:: bounds_glob(:, :)
    contains
       procedure:: allocate_tree_arrays
    end type binary_tree
@@ -50,7 +49,7 @@ contains
 
       tree_layers = CEILING(LOG(DBLE(numprocs))/LOG(2d0))
       self%maxnode = 2*2**tree_layers - 1
-      allocate (self%bounds_glob(2*dim, numprocs), self%node_cax(maxnode))
+      allocate (self%node_cax(maxnode))
 
    end subroutine allocate_tree_arrays
 

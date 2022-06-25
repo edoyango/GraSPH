@@ -99,8 +99,8 @@ contains
 
       case (.true.)
 
-         xmin_loc(:) = bounds_loc(1:dim) - scale_k*hsml!bounds_glob(1:dim, procid + 1) - scale_k*hsml
-         xmax_loc(:) = bounds_loc(dim+1:2*dim) + scale_k*hsml!bounds_glob(dim + 1:2*dim, procid + 1) + scale_k*hsml
+         xmin_loc(:) = bounds_loc(1:dim) - scale_k*hsml
+         xmax_loc(:) = bounds_loc(dim+1:2*dim) + scale_k*hsml
 
          nvirt_loc = 0
          n = ntotal ! counter used to track particle indices

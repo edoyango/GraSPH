@@ -36,8 +36,8 @@ contains
       diffuse = .true.
       entrydepth = 0
 
-      xmin_loc(:) = bounds_loc(1:dim)!bounds_glob(1:dim, procid + 1)
-      xmax_loc(:) = bounds_loc(dim+1:2*dim)!bounds_glob(dim + 1:2*dim, procid + 1)
+      xmin_loc(:) = bounds_loc(1:dim)
+      xmax_loc(:) = bounds_loc(dim+1:2*dim)
 
       do while (diffuse)
 
@@ -232,8 +232,8 @@ contains
       pos1 = ntotal_loc
 
       ! Begin search
-      xmin_loc = bounds_loc(1:dim) + scale_k*hsml!bounds_glob(1:dim, procid + 1) + scale_k*hsml
-      xmax_loc = bounds_loc(dim+1:2*dim) - scale_k*hsml!bounds_glob(dim + 1:2*dim, procid + 1) - scale_k*hsml
+      xmin_loc = bounds_loc(1:dim) + scale_k*hsml
+      xmax_loc = bounds_loc(dim+1:2*dim) - scale_k*hsml
       do k = 1, maxloop
          do i = pos0, pos1
             xi(:) = parts(i)%x(:)
