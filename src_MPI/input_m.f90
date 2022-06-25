@@ -20,12 +20,12 @@ module input_m
 contains
 
    !==============================================================================================================================
-   subroutine input(procid,numprocs,generate)
+   subroutine input(procid, numprocs, generate)
       ! Generates initial physical particle configuration.
       ! 2 cases: return only number of particles retrieved, or generating the particles
 
       implicit none
-      integer,intent(in):: procid,numprocs
+      integer, intent(in):: procid, numprocs
       logical, intent(in):: generate
       integer:: i, j, k, n, n_loc, n_loc_i, n_start, n_done
 
@@ -74,19 +74,19 @@ contains
             end do
          end do
 
-         call write_ini_config(procid,numprocs)
+         call write_ini_config(procid, numprocs)
 
       end select
 
    end subroutine input
 
    !==============================================================================================================================
-   subroutine virt_part(procid,generate)
+   subroutine virt_part(procid, generate)
       ! Generates the virtual particle configuration. Can change over time or remain static
       ! 2 cases: return only number of particles retrieved, or generating the particles
 
       implicit none
-      integer,intent(in):: procid
+      integer, intent(in):: procid
       integer:: i, j, k, n
       real(f):: xi(dim), xmin_loc(dim), xmax_loc(dim)
       logical, intent(in):: generate
@@ -131,12 +131,12 @@ contains
    end subroutine virt_part
 
    !==============================================================================================================================
-   pure subroutine generate_ghost_part(ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc,parts,gind)
+   pure subroutine generate_ghost_part(ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, gind)
 
       implicit none
-      integer,intent(in):: ntotal_loc,nhalo_loc,nvirt_loc
-      type(particles),intent(inout):: parts(:)
-      integer,intent(out):: nghos_loc,gind(:)
+      integer, intent(in):: ntotal_loc, nhalo_loc, nvirt_loc
+      type(particles), intent(inout):: parts(:)
+      integer, intent(out):: nghos_loc, gind(:)
       integer:: i, ig
 
       nghos_loc = 0
@@ -235,11 +235,11 @@ contains
    end subroutine generate_ghost_part
 
    !==============================================================================================================================
-   pure subroutine update_ghost_part(ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc,parts)
+   pure subroutine update_ghost_part(ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts)
 
       implicit none
-      integer,intent(in):: ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc
-      type(particles),intent(inout):: parts(:)
+      integer, intent(in):: ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc
+      type(particles), intent(inout):: parts(:)
       integer:: i, ig, ir
 
       do i = 1, nghos_loc

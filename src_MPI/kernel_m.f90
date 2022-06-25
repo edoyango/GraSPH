@@ -1,7 +1,7 @@
 module kernel_m
 
    use param, only: f
-   
+
    private
    public:: kernel, kernel_k
 

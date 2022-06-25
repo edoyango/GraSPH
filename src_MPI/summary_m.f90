@@ -31,11 +31,11 @@ contains
    end subroutine time_print
 
    !==============================================================================================================================
-   subroutine preamble(procid,numprocs)
+   subroutine preamble(procid, numprocs)
       ! Prints preamble information to terminal and checks that maxtimestep, print_step, save_step have been supplied
 
       implicit none
-      integer,intent(in):: procid,numprocs
+      integer, intent(in):: procid, numprocs
       integer:: ierr
       character(len=100):: args(3)
 
@@ -70,12 +70,12 @@ contains
    end subroutine preamble
 
    !==============================================================================================================================
-   subroutine print_summary(procid,numprocs)
+   subroutine print_summary(procid, numprocs)
       ! Obtains and prints final MPI summary data e.g. number of partitions, cut axes reorientations, and average wall-times (broken
       ! down)
       use ORB_m, only: partition_track
       implicit none
-      integer,intent(in):: procid,numprocs
+      integer, intent(in):: procid, numprocs
       integer:: ierr
       double precision:: cputime_total, t_graph_total, t_dist_total, output_time_total
 
@@ -90,7 +90,7 @@ contains
          output_time = output_time/numprocs
 
          write (*, '(A79)') '================================= TIME SUMMARY ================================'
-         write (*, '(A29,F14.7)') 'Average Total CPU time (s) = ', cputime+t_graph+t_dist+output_time
+         write (*, '(A29,F14.7)') 'Average Total CPU time (s) = ', cputime + t_graph + t_dist + output_time
          write (*, '(A29,F14.7)') 'Average Partition time (s) = ', t_graph
          write (*, '(A29,F14.7)') 'Average Send/recv time (s) = ', t_dist
          write (*, '(A29,F14.7)') 'Average Output time (s) =    ', output_time
@@ -101,8 +101,8 @@ contains
             write (*, '(A42)') '    Max Timesteps B/N Partitions =     N/A'
             write (*, '(A42)') '    Min Timesteps B/N Partitions =     N/A'
          else
-            write (*, '(A35,I7)') '    Avg Timesteps B/N Partitions = ', (partition_track%prev_part_tstep - 1)/&
-            (partition_track%n_parts - 1)
+            write (*, '(A35,I7)') '    Avg Timesteps B/N Partitions = ', (partition_track%prev_part_tstep - 1)/ &
+               (partition_track%n_parts - 1)
             write (*, '(A35,I7)') '    Max Timesteps B/N Partitions = ', partition_track%maxtstep_bn_part
             write (*, '(A35,I7)') '    Min Timesteps B/N Partitions = ', partition_track%mintstep_bn_part
          end if
@@ -115,8 +115,8 @@ contains
             write (*, '(A42)') 'Max Timesteps B/N Reorientations =     N/A'
             write (*, '(A42)') 'Min Timesteps B/N Reorientations =     N/A'
          else
-            write (*, '(A35,I7)') 'Avg Timesteps B/N Reorientations = ', (partition_track%prev_reorient_tstep - 1)/&
-            (partition_track%n_reorients - 1)
+            write (*, '(A35,I7)') 'Avg Timesteps B/N Reorientations = ', (partition_track%prev_reorient_tstep - 1)/ &
+               (partition_track%n_reorients - 1)
             write (*, '(A35,I7)') 'Max Timesteps B/N Reorientations = ', partition_track%maxtstep_bn_reorient
             write (*, '(A35,I7)') 'Min Timesteps B/N Reorientations = ', partition_track%mintstep_bn_reorient
          end if
@@ -130,11 +130,11 @@ contains
    end subroutine print_summary
 
    !==================================================================================================================================
-   subroutine print_loadbalance(procid,numprocs)
+   subroutine print_loadbalance(procid, numprocs)
       ! Prints load balance statistics. Called occasionally as determined by print_step
 
       implicit none
-      integer,intent(in):: procid,numprocs
+      integer, intent(in):: procid, numprocs
       integer:: i, n_glob(numprocs, 4), min_n(4), max_n(4), mean_n(4), stdev_n(4), ierr
       type(MPI_Request):: request(4)
       type(MPI_Status):: status(MPI_STATUS_SIZE*4)

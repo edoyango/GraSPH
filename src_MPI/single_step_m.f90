@@ -1,15 +1,15 @@
 module single_step_m
 
-   use datatypes, only: particles,interactions
+   use datatypes, only: particles, interactions
    use input_m, only: virt_mirror
-   
+
    private
    public:: single_step
 
 contains
 
    !==============================================================================================================================
-   pure subroutine single_step(ki, ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc,parts,niac,pairs,dvxdti, drhoi)
+   pure subroutine single_step(ki, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, niac, pairs, dvxdti, drhoi)
       ! Container subroutine for all the rate-of-change calculations. Rate-of-changes are calculated seperately and then summed as
       ! required
 
@@ -20,9 +20,9 @@ contains
       use ORB_sr_m, only: ORB_sendrecv_haloupdate
 
       implicit none
-      integer, intent(in):: ki,niac,ntotal_loc,nhalo_loc,nvirt_loc,nghos_loc
-      type(particles),intent(inout):: parts(:)
-      type(interactions),intent(in):: pairs(:)
+      integer, intent(in):: ki, niac, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc
+      type(particles), intent(inout):: parts(:)
+      type(interactions), intent(in):: pairs(:)
       real(f), intent(out):: dvxdti(dim, ntotal_loc), drhoi(ntotal_loc)
       integer:: i, j, k
       real(f), allocatable:: indvxdt(:, :), ardvxdt(:, :), exdvxdt(:, :), codrhodt(:)
@@ -39,7 +39,7 @@ contains
       exdvxdt(dim, 1:ntotal_loc) = -g
 
       do k = 1, niac
-         
+
          i = pairs(k)%i
          j = pairs(k)%j
 

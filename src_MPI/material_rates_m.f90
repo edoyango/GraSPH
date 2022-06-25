@@ -2,7 +2,7 @@ module material_rates_m
 
    use datatypes, only: particles
    use param, only: mass, dim, f
-   
+
    private
    public:: art_visc, ext_force, int_force, con_density
 

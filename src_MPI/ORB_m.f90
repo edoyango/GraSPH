@@ -4,20 +4,20 @@ module ORB_m
    use globvar_para, only: MPI_ftype, node_cax, partition_tracking, neighbour_data
    use mpi_f08
    use param, only: f, dim, hsml
-   
+
    private
    !Partition frequency variables
-   real(f):: box_ratio_previous(dim,dim) = TINY(1.)
+   real(f):: box_ratio_previous(dim, dim) = TINY(1.)
    integer:: maxnode, prev_load, node_cut(2*dim)
-   integer,allocatable:: pincell_ORB(:, :, :)
+   integer, allocatable:: pincell_ORB(:, :, :)
    type(partition_tracking):: partition_track
-   type(neighbour_data),allocatable:: neighbours(:)
-   
+   type(neighbour_data), allocatable:: neighbours(:)
+
    public:: ORB, partition_track, neighbours
 
 contains
    !==============================================================================================================================
-   subroutine ORB(procid,numprocs)
+   subroutine ORB(procid, numprocs)
       ! Container subroutine for the bulk of the ORB algorithm, including the initial exchange of physical and halo particles
       use globvar, only: itimestep, ntotal, nhalo_loc, t_graph, t_dist
       use globvar_para, only: bounds_glob
@@ -27,10 +27,10 @@ contains
       use input_m, only: virt_part
 
       implicit none
-      integer,intent(in):: procid,numprocs
+      integer, intent(in):: procid, numprocs
       real(f), parameter:: dcell = hsml*dcell_ORB
       integer:: d, i, ngridx(dim), nphys_recv_all, n_request, procrange_ini(2), tree_layers, &
-                gridind_ini(dim, 2), repartition_mode_loc,ierr,repartition_mode
+                gridind_ini(dim, 2), repartition_mode_loc, ierr, repartition_mode
       real(f):: bounds_out(2*dim), mingridx_ini(dim), maxgridx_ini(dim), current_to_previous(dim, dim), box_ratio_current(dim, dim)
       type(MPI_Status):: status(4*numprocs)
       type(MPI_Request):: request_phys(2*numprocs), request_halo(2*numprocs)
@@ -38,7 +38,7 @@ contains
       !allocating partitioning arrays and initialising diagnostic variables -------------------------------------------------------------
       t_graph = t_graph - MPI_WTIME() ! commence timing of ORB algoirthm
       if (itimestep .eq. 1) then
-         allocate(neighbours(numprocs))
+         allocate (neighbours(numprocs))
          tree_layers = CEILING(LOG(DBLE(numprocs))/LOG(2d0))
          maxnode = 2*2**tree_layers - 1
          allocate (bounds_glob(2*dim, numprocs), &
@@ -68,7 +68,7 @@ contains
             partition_track%prev_part_tstep = itimestep
 
             ! Creating particle-in-cell grid
-            call particle_grid(numprocs,ngridx, dcell, mingridx_ini, maxgridx_ini)
+            call particle_grid(numprocs, ngridx, dcell, mingridx_ini, maxgridx_ini)
 
             ! Calculating current aspect ratio.
             do d = 1, dim
@@ -83,9 +83,9 @@ contains
                box_ratio_previous(:, :) = box_ratio_current(:, :)
                if (itimestep .ne. 1) then
                   partition_track%maxtstep_bn_reorient = &
-                  max(partition_track%maxtstep_bn_reorient, itimestep - partition_track%prev_reorient_tstep)
+                     max(partition_track%maxtstep_bn_reorient, itimestep - partition_track%prev_reorient_tstep)
                   partition_track%mintstep_bn_reorient = &
-                  min(partition_track%mintstep_bn_reorient, itimestep - partition_track%prev_reorient_tstep)
+                     min(partition_track%mintstep_bn_reorient, itimestep - partition_track%prev_reorient_tstep)
                end if
                partition_track%prev_reorient_tstep = itimestep
                partition_track%n_reorients = partition_track%n_reorients + 1
@@ -96,10 +96,10 @@ contains
             gridind_ini(:, 2) = ngridx(:)
             procrange_ini(1) = 0
             procrange_ini(2) = numprocs - 1
-            bounds_out = ORB_bounds(procid,repartition_mode,gridind_ini, numprocs, 1, procrange_ini, ntotal, dcell, mingridx_ini, &
-            maxgridx_ini)
-            
-            call subdomain_neighbour(procid,numprocs)
+            bounds_glob = ORB_bounds(procid, numprocs, repartition_mode, gridind_ini, numprocs, 1, procrange_ini, ntotal, dcell, &
+                                     mingridx_ini, maxgridx_ini)
+
+            call subdomain_neighbour(procid, numprocs)
 
          end if
 
@@ -110,13 +110,13 @@ contains
       t_dist = t_dist - MPI_WTIME() ! commence timing of particle distribution
 
       ! physical particle distribution
-      call ORB_sendrecv_diffuse(procid, repartition_mode,neighbours, n_request, request_phys, nphys_recv_all)
+      call ORB_sendrecv_diffuse(procid, repartition_mode, neighbours, n_request, request_phys, nphys_recv_all)
 
       ! halo particle distribution
-      call ORB_sendrecv_halo(procid,neighbours,request_phys, request_halo, nphys_recv_all, n_request)
+      call ORB_sendrecv_halo(procid, neighbours, request_phys, request_halo, nphys_recv_all, n_request)
 
       ! update virtual particles
-      call virt_part(procid,.true.)
+      call virt_part(procid, .true.)
 
       if (repartition_mode .gt. 1) prev_load = ntotal_loc
 
@@ -133,17 +133,17 @@ contains
    end subroutine ORB
 
    !==============================================================================================================================
-   subroutine particle_grid(numprocs,ngridx, dcell, mingridx, maxgridx)
+   subroutine particle_grid(numprocs, ngridx, dcell, mingridx, maxgridx)
       ! Subroutine to create a uniform rectangular grid with square cells, and counting the number of particles contained within each
       ! cell. Each MPI process holds a global copy of the entire grid, in preperation for ORB
 
       implicit none
-      integer,intent(in):: numprocs
+      integer, intent(in):: numprocs
       real(f), intent(in):: dcell
       integer, intent(out):: ngridx(:)
       real(f), intent(out):: mingridx(:), maxgridx(:)
       integer:: i, d, icell, jcell, kcell, n_nonzerocells, n_nonzerocells_perprocess(numprocs), n_nonzerocells_total, pid, &
-                displ(numprocs), cellmins(3), cellmaxs(3), cellrange(3),ierr
+                displ(numprocs), cellmins(3), cellmaxs(3), cellrange(3), ierr
       real(f):: minx(3), maxx(3)
       integer:: sendcount, recvcount(numprocs), Plist_size
       integer, allocatable:: Plist_loc(:, :), Plist_all(:, :)
@@ -241,19 +241,19 @@ contains
    end subroutine particle_grid
 
    !==============================================================================================================================
-   recursive function ORB_bounds(procid,repartition_mode,gridind_in, nprocs_in, node_in, procrange_in, ntotal_in, dcell, &
-   mingridx_in, maxgridx_in)       result(bounds_out)
+   recursive function ORB_bounds(procid, numprocs, repartition_mode, gridind_in, nprocs_in, node_in, procrange_in, ntotal_in, &
+                                 dcell, mingridx_in, maxgridx_in) result(bounds_glob)
       ! Recursive function that performs the 'bisection' part of the ORB algorithm
 
-      use globvar_para, only: bounds_glob
+      !use globvar_para, only: bounds_glob
       use param_para, only: bound_extend
 
       implicit none
-      integer, intent(in):: procid,gridind_in(dim, 2), node_in, nprocs_in, procrange_in(2), ntotal_in, repartition_mode
+      integer, intent(in):: procid, numprocs, gridind_in(dim, 2), node_in, nprocs_in, procrange_in(2), ntotal_in, repartition_mode
       real(f), intent(in):: mingridx_in(dim), maxgridx_in(dim), dcell
       integer:: i, node_out, gridind_out(dim, 2), nprocs_out, ntotal_out, procrange_out(2), n_p, cax, np_per_node, pincol, &
-                ngridx_trim(dim), A(3), procrange_lo(2), procrange_hi(2),ierr
-      real(f):: bounds_out(2*dim)
+                ngridx_trim(dim), A(3), procrange_lo(2), procrange_hi(2), ierr
+      real(f):: bounds_out(2*dim), bounds_glob(2*dim, numprocs)
 
       !determining cut axis. 1 = x, 2 = y ---------------------------------------------------------------------------------------
       if (repartition_mode .eq. 3) then
@@ -324,8 +324,8 @@ contains
 
       !travelling to child node/saving boundary information ---------------------------------------------------------------------
       if (nprocs_out .ne. 1) then
-         bounds_out = ORB_bounds(procid,repartition_mode,gridind_out, nprocs_out, node_out, procrange_out, ntotal_out, dcell, &
-         mingridx_in,        maxgridx_in)
+         bounds_glob = ORB_bounds(procid, numprocs, repartition_mode, gridind_out, nprocs_out, node_out, procrange_out, &
+                                  ntotal_out, dcell, mingridx_in, maxgridx_in)
       else
 
          bounds_out(1:dim) = mingridx_in(:) + (gridind_out(:, 1) - 1)*dcell
@@ -455,13 +455,13 @@ contains
    end subroutine potential_neighbour_process_search
 
    !==============================================================================================================================
-   subroutine subdomain_neighbour(procid,numprocs)
+   subroutine subdomain_neighbour(procid, numprocs)
       !creates list of adjacent subdomains for the local subdomain by searching potential neighbours and seeing if they overlap
 
       use globvar_para, only: n_process_neighbour, bounds_glob
 
       implicit none
-      integer,intent(in):: procid,numprocs
+      integer, intent(in):: procid, numprocs
       integer:: pid
       real(f):: bounds_loc_min(dim), bounds_loc_max(dim), bounds_rem_min(dim), bounds_rem_max(dim)
 
@@ -476,8 +476,8 @@ contains
             ! if local and remote process' extended boundaries don't overlap, check next process
             if (any([bounds_rem_max(:) < bounds_loc_min(:), bounds_rem_min(:) > bounds_loc_max(:)])) cycle neighboursearch
             n_process_neighbour = n_process_neighbour + 1
-            neighbours(n_process_neighbour)%pid = pid-1
-            neighbours(n_process_neighbour)%bounds(:) = bounds_glob(:,pid)
+            neighbours(n_process_neighbour)%pid = pid - 1
+            neighbours(n_process_neighbour)%bounds(:) = bounds_glob(:, pid)
          end if
       end do neighboursearch
 

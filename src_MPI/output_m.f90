@@ -24,11 +24,11 @@ module output_m
 contains
 
    !==============================================================================================================================
-   subroutine output(procid,numprocs)
+   subroutine output(procid, numprocs)
       ! Subroutine to write data to disk. Called intermittently, determined by save_step supplied at run-time
 
       implicit none
-      integer,intent(in):: procid,numprocs
+      integer, intent(in):: procid, numprocs
       integer:: ntotal_glob(numprocs), nhalo_glob(numprocs), nvirt_glob(numprocs), nghos_glob(numprocs), ierr
 
       ! Exchanging how many particles each process will output data for
@@ -69,7 +69,7 @@ contains
       displ(:) = [0, SUM(ntotal_glob(1:procid))] ! hdf5 works with 0-indexing
 
       posrange = [1, ntotal_loc]
-      call write_particle_data(procid,fid, 'real', posrange, global_dims, displ)
+      call write_particle_data(procid, fid, 'real', posrange, global_dims, displ)
 
       ! Writing data for halo particles ------------------------------------------------------------------------------------------
       ! defining array shapes and displacments
@@ -79,7 +79,7 @@ contains
       displ(:) = [0, SUM(nhalo_glob(1:procid))] ! hdf5 works with 0-indexing
 
       posrange(:) = ntotal_loc + [1, nhalo_loc]
-      call write_particle_data(procid,fid, 'halo', posrange, global_dims, displ)
+      call write_particle_data(procid, fid, 'halo', posrange, global_dims, displ)
 
       ! Writing data for virtual particles ---------------------------------------------------------------------------------------
       ! defining array shapes and displacments
@@ -89,7 +89,7 @@ contains
       displ(:) = [0, SUM(nvirt_glob(1:procid))] ! hdf5 works with 0-indexing
 
       posrange(:) = ntotal_loc + nhalo_loc + [1, nvirt_loc]
-      call write_particle_data(procid,fid, 'virt', posrange, global_dims, displ)
+      call write_particle_data(procid, fid, 'virt', posrange, global_dims, displ)
 
       ! Writing data for ghost particles -----------------------------------------------------------------------------------------
       ! defining array shapes and displacments
@@ -99,7 +99,7 @@ contains
       displ(:) = [0, SUM(nghos_glob(1:procid))] ! hdf5 works with 0-indexing
 
       posrange(:) = ntotal_loc + nhalo_loc + nvirt_loc + [1, nghos_loc]
-      call write_particle_data(procid,fid, 'ghos', posrange, global_dims, displ)
+      call write_particle_data(procid, fid, 'ghos', posrange, global_dims, displ)
 
       ! Closing output file
       call h5fclose_f(fid, ierr)
@@ -110,11 +110,11 @@ contains
    end subroutine output
 
    !==============================================================================================================================
-   subroutine write_ini_config(procid,numprocs)
+   subroutine write_ini_config(procid, numprocs)
       ! Subroutine for writing initial configuration data using MPI IO subroutines
 
       implicit none
-      integer,intent(in):: procid,numprocs
+      integer, intent(in):: procid, numprocs
       integer:: ntotal_glob(numprocs), posrange(2), ierr
 
       ! Exchanging how many particles each process will output data for
@@ -143,7 +143,7 @@ contains
       displ(:) = [0, SUM(ntotal_glob(1:procid))] ! hdf5 works with 0-indexing
 
       posrange(:) = [1, ntotal_loc]
-      call write_particle_data(procid,fid, 'real', posrange, global_dims, displ)
+      call write_particle_data(procid, fid, 'real', posrange, global_dims, displ)
 
       ! Closing output file
       call h5fclose_f(fid, ierr)
@@ -154,12 +154,12 @@ contains
    end subroutine write_ini_config
 
    !==============================================================================================================================
-   subroutine write_particle_data(procid,fid_in, particletype, posrange_in, gdims, ldispl)
+   subroutine write_particle_data(procid, fid_in, particletype, posrange_in, gdims, ldispl)
 
       implicit none
       integer(HID_T), intent(in):: fid_in
       character(*), intent(in):: particletype
-      integer, intent(in):: posrange_in(2),procid
+      integer, intent(in):: posrange_in(2), procid
       integer(HSIZE_T), intent(in):: gdims(2)
       integer(HSSIZE_T), intent(in):: ldispl(2)
       integer:: nelem
