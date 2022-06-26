@@ -1,10 +1,10 @@
 program SPH
 
    use globvar, only: ntotal, scale_k, allocateGlobalArrays, deallocateGlobalArrays
-   use globvar_para, only: MPI_ftype
+   !use globvar_para, only: MPI_ftype
    use mpi_f08
    use param, only: f, skf, dim
-   use param_para, only: CreateMPIType, Select_MPI_ftype
+   use param_para, only: MPI_derived_types
 
    use input_m, only: input, virt_part
    use kernel_m, only: kernel_k
@@ -14,16 +14,15 @@ program SPH
    implicit none
    integer:: procid, numprocs, ierr
    real(f):: bounds_dummy(2*dim)
+   type(MPI_derived_types):: MPI_types
 
    !Initializing MPI
    call MPI_INIT(ierr)
    call MPI_COMM_RANK(MPI_COMM_WORLD, procid, ierr) !Retrieving process rank
    call MPI_COMM_SIZE(MPI_COMM_WORLD, numprocs, ierr) !Retrieving total number of processes
-
-   MPI_ftype = Select_MPI_ftype(f) ! choosing the appropriate float precision for MPI data transfers
-
-   !Creating MPI derived types for use later
-   call CreateMPIType
+   
+   ! Creating MPI datatypes for simulation
+   call MPI_types%CreateMPITypes 
 
    !Printing preamble to screen
    call preamble(procid, numprocs)
@@ -44,7 +43,7 @@ program SPH
    call input(procid, numprocs, .true.)
 
    !Entering discretized time-integration loop
-   call time_integration(procid, numprocs)
+   call time_integration(procid, numprocs, MPI_types)
 
    !Printing post-amble to terminal
    if (procid .eq. 0) call time_print

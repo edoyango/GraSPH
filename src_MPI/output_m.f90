@@ -1,7 +1,6 @@
 module output_m
 
    use globvar, only: ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, itimestep, save_step, ntotal, nvirt, maxnloc
-   use globvar_para, only: MPI_ftype
    use param, only: f, dim, output_directory, output_phys, output_halo, output_virt, output_flt_type
 
    use hdf5

@@ -7,26 +7,14 @@ module globvar_para
 
    implicit none
 
-   ! derived MPI tpes
-   type(MPI_Datatype):: MPI_ftype, parttype, halotype, haloupdatetype
-
-   !ORB variables ------------------------------------------------------------------------------------------------------------------
-   integer, public:: maxnode, n_process_neighbour
-   integer, allocatable, public:: node_cax(:), node_cut(:)
-
    !types --------------------------------------------------------------------------------------------------------------------------
-   type, public:: binary_tree
-      integer:: maxnode
-      integer, allocatable:: node_cax(:)
-   contains
-      procedure:: allocate_tree_arrays
-   end type binary_tree
-
+   ! type to hold variables related to partitioning
    type, public:: partition_tracking
       integer:: mintstep_bn_part = HUGE(1), mintstep_bn_reorient = HUGE(1), maxtstep_bn_part = 0, maxtstep_bn_reorient = 0, &
                 prev_part_tstep, prev_reorient_tstep, n_parts = 0, n_reorients = 0
    end type partition_tracking
 
+   ! type to hold all variables related to data transfer between neighbouring processes
    type, public:: neighbour_data
       integer:: pid, nphys_send, nphys_recv, nhalo_send, nhalo_recv
       real(f):: bounds(2*dim)
@@ -38,20 +26,6 @@ module globvar_para
    end type neighbour_data
 
 contains
-
-   !================================================================================================================================
-   subroutine allocate_tree_arrays(self, numprocs)
-
-      implicit none
-      integer, intent(in):: numprocs
-      class(binary_tree), intent(inout):: self
-      integer:: tree_layers
-
-      tree_layers = CEILING(LOG(DBLE(numprocs))/LOG(2d0))
-      self%maxnode = 2*2**tree_layers - 1
-      allocate (self%node_cax(maxnode))
-
-   end subroutine allocate_tree_arrays
 
    !================================================================================================================================
    subroutine Pack_PhysPart(self, particle)
@@ -66,9 +40,10 @@ contains
    end subroutine Pack_PhysPart
 
    !================================================================================================================================
-   subroutine create_indexed_halotypes(self)
+   subroutine create_indexed_halotypes(self, halotype, haloupdatetype)
 
       implicit none
+      type(MPI_Datatype),intent(in):: halotype,haloupdatetype
       class(neighbour_data), intent(inout):: self
       integer:: halo_pindex_0(self%nhalo_send), ones1D(self%nhalo_send), ierr
 

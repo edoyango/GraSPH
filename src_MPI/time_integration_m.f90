@@ -5,10 +5,11 @@ module time_integration_m
                       print_step, save_step, maxnloc, nvirt_loc, nghos_loc, nhalo_loc, niac, pairs, maxinter, scale_k
    use mpi_f08
    use param, only: f, dim, dt, rh0, c, gamma
+   use param_para, only: MPI_derived_types
 
    use input_m, only: gind, generate_ghost_part, update_ghost_part
    use flink_list_m, only: flink_list
-   use ORB_m, only: ORB, neighbours
+   use ORB_m, only: ORB, neighbours, n_process_neighbour
    use ORB_sr_m, only: ORB_sendrecv_haloupdate
    use output_m, only: output
    use single_step_m, only: single_step
@@ -20,11 +21,12 @@ module time_integration_m
 contains
 
    !==============================================================================================================================
-   subroutine time_integration(procid, numprocs)
+   subroutine time_integration(procid, numprocs, MPI_types)
       ! Subroutine responsible for the main time-integration loop
 
       implicit none
       integer, intent(in):: procid, numprocs
+      type(MPI_derived_types),intent(in):: MPI_types
       integer:: i, ki
       real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drho(:, :)
 
@@ -37,7 +39,7 @@ contains
          cputime = cputime - MPI_WTIME()
 
          ! distributing particles
-         call ORB(procid, numprocs)
+         call ORB(procid, numprocs, MPI_types)
 
          do i = 1, ntotal_loc + nhalo_loc
             parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1_f)/gamma
@@ -60,7 +62,7 @@ contains
             ! update halo particles after first increment
             if (ki > 1) then
                t_dist = t_dist - MPI_WTIME()
-               call ORB_sendrecv_haloupdate(ki, neighbours)
+               call ORB_sendrecv_haloupdate(ki, MPI_types%haloupdatetype, n_process_neighbour, neighbours)
                t_dist = t_dist + MPI_WTIME()
             end if
 
