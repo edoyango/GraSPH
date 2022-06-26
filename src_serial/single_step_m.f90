@@ -5,19 +5,20 @@ module single_step_m
 contains
 
    !==============================================================================================================================
-   subroutine single_step(ki, dvxdti, drhoi)
+   pure subroutine single_step(ki, ntotal, nvirt, nghos, niac, pairs, parts, dvxdti, drhoi)
       ! Container subroutine for all the rate-of-change calculations. Rate-of-changes are calculated seperately and then summed as
       ! required
 
-      use datatypes, only: particles
-      use globvar, only: ntotal, nvirt, nghos, niac, pairs, parts
+      use datatypes, only: particles, interactions
       use param, only: dim, f, g
 
       use input_m, only: virt_mirror
-      use material_rates_m
+      use material_rates_m, only: art_visc, int_force, con_density
 
       implicit none
-      integer, intent(in):: ki
+      integer, intent(in):: ki, ntotal, nvirt, nghos, niac
+      type(interactions), intent(in):: pairs(:)
+      type(particles), intent(inout):: parts(:)
       real(f), intent(out):: dvxdti(dim, ntotal), drhoi(ntotal)
       integer:: i, j, k
       real(f), allocatable:: indvxdt(:, :), ardvxdt(:, :), exdvxdt(:, :), cdrhodt(:)

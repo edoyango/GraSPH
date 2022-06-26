@@ -1,38 +1,36 @@
 module flink_list_m
 
    use datatypes, only: particles, interactions
-   use globvar, only: parts_d, pairs_d, niac_d, ntotal_d, nvirt_d, maxinter_perp, scale_k, ntotal, nvirt, ntotal_d, &
-                      nvirt_d, scale_k_d, test_time, nghos_d, nghos
    use param, only: f, hsml, dim
 
    use cudafor
 
-!~     use kernel_m, only: kernel
+   private
+   integer, parameter:: maxpcell = 64
 
-   integer, parameter:: maxpcell3D = 64, maxpcell2D = 16
-   integer:: ngridx(dim)
-   real(f):: mingridx(dim), maxgridx(dim), dcell
-   integer, device:: ngridx_d(dim)
-   real(f), device:: mingridx_d(dim), maxgridx_d(dim), minx, miny, minz, maxx, maxy, maxz
-   type(dim3):: nblocks
-
-   type particleincellarray
-      type(particles), pointer:: p
-   end type particleincellarray
-
-   public:: flink_list, particleincellarray
-   private:: check_if_interact, bounding_box
+   public:: flink_list
 
 contains
 
    !==============================================================================================================================
-   subroutine flink_list()
+   subroutine flink_list(scale_k, maxinter_perp, ntotal, nvirt, nghos, ntotal_d, nvirt_d, nghos_d, parts_d, niac_d, pairs_d)
       ! save as above, but for 3D
 
       implicit none
+      real(f), intent(in):: scale_k
+      integer, intent(in):: ntotal, nvirt, nghos, maxinter_perp
+      integer, device, intent(in):: ntotal_d, nvirt_d, nghos_d
+      type(particles), device, intent(in):: parts_d(:)
+      integer, device, intent(out):: niac_d(:)
+      type(interactions), device, intent(out):: pairs_d(:, :)
       integer, allocatable, device:: pincell(:, :, :), cells(:, :, :, :)
-      integer:: i, j, k, d, istat
+      integer:: i, j, k, d, istat, ngridx(dim)
+      real(f):: mingridx(dim), maxgridx(dim), dcell
+      integer, device:: ngridx_d(dim)
+      real(f), device:: mingridx_d(dim), maxgridx_d(dim), minx, miny, minz, maxx, maxy, maxz
       type(dim3), parameter:: nthreads = dim3(16, 8, 8)
+      integer, managed:: ierr
+      type(dim3):: nblocks
 
       dcell = scale_k*hsml
       minx = HUGE(1._f); miny = HUGE(1._f); minz = HUGE(1._f)
@@ -56,7 +54,7 @@ contains
       maxgridx_d = maxgridx
 
       allocate (pincell(ngridx(1), ngridx(2), ngridx(3)), &
-                cells(maxpcell3D, ngridx(1), ngridx(2), ngridx(3)))
+                cells(maxpcell, ngridx(1), ngridx(2), ngridx(3)))
 
       nblocks = dim3(ngridx(1)/nthreads%x + 1, ngridx(2)/nthreads%y + 1, ngridx(3)/nthreads%y + 1)
 
@@ -65,15 +63,20 @@ contains
       call populate <<< (ntotal + nvirt + nghos)/32 + 1, 32 >>> (dcell, ntotal_d, nvirt_d, nghos_d, mingridx_d, ngridx_d, &
                                                                  parts_d, pincell, cells)
 
-      call sweep <<< (ntotal + nvirt + nghos)/32 + 1, 32 >>> (dcell, ntotal_d, nvirt_d, nghos_d, mingridx_d, &
-                                                              ngridx_d, parts_d, pincell, cells, niac_d, pairs_d)
+      ierr = 0
+    call sweep <<< (ntotal + nvirt + nghos)/32 + 1, 32 >>> (maxinter_perp, scale_k, dcell, ntotal_d, nvirt_d, nghos_d, mingridx_d, &
+                                                              ngridx_d, parts_d, pincell, cells, niac_d, pairs_d, ierr)
+      if (ierr == 1) then
+         print *, ' >>> Error <<< : Too many interactions'
+         stop
+      end if
 
       deallocate (pincell, cells)
 
    end subroutine flink_list
 
    !==============================================================================================================================
-   attributes(global) subroutine zero_pincell(ng, p)
+   attributes(global) pure subroutine zero_pincell(ng, p)
       ! helper function to zero pincell array on GPU
 
       implicit none
@@ -89,7 +92,7 @@ contains
    end subroutine zero_pincell
 
    !==============================================================================================================================
-   attributes(global) subroutine populate(dc, nt, nv, ng, mingx, ngx, pts, p, c)
+   attributes(global) pure subroutine populate(dc, nt, nv, ng, mingx, ngx, pts, p, c)
 
       implicit none
       integer, intent(in):: nt, nv, ng, ngx(dim)
@@ -97,7 +100,7 @@ contains
       real(f), intent(in), value:: dc
       type(particles), intent(in):: pts(nt + nv + ng)
       integer, intent(inout):: p(ngx(1), ngx(2), ngx(3))
-      integer, intent(out):: c(maxpcell3D, ngx(1), ngx(2), ngx(3))
+      integer, intent(out):: c(maxpcell, ngx(1), ngx(2), ngx(3))
       integer:: ind, icell, jcell, kcell, i, j, k, d
 
       ! global thread index
@@ -113,15 +116,17 @@ contains
    end subroutine populate
 
    !==============================================================================================================================
-   attributes(global) subroutine sweep(dc, nt, nv, ng, mingx, ngx, pts, p, c, nij, pij)
+   attributes(global) pure subroutine sweep(maxint, sk, dc, nt, nv, ng, mingx, ngx, pts, p, c, nij, pij, ierr)
 
       implicit none
-      integer, intent(in):: nt, nv, ng, ngx(dim), p(ngx(1), ngx(2), ngx(3)), c(maxpcell3D, ngx(1), ngx(2), ngx(3))
+      integer, intent(in):: nt, nv, ng, ngx(dim), p(ngx(1), ngx(2), ngx(3)), c(maxpcell, ngx(1), ngx(2), ngx(3))
       real(f), intent(in):: mingx(dim)
-      real(f), intent(in), value:: dc
+      real(f), intent(in), value:: dc, sk
+      integer, intent(in), value:: maxint
       type(particles), intent(in):: pts(nt + nv + ng)
+      integer, intent(inout):: ierr
       integer, intent(out):: nij(nt + nv + ng)
-      type(interactions), intent(out):: pij(maxinter_perp, nt + nv + ng)
+      type(interactions), intent(out):: pij(:, :)
       integer:: i, j, k, d, xi, yi, zi, icell, jcell, kcell, jth
       integer, parameter:: sweepinds(3, 13) = reshape((/-1, -1, -1, &
                                                         -1, -1, 0, &
@@ -150,7 +155,7 @@ contains
                jth = c(j, icell, jcell, kcell)
                if (jth > i) then
                   ! only consider interactions when real particles are involved
-                  call check_if_interact(pts(i), pts(jth), nij(i), pij(:, i))
+                  call check_if_interact(maxint, sk, pts(i), pts(jth), nij(i), pij(:, i), ierr)
                end if
             end do
          end if
@@ -161,7 +166,7 @@ contains
             do j = 1, p(xi, yi, zi)
                ! only consider interactions when real particles are involved
                jth = c(j, xi, yi, zi)
-               call check_if_interact(pts(i), pts(jth), nij(i), pij(:, i))
+               call check_if_interact(maxint, sk, pts(i), pts(jth), nij(i), pij(:, i), ierr)
             end do
          end do
       end if
@@ -169,28 +174,30 @@ contains
    end subroutine sweep
 
    !==============================================================================================================================
-   attributes(device) subroutine check_if_interact(p_i, p_j, nij, pij)
+   attributes(device) pure subroutine check_if_interact(maxint, sk, p_i, p_j, nij, pij, ierr)
       ! subroutine to chekc if two particles are interacting and consequently adding to pair list
 
       implicit none
+      integer, intent(in):: maxint
+      real(f), intent(in):: sk
       type(particles), intent(in):: p_i, p_j
-      integer, intent(inout):: nij
-      type(interactions), intent(inout):: pij(maxinter_perp)
+      integer, intent(inout):: nij, ierr
+      type(interactions), intent(inout):: pij(maxint)
+      integer:: tmp
       real(f):: dxiac(dim), r
 
       ! only consider interactions when real particles are involved
       if (p_i%ind /= p_j%ind .and. (p_i%itype == 1 .or. p_j%itype == 1)) then
          dxiac(:) = p_i%x(:) - p_j%x(:)
          r = SQRT(SUM(dxiac*dxiac))
-         if (r < hsml*scale_k_d) then
+         if (r < hsml*sk) then
             nij = nij + 1
-            if (nij < maxinter_perp) then
+            if (nij < maxint) then
                pij(nij)%i = p_i%ind
                pij(nij)%j = p_j%ind
                call kernel(r, dxiac(:), hsml, pij(nij)%w, pij(nij)%dwdx(:))
             else
-               print *, ' >>> Error <<< : Too many interactions'
-               stop
+               tmp = atomicexch(ierr, 1)
             end if
          end if
       end if
@@ -198,7 +205,7 @@ contains
    end subroutine check_if_interact
 
    !==============================================================================================================================
-   attributes(device) subroutine kernel(r, dx, thsml, tw, tdwdx)
+   attributes(device) pure subroutine kernel(r, dx, thsml, tw, tdwdx)
       ! Contains the kernels
 
       use param, only: skf, pi, dims => dim

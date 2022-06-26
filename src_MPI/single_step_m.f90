@@ -1,36 +1,31 @@
 module single_step_m
 
-   use input_m, only: update_ghost_part, virt_mirror
+   use datatypes, only: particles, interactions
+   use input_m, only: virt_mirror
 
+   private
    public:: single_step
 
 contains
 
    !==============================================================================================================================
-   subroutine single_step(ki, dvxdti, drhoi)
+   pure subroutine single_step(ki, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, niac, pairs, dvxdti, drhoi)
       ! Container subroutine for all the rate-of-change calculations. Rate-of-changes are calculated seperately and then summed as
       ! required
 
-      use globvar, only: ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, pairs, t_dist, niac
       use mpi_f08, only: MPI_WTIME
-      use param, only: dim, rh0, c, gamma, f, g
+      use param, only: dim, f, g
 
       use material_rates_m, only: int_force, art_visc, con_density, ext_force
       use ORB_sr_m, only: ORB_sendrecv_haloupdate
 
       implicit none
-      integer, intent(in):: ki
+      integer, intent(in):: ki, niac, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc
+      type(particles), intent(inout):: parts(:)
+      type(interactions), intent(in):: pairs(:)
       real(f), intent(out):: dvxdti(dim, ntotal_loc), drhoi(ntotal_loc)
       integer:: i, j, k
       real(f), allocatable:: indvxdt(:, :), ardvxdt(:, :), exdvxdt(:, :), codrhodt(:)
-
-      t_dist = t_dist - MPI_WTIME()
-      if (ki .ne. 1) call ORB_sendrecv_haloupdate(ki)
-      t_dist = t_dist + MPI_WTIME()
-
-      parts(1:ntotal_loc + nhalo_loc)%p = rh0*c**2*((parts(1:ntotal_loc + nhalo_loc)%rho/rh0)**gamma - 1_f)/gamma
-
-      if (ki .ne. 1) call update_ghost_part
 
       allocate (indvxdt(dim, ntotal_loc + nhalo_loc + nvirt_loc + nghos_loc), &
                 ardvxdt(dim, ntotal_loc + nhalo_loc + nvirt_loc + nghos_loc), &

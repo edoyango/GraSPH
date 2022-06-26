@@ -1,7 +1,6 @@
 module flink_list_m
 
-   use datatypes, only: particles
-   use globvar, only: parts, pairs, niac, ntotal, nvirt, nghos, maxinter, scale_k
+   use datatypes, only: particles, interactions
    use param, only: dim, f, hsml
 
    use kernel_m, only: kernel
@@ -12,12 +11,17 @@ module flink_list_m
 contains
 
    !==============================================================================================================================
-   subroutine flink_list()
+   subroutine flink_list(scale_k, ntotal, nvirt, nghos, parts, niac, pairs)
       ! save as above, but for 3D
 
       implicit none
+      real(f), intent(in):: scale_k
+      integer, intent(in):: ntotal, nvirt, nghos
+      type(particles), intent(in):: parts(:)
+      integer, intent(out):: niac
+      type(interactions), intent(out):: pairs(:)
       integer, parameter:: maxpcell = 125
-      integer:: ngridx(dim), i, j, k, d, icell, jcell, kcell, xi, yi, zi, jth
+      integer:: ngridx(dim), i, j, k, d, icell, jcell, kcell, xi, yi, zi, jth, maxinter
       real(f):: mingridx(dim), maxgridx(dim), dcell
       integer, allocatable:: pincell(:, :, :), gridind(:, :), cells(:, :, :, :)
       integer, parameter:: sweep(3, 13) = reshape((/-1, -1, -1, &
@@ -33,6 +37,7 @@ contains
                                                     0, -1, 0, &
                                                     0, -1, 1, &
                                                     0, 0, -1/), (/3, 13/))
+      maxinter = size(pairs)
 
       !Determining bounding box extents
       mingridx(:) = parts(1)%x(:)
@@ -76,7 +81,7 @@ contains
             ! finding pairs within cell icell,jcell
             do j = 1, pincell(icell, jcell, kcell)
                jth = cells(j, icell, jcell, kcell)
-               if (i < cells(j, icell, jcell, kcell)) call check_if_interact(parts(i), parts(jth))
+               if (i < cells(j, icell, jcell, kcell)) call check_if_interact(maxinter, scale_k, parts(i), parts(jth), niac, pairs)
             end do
          end if
 
@@ -88,7 +93,7 @@ contains
 
             do j = 1, pincell(xi, yi, zi)
                jth = cells(j, xi, yi, zi)
-               call check_if_interact(parts(i), parts(jth))
+               call check_if_interact(maxinter, scale_k, parts(i), parts(jth), niac, pairs)
             end do
          end do
 
@@ -97,11 +102,15 @@ contains
    end subroutine flink_list
 
    !==============================================================================================================================
-   subroutine check_if_interact(p_i, p_j)
+   subroutine check_if_interact(maxinter, scale_k, p_i, p_j, niac, pairs)
       ! subroutine to chekc if two particles are interacting and consequently adding to pair list
 
       implicit none
+      integer, intent(in):: maxinter
+      real(f), intent(in):: scale_k
       type(particles), intent(in):: p_i, p_j
+      integer, intent(inout):: niac
+      type(interactions), intent(inout):: pairs(:)
       real(f):: dxiac(dim), r
 
       ! only consider interactions when real-real are involved

@@ -13,80 +13,75 @@
 #	CUDA
 #	CUDA-debug
 
-FCFLAGS_gnu="-O3 -flto -fbacktrace -fimplicit-none -pedantic -Wall -Wextra -Jobj"
-FCFLAGS_gnu_debug="-Og -g -fcheck=all -fbacktrace -fimplicit-none -pedantic -Wall -Wextra -Jobj"
-FCFLAGS_intel="-O3 -ipo -traceback -module obj"
-FCFLAGS_intel_debug="-g -traceback -check all -module obj"
-FCFLAGS_CUDA="-Mcuda -Minfo -Iobj -module obj"
-FCFLAGS_CUDA_debug="-Mcuda -Minfo -g -C -traceback -Iobj -module obj"
+FCFLAGS_gnu_opt="-O3 -flto"
+FCFLAGS_gnu_debug="-Og -g -fcheck=all"
+FCFLAGS_gnu="-fbacktrace -fimplicit-none -pedantic -Wall -Wextra -Jobj"
+FCFLAGS_intel_opt="-O3 -ipo"
+FCFLAGS_intel_debug="-g -check all"
+FCFLAGS_intel="-traceback -module obj -warn all"
+FCFLAGS_CUDA_opt=""
+FCFLAGS_CUDA_debug="-g -C"
+FCFLAGS_CUDA="-traceback -Iobj -moule obj -Minfo -Mcuda"
 MKFILES_DIR=makefiles
 MKFILE_serial=makefile.serial
 MKFILE_MPI=makefile.mpi
 MKFILE_CUDA=makefile.cuda
 
-case "$1" in
-	"serial-gnu")
-		FCFLAGS="$FCLAGS $FCFLAGS_gnu"
-		MKFILE=$MKFILE_serial
-		;;
-	"serial-intel")
-		FCFLAGS="$FCFLAGS $FCFLAGS_intel"
-		MKFILE=$MKFILE_serial
-		;;
-	"serial-gnu-debug")
-		FCFLAGS="$FCFLAGS $FCFLAGS_gnu_debug"
-		MKFILE=$MKFILE_serial
-		;;
-	"serial-intel-debug")
-		FCFLAGS="$FCFLAGS $FCFLAGS_intel_debug"
-		MKFILE=$MKFILE_serial
-		;;
-	"mpi-gnu")
-		FCFLAGS="$FCFLAGS $FCFLAGS_gnu"
-		MKFILE=$MKFILE_MPI
-		;;
-	"mpi-intel")
-		FCFLAGS="$FCFLAGS $FCFLAGS_intel"
-		MKFILE=$MKFILE_MPI
-		;;
-	"mpi-gnu-debug")
-		FCFLAGS="$FCFLAGS $FCFLAGS_gnu_debug"
-		MKFILE=$MKFILE_MPI
-		;;
-	"mpi-intel-debug")
-		FCFLAGS="$FCFLAGS $FCFLAGS_intel_debug"
-		MKFILE=$MKFILE_MPI
-		;;
-	"cuda")
-		FCFLAGS="$FCFLAGS $FCFLAGS_CUDA"
-		MKFILE=$MKFILE_CUDA
-		;;
-	"cuda-debug")
-		FCFLAGS="$FCFLAGS $FCFLAGS_CUDA_debug"
-		MKFILE=$MKFILE_CUDA
-		;;
-	"clean")
-		make -f $MKFILES_DIR/$MKFILE_serial clean
-		exit 0
-		;;
-	*)
-		echo "USAGE: $0 MODE"
-	        echo "    where MODE = serial-gnu"
-        	echo "                 serial-intel"
-	        echo "                 serial-gnu-debug"
-        	echo "                 serial-intel-debug"
-	        echo "                 MPI-gnu"
-        	echo "                 MPI-intel"
-	        echo "                 MPI-gnu-debug"
-        	echo "                 MPI-intel-debug"
-        	echo "                 CUDA"
-	        echo "                 CUDA-debug"
+make -f $MKFILES_DIR/$MKFILE_serial clean
+
+SERIAL=1
+MPI=0
+CUDA=0
+GNU=1
+OPTIMISE=0
+DEBUG=0
+INTEL=0
+for arg in $@
+do
+	[ $arg = "--mpi" ] && MPI=1 && SERIAL=0
+	[ $arg = "--cuda" ] && CUDA=1 && SERIAL=0 && GNU=0
+	[ $arg = "--optimise" ] && OPTIMISE=1
+	[ $arg = "--debug" ] && DEBUG=1
+	[ $arg = "--intel" ] && GNU=0 && INTEL=1
+	if [ $arg = "--help" ] || [ $arg = "-h" ]; then
+		echo "Running this script without any options will compile the Fortran code in src_serial into"
+		echo " the executable sph-serial. The following options will augment the behavour:"
+		echo "--mpi      : compile the parallel code in src_MPI into the executable sph-mpi."
+		echo "--cuda     : compile the CUDA Fortran coda in src_GPU into the executable sph-cuda."
+		echo "--optimise : compile with optimisation options. Which options depend on which compiler and"
+		echo "             source code being compiled."
+		echo "--debug    : compile with debug options. Which options depend on which compiler and source"
+		echo "             code being compiled."
 	        echo "relevant environment variables:"
         	echo "    FC: compiler to use"
 	        echo "    FCFLAGS: flags for the compiler/linker"
 		exit 1
+	fi
+done
 
-esac
+[ $MPI -eq 1 ] && [ $CUDA -eq 1 ] && \
+	echo "Only --cuda or --mpi (or neither) should be supplied!" && return 1
+[ $INTEL -eq 1 ] && [ $CUDA -eq 1 ] && \
+	echo "Only --cuda or --intel (or neither) should be supplied!" && return 1
+
+[ $SERIAL -eq 1 ] && MKFILE=$MKFILE_serial
+[ $MPI -eq 1 ] && MKFILE=$MKFILE_MPI
+[ $CUDA -eq 1 ] && MKFILE=$MKFILE_CUDA
+
+if [ $INTEL -eq 1 ]; then
+	FCFLAGS="$FCFLAGS $FCFLAGS_intel"
+	[ $OPTIMISE -eq 1 ] && FCFLAGS="$FCFLAGS $FCFLAGS_intel_opt"
+	[ $DEBUG -eq 1 ] && FCFLAGS="$FCFLAGS $FCFLAGS_intel_debug"
+elif [ $GNU -eq 1 ]; then
+	FCFLAGS="$FCFLAGS $FCFLAGS_gnu"
+	[ $OPTIMISE -eq 1 ] && FCFLAGS="$FCFLAGS $FCFLAGS_gnu_opt"
+	[ $DEBUG -eq 1 ] && FCFLAGS="$FCFLAGS $FCFLAGS_gnu_debug"
+elif [ $CUDA -eq 1 ]; then
+	FCFLAGS="$FCFLAGS $FCFLAGS_cuda"
+	[ $OPTIMISE -eq 1 ] && FCFLAGS="$FCFLAGS $FCFLAGS_cuda_opt"
+	[ $DEBUG -eq 1 ] && FCFLAGS="$FCFLAGS $FCFLAGS_cuda_debug"
+fi
+
 
 echo $MKFILES_DIR/$MKFILE
 make -f $MKFILES_DIR/$MKFILE FCFLAGS="$FCFLAGS"

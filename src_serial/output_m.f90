@@ -1,7 +1,6 @@
 module output_m
 
    use datatypes, only: particles
-   use globvar, only: ntotal, nvirt, nghos, parts
    use param, only: output_directory, f, dim
 
    use hdf5
@@ -13,17 +12,15 @@ module output_m
 contains
 
    !==============================================================================================================================
-   subroutine output()
+   subroutine output(itimestep, save_step, ntotal, nvirt, nghos, parts)
       ! Subroutine to write data to disk. Called intermittently, determined by save_step supplied at run-time
 
-      use globvar, only: itimestep, save_step
-
       implicit none
+      integer, intent(in):: itimestep, save_step, ntotal, nvirt, nghos
+      type(particles), intent(in):: parts(:)
       character(len=4)::number
-      integer:: n
 
-      n = itimestep/save_step
-      write (number, '(I4.4)') n
+      write (number, '(I4.4)') itimestep/save_step
 
       ! Initializing hdf5 interface
       call h5open_f(ierr)
@@ -48,35 +45,6 @@ contains
       call h5fclose_f(file_id, ierr)
 
    end subroutine output
-
-   !==============================================================================================================================
-   subroutine write_ini_config
-      ! Subroutine for writing initial configuration data using intrinsic IO
-
-      implicit none
-
-      ! Initializing hdf5 interface
-      call h5open_f(ierr)
-
-      ! Creating output file
-      call h5fcreate_f(trim(output_directory)//"/sph_out0000.h5", h5F_ACC_TRUNC_F, file_id, ierr)
-
-      ! Creating groups for each of real, virtual, and ghost particles
-      call h5gcreate_f(file_id, "real", real_group_id, ierr)
-      call h5gclose_f(real_group_id, ierr)
-
-      call h5gcreate_f(file_id, "virt", virt_group_id, ierr)
-      call h5gclose_f(virt_group_id, ierr)
-
-      call h5gcreate_f(file_id, "ghos", ghos_group_id, ierr)
-      call h5gclose_f(ghos_group_id, ierr)
-
-      ! Writing particle data to real particles ----------------------------------------------------------------------------------
-      call write_particle_data(file_id, 'real', parts(1:ntotal))
-
-      call h5fclose_f(file_id, ierr)
-
-   end subroutine write_ini_config
 
    !===============================================================================================================================
    subroutine write_particle_data(fid_in, group_label, pts_in)

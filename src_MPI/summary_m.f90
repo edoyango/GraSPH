@@ -1,9 +1,6 @@
 module summary_m
 
-   use globvar, only: ntotal_loc, nhalo_loc, nvirt_loc, niac, maxtimestep, print_step, save_step, itimestep, time, cputime, &
-                      t_graph, t_dist, output_time
-   use globvar_para, only: procid, numprocs, mintstep_bn_part, mintstep_bn_reorient, maxtstep_bn_part, maxtstep_bn_reorient, &
-                           prev_part_tstep, prev_reorient_tstep, n_parts, n_reorients, ierr
+   use datatypes, only: time_tracking
    use param, only: f
    use mpi_f08
 
@@ -33,10 +30,13 @@ contains
    end subroutine time_print
 
    !==============================================================================================================================
-   subroutine preamble
+   subroutine preamble(procid, numprocs, maxtimestep, print_step, save_step)
       ! Prints preamble information to terminal and checks that maxtimestep, print_step, save_step have been supplied
 
       implicit none
+      integer, intent(in):: procid, numprocs
+      integer, intent(out):: maxtimestep, print_step, save_step
+      integer:: ierr
       character(len=100):: args(3)
 
       if (command_argument_count() .lt. 3) then
@@ -70,67 +70,79 @@ contains
    end subroutine preamble
 
    !==============================================================================================================================
-   subroutine print_summary
+   subroutine print_summary(procid, numprocs, timings, partition_track)
       ! Obtains and prints final MPI summary data e.g. number of partitions, cut axes reorientations, and average wall-times (broken
       ! down)
 
-      implicit none
-      double precision:: cputime_total, t_graph_total, t_dist_total, output_time_total
+      use param_para, only: partition_tracking
 
+      implicit none
+      integer, intent(in):: procid, numprocs
+      type(time_tracking), intent(in):: timings
+      type(partition_tracking), intent(in):: partition_track
+      integer:: ierr
+      double precision:: t_wall, t_wall_avg, t_ORB_avg, t_dist_avg, t_output_avg
+
+      t_wall = timings%walltime()
       if (procid .eq. 0) then
-         call MPI_REDUCE(cputime, cputime_total, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         call MPI_REDUCE(t_graph, t_graph_total, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         call MPI_REDUCE(t_dist, t_dist_total, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         call MPI_REDUCE(output_time, output_time_total, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         cputime = cputime/numprocs
-         t_graph = t_graph/numprocs
-         t_dist = t_dist/numprocs
-         output_time = output_time/numprocs
+         call MPI_REDUCE(t_wall, t_wall_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+         call MPI_REDUCE(timings%t_ORB, t_ORB_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+         call MPI_REDUCE(timings%t_dist, t_dist_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+         call MPI_REDUCE(timings%t_output, t_output_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+         t_wall_avg = t_wall_avg/numprocs
+         t_ORB_avg = t_ORB_avg/numprocs
+         t_dist_avg = t_dist_avg/numprocs
+         t_output_avg = t_output_avg/numprocs
 
          write (*, '(A79)') '================================= TIME SUMMARY ================================'
-         write (*, '(A29,F14.7)') 'Average Total CPU time (s) = ', cputime+t_graph+t_dist+output_time
-         write (*, '(A29,F14.7)') 'Average Partition time (s) = ', t_graph
-         write (*, '(A29,F14.7)') 'Average Send/recv time (s) = ', t_dist
-         write (*, '(A29,F14.7)') 'Average Output time (s) =    ', output_time
+         write (*, '(A29,F14.7)') 'Average Wall time (s)      = ', t_wall_avg
+         write (*, '(A29,F14.7)') 'Average Partition time (s) = ', t_ORB_avg
+         write (*, '(A29,F14.7)') 'Average Send/recv time (s) = ', t_dist_avg
+         write (*, '(A29,F14.7)') 'Average Output time (s)    = ', t_output_avg
          write (*, '(A79)') '============================== PARTITION SUMMARY =============================='
-         write (*, '(A35,I7)') '            Number of Partitions = ', n_parts
-         if (n_parts .eq. 1) then
+         write (*, '(A35,I7)') '            Number of Partitions = ', partition_track%n_parts
+         if (partition_track%n_parts .eq. 1) then
             write (*, '(A42)') '    Avg Timesteps B/N Partitions =     N/A'
             write (*, '(A42)') '    Max Timesteps B/N Partitions =     N/A'
             write (*, '(A42)') '    Min Timesteps B/N Partitions =     N/A'
          else
-            write (*, '(A35,I7)') '    Avg Timesteps B/N Partitions = ', (prev_part_tstep - 1)/(n_parts - 1)
-            write (*, '(A35,I7)') '    Max Timesteps B/N Partitions = ', maxtstep_bn_part
-            write (*, '(A35,I7)') '    Min Timesteps B/N Partitions = ', mintstep_bn_part
+            write (*, '(A35,I7)') '    Avg Timesteps B/N Partitions = ', (partition_track%prev_part_tstep - 1)/ &
+               (partition_track%n_parts - 1)
+            write (*, '(A35,I7)') '    Max Timesteps B/N Partitions = ', partition_track%maxtstep_bn_part
+            write (*, '(A35,I7)') '    Min Timesteps B/N Partitions = ', partition_track%mintstep_bn_part
          end if
 
          write (*, *)
-         write (*, '(A35,I7)') 'Number of Cut Axis Reorientation = ', n_reorients
+         write (*, '(A35,I7)') 'Number of Cut Axis Reorientation = ', partition_track%n_reorients
 
-         if (n_reorients .eq. 1) then
+         if (partition_track%n_reorients .eq. 1) then
             write (*, '(A42)') 'Avg Timesteps B/N Reorientations =     N/A'
             write (*, '(A42)') 'Max Timesteps B/N Reorientations =     N/A'
             write (*, '(A42)') 'Min Timesteps B/N Reorientations =     N/A'
          else
-            write (*, '(A35,I7)') 'Avg Timesteps B/N Reorientations = ', (prev_reorient_tstep - 1)/(n_reorients - 1)
-            write (*, '(A35,I7)') 'Max Timesteps B/N Reorientations = ', maxtstep_bn_reorient
-            write (*, '(A35,I7)') 'Min Timesteps B/N Reorientations = ', mintstep_bn_reorient
+            write (*, '(A35,I7)') 'Avg Timesteps B/N Reorientations = ', (partition_track%prev_reorient_tstep - 1)/ &
+               (partition_track%n_reorients - 1)
+            write (*, '(A35,I7)') 'Max Timesteps B/N Reorientations = ', partition_track%maxtstep_bn_reorient
+            write (*, '(A35,I7)') 'Min Timesteps B/N Reorientations = ', partition_track%mintstep_bn_reorient
          end if
       else
-         call MPI_REDUCE(cputime, cputime_total, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         call MPI_REDUCE(t_graph, t_graph_total, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         call MPI_REDUCE(t_dist, t_dist_total, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         call MPI_REDUCE(output_time, output_time_total, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+         call MPI_REDUCE(t_wall, t_wall_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+         call MPI_REDUCE(timings%t_ORB, t_ORB_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+         call MPI_REDUCE(timings%t_dist, t_dist_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+         call MPI_REDUCE(timings%t_output, t_output_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
       end if
 
    end subroutine print_summary
 
    !==================================================================================================================================
-   subroutine print_loadbalance
+   subroutine print_loadbalance(procid, numprocs, timings, ntotal_loc, nhalo_loc, nvirt_loc, niac, itimestep, time, maxtimestep)
       ! Prints load balance statistics. Called occasionally as determined by print_step
 
       implicit none
-      integer:: i, n_glob(numprocs, 4), min_n(4), max_n(4), mean_n(4), stdev_n(4)
+      integer, intent(in):: procid, numprocs, ntotal_loc, nhalo_loc, nvirt_loc, niac, itimestep, maxtimestep
+      type(time_tracking), intent(in):: timings
+      real(f), intent(in):: time
+      integer:: i, n_glob(numprocs, 4), min_n(4), max_n(4), mean_n(4), stdev_n(4), ierr
       type(MPI_Request):: request(4)
       type(MPI_Status):: status(MPI_STATUS_SIZE*4)
 
@@ -157,9 +169,8 @@ contains
          stdev_n(:) = int(SQRT(ABS(DBLE(stdev_n(:)))/numprocs))
 
          write (*, '(A79)') '_______________________________________________________________________________'
-         write (*, '(A22,I7,A1,I7,9x,A19,F14.7)') '  current time step = ', itimestep, '/', maxtimestep, &
-            'current time (s) = ', real(cputime + t_dist + t_graph + output_time)
-         write (*, '(A65,F14.7)') '                                                  Walltime (s) = ', real(cputime)
+         write (*, '(A22,I7,A1,I7,9x,A19,F14.7)') '  current time step = ', itimestep, '/', maxtimestep, 'current time (s) = ', time
+         write (*, '(A65,F14.7)') '                                                  Walltime (s) = ', timings%walltime()
          write (*, '(A79)') '_______________________________________________________________________________'
          write (*, 9999) 'ntotal_loc statistics: mean = ', mean_n(1), ' stdev = ', stdev_n(1)
          write (*, 9999) '                       min  = ', min_n(1), ' max   = ', max_n(1)

@@ -1,8 +1,9 @@
 module material_rates_m
 
    use datatypes, only: particles, interactions
-   use globvar, only: ntotal, nvirt, nghos
    use param, only: mass, dim, f
+
+   public:: art_visc, ext_force, int_force, con_density
 
 contains
 
