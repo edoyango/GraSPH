@@ -1,10 +1,10 @@
 program SPH
-   
+
    use datatypes, only: particles, interactions, time_tracking
    use param, only: f, skf
    use param_para, only: MPI_derived_types
    use ORB_m, only: partition_track, ORB
-   
+
    use mpi_f08
    use output_m, only: output
    use input_m, only: return_ntotal, return_nvirt, allocatePersistentArrays, generate_real_part, generate_ghost_part
@@ -14,13 +14,13 @@ program SPH
 
    implicit none
    integer:: maxtimestep, print_step, save_step, procid, numprocs, ntotal_loc = 0, nhalo_loc = 0, nvirt_loc = 0, nghos_loc = 0, &
-   ntotal = 0, nvirt = 0, maxnloc, maxinter, ierr
+             ntotal = 0, nvirt = 0, maxnloc, maxinter, ierr
    real(f):: scale_k
    type(MPI_derived_types):: MPI_types
    type(time_tracking):: timings
-   integer,allocatable:: gind(:)
-   type(particles),allocatable:: parts(:)
-   type(interactions),allocatable:: pairs(:)
+   integer, allocatable:: gind(:)
+   type(particles), allocatable:: parts(:)
+   type(interactions), allocatable:: pairs(:)
 
    !Initializing MPI
    call MPI_INIT(ierr)
@@ -43,7 +43,7 @@ program SPH
    if (procid .eq. 0) write (*, '(A24,1x,I9,1x,A19)') 'Total simulation size of', ntotal, 'physical particles.'
 
    !Allocating particle and interaction arrays
-   call allocatePersistentArrays(ntotal,nvirt,parts,pairs,gind,maxnloc,maxinter)
+   call allocatePersistentArrays(ntotal, nvirt, parts, pairs, gind, maxnloc, maxinter)
 
    ! Generating initial geometry, performing initial partition, and assigning virtual and ghost particles.
    call generate_real_part(procid, numprocs, ntotal, ntotal_loc, parts)
@@ -53,7 +53,7 @@ program SPH
 
    !Entering discretized time-integration loop
    call time_integration(maxtimestep, print_step, save_step, procid, numprocs, maxnloc, maxinter, MPI_types, timings, scale_k, &
-   ntotal_loc, nvirt_loc, nhalo_loc, nghos_loc, ntotal, parts, pairs, gind)
+                         ntotal_loc, nvirt_loc, nhalo_loc, nghos_loc, ntotal, parts, pairs, gind)
 
    !Printing post-amble to terminal
    if (procid .eq. 0) call time_print

@@ -1,5 +1,5 @@
 module summary_m
-   
+
    use datatypes, only: time_tracking
    use param, only: f
    use mpi_f08
@@ -73,9 +73,9 @@ contains
    subroutine print_summary(procid, numprocs, timings, partition_track)
       ! Obtains and prints final MPI summary data e.g. number of partitions, cut axes reorientations, and average wall-times (broken
       ! down)
-      
+
       use param_para, only: partition_tracking
-      
+
       implicit none
       integer, intent(in):: procid, numprocs
       type(time_tracking), intent(in):: timings

@@ -1,9 +1,9 @@
 module ORB_m
-   
+
    use datatypes, only: particles, time_tracking
    use mpi_f08
    use param, only: f, dim, hsml
-   use param_para, only: MPI_derived_types,partition_tracking, neighbour_data
+   use param_para, only: MPI_derived_types, partition_tracking, neighbour_data
 
    private
    !Partition frequency variables
@@ -28,7 +28,7 @@ contains
       integer, intent(in):: procid, numprocs, itimestep, ntotal
       real(f), intent(in):: scale_k
       type(MPI_derived_types), intent(in):: MPI_types
-      integer,intent(inout):: ntotal_loc,nhalo_loc,nvirt_loc
+      integer, intent(inout):: ntotal_loc, nhalo_loc, nvirt_loc
       type(particles), intent(inout):: parts(:)
       type(time_tracking), intent(inout):: timings
       real(f), parameter:: dcell = hsml*dcell_ORB
@@ -72,7 +72,7 @@ contains
 
             ! Creating particle-in-cell grid
             call particle_grid(numprocs, MPI_types%ftype, ntotal_loc, parts(1:ntotal_loc), ngridx, dcell, mingridx_ini, &
-            maxgridx_ini, pincell_ORB)
+                               maxgridx_ini, pincell_ORB)
 
             ! Calculating current aspect ratio.
             do d = 1, dim
@@ -101,7 +101,7 @@ contains
             procrange_ini(1) = 0
             procrange_ini(2) = numprocs - 1
             bounds_glob = ORB_bounds(procid, numprocs, MPI_types%ftype, scale_k, repartition_mode, gridind_ini, numprocs, 1, &
-            procrange_ini, &
+                                     procrange_ini, &
                                      ntotal, pincell_ORB, dcell, mingridx_ini, maxgridx_ini)
 
             call subdomain_neighbour(procid, numprocs, bounds_glob, scale_k, n_process_neighbour)
@@ -120,11 +120,11 @@ contains
 
       ! physical particle distribution
       call ORB_sendrecv_diffuse(itimestep, procid, bounds_loc, MPI_types%parttype, repartition_mode, n_process_neighbour, &
-      neighbours,                                 n_request, request_phys, nphys_recv_all, ntotal_loc, parts)
+                                neighbours, n_request, request_phys, nphys_recv_all, ntotal_loc, parts)
 
       ! halo particle distribution
       call ORB_sendrecv_halo(procid, bounds_loc, scale_k, MPI_types%halotype, MPI_types%haloupdatetype, n_process_neighbour, &
-      neighbours,                              request_phys, request_halo, nphys_recv_all, n_request, ntotal_loc, nhalo_loc, parts)
+                             neighbours, request_phys, request_halo, nphys_recv_all, n_request, ntotal_loc, nhalo_loc, parts)
 
       ! update virtual particles
       call generate_virt_part(procid, bounds_loc, scale_k, ntotal, ntotal_loc, nhalo_loc, nvirt_loc, parts)
@@ -256,7 +256,7 @@ contains
 
    !==============================================================================================================================
    recursive function ORB_bounds(procid, numprocs, MPI_ftype, scale_k, repartition_mode, gridind_in, nprocs_in, node_in, &
-   procrange_in, &
+                                 procrange_in, &
                                  ntotal_in, pincell_ORB, dcell, mingridx_in, maxgridx_in) result(bounds_glob)
       ! Recursive function that performs the 'bisection' part of the ORB algorithm
 
@@ -265,7 +265,7 @@ contains
       implicit none
       integer, intent(in):: procid, numprocs, gridind_in(dim, 2), node_in, nprocs_in, procrange_in(2), ntotal_in, &
                             repartition_mode, pincell_ORB(:, :, :)
-      type(MPI_datatype),intent(in):: MPI_ftype
+      type(MPI_datatype), intent(in):: MPI_ftype
       real(f), intent(in):: mingridx_in(dim), maxgridx_in(dim), dcell, scale_k
       integer:: i, node_out, gridind_out(dim, 2), nprocs_out, ntotal_out, procrange_out(2), n_p, cax, np_per_node, pincol, &
                 ngridx_trim(dim), A(3), procrange_lo(2), procrange_hi(2), ierr
@@ -341,7 +341,7 @@ contains
       !travelling to child node/saving boundary information ---------------------------------------------------------------------
       if (nprocs_out .ne. 1) then
          bounds_glob = ORB_bounds(procid, numprocs, MPI_ftype, scale_k, repartition_mode, gridind_out, nprocs_out, node_out, &
-         procrange_out, &
+                                  procrange_out, &
                                   ntotal_out, pincell_ORB, dcell, mingridx_in, maxgridx_in)
       else
 

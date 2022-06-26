@@ -20,7 +20,7 @@ contains
 
    !==============================================================================================================================
    subroutine time_integration(maxtimestep, print_step, save_step, procid, numprocs, maxnloc, maxinter, MPI_types, timings, &
-   scale_k, ntotal_loc, nvirt_loc, nhalo_loc, nghos_loc, ntotal, parts, pairs, gind)
+                               scale_k, ntotal_loc, nvirt_loc, nhalo_loc, nghos_loc, ntotal, parts, pairs, gind)
       ! Subroutine responsible for the main time-integration loop
 
       implicit none

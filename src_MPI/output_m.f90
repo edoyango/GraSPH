@@ -1,5 +1,5 @@
 module output_m
-   
+
    use datatypes, only: particles
    use param, only: f, dim, output_directory, output_phys, output_halo, output_virt, output_flt_type
 
@@ -28,7 +28,7 @@ contains
       integer(HSSIZE_T):: displ(2)
       character(len=220):: filepath
       character(len=4):: number
-      
+
       ! Exchanging how many particles each process will output data for
       call MPI_IALLGATHER(ntotal_loc, 1, MPI_INTEGER, ntotal_glob, 1, MPI_INTEGER, MPI_COMM_WORLD, request(1), ierr)
       call MPI_IALLGATHER(nhalo_loc, 1, MPI_INTEGER, nhalo_glob, 1, MPI_INTEGER, MPI_COMM_WORLD, request(2), ierr)
@@ -75,7 +75,7 @@ contains
       global_dims(:) = [dim, sum(nhalo_glob)]
       displ(:) = [0, SUM(nhalo_glob(1:procid))] ! hdf5 works with 0-indexing
 
-      call write_particle_data(procid, fid, 'halo', global_dims, displ, parts(ntotal_loc+1:ntotal_loc+nhalo_loc))
+      call write_particle_data(procid, fid, 'halo', global_dims, displ, parts(ntotal_loc + 1:ntotal_loc + nhalo_loc))
 
       ! Writing data for virtual particles ---------------------------------------------------------------------------------------
       ! defining array shapes and displacments
@@ -85,7 +85,7 @@ contains
       displ(:) = [0, SUM(nvirt_glob(1:procid))] ! hdf5 works with 0-indexing
 
       call write_particle_data(procid, fid, 'virt', global_dims, displ, &
-      parts(ntotal_loc + nhalo_loc + 1: ntotal_loc + nhalo_loc + nvirt_loc))
+                               parts(ntotal_loc + nhalo_loc + 1:ntotal_loc + nhalo_loc + nvirt_loc))
 
       ! Writing data for ghost particles -----------------------------------------------------------------------------------------
       ! defining array shapes and displacments
@@ -95,7 +95,7 @@ contains
       displ(:) = [0, SUM(nghos_glob(1:procid))] ! hdf5 works with 0-indexing
 
       call write_particle_data(procid, fid, 'ghos', global_dims, displ, &
-      parts(ntotal_loc + nhalo_loc + nvirt_loc +1: ntotal_loc + nhalo_loc + nvirt_loc + nghos_loc))
+                               parts(ntotal_loc + nhalo_loc + nvirt_loc + 1:ntotal_loc + nhalo_loc + nvirt_loc + nghos_loc))
 
       ! Closing output file
       call h5fclose_f(fid, ierr)
@@ -119,7 +119,7 @@ contains
       integer, allocatable:: int_tmp(:, :)
       real(f), allocatable:: dbl_tmp(:, :)
 
-      nelem = size(parts,1)
+      nelem = size(parts, 1)
       allocate (int_tmp(nelem, 1), dbl_tmp(nelem, 1))
 
       ! writing 1D arrays

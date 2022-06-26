@@ -1,5 +1,5 @@
 module ORB_sr_m
-   
+
    use datatypes, only: particles
    use param_para, only: neighbour_data
    use mpi_f08
@@ -14,7 +14,7 @@ contains
 
    !==============================================================================================================================
    subroutine ORB_sendrecv_diffuse(itimestep, procid, bounds_loc, parttype, repartition_mode, n_process_neighbour, neighbours, &
-   nrequest,                                   request, n_recv_all, ntotal_loc, parts)
+                                   nrequest, request, n_recv_all, ntotal_loc, parts)
       ! Recursive function to exchange physical particles. In cases were subdomain boundaries are updated, the possibility of needing
       ! diffusion is considered
 
@@ -195,7 +195,7 @@ contains
 
    !==============================================================================================================================
    subroutine ORB_sendrecv_halo(procid, bounds_loc, scale_k, halotype, haloupdatetype, n_process_neighbour, neighbours, &
-   request_in,                                 request_out, nphys_recv_all, nrequest, ntotal_loc,nhalo_loc,parts)
+                                request_in, request_out, nphys_recv_all, nrequest, ntotal_loc, nhalo_loc, parts)
 
       !subroutine responsible for sending sending halo particle information between processes, given
       !predetermined subdomain boundaires.
@@ -208,7 +208,7 @@ contains
       type(neighbour_data), intent(inout):: neighbours(:)
       type(MPI_Request), intent(inout):: request_in(:)
       integer, intent(inout):: nphys_recv_all, nrequest, ntotal_loc
-      type(particles),intent(inout):: parts(:)
+      type(particles), intent(inout):: parts(:)
       type(MPI_Request), intent(out):: request_out(:)
       type(MPI_Status):: status(2*n_process_neighbour)
       integer, intent(out):: nhalo_loc
