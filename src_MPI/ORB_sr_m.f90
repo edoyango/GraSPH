@@ -1,7 +1,7 @@
 module ORB_sr_m
 
    use globvar, only: ntotal_loc, nhalo_loc, parts, maxnloc, itimestep, scale_k
-   use globvar_para, only: neighbour_data
+   use param_para, only: neighbour_data
    use mpi_f08
    use param, only: f, dim, hsml
    !use error_msg_m, only: error_msg
@@ -14,15 +14,15 @@ contains
 
    !==============================================================================================================================
    subroutine ORB_sendrecv_diffuse(procid, bounds_loc, parttype, repartition_mode, n_process_neighbour, neighbours, nrequest, &
-   request, &
-   n_recv_all)
+                                   request, &
+                                   n_recv_all)
       ! Recursive function to exchange physical particles. In cases were subdomain boundaries are updated, the possibility of needing
       ! diffusion is considered
 
       implicit none
       integer, intent(in):: procid, repartition_mode, n_process_neighbour
       real(f), intent(in):: bounds_loc(2*dim)
-      type(MPI_datatype),intent(in):: parttype
+      type(MPI_datatype), intent(in):: parttype
       type(neighbour_data), intent(inout):: neighbours(:)
       integer, intent(out):: nrequest, n_recv_all
       type(MPI_Request), intent(out):: request(:)
@@ -40,7 +40,7 @@ contains
       entrydepth = 0
 
       xmin_loc(:) = bounds_loc(1:dim)
-      xmax_loc(:) = bounds_loc(dim+1:2*dim)
+      xmax_loc(:) = bounds_loc(dim + 1:2*dim)
 
       do while (diffuse)
 
@@ -195,13 +195,11 @@ contains
 
    !==============================================================================================================================
    subroutine ORB_sendrecv_halo(procid, bounds_loc, halotype, haloupdatetype, n_process_neighbour, neighbours, request_in, &
-   request_out, nphys_recv_all, nrequest)
+                                request_out, nphys_recv_all, nrequest)
 
       !subroutine responsible for sending sending halo particle information between processes, given
       !predetermined subdomain boundaires.
       !Note: subdomain boundaries are used as inputs (bounds_glob).
-
-      !use globvar_para, only: halotype
 
       implicit none
       integer, intent(in):: procid, n_process_neighbour
@@ -238,7 +236,7 @@ contains
 
       ! Begin search
       xmin_loc = bounds_loc(1:dim) + scale_k*hsml
-      xmax_loc = bounds_loc(dim+1:2*dim) - scale_k*hsml
+      xmax_loc = bounds_loc(dim + 1:2*dim) - scale_k*hsml
       do k = 1, maxloop
          do i = pos0, pos1
             xi(:) = parts(i)%x(:)
@@ -275,7 +273,7 @@ contains
       ! Creating indexed derived types to send halo particles to each neighbouring process
       do n = 1, n_process_neighbour
          if (neighbours(n)%nhalo_send > 0) then
-            call neighbours(n)%create_indexed_halotypes(halotype,haloupdatetype)
+            call neighbours(n)%create_indexed_halotypes(halotype, haloupdatetype)
          end if
       end do
 
@@ -327,11 +325,9 @@ contains
    subroutine ORB_sendrecv_haloupdate(ki, haloupdatetype, n_process_neighbour, neighbours)
       ! Reduced version of ORB_sendrecv_halo where no searching occurs (only the exchange)
 
-      !use globvar_para, only: haloupdatetype
-
       implicit none
       integer, intent(in):: ki, n_process_neighbour
-      type(MPI_datatype),intent(in):: haloupdatetype
+      type(MPI_datatype), intent(in):: haloupdatetype
       type(neighbour_data), intent(inout):: neighbours(:)
       integer:: n, i, pos0_recv, pos1_recv, n_request, ierr
       type(MPI_Request):: request(2*n_process_neighbour)

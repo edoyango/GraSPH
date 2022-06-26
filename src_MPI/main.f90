@@ -1,7 +1,6 @@
 program SPH
 
    use globvar, only: ntotal, scale_k, allocateGlobalArrays, deallocateGlobalArrays
-   !use globvar_para, only: MPI_ftype
    use mpi_f08
    use param, only: f, skf, dim
    use param_para, only: MPI_derived_types
@@ -20,9 +19,9 @@ program SPH
    call MPI_INIT(ierr)
    call MPI_COMM_RANK(MPI_COMM_WORLD, procid, ierr) !Retrieving process rank
    call MPI_COMM_SIZE(MPI_COMM_WORLD, numprocs, ierr) !Retrieving total number of processes
-   
+
    ! Creating MPI datatypes for simulation
-   call MPI_types%CreateMPITypes 
+   call MPI_types%CreateMPITypes
 
    !Printing preamble to screen
    call preamble(procid, numprocs)
@@ -32,7 +31,7 @@ program SPH
 
    !Retrieving how many particles are to be generated. Hence the generate=.false.
    call input(procid, numprocs, .false.)
-   call virt_part(procid, .false.,bounds_dummy)
+   call virt_part(procid, .false., bounds_dummy)
 
    if (procid .eq. 0) write (*, '(A24,1x,I9,1x,A19)') 'Total simulation size of', ntotal, 'physical particles.'
 

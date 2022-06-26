@@ -26,7 +26,7 @@ contains
 
       implicit none
       integer, intent(in):: procid, numprocs
-      type(MPI_derived_types),intent(in):: MPI_types
+      type(MPI_derived_types), intent(in):: MPI_types
       integer:: i, ki
       real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drho(:, :)
 

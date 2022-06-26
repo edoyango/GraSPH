@@ -1,10 +1,9 @@
 module ORB_m
 
    use globvar, only: scale_k, parts, ntotal_loc
-   use globvar_para, only: partition_tracking, neighbour_data
    use mpi_f08
    use param, only: f, dim, hsml
-   use param_para, only: MPI_derived_types
+   use param_para, only: MPI_derived_types,partition_tracking, neighbour_data
 
    private
    !Partition frequency variables
@@ -12,7 +11,7 @@ module ORB_m
    integer:: prev_load, node_cut(2*dim), n_process_neighbour
    type(partition_tracking):: partition_track
    type(neighbour_data), allocatable:: neighbours(:)
-   integer,allocatable:: node_cax(:)
+   integer, allocatable:: node_cax(:)
 
    public:: ORB, partition_track, neighbours, n_process_neighbour
 
@@ -32,8 +31,8 @@ contains
       real(f), parameter:: dcell = hsml*dcell_ORB
       integer:: d, i, ngridx(dim), nphys_recv_all, n_request, procrange_ini(2), tree_layers, maxnode, &
                 gridind_ini(dim, 2), repartition_mode_loc, ierr, repartition_mode
-      real(f):: bounds_glob(2*dim,numprocs), mingridx_ini(dim), maxgridx_ini(dim), current_to_previous(dim, dim), &
-      box_ratio_current(dim, dim)
+      real(f):: bounds_glob(2*dim, numprocs), mingridx_ini(dim), maxgridx_ini(dim), current_to_previous(dim, dim), &
+                box_ratio_current(dim, dim)
       type(MPI_Status):: status(4*numprocs)
       type(MPI_Request):: request_phys(2*numprocs), request_halo(2*numprocs)
       integer, allocatable:: pincell_ORB(:, :, :)
@@ -43,7 +42,7 @@ contains
       if (itimestep .eq. 1) then
          tree_layers = CEILING(LOG(DBLE(numprocs))/LOG(2d0))
          maxnode = 2*2**tree_layers - 1
-         allocate (node_cax(maxnode),neighbours(numprocs))
+         allocate (node_cax(maxnode), neighbours(numprocs))
       end if
 
       ! Boundary Determiniation Algorithm ---------------------------------------------------------------------------------------
@@ -98,12 +97,12 @@ contains
             procrange_ini(1) = 0
             procrange_ini(2) = numprocs - 1
             bounds_glob = ORB_bounds(procid, numprocs, MPI_types%ftype, repartition_mode, gridind_ini, numprocs, 1, procrange_ini, &
-            ntotal, pincell_ORB, dcell,                                      mingridx_ini, maxgridx_ini)
+                                     ntotal, pincell_ORB, dcell, mingridx_ini, maxgridx_ini)
 
             call subdomain_neighbour(procid, numprocs, bounds_glob, n_process_neighbour)
-            
-            bounds_loc(:) = bounds_glob(:,procid+1)
-            
+
+            bounds_loc(:) = bounds_glob(:, procid + 1)
+
             deallocate (pincell_ORB)
 
          end if
@@ -116,11 +115,11 @@ contains
 
       ! physical particle distribution
       call ORB_sendrecv_diffuse(procid, bounds_loc, MPI_types%parttype, repartition_mode, n_process_neighbour, neighbours, &
-      n_request, request_phys, nphys_recv_all)
+                                n_request, request_phys, nphys_recv_all)
 
       ! halo particle distribution
       call ORB_sendrecv_halo(procid, bounds_loc, MPI_types%halotype, MPI_types%haloupdatetype, n_process_neighbour, neighbours, &
-      request_phys, request_halo, nphys_recv_all, n_request)
+                             request_phys, request_halo, nphys_recv_all, n_request)
 
       ! update virtual particles
       call virt_part(procid, .true., bounds_loc)
@@ -147,10 +146,10 @@ contains
       implicit none
       integer, intent(in):: numprocs
       real(f), intent(in):: dcell
-      type(MPI_datatype),intent(in):: MPI_ftype
+      type(MPI_datatype), intent(in):: MPI_ftype
       integer, intent(out):: ngridx(:)
       real(f), intent(out):: mingridx(:), maxgridx(:)
-      integer, allocatable, intent(out):: pincell_ORB(:,:,:)
+      integer, allocatable, intent(out):: pincell_ORB(:, :, :)
       integer:: i, d, icell, jcell, kcell, n_nonzerocells, n_nonzerocells_perprocess(numprocs), n_nonzerocells_total, pid, &
                 displ(numprocs), cellmins(3), cellmaxs(3), cellrange(3), ierr
       real(f):: minx(3), maxx(3)
@@ -251,15 +250,15 @@ contains
 
    !==============================================================================================================================
    recursive function ORB_bounds(procid, numprocs, MPI_ftype, repartition_mode, gridind_in, nprocs_in, node_in, procrange_in, &
-   ntotal_in, pincell_ORB, dcell, mingridx_in, maxgridx_in) result(bounds_glob)
+                                 ntotal_in, pincell_ORB, dcell, mingridx_in, maxgridx_in) result(bounds_glob)
       ! Recursive function that performs the 'bisection' part of the ORB algorithm
 
       use param_para, only: bound_extend
 
       implicit none
       integer, intent(in):: procid, numprocs, gridind_in(dim, 2), node_in, nprocs_in, procrange_in(2), ntotal_in, &
-      repartition_mode, pincell_ORB(:,:,:)
-      type(MPI_datatype):: MPI_ftype
+                            repartition_mode, pincell_ORB(:, :, :)
+      type(MPI_datatype),intent(in):: MPI_ftype
       real(f), intent(in):: mingridx_in(dim), maxgridx_in(dim), dcell
       integer:: i, node_out, gridind_out(dim, 2), nprocs_out, ntotal_out, procrange_out(2), n_p, cax, np_per_node, pincol, &
                 ngridx_trim(dim), A(3), procrange_lo(2), procrange_hi(2), ierr
@@ -361,7 +360,7 @@ contains
       ! Trims particle-in-cell grid so as to obtain minimal bounding boxes to obtain accurate cut axis orientations
 
       implicit none
-      integer, intent(in):: gridind_in(dim, 2), pincell_ORB(:,:,:)
+      integer, intent(in):: gridind_in(dim, 2), pincell_ORB(:, :, :)
       integer, intent(out):: ngridx_trim(dim)
       integer:: i, j, k, newi(2), newj(2), newk(2), oldi(2), oldj(2), oldk(2)
 
@@ -468,7 +467,7 @@ contains
 
       implicit none
       integer, intent(in):: procid, numprocs
-      real(f), intent(in):: bounds_glob(2*dim,numprocs)
+      real(f), intent(in):: bounds_glob(2*dim, numprocs)
       integer, intent(out):: n_process_neighbour
       integer:: pid
       real(f):: bounds_loc_min(dim), bounds_loc_max(dim), bounds_rem_min(dim), bounds_rem_max(dim)
