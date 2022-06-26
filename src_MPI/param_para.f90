@@ -34,9 +34,14 @@ module param_para
 ! FUNCTIONS FOR PACKING DATA FOR PARTICLE EXCHANGE SUBROUTINES
 !==================================================================================================
 contains
-
+   !================================================================================================================================
    subroutine CreateMPITypes(self) !---------------------------------
-      ! packing of physical particle data (integers and doubles)
+      ! Subroutine to help create MPI user (derived) types for particle data. four types are created in the parent class:
+      ! - ftype: the floating type precision to used
+      ! - parttype: an MPI user type to encapsulate physical particle data to be exchanged
+      ! - halotype: "                             " halo "                               "
+      ! - haloupdatetype: an MPI user type that captures a reduced subset of particle data as only some variables need to be
+      !                   updated after the first halo exchange in a time-step
 
       implicit none
       class(MPI_derived_types), intent(out):: self
@@ -76,17 +81,7 @@ contains
       type(4:7) = self%ftype
 
       ! Creating MPI user type
-      call MPI_TYPE_CREATE_STRUCT(7, blockl, disp, type, tmptype, ierr)
-      call MPI_TYPE_COMMIT(tmptype, ierr)
-
-      ! Calculating distance in memory between consecutive elements in array of defined type
-      call MPI_GET_ADDRESS(parts_dummy(1), disp(1), ierr)
-      call MPI_GET_ADDRESS(parts_dummy(2), disp(2), ierr)
-      ! Resizing array to account for any "padding". lb = lowerbound
-      lb = 0; ext = disp(2) - disp(1)
-      call MPI_TYPE_CREATE_RESIZED(tmptype, lb, ext, self%parttype, ierr)
-      call MPI_TYPE_COMMIT(self%parttype, ierr)
-      call MPI_TYPE_FREE(tmptype, ierr)
+      self%parttype = CreateMPITYPES_helper(7,disp,blockl,type)
 
       ! Repeating process for halo exchanges (only subset) -------------------------------------------------------------------------
       ! Setting up type for initial halo particle exchange
@@ -103,18 +98,10 @@ contains
 
       type(1:2) = MPI_INTEGER
       type(3:5) = self%ftype
+      
+      self%halotype = CreateMPITypes_helper(5,disp,blockl,type)
 
-      call MPI_TYPE_CREATE_STRUCT(5, blockl, disp, type, tmptype, ierr)
-      call MPI_TYPE_COMMIT(tmptype, ierr)
-
-      call MPI_GET_ADDRESS(parts_dummy(1), disp(1), ierr)
-      call MPI_GET_ADDRESS(parts_dummy(2), disp(2), ierr)
-      lb = 0; ext = disp(2) - disp(1)
-      call MPI_TYPE_CREATE_RESIZED(tmptype, lb, ext, self%halotype, ierr)
-      call MPI_TYPE_COMMIT(self%halotype, ierr)
-      call MPI_TYPE_FREE(tmptype, ierr)
-
-      ! Setting up type for halo particle updates (updates only need density, velocity)
+      ! Setting up type for halo particle updates (updates only need density, velocity) --------------------------------------------
       call MPI_GET_ADDRESS(parts_dummy(1), basedisp, ierr)
       call MPI_GET_ADDRESS(parts_dummy(1)%rho, disp(1), ierr)
       call MPI_GET_ADDRESS(parts_dummy(1)%vx(1), disp(2), ierr)
@@ -124,17 +111,35 @@ contains
       blockl(1:2) = (/1, dim/)
 
       type(1:2) = self%ftype
+      
+      self%haloupdatetype = CreateMPITypes_helper(2,disp,blockl,type)
 
-      call MPI_TYPE_CREATE_STRUCT(2, blockl, disp, type, tmptype, ierr)
+   end subroutine CreateMPITypes
+   
+   !================================================================================================================================
+   function CreateMPITypes_helper(nblock,disp,blockl,blockt) result(outtype)
+   ! This function is a helper function that encapsulates all the MPI_ calls to create a datatype. Is used only in the
+   ! CreateMPITypes class subroutine
+   
+      implicit none
+      integer,intent(in):: nblock,blockl(nblock)
+      integer(KIND=MPI_ADDRESS_KIND),intent(in):: disp(nblock)
+      type(MPI_Datatype),intent(in):: blockt(nblock)
+      integer(KIND=MPI_ADDRESS_KIND):: lb=0, disp_tmp(2), ext
+      type(MPI_Datatype):: tmptype, outtype
+      integer:: ierr
+      type(particles):: parts_dummy(2)
+      
+      call MPI_TYPE_CREATE_STRUCT(nblock, blockl, disp, blockt, tmptype, ierr)
       call MPI_TYPE_COMMIT(tmptype, ierr)
 
-      call MPI_GET_ADDRESS(parts_dummy(1)%rho, disp(1), ierr)
-      call MPI_GET_ADDRESS(parts_dummy(2)%rho, disp(2), ierr)
-      lb = 0; ext = disp(2) - disp(1)
-      call MPI_TYPE_CREATE_RESIZED(tmptype, lb, ext, self%haloupdatetype, ierr)
-      call MPI_TYPE_COMMIT(self%haloupdatetype, ierr)
+      call MPI_GET_ADDRESS(parts_dummy(1), disp_tmp(1), ierr)
+      call MPI_GET_ADDRESS(parts_dummy(2), disp_tmp(2), ierr)
+      lb = 0; ext = disp_tmp(2) - disp_tmp(1)
+      call MPI_TYPE_CREATE_RESIZED(tmptype, lb, ext, outtype, ierr)
+      call MPI_TYPE_COMMIT(outtype, ierr)
       call MPI_TYPE_FREE(tmptype, ierr)
-
-   end subroutine CreateMPITypes !--------------------------------------------------------------------
+      
+   end function CreateMPITypes_helper
    
 end module param_para

@@ -116,14 +116,11 @@ contains
 
       ! physical particle distribution
       call ORB_sendrecv_diffuse(procid, bounds_loc, MPI_types%parttype, repartition_mode, n_process_neighbour, neighbours, &
-      n_request, request_phys, &
-      nphys_recv_all)
+      n_request, request_phys, nphys_recv_all)
 
       ! halo particle distribution
       call ORB_sendrecv_halo(procid, bounds_loc, MPI_types%halotype, MPI_types%haloupdatetype, n_process_neighbour, neighbours, &
-      request_phys, request_halo, &
-      nphys_recv_all, &
-      n_request)
+      request_phys, request_halo, nphys_recv_all, n_request)
 
       ! update virtual particles
       call virt_part(procid, .true., bounds_loc)
