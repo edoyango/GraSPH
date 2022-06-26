@@ -21,7 +21,7 @@ FCFLAGS_intel_debug="-g -check all"
 FCFLAGS_intel="-traceback -module obj -warn all"
 FCFLAGS_CUDA_opt=""
 FCFLAGS_CUDA_debug="-g -C"
-FCFLAGS_CUDA="-traceback -Iobj -moule obj -Minfo -Mcuda"
+FCFLAGS_CUDA="-Mcuda -traceback -Iobj -module obj -Minfo"
 MKFILES_DIR=makefiles
 MKFILE_serial=makefile.serial
 MKFILE_MPI=makefile.mpi
@@ -77,9 +77,10 @@ elif [ $GNU -eq 1 ]; then
 	[ $OPTIMISE -eq 1 ] && FCFLAGS="$FCFLAGS $FCFLAGS_gnu_opt"
 	[ $DEBUG -eq 1 ] && FCFLAGS="$FCFLAGS $FCFLAGS_gnu_debug"
 elif [ $CUDA -eq 1 ]; then
-	FCFLAGS="$FCFLAGS $FCFLAGS_cuda"
-	[ $OPTIMISE -eq 1 ] && FCFLAGS="$FCFLAGS $FCFLAGS_cuda_opt"
-	[ $DEBUG -eq 1 ] && FCFLAGS="$FCFLAGS $FCFLAGS_cuda_debug"
+	FCFLAGS="$FCFLAGS $FCFLAGS_CUDA"
+	echo $FCFLAGS
+	[ $OPTIMISE -eq 1 ] && FCFLAGS="$FCFLAGS $FCFLAGS_CUDA_opt"
+	[ $DEBUG -eq 1 ] && FCFLAGS="$FCFLAGS $FCFLAGS_CUDA_debug"
 fi
 
 
