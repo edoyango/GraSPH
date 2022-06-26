@@ -1,40 +1,67 @@
 module input_m
 
-   use datatypes, only: particles
-   use globvar, only: ntotal, nvirt, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, scale_k, maxnloc
+   use datatypes, only: particles, interactions
    use mpi_f08
    use param, only: dim, irho, dxo, f, hsml, mp, np, op, pp, qp, rp, nlayer
-   !use error_msg_m, only: error_msg
-   use output_m, only: write_ini_config
 
+   private
    real(f), parameter:: vxmin = 0._f, vymin = 0._f, vzmin = 0._f, &
                         vxmax = vxmin + pp*dxo, vymax = vymin + qp*dxo, vzmax = vzmin + rp*dxo
    real(f), parameter:: rxmin = 0._f, rymin = 0._f, rzmin = 0._f, &
                         rxmax = rxmin + mp*dxo, rymax = rymin + np*dxo, rzmax = rzmin + op*dxo
 
-   integer, allocatable:: gind(:)
-
-   public:: input, virt_part
+   public:: return_ntotal, return_nvirt, allocatePersistentArrays, generate_real_part, generate_virt_part, generate_ghost_part,&
+   update_ghost_part, virt_mirror
 
 contains
+   
+   !==============================================================================================================================
+   function return_ntotal() result(ntotal)
+   
+      implicit none
+      integer:: ntotal
+      
+      ntotal = mp*np*op
+      
+   end function
+   
+   !==============================================================================================================================
+   function return_nvirt() result(nvirt)
+   
+      implicit none
+      integer:: nvirt
+      
+      nvirt = nlayer*(2*nlayer + pp)*(2*nlayer + qp)
+      
+   end function
+   
+   !==============================================================================================================================
+   subroutine allocatePersistentArrays(ntotal,nvirt,parts,pairs,gind,maxnloc,maxinter)
+      
+      implicit none
+      integer, intent(in):: ntotal,nvirt
+      integer,intent(inout),allocatable:: gind(:)
+      type(particles),intent(inout),allocatable:: parts(:)
+      type(interactions),intent(inout),allocatable:: pairs(:)
+      integer, intent(out):: maxnloc,maxinter
+      
+      maxnloc = 2*ntotal + nvirt
+      maxinter = 262*maxnloc
+
+      allocate (parts(maxnloc),pairs(maxinter),gind(ntotal))
+
+   end subroutine allocatePersistentArrays
 
    !==============================================================================================================================
-   subroutine input(procid, numprocs, generate)
+   subroutine generate_real_part(procid, numprocs, ntotal, ntotal_loc, parts)
       ! Generates initial physical particle configuration.
       ! 2 cases: return only number of particles retrieved, or generating the particles
 
       implicit none
-      integer, intent(in):: procid, numprocs
-      logical, intent(in):: generate
+      integer, intent(in):: procid, numprocs, ntotal
+      integer,intent(out):: ntotal_loc 
+      type(particles),intent(out):: parts(:)
       integer:: i, j, k, n, n_loc, n_loc_i, n_start, n_done
-
-      select case (generate)
-
-      case (.false.)
-
-         ntotal = mp*np*op
-
-      case (.true.)
 
          ! how many particles to generate per process
          n_loc_i = ceiling(dble(ntotal)/numprocs)
@@ -73,31 +100,20 @@ contains
             end do
          end do
 
-         call write_ini_config(procid, numprocs)
-
-      end select
-
-   end subroutine input
+   end subroutine generate_real_part
 
    !==============================================================================================================================
-   subroutine virt_part(procid, generate, bounds_loc)
+   subroutine generate_virt_part(procid, bounds_loc, scale_k, ntotal, ntotal_loc, nhalo_loc, nvirt_loc, parts)
       ! Generates the virtual particle configuration. Can change over time or remain static
       ! 2 cases: return only number of particles retrieved, or generating the particles
 
       implicit none
-      integer, intent(in):: procid
-      real(f), intent(in):: bounds_loc(2*dim)
+      integer, intent(in):: procid, ntotal_loc, nhalo_loc, ntotal
+      real(f), intent(in):: bounds_loc(2*dim), scale_k
+      type(particles), intent(inout):: parts(:)
+      integer, intent(out):: nvirt_loc
       integer:: i, j, k, n
       real(f):: xi(dim), xmin_loc(dim), xmax_loc(dim)
-      logical, intent(in):: generate
-
-      select case (generate)
-
-      case (.false.)
-
-         nvirt = nlayer*(2*nlayer + pp)*(2*nlayer + qp)
-
-      case (.true.)
 
          xmin_loc(:) = bounds_loc(1:dim) - scale_k*hsml
          xmax_loc(:) = bounds_loc(dim + 1:2*dim) + scale_k*hsml
@@ -126,15 +142,14 @@ contains
             end do
          end do
 
-      end select
-
-   end subroutine virt_part
+   end subroutine generate_virt_part
 
    !==============================================================================================================================
-   pure subroutine generate_ghost_part(ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, gind)
+   pure subroutine generate_ghost_part(scale_k, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, gind)
 
       implicit none
       integer, intent(in):: ntotal_loc, nhalo_loc, nvirt_loc
+      real(f), intent(in):: scale_k
       type(particles), intent(inout):: parts(:)
       integer, intent(out):: nghos_loc, gind(:)
       integer:: i, ig
@@ -235,10 +250,10 @@ contains
    end subroutine generate_ghost_part
 
    !==============================================================================================================================
-   pure subroutine update_ghost_part(ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts)
+   pure subroutine update_ghost_part(gind, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts)
 
       implicit none
-      integer, intent(in):: ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc
+      integer, intent(in):: ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, gind(:)
       type(particles), intent(inout):: parts(:)
       integer:: i, ig, ir
 

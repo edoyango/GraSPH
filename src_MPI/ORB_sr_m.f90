@@ -1,6 +1,6 @@
 module ORB_sr_m
-
-   use globvar, only: ntotal_loc, nhalo_loc, parts, maxnloc, itimestep, scale_k
+   
+   use datatypes, only: particles
    use param_para, only: neighbour_data
    use mpi_f08
    use param, only: f, dim, hsml
@@ -13,21 +13,21 @@ module ORB_sr_m
 contains
 
    !==============================================================================================================================
-   subroutine ORB_sendrecv_diffuse(procid, bounds_loc, parttype, repartition_mode, n_process_neighbour, neighbours, nrequest, &
-                                   request, &
-                                   n_recv_all)
+   subroutine ORB_sendrecv_diffuse(itimestep, procid, bounds_loc, parttype, repartition_mode, n_process_neighbour, neighbours, &
+   nrequest,                                   request, n_recv_all, ntotal_loc, parts)
       ! Recursive function to exchange physical particles. In cases were subdomain boundaries are updated, the possibility of needing
       ! diffusion is considered
 
       implicit none
-      integer, intent(in):: procid, repartition_mode, n_process_neighbour
+      integer, intent(in):: procid, repartition_mode, n_process_neighbour, itimestep
       real(f), intent(in):: bounds_loc(2*dim)
       type(MPI_datatype), intent(in):: parttype
+      integer, intent(inout):: ntotal_loc
+      type(particles), intent(inout):: parts(:)
       type(neighbour_data), intent(inout):: neighbours(:)
       integer, intent(out):: nrequest, n_recv_all
       type(MPI_Request), intent(out):: request(:)
-      integer:: d, i, j, n, pos_recv, ierr
-      integer:: nphys_send_all, diff_dest, ndiffuse_loc, ndiffuse_all, searchrange(2), entrydepth
+      integer:: d, i, j, n, pos_recv, ierr, nphys_send_all, diff_dest, ndiffuse_loc, ndiffuse_all, searchrange(2), entrydepth
       real(f):: xmin_loc(dim), xmax_loc(dim), xmin_rem(dim), xmax_rem(dim), xi(dim), dr, dr_min
       type(MPI_STATUS):: status(2*n_process_neighbour + 1)
       logical:: diffuse
@@ -194,8 +194,8 @@ contains
    end subroutine ORB_sendrecv_diffuse
 
    !==============================================================================================================================
-   subroutine ORB_sendrecv_halo(procid, bounds_loc, halotype, haloupdatetype, n_process_neighbour, neighbours, request_in, &
-                                request_out, nphys_recv_all, nrequest)
+   subroutine ORB_sendrecv_halo(procid, bounds_loc, scale_k, halotype, haloupdatetype, n_process_neighbour, neighbours, &
+   request_in,                                 request_out, nphys_recv_all, nrequest, ntotal_loc,nhalo_loc,parts)
 
       !subroutine responsible for sending sending halo particle information between processes, given
       !predetermined subdomain boundaires.
@@ -203,13 +203,15 @@ contains
 
       implicit none
       integer, intent(in):: procid, n_process_neighbour
-      real(f), intent(in):: bounds_loc(2*dim)
+      real(f), intent(in):: bounds_loc(2*dim), scale_k
       type(MPI_datatype), intent(in):: halotype, haloupdatetype
       type(neighbour_data), intent(inout):: neighbours(:)
       type(MPI_Request), intent(inout):: request_in(:)
-      integer, intent(inout):: nphys_recv_all, nrequest
+      integer, intent(inout):: nphys_recv_all, nrequest, ntotal_loc
+      type(particles),intent(inout):: parts(:)
       type(MPI_Request), intent(out):: request_out(:)
       type(MPI_Status):: status(2*n_process_neighbour)
+      integer, intent(out):: nhalo_loc
       integer:: i, j, k, n, pos0_recv, pos1_recv, pos0, pos1, maxloop, ierr
       real(f):: xmin_rem(dim), xmax_rem(dim), xi(dim), xmin_loc(dim), xmax_loc(dim)
       logical:: wait_for_phys
@@ -322,13 +324,14 @@ contains
    end subroutine ORB_sendrecv_halo
 
    !==============================================================================================================================
-   subroutine ORB_sendrecv_haloupdate(ki, haloupdatetype, n_process_neighbour, neighbours)
+   subroutine ORB_sendrecv_haloupdate(ki, haloupdatetype, n_process_neighbour, neighbours, ntotal_loc, parts)
       ! Reduced version of ORB_sendrecv_halo where no searching occurs (only the exchange)
 
       implicit none
-      integer, intent(in):: ki, n_process_neighbour
+      integer, intent(in):: ki, n_process_neighbour, ntotal_loc
       type(MPI_datatype), intent(in):: haloupdatetype
       type(neighbour_data), intent(inout):: neighbours(:)
+      type(particles), intent(inout):: parts(:)
       integer:: n, i, pos0_recv, pos1_recv, n_request, ierr
       type(MPI_Request):: request(2*n_process_neighbour)
       type(MPI_Status):: status(2*n_process_neighbour)

@@ -161,7 +161,7 @@ contains
    end function CreateMPITypes_helper
    
    !================================================================================================================================
-   subroutine Pack_PhysPart(self, particle)
+   pure subroutine Pack_PhysPart(self, particle)
 
       implicit none
       type(particles), intent(in):: particle

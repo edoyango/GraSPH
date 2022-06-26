@@ -1,13 +1,11 @@
 module time_integration_m
 
-   use datatypes, only: particles, interactions
-   use globvar, only: parts, ntotal_loc, time, cputime, output_time, t_graph, t_dist, test_time, itimestep, maxtimestep, &
-                      print_step, save_step, maxnloc, nvirt_loc, nghos_loc, nhalo_loc, niac, pairs, maxinter, scale_k
+   use datatypes, only: particles, interactions, time_tracking
    use mpi_f08
    use param, only: f, dim, dt, rh0, c, gamma
    use param_para, only: MPI_derived_types
 
-   use input_m, only: gind, generate_ghost_part, update_ghost_part
+   use input_m, only: generate_ghost_part, update_ghost_part
    use flink_list_m, only: flink_list
    use ORB_m, only: ORB, neighbours, n_process_neighbour
    use ORB_sr_m, only: ORB_sendrecv_haloupdate
@@ -21,32 +19,38 @@ module time_integration_m
 contains
 
    !==============================================================================================================================
-   subroutine time_integration(procid, numprocs, MPI_types)
+   subroutine time_integration(maxtimestep, print_step, save_step, procid, numprocs, maxnloc, maxinter, MPI_types, timings, &
+   scale_k, ntotal_loc, nvirt_loc, nhalo_loc, nghos_loc, ntotal, parts, pairs, gind)
       ! Subroutine responsible for the main time-integration loop
 
       implicit none
-      integer, intent(in):: procid, numprocs
+      integer, intent(in):: procid, numprocs, maxtimestep, print_step, save_step, maxnloc, maxinter, ntotal
       type(MPI_derived_types), intent(in):: MPI_types
-      integer:: i, ki
+      real(f), intent(in):: scale_k
+      type(time_tracking), intent(inout):: timings
+      integer, intent(inout):: ntotal_loc, nvirt_loc, nghos_loc, nhalo_loc, gind(:)
+      type(particles), intent(inout):: parts(maxnloc)
+      type(interactions), intent(out):: pairs(maxinter)
+      integer:: i, ki, itimestep, niac
+      real(f):: time = 0._f
       real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drho(:, :)
 
       allocate (v_min(dim, maxnloc), rho_min(maxnloc), dvxdt(dim, maxnloc, 4), drho(maxnloc, 4))
-      allocate (gind(maxnloc))
 
       ! Time-integration (Leap-Frog)
       do itimestep = 1, maxtimestep
 
-         cputime = cputime - MPI_WTIME()
+         timings%t_compute = timings%t_compute - MPI_WTIME()
 
          ! distributing particles
-         call ORB(procid, numprocs, MPI_types)
+         call ORB(itimestep, procid, numprocs, MPI_types, scale_k, ntotal, ntotal_loc, nhalo_loc, nvirt_loc, parts, timings)
 
          do i = 1, ntotal_loc + nhalo_loc
             parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1_f)/gamma
          end do
 
          ! generating ghost particles
-         call generate_ghost_part(ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, gind)
+         call generate_ghost_part(scale_k, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, gind)
 
          ! Storing velocity and density at initial time-step
          do i = 1, ntotal_loc
@@ -61,9 +65,11 @@ contains
 
             ! update halo particles after first increment
             if (ki > 1) then
-               t_dist = t_dist - MPI_WTIME()
-               call ORB_sendrecv_haloupdate(ki, MPI_types%haloupdatetype, n_process_neighbour, neighbours)
-               t_dist = t_dist + MPI_WTIME()
+               timings%t_compute = timings%t_compute + MPI_WTIME()
+               timings%t_dist = timings%t_dist - MPI_WTIME()
+               call ORB_sendrecv_haloupdate(ki, MPI_types%haloupdatetype, n_process_neighbour, neighbours, ntotal_loc, parts)
+               timings%t_dist = timings%t_dist + MPI_WTIME()
+               timings%t_compute = timings%t_compute - MPI_WTIME()
             end if
 
             ! update pressure of newly updated real and halo particles
@@ -72,7 +78,7 @@ contains
             end do
 
             ! update ghost particles
-            if (ki > 1) call update_ghost_part(ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts)
+            if (ki > 1) call update_ghost_part(gind, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts)
 
             ! calculating forces
             call single_step(ki, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, niac, pairs, dvxdt(:, :, ki), drho(:, ki))
@@ -83,19 +89,19 @@ contains
 
          time = time + dt
 
-         cputime = cputime + MPI_WTIME()
+         timings%t_compute = timings%t_compute + MPI_WTIME()
 
-         output_time = output_time - MPI_WTIME()
+         timings%t_output = timings%t_output - MPI_WTIME()
 
          ! write output data
          if (mod(itimestep, save_step) .eq. 0) then
-            call output(procid, numprocs)
+            call output(itimestep, save_step, procid, numprocs, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, ntotal)
          end if
 
-         output_time = output_time + MPI_WTIME()
+         timings%t_output = timings%t_output + MPI_WTIME()
 
          if (mod(itimestep, print_step) .eq. 0) then
-            call print_loadbalance(procid, numprocs)
+            call print_loadbalance(procid, numprocs, timings, ntotal_loc, nhalo_loc, nvirt_loc, niac, itimestep, time, maxtimestep)
          end if
 
       end do
