@@ -34,19 +34,19 @@ contains
    end function return_nvirt
 
    !==============================================================================================================================
-   subroutine allocatePersistentArrays(ntotal, nvirt, parts, pairs, gind)
+   subroutine allocatePersistentArrays(ntotal, nvirt, parts, pairs, nexti, gind)
 
       implicit none
       integer, intent(in):: ntotal, nvirt
       type(particles), allocatable, intent(out):: parts(:)
       type(interactions), allocatable, intent(out):: pairs(:)
-      integer, allocatable, intent(out):: gind(:)
+      integer, allocatable, intent(out):: nexti(:), gind(:)
       integer:: maxn, maxinter
 
       maxn = 2*ntotal + nvirt
       maxinter = 262*maxn
 
-      allocate (parts(maxn), pairs(maxinter), gind(ntotal))
+      allocate (parts(maxn), pairs(maxinter), nexti(2*ntotal+nvirt+1), gind(ntotal))
 
    end subroutine allocatePersistentArrays
 
@@ -246,51 +246,51 @@ contains
    end subroutine update_ghost_part
 
    !==============================================================================================================================
-   subroutine update_virt_part(ki, ntotal, nvirt, parts, niac, pairs, vw)
+!~    subroutine update_virt_part(ki, ntotal, nvirt, parts, niac, pairs, vw)
 
-      implicit none
-      integer, intent(in):: ki, ntotal, nvirt, niac
-      type(interactions), intent(in):: pairs(:)
-      type(particles), intent(inout):: parts(:)
-      real(f), intent(inout):: vw(:)
-      integer:: i, j, k
-      real(f):: tmp
+!~       implicit none
+!~       integer, intent(in):: ki, ntotal, nvirt, niac
+!~       type(interactions), intent(in):: pairs(:)
+!~       type(particles), intent(inout):: parts(:)
+!~       real(f), intent(inout):: vw(:)
+!~       integer:: i, j, k
+!~       real(f):: tmp
 
-      if (ki == 1) vw(:) = 0._f
+!~       if (ki == 1) vw(:) = 0._f
 
-      do i = 1, nvirt
-         parts(ntotal + i)%rho = 0._f
-         parts(ntotal + i)%vx(:) = 0._f
-      end do
+!~       do i = 1, nvirt
+!~          parts(ntotal + i)%rho = 0._f
+!~          parts(ntotal + i)%vx(:) = 0._f
+!~       end do
 
-      do k = 1, niac
-         i = pairs(k)%i; j = pairs(k)%j
-         if (parts(i)%itype < 0 .and. parts(j)%itype > 0) then
-            tmp = mass*pairs(k)%w/parts(j)%rho
-            vw(parts(i)%ind - ntotal) = vw(parts(i)%ind - ntotal) + tmp
-            parts(i)%rho = parts(i)%rho + mass*pairs(k)%w
-            parts(i)%vx(:) = parts(i)%vx(:) - parts(j)%vx(:)*tmp
-         else if (parts(j)%itype < 0 .and. parts(i)%itype > 0) then
-            tmp = mass*pairs(k)%w/parts(i)%rho
-            vw(parts(j)%ind - ntotal) = vw(parts(j)%ind - ntotal) + tmp
-            parts(j)%rho = parts(j)%rho + mass*pairs(k)%w
-            parts(j)%vx(:) = parts(j)%vx(:) - parts(i)%vx(:)*tmp
-         end if
+!~       do k = 1, niac
+!~          i = pairs(k)%i; j = pairs(k)%j
+!~          if (parts(i)%itype < 0 .and. parts(j)%itype > 0) then
+!~             tmp = mass*pairs(k)%w/parts(j)%rho
+!~             vw(parts(i)%ind - ntotal) = vw(parts(i)%ind - ntotal) + tmp
+!~             parts(i)%rho = parts(i)%rho + mass*pairs(k)%w
+!~             parts(i)%vx(:) = parts(i)%vx(:) - parts(j)%vx(:)*tmp
+!~          else if (parts(j)%itype < 0 .and. parts(i)%itype > 0) then
+!~             tmp = mass*pairs(k)%w/parts(i)%rho
+!~             vw(parts(j)%ind - ntotal) = vw(parts(j)%ind - ntotal) + tmp
+!~             parts(j)%rho = parts(j)%rho + mass*pairs(k)%w
+!~             parts(j)%vx(:) = parts(j)%vx(:) - parts(i)%vx(:)*tmp
+!~          end if
 
-      end do
+!~       end do
 
-      do i = 1, nvirt
-         if (vw(i) > 0._f) then
-            parts(ntotal + i)%rho = parts(ntotal + i)%rho/vw(i)
-            parts(ntotal + i)%vx(:) = parts(ntotal + i)%vx(:)/vw(i)
-         else
-            parts(ntotal + i)%rho = irho
-            parts(ntotal + i)%vx(:) = 0._f
-         end if
-         parts(ntotal + i)%p = rh0*c**2*((parts(ntotal + i)%rho/rh0)**gamma - 1_f)/gamma
-      end do
+!~       do i = 1, nvirt
+!~          if (vw(i) > 0._f) then
+!~             parts(ntotal + i)%rho = parts(ntotal + i)%rho/vw(i)
+!~             parts(ntotal + i)%vx(:) = parts(ntotal + i)%vx(:)/vw(i)
+!~          else
+!~             parts(ntotal + i)%rho = irho
+!~             parts(ntotal + i)%vx(:) = 0._f
+!~          end if
+!~          parts(ntotal + i)%p = rh0*c**2*((parts(ntotal + i)%rho/rh0)**gamma - 1_f)/gamma
+!~       end do
 
-   end subroutine update_virt_part
+!~    end subroutine update_virt_part
 
    !==============================================================================================================================
    pure subroutine virt_mirror(pr, pv)

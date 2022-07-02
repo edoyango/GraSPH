@@ -4,7 +4,7 @@ module time_integration_m
    use param, only: f, dim, rh0, gamma, c, dt
 
    use flink_list_m, only: flink_list
-   use input_m, only: generate_ghost_part, update_ghost_part, update_virt_part
+   use input_m, only: generate_ghost_part, update_ghost_part
    use output_m, only: output
    use single_step_m, only: single_step
    use summary_m, only: print_update
@@ -15,13 +15,13 @@ contains
 
    !==============================================================================================================================
    subroutine time_integration(time, cputime, output_time, test_time, ntotal, nvirt, nghos, parts, print_step, save_step, &
-                               maxtimestep, niac, pairs, scale_k, gind)
+                               maxtimestep, niac, pairs, nexti, scale_k, gind)
       ! Subroutine responsible for the main time-integration loop
 
       implicit none
       integer, intent(in):: ntotal, nvirt, print_step, save_step, maxtimestep
       real(f), intent(in):: scale_k
-      integer, intent(inout):: niac, nghos, gind(:)
+      integer, intent(inout):: niac, nghos, nexti(:), gind(:)
       real(f), intent(inout):: time, cputime, output_time, test_time
       type(particles), intent(inout):: parts(:)
       type(interactions), intent(inout):: pairs(:)
@@ -29,7 +29,7 @@ contains
       real(f):: t1, t2, t3, t4
       real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drhodt(:, :)
 
-      allocate (v_min(dim, ntotal), rho_min(ntotal), dvxdt(dim, ntotal, 4), drhodt(ntotal, 4))
+      allocate (v_min(dim, ntotal), rho_min(ntotal), dvxdt(dim, 2*ntotal+nvirt, 4), drhodt(2*ntotal+nvirt, 4))
 
       call CPU_TIME(t1)
 
@@ -46,12 +46,12 @@ contains
          call generate_ghost_part(scale_k, ntotal, nvirt, nghos, parts, gind)
 
          !Interaction parameters, calculating neighboring particles
-         call flink_list(scale_k, ntotal, nvirt, nghos, parts, niac, pairs)
+         call flink_list(scale_k, ntotal, nvirt, nghos, parts, niac, pairs, nexti)
 
          do ki = 1, 4
 
             ! calculating rate of change of speed and density on particles
-            call single_step(ki, ntotal, nvirt, nghos, niac, pairs, parts, dvxdt(:, :, ki), drhodt(:, ki))
+            call single_step(ki, ntotal, nvirt, nghos, niac, pairs, parts, dvxdt(:, :, ki), drhodt(:, ki), nexti)
 
             ! applying update to particles
             call RK4_update(ki, ntotal, v_min, rho_min, dvxdt, drhodt, parts)
@@ -76,7 +76,7 @@ contains
          if (mod(itimestep, print_step) .eq. 0) then
             call CPU_TIME(t2)
             cputime = t2 - t1
-            call print_update(itimestep, maxtimestep, ntotal, nvirt, nghos, niac, parts, pairs, time, cputime, output_time)
+            call print_update(itimestep, maxtimestep, ntotal, nvirt, nghos, niac, parts, pairs, nexti, time, cputime, output_time)
          end if
 
       end do

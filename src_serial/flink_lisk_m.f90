@@ -11,17 +11,17 @@ module flink_list_m
 contains
 
    !==============================================================================================================================
-   subroutine flink_list(scale_k, ntotal, nvirt, nghos, parts, niac, pairs)
+   subroutine flink_list(scale_k, ntotal, nvirt, nghos, parts, niac, pairs, nexti)
       ! save as above, but for 3D
 
       implicit none
       real(f), intent(in):: scale_k
       integer, intent(in):: ntotal, nvirt, nghos
       type(particles), intent(in):: parts(:)
-      integer, intent(out):: niac
+      integer, intent(out):: niac, nexti(:)
       type(interactions), intent(out):: pairs(:)
       integer, parameter:: maxpcell = 125
-      integer:: ngridx(dim), i, j, k, d, icell, jcell, kcell, xi, yi, zi, jth, maxinter
+      integer:: ngridx(dim), i, j, k, d, icell, jcell, kcell, xi, yi, zi, jth, maxinter, ierr = 0
       real(f):: mingridx(dim), maxgridx(dim), dcell
       integer, allocatable:: pincell(:, :, :), gridind(:, :), cells(:, :, :, :)
       integer, parameter:: sweep(3, 13) = reshape((/-1, -1, -1, &
@@ -72,6 +72,7 @@ contains
       end do
 
       niac = 0
+      nexti(1) = 1
       do i = 1, ntotal + nvirt + nghos
          icell = gridind(1, i)
          jcell = gridind(2, i)
@@ -81,7 +82,8 @@ contains
             ! finding pairs within cell icell,jcell
             do j = 1, pincell(icell, jcell, kcell)
                jth = cells(j, icell, jcell, kcell)
-               if (i < cells(j, icell, jcell, kcell)) call check_if_interact(maxinter, scale_k, parts(i), parts(jth), niac, pairs)
+               if (i < cells(j, icell, jcell, kcell)) call check_if_interact(maxinter, scale_k, parts(i), parts(jth), niac, pairs, &
+               ierr)
             end do
          end if
 
@@ -93,23 +95,30 @@ contains
 
             do j = 1, pincell(xi, yi, zi)
                jth = cells(j, xi, yi, zi)
-               call check_if_interact(maxinter, scale_k, parts(i), parts(jth), niac, pairs)
+               call check_if_interact(maxinter, scale_k, parts(i), parts(jth), niac, pairs, ierr)
             end do
          end do
-
+         
+         nexti(i+1) = niac + 1
+         
       end do
+      
+      if (ierr == 1) then
+         print *, ' >>> Error <<< : Too many interactions'
+         stop
+      end if
 
    end subroutine flink_list
 
    !==============================================================================================================================
-   subroutine check_if_interact(maxinter, scale_k, p_i, p_j, niac, pairs)
+   pure subroutine check_if_interact(maxinter, scale_k, p_i, p_j, niac, pairs, ierr)
       ! subroutine to chekc if two particles are interacting and consequently adding to pair list
 
       implicit none
       integer, intent(in):: maxinter
       real(f), intent(in):: scale_k
       type(particles), intent(in):: p_i, p_j
-      integer, intent(inout):: niac
+      integer, intent(inout):: niac, ierr
       type(interactions), intent(inout):: pairs(:)
       real(f):: dxiac(dim), r
 
@@ -120,12 +129,11 @@ contains
          if (r < hsml*scale_k) then
             niac = niac + 1
             if (niac < maxinter) then
-               pairs(niac)%i = p_i%ind
+!~                pairs(niac)%i = p_i%ind
                pairs(niac)%j = p_j%ind
                call kernel(r, dxiac, hsml, pairs(niac)%w, pairs(niac)%dwdx(:))
             else
-               print *, ' >>> Error <<< : Too many interactions'
-               stop
+               ierr = 1
             end if
          end if
       end if

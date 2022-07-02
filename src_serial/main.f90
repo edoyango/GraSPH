@@ -17,7 +17,7 @@ program SPH
    integer:: maxtimestep, save_step, print_step ! timestep related variables
    real(f):: time = 0_f, scale_k
    real(f):: cputime = 0_f, output_time = 0_f, test_time = 0_f !measuring compute time
-   integer, allocatable:: gind(:)
+   integer, allocatable:: gind(:), nexti(:)
 
    !Printing preamble to screen
    call preamble(maxtimestep, print_step, save_step)
@@ -31,7 +31,7 @@ program SPH
    write (*, '(A24,1x,I9,1x,A19)') 'Total simulation size of', ntotal, 'physical particles.'
    write (*, '(A24,1x,I9,1x,A19)') '                        ', nvirt, 'virtual particles.'
 
-   call allocatePersistentArrays(ntotal, nvirt, parts, pairs, gind)
+   call allocatePersistentArrays(ntotal, nvirt, parts, pairs, nexti, gind)
 
    !Creat physical and virtual boundary particles
    call generate_real_part(ntotal, parts)
@@ -41,7 +41,7 @@ program SPH
 
    !Entering discretized time-integration loop
    call time_integration(time, cputime, output_time, test_time, ntotal, nvirt, nghos, parts, print_step, save_step, &
-                         maxtimestep, niac, pairs, scale_k, gind)
+                         maxtimestep, niac, pairs, nexti, scale_k, gind)
 
    !Printing post-amble to terminal
    call time_print

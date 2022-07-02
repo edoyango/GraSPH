@@ -71,10 +71,10 @@ contains
    end subroutine print_summary
 
    !==================================================================================================================================
-   subroutine print_update(itimestep, maxtimestep, ntotal, nvirt, nghos, niac, parts, pairs, time, cputime, output_time)
+   subroutine print_update(itimestep, maxtimestep, ntotal, nvirt, nghos, niac, parts, pairs, nexti, time, cputime, output_time)
 
       implicit none
-      integer, intent(in):: ntotal, nvirt, nghos, niac, itimestep, maxtimestep
+      integer, intent(in):: ntotal, nvirt, nghos, niac, itimestep, maxtimestep, nexti(:)
       type(particles), intent(in):: parts(:)
       type(interactions), intent(in):: pairs(:)
       real(f), intent(in):: time, cputime, output_time
@@ -90,10 +90,12 @@ contains
       !Statistics for the interaction, Print information to screen
       allocate (ns(ntotal + nvirt + nghos))
       ns(:) = 0
-      do k = 1, niac
-         i = pairs(k)%i; j = pairs(k)%j
-         ns(parts(i)%ind) = ns(parts(i)%ind) + 1
-         ns(parts(j)%ind) = ns(parts(j)%ind) + 1
+      do i = 1,ntotal+nvirt+nghos
+         do k = nexti(i),nexti(i+1)-1
+            j = pairs(k)%j
+            ns(parts(i)%ind) = ns(parts(i)%ind) + 1
+            ns(parts(j)%ind) = ns(parts(j)%ind) + 1
+         end do
       end do
 
       sumiac = 0
