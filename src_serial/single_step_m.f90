@@ -22,7 +22,6 @@ contains
       real(f), intent(out):: dvxdti(dim, ntotal), drhoi(ntotal)
       integer:: i, j, k
       real(f):: a_coeff
-      type(particles):: p_i
       real(f),allocatable:: prho(:)
       
       allocate(prho(ntotal+nvirt+nghos))

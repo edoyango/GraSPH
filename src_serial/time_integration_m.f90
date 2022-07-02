@@ -25,11 +25,13 @@ contains
       real(f), intent(inout):: time, cputime, output_time, test_time
       type(particles), intent(inout):: parts(:)
       type(interactions), intent(inout):: pairs(:)
-      integer:: i, itimestep, ki
+      integer:: i, itimestep, ki, maxn
       real(f):: t1, t2, t3, t4
       real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drhodt(:, :)
-
-      allocate (v_min(dim, ntotal), rho_min(ntotal), dvxdt(dim, 2*ntotal+nvirt, 4), drhodt(2*ntotal+nvirt, 4))
+      
+      maxn = size(parts)
+      
+      allocate (v_min(dim, ntotal), rho_min(ntotal), dvxdt(dim, maxn, 4), drhodt(maxn, 4))
 
       call CPU_TIME(t1)
 
