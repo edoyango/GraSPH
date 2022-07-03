@@ -17,6 +17,23 @@ module datatypes
       real(f):: w, dwdx(dim)
    end type interactions
 
+   ! Data type to store timing variables
+   type time_tracking
+      real:: t_wall = 0., t_output = 0.
+   contains
+      procedure:: t_compute
+   end type
+
    public:: particles, interactions
+
+contains
+
+   pure real function t_compute(self)
+
+      class(time_tracking), intent(in):: self
+
+      t_compute = self%t_wall - self%t_output
+
+   end function t_compute
 
 end module datatypes

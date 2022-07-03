@@ -1,5 +1,7 @@
 module summary_m
 
+   use datatypes, only: time_tracking
+
    private
    public:: time_print, preamble, print_summary, print_update
 
@@ -58,30 +60,31 @@ contains
    end subroutine preamble
 
    !==================================================================================================================================
-   subroutine print_summary(cputime, output_time)
+   subroutine print_summary(timings)
 
       implicit none
-      real, intent(in):: cputime, output_time
+      type(time_tracking), intent(in):: timings
       integer:: i, j, k, d
 
       write (*, '(A79)') '================================= TIME SUMMARY ================================'
-      write (*, '(A29,F14.7)') 'Average Total CPU time (s) = ', cputime
-      write (*, '(A29,F14.7)') 'Average Output time (s) =    ', output_time
+      write (*, '(A26,F14.7)') 'Average Wall time (s)   = ', timings%t_wall
+      write (*, '(A26,F14.7)') 'Average Output time (s) = ', timings%t_output
 
    end subroutine print_summary
 
    !==================================================================================================================================
-   subroutine print_update(itimestep, maxtimestep, cputime, time, ntotal, nvirt, nghos, niac)
+   subroutine print_update(itimestep, maxtimestep, timings, time, ntotal, nvirt, nghos, niac)
 
       implicit none
       integer, intent(in):: itimestep, maxtimestep, ntotal, nvirt, nghos, niac(:)
-      real, intent(in):: cputime, time
+      type(time_tracking), intent(in):: timings
+      real, intent(in):: time
       integer:: maxp, minp, sumiac, maxiac, miniac, noiac, i, j, k, d
 
       write (*, '(A79)') '_______________________________________________________________________________'
       write (*, '(A22,I7,A1,I7,9x,A19,F14.7)') '  current time step = ', itimestep, '/', maxtimestep, &
-         'current time (s) = ', real(time)
-      write (*, '(A65,F14.7)') '                                                  Walltime (s) = ', real(cputime)
+         'current time (s) = ', time
+      write (*, '(A65,F14.7)') '                                                  Walltime (s) = ', timings%t_wall
       write (*, '(A79)') '_______________________________________________________________________________'
 
       !Statistics for the interaction, Print information to screen

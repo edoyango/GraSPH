@@ -1,6 +1,6 @@
 module time_integration_m
 
-   use datatypes, only: particles, interactions
+   use datatypes, only: particles, interactions, time_tracking
    use param, only: f, dim, rh0, gamma, c, dt, mass, g, irho, hsml
 
    use cudafor
@@ -17,15 +17,15 @@ module time_integration_m
 contains
 
    !==============================================================================================================================
-   subroutine time_integration(scale_k, print_step, save_step, maxtimestep, cputime, output_time, test_time, maxinter_perp, maxn, &
-                               ntotal, nvirt, nghos, parts, parts_d, niac, niac_d, pairs, pairs_d)
+   subroutine time_integration(scale_k, print_step, save_step, maxtimestep, timings, maxinter_perp, maxn, ntotal, nvirt, nghos, &
+                               parts, parts_d, niac, niac_d, pairs, pairs_d)
       ! Subroutine responsible for the main time-integration loop
 
       implicit none
       real(f), intent(in):: scale_k
       integer, intent(in):: print_step, save_step, maxtimestep, maxinter_perp, maxn, ntotal, nvirt
       integer, intent(inout):: nghos
-      real(f), intent(out):: cputime, output_time, test_time
+      type(time_tracking), intent(inout):: timings
       integer, intent(out):: niac(:)
       integer, device, intent(out):: niac_d(:)
       type(particles), intent(inout):: parts(:)
@@ -39,9 +39,6 @@ contains
       real:: tmpTime
       type(cudaEvent):: startEvent, stopEvent, startOutputEvent, stopOutputEvent, startTestEvent, stopTestEvent
       integer, device, allocatable:: gind(:)
-
-      ! Initializing timings
-      cputime = 0._f; output_time = 0._f; test_time = 0._f
 
       ! creating cuda events and recording start event
       istat = cudaEventCreate(startEvent)
@@ -105,43 +102,44 @@ contains
          ! Update time
          time = time + dt
 
+         ! start timing of write time
+         istat = cudaEventRecord(startOutputEvent, 0)
+
          ! write output data
          if (mod(itimestep, save_step) .eq. 0) then
-            ! start timing of write time
-            istat = cudaEventRecord(startOutputEvent, 0)
+
             ! transfer particle data from GPU to CPU
             parts = parts_d
             nghos = nghos_d
             call output(itimestep, save_step, ntotal, nvirt, nghos, parts)
             ! End timing of output time
-            istat = cudaEventRecord(stopOutputEvent, 0)
-            istat = cudaEventSynchronize(stopOutputEvent)
-            istat = cudaEventElapsedTime(tmpTime, startOutputEvent, stopOutputEvent)
-            output_time = output_time + tmpTime/1000.
          end if
 
          if (mod(itimestep, print_step) .eq. 0) then
+            ! recording elapsed wall time to print to terminal
             istat = cudaEventRecord(stopEvent, 0)
             istat = cudaEventSynchronize(stopEvent)
-            istat = cudaEventElapsedTime(cputime, startEvent, stopEvent)
+            istat = cudaEventElapsedTime(timings%t_wall, startEvent, stopEvent)
+            timings%t_wall = timings%t_wall/1000.
             istat = cudaEventRecord(startOutputEvent, 0)
             niac(:) = niac_d(:)
             nghos = nghos_d
-            cputime = cputime/1000.
-            call print_update(itimestep, maxtimestep, cputime, time, ntotal, nvirt, nghos, niac)
-            istat = cudaEventRecord(stopOutputEvent, 0)
-            istat = cudaEventSynchronize(stopOutputEvent)
-            istat = cudaEventElapsedTime(tmpTime, startOutputEvent, stopOutputEvent)
-            output_time = output_time + tmpTime/1000.
+            call print_update(itimestep, maxtimestep, timings, time, ntotal, nvirt, nghos, niac)
+
          end if
+
+         istat = cudaEventRecord(stopOutputEvent, 0)
+         istat = cudaEventSynchronize(stopOutputEvent)
+         istat = cudaEventElapsedTime(tmpTime, startOutputEvent, stopOutputEvent)
+         timings%t_output = timings%t_output + tmpTime/1000.
 
       end do
 
       ! Ending timing of compute
       istat = cudaEventRecord(stopEvent, 0)
       istat = cudaEventSynchronize(stopEvent)
-      istat = cudaEventElapsedTime(cputime, startEvent, stopEvent)
-      cputime = cputime/1000.
+      istat = cudaEventElapsedTime(timings%t_wall, startEvent, stopEvent)
+      timings%t_wall = timings%t_wall/1000.
 
    end subroutine time_integration
 
