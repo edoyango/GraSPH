@@ -33,14 +33,15 @@ contains
       type(interactions), intent(out):: pairs(maxinter)
       integer:: i, ki, itimestep, niac
       real(f):: time = 0._f
+      double precision:: tmptime
       real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drho(:, :)
 
       allocate (v_min(dim, maxnloc), rho_min(maxnloc), dvxdt(dim, maxnloc, 4), drho(maxnloc, 4))
+      
+      timings%t_wall = timings%t_wall - MPI_WTIME()
 
       ! Time-integration (Leap-Frog)
       do itimestep = 1, maxtimestep
-
-         timings%t_compute = timings%t_compute - MPI_WTIME()
 
          ! distributing particles
          call ORB(itimestep, procid, numprocs, MPI_types, scale_k, ntotal, ntotal_loc, nhalo_loc, nvirt_loc, parts, timings)
@@ -65,11 +66,9 @@ contains
 
             ! update halo particles after first increment
             if (ki > 1) then
-               timings%t_compute = timings%t_compute + MPI_WTIME()
                timings%t_dist = timings%t_dist - MPI_WTIME()
                call ORB_sendrecv_haloupdate(ki, MPI_types%haloupdatetype, n_process_neighbour, neighbours, ntotal_loc, parts)
                timings%t_dist = timings%t_dist + MPI_WTIME()
-               timings%t_compute = timings%t_compute - MPI_WTIME()
             end if
 
             ! update pressure of newly updated real and halo particles
@@ -90,8 +89,6 @@ contains
 
          time = time + dt
 
-         timings%t_compute = timings%t_compute + MPI_WTIME()
-
          timings%t_output = timings%t_output - MPI_WTIME()
 
          ! write output data
@@ -99,13 +96,18 @@ contains
             call output(itimestep, save_step, procid, numprocs, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, ntotal)
          end if
 
+         if (mod(itimestep, print_step) .eq. 0) then
+            tmptime = MPI_WTIME()
+            timings%t_wall = timings%t_wall + tmptime
+            call print_loadbalance(procid, numprocs, timings, ntotal_loc, nhalo_loc, nvirt_loc, niac, itimestep, time, maxtimestep)
+            timings%t_wall = timings%t_wall - tmptime
+         end if
+         
          timings%t_output = timings%t_output + MPI_WTIME()
 
-         if (mod(itimestep, print_step) .eq. 0) then
-            call print_loadbalance(procid, numprocs, timings, ntotal_loc, nhalo_loc, nvirt_loc, niac, itimestep, time, maxtimestep)
-         end if
-
       end do
+      
+      timings%t_wall = timings%t_wall + MPI_WTIME()
 
    end subroutine time_integration
 

@@ -65,8 +65,8 @@ contains
       type(time_tracking), intent(in):: timings
 
       write (*, '(A79)') '================================= TIME SUMMARY ================================'
-      write (*, '(A29,F14.7)') 'Average Wall time (s)   = ', timings%walltime()
-      write (*, '(A29,F14.7)') 'Average Output time (s) = ', timings%t_output
+      write (*, '(A26,F14.7)') 'Average Wall time (s)   = ', timings%t_wall
+      write (*, '(A26,F14.7)') 'Average Output time (s) = ', timings%t_output
 
    end subroutine print_summary
 
@@ -85,7 +85,7 @@ contains
       write (*, '(A79)') '_______________________________________________________________________________'
       write (*, '(A22,I7,A1,I7,9x,A19,F14.7)') '  current time step = ', itimestep, '/', maxtimestep, &
          'current time (s) = ', time
-      write (*, '(A65,F14.7)') '                                                  Walltime (s) = ', timings%walltime()
+      write (*, '(A65,F14.7)') '                                                  Walltime (s) = ', timings%t_wall
       write (*, '(A79)') '_______________________________________________________________________________'
 
       !Statistics for the interaction, Print information to screen

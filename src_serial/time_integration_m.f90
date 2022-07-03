@@ -27,16 +27,17 @@ contains
       type(particles), intent(inout):: parts(:)
       type(interactions), intent(inout):: pairs(:)
       integer:: i, itimestep, ki, maxn
+      real(f):: tmptime
       real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drhodt(:, :)
 
       maxn = size(parts)
 
       allocate (v_min(dim, ntotal), rho_min(ntotal), dvxdt(dim, maxn, 4), drhodt(maxn, 4))
+      
+      timings%t_wall = timings%t_wall - system_clock_timer()
 
       ! Time-integration (Leap-Frog)
       do itimestep = 1, maxtimestep
-
-         timings%t_compute = timings%t_compute - system_clock_timer()
 
          ! Update density and velocity half a time step (not at first time-step)
          do i = 1, ntotal
@@ -65,7 +66,6 @@ contains
 
          time = time + dt
 
-         timings%t_compute = timings%t_compute + system_clock_timer()
          timings%t_output = timings%t_output - system_clock_timer()
 
          ! write output data
@@ -73,16 +73,22 @@ contains
             call output(itimestep, save_step, ntotal, nvirt, nghos, parts)
          end if
 
+         if (mod(itimestep, print_step) .eq. 0) then
+            tmptime = system_clock_timer()
+            timings%t_wall = timings%t_wall + tmptime
+            call print_update(itimestep, maxtimestep, ntotal, nvirt, nghos, niac, parts, pairs, nexti, time, timings)
+            timings%t_wall = timings%t_wall - tmptime
+         end if
+         
          timings%t_output = timings%t_output + system_clock_timer()
 
-         if (mod(itimestep, print_step) .eq. 0) then
-            call print_update(itimestep, maxtimestep, ntotal, nvirt, nghos, niac, parts, pairs, nexti, time, timings)
-         end if
-
       end do
+      
+      timings%t_wall = timings%t_wall + system_clock_timer()
 
    end subroutine time_integration
-
+   
+   !================================================================================================================================
    pure subroutine RK4_update(ki, ntotal, v_min, rho_min, dvxdt, drhodt, parts)
 
       implicit none

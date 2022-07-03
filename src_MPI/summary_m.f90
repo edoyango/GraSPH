@@ -81,11 +81,10 @@ contains
       type(time_tracking), intent(in):: timings
       type(partition_tracking), intent(in):: partition_track
       integer:: ierr
-      double precision:: t_wall, t_wall_avg, t_ORB_avg, t_dist_avg, t_output_avg
+      double precision:: t_wall_avg, t_ORB_avg, t_dist_avg, t_output_avg
 
-      t_wall = timings%walltime()
       if (procid .eq. 0) then
-         call MPI_REDUCE(t_wall, t_wall_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+         call MPI_REDUCE(timings%t_wall, t_wall_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
          call MPI_REDUCE(timings%t_ORB, t_ORB_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
          call MPI_REDUCE(timings%t_dist, t_dist_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
          call MPI_REDUCE(timings%t_output, t_output_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
@@ -126,7 +125,7 @@ contains
             write (*, '(A35,I7)') 'Min Timesteps B/N Reorientations = ', partition_track%mintstep_bn_reorient
          end if
       else
-         call MPI_REDUCE(t_wall, t_wall_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+         call MPI_REDUCE(timings%t_wall, t_wall_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
          call MPI_REDUCE(timings%t_ORB, t_ORB_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
          call MPI_REDUCE(timings%t_dist, t_dist_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
          call MPI_REDUCE(timings%t_output, t_output_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
@@ -170,7 +169,7 @@ contains
 
          write (*, '(A79)') '_______________________________________________________________________________'
          write (*, '(A22,I7,A1,I7,9x,A19,F14.7)') '  current time step = ', itimestep, '/', maxtimestep, 'current time (s) = ', time
-         write (*, '(A65,F14.7)') '                                                  Walltime (s) = ', timings%walltime()
+         write (*, '(A65,F14.7)') '                                                  Walltime (s) = ', timings%t_wall
          write (*, '(A79)') '_______________________________________________________________________________'
          write (*, 9999) 'ntotal_loc statistics: mean = ', mean_n(1), ' stdev = ', stdev_n(1)
          write (*, 9999) '                       min  = ', min_n(1), ' max   = ', max_n(1)

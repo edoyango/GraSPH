@@ -18,19 +18,19 @@ module datatypes
    end type interactions
 
    type time_tracking
-      double precision:: t_compute = 0.d0, t_ORB = 0.d0, t_dist = 0.d0, t_output = 0.d0
+      double precision:: t_wall = 0.d0, t_ORB = 0.d0, t_dist = 0.d0, t_output = 0.d0
    contains
-      procedure:: walltime
+      procedure:: t_compute
    end type
 
 contains
 
-   pure double precision function walltime(self)
+   pure double precision function t_compute(self)
 
       class(time_tracking), intent(in):: self
 
-      walltime = self%t_compute + self%t_ORB + self%t_dist + self%t_output
+      t_compute = self%t_wall - self%t_ORB - self%t_dist - self%t_output
 
-   end function walltime
+   end function t_compute
 
 end module datatypes

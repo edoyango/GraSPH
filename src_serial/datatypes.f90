@@ -21,22 +21,22 @@ module datatypes
 
    ! Data type to store timing variables
    type time_tracking
-      double precision:: t_compute = 0.d0, t_output = 0.d0
+      double precision:: t_wall = 0.d0, t_output = 0.d0
    contains
-      procedure:: walltime
+      procedure:: t_compute
    end type
 
    public:: particles, interactions, time_tracking, system_clock_timer
 
 contains
 
-   pure double precision function walltime(self)
+   pure double precision function t_compute(self)
 
       class(time_tracking), intent(in):: self
 
-      walltime = self%t_compute + self%t_output
+      t_compute = self%t_wall - self%t_output
 
-   end function walltime
+   end function t_compute
 
    function system_clock_timer() result(t)
 
