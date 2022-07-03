@@ -193,7 +193,6 @@ contains
          if (r < hsml*sk) then
             nij = nij + 1
             if (nij < maxint) then
-               pij(nij)%i = p_i%ind
                pij(nij)%j = p_j%ind
                call kernel(r, dxiac(:), hsml, pij(nij)%w, pij(nij)%dwdx(:))
             else

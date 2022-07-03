@@ -91,7 +91,7 @@ contains
       miniac = huge(1)
       maxp = 1
       do i = 1, ntotal + nvirt + nghos
-         sumiac = sumiac + niac(i)
+         sumiac = sumiac + niac(i)*2
          if (niac(i) > maxiac) then
             maxiac = niac(i)
             maxp = i
