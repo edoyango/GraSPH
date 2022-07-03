@@ -83,11 +83,11 @@ contains
             do j = 1, pincell(icell, jcell, kcell)
                jth = cells(j, icell, jcell, kcell)
                if (i < cells(j, icell, jcell, kcell)) call check_if_interact(maxinter, scale_k, parts(i), parts(jth), niac, pairs, &
-               ierr)
+                                                                             ierr)
             end do
          end if
 
-         ! finding pairs between particles in cell icell,jcell and particles in cell xi,yi
+         ! finding pairs within cells adjacent to i's cell
          do k = 1, 13
             xi = icell + sweep(1, k)
             yi = jcell + sweep(2, k)
@@ -98,11 +98,11 @@ contains
                call check_if_interact(maxinter, scale_k, parts(i), parts(jth), niac, pairs, ierr)
             end do
          end do
-         
-         nexti(i+1) = niac + 1
-         
+
+         nexti(i + 1) = niac + 1
+
       end do
-      
+
       if (ierr == 1) then
          print *, ' >>> Error <<< : Too many interactions'
          stop

@@ -6,7 +6,7 @@
 module param
 
    public ! assume everything defined in this module is accessible
-   
+
    ! double or single precision (chance f to match)
    integer, parameter:: df = kind(1.d0), sf = kind(1.)
    integer, parameter:: f = df

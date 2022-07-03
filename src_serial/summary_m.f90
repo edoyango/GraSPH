@@ -91,8 +91,8 @@ contains
       !Statistics for the interaction, Print information to screen
       allocate (ns(ntotal + nvirt + nghos))
       ns(:) = 0
-      do i = 1,ntotal+nvirt+nghos
-         do k = nexti(i),nexti(i+1)-1
+      do i = 1, ntotal + nvirt + nghos
+         do k = nexti(i), nexti(i + 1) - 1
             j = pairs(k)%j
             ns(parts(i)%ind) = ns(parts(i)%ind) + 1
             ns(parts(j)%ind) = ns(parts(j)%ind) + 1

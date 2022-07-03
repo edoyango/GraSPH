@@ -1,5 +1,5 @@
 module time_integration_m
-   
+
    use datatypes, only: particles, interactions, time_tracking, system_clock_timer
    use param, only: f, dim, rh0, gamma, c, dt
 
@@ -28,16 +28,16 @@ contains
       type(interactions), intent(inout):: pairs(:)
       integer:: i, itimestep, ki, maxn
       real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drhodt(:, :)
-      
+
       maxn = size(parts)
-      
+
       allocate (v_min(dim, ntotal), rho_min(ntotal), dvxdt(dim, maxn, 4), drhodt(maxn, 4))
 
       ! Time-integration (Leap-Frog)
       do itimestep = 1, maxtimestep
-         
+
          timings%t_compute = timings%t_compute - system_clock_timer()
-         
+
          ! Update density and velocity half a time step (not at first time-step)
          do i = 1, ntotal
             v_min(:, i) = parts(i)%vx(:)
@@ -64,7 +64,7 @@ contains
          end do
 
          time = time + dt
-         
+
          timings%t_compute = timings%t_compute + system_clock_timer()
          timings%t_output = timings%t_output - system_clock_timer()
 
@@ -74,7 +74,7 @@ contains
          end if
 
          timings%t_output = timings%t_output + system_clock_timer()
-         
+
          if (mod(itimestep, print_step) .eq. 0) then
             call print_update(itimestep, maxtimestep, ntotal, nvirt, nghos, niac, parts, pairs, nexti, time, timings)
          end if
