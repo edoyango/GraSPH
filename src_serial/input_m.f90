@@ -46,7 +46,7 @@ contains
       maxn = 2*ntotal + nvirt
       maxinter = 262*maxn
 
-      allocate (parts(maxn), pairs(maxinter), nexti(2*ntotal+nvirt+1), gind(ntotal))
+      allocate (parts(maxn), pairs(maxinter), nexti(maxn+1), gind(ntotal))
 
    end subroutine allocatePersistentArrays
 

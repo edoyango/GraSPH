@@ -1,6 +1,6 @@
 module time_integration_m
-
-   use datatypes, only: particles, interactions
+   
+   use datatypes, only: particles, interactions, time_tracking, system_clock_timer
    use param, only: f, dim, rh0, gamma, c, dt
 
    use flink_list_m, only: flink_list
@@ -14,30 +14,30 @@ module time_integration_m
 contains
 
    !==============================================================================================================================
-   subroutine time_integration(time, cputime, output_time, test_time, ntotal, nvirt, nghos, parts, print_step, save_step, &
-                               maxtimestep, niac, pairs, nexti, scale_k, gind)
+   subroutine time_integration(time, timings, ntotal, nvirt, nghos, parts, print_step, save_step, maxtimestep, niac, pairs, nexti, &
+                               scale_k, gind)
       ! Subroutine responsible for the main time-integration loop
 
       implicit none
       integer, intent(in):: ntotal, nvirt, print_step, save_step, maxtimestep
       real(f), intent(in):: scale_k
       integer, intent(inout):: niac, nghos, nexti(:), gind(:)
-      real(f), intent(inout):: time, cputime, output_time, test_time
+      real(f), intent(inout):: time
+      type(time_tracking), intent(inout):: timings
       type(particles), intent(inout):: parts(:)
       type(interactions), intent(inout):: pairs(:)
       integer:: i, itimestep, ki, maxn
-      real(f):: t1, t2, t3, t4
       real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drhodt(:, :)
       
       maxn = size(parts)
       
       allocate (v_min(dim, ntotal), rho_min(ntotal), dvxdt(dim, maxn, 4), drhodt(maxn, 4))
 
-      call CPU_TIME(t1)
-
       ! Time-integration (Leap-Frog)
       do itimestep = 1, maxtimestep
-
+         
+         timings%t_compute = timings%t_compute - system_clock_timer()
+         
          ! Update density and velocity half a time step (not at first time-step)
          do i = 1, ntotal
             v_min(:, i) = parts(i)%vx(:)
@@ -64,27 +64,22 @@ contains
          end do
 
          time = time + dt
-
-         call CPU_TIME(t3)
+         
+         timings%t_compute = timings%t_compute + system_clock_timer()
+         timings%t_output = timings%t_output - system_clock_timer()
 
          ! write output data
          if (mod(itimestep, save_step) .eq. 0) then
             call output(itimestep, save_step, ntotal, nvirt, nghos, parts)
          end if
 
-         call CPU_TIME(t4)
-         output_time = output_time + t4 - t3
-
+         timings%t_output = timings%t_output + system_clock_timer()
+         
          if (mod(itimestep, print_step) .eq. 0) then
-            call CPU_TIME(t2)
-            cputime = t2 - t1
-            call print_update(itimestep, maxtimestep, ntotal, nvirt, nghos, niac, parts, pairs, nexti, time, cputime, output_time)
+            call print_update(itimestep, maxtimestep, ntotal, nvirt, nghos, niac, parts, pairs, nexti, time, timings)
          end if
 
       end do
-
-      call CPU_TIME(t2)
-      cputime = t2 - t1
 
    end subroutine time_integration
 

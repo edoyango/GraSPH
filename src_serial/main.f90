@@ -1,6 +1,6 @@
 program SPH
 
-   use datatypes, only: particles, interactions
+   use datatypes, only: particles, interactions, time_tracking
    use param, only: skf, f
 
    use input_m, only: generate_real_part, generate_virt_part, allocatePersistentArrays, generate_ghost_part, return_ntotal, &
@@ -13,10 +13,10 @@ program SPH
    implicit none
    type(particles), allocatable:: parts(:) ! particle array
    type(interactions), allocatable:: pairs(:) ! interaction array
+   type(time_tracking):: timings
    integer:: ntotal, nvirt, nghos, niac ! tracking no. of particles, and interactions
    integer:: maxtimestep, save_step, print_step ! timestep related variables
    real(f):: time = 0_f, scale_k
-   real(f):: cputime = 0_f, output_time = 0_f, test_time = 0_f !measuring compute time
    integer, allocatable:: gind(:), nexti(:)
 
    !Printing preamble to screen
@@ -40,11 +40,11 @@ program SPH
    call output(0, save_step, ntotal, nvirt, nghos, parts)
 
    !Entering discretized time-integration loop
-   call time_integration(time, cputime, output_time, test_time, ntotal, nvirt, nghos, parts, print_step, save_step, &
-                         maxtimestep, niac, pairs, nexti, scale_k, gind)
+   call time_integration(time, timings, ntotal, nvirt, nghos, parts, print_step, save_step, maxtimestep, niac, pairs, nexti, &
+                         scale_k, gind)
 
    !Printing post-amble to terminal
    call time_print
-   call print_summary(cputime, output_time)
+   call print_summary(timings)
 
 end

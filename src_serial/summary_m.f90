@@ -1,6 +1,6 @@
 module summary_m
 
-   use datatypes, only: particles, interactions
+   use datatypes, only: particles, interactions, time_tracking
    use param, only: f
 
    public:: time_print, preamble, print_summary, print_update
@@ -59,32 +59,33 @@ contains
    end subroutine preamble
 
    !==================================================================================================================================
-   subroutine print_summary(cputime, output_time)
+   subroutine print_summary(timings)
 
       implicit none
-      real(f), intent(in):: cputime, output_time
+      type(time_tracking), intent(in):: timings
 
       write (*, '(A79)') '================================= TIME SUMMARY ================================'
-      write (*, '(A29,F14.7)') 'Average Total CPU time (s) = ', cputime
-      write (*, '(A29,F14.7)') 'Average Output time (s) =    ', output_time
+      write (*, '(A29,F14.7)') 'Average Wall time (s)   = ', timings%walltime()
+      write (*, '(A29,F14.7)') 'Average Output time (s) = ', timings%t_output
 
    end subroutine print_summary
 
    !==================================================================================================================================
-   subroutine print_update(itimestep, maxtimestep, ntotal, nvirt, nghos, niac, parts, pairs, nexti, time, cputime, output_time)
+   subroutine print_update(itimestep, maxtimestep, ntotal, nvirt, nghos, niac, parts, pairs, nexti, time, timings)
 
       implicit none
       integer, intent(in):: ntotal, nvirt, nghos, niac, itimestep, maxtimestep, nexti(:)
       type(particles), intent(in):: parts(:)
       type(interactions), intent(in):: pairs(:)
-      real(f), intent(in):: time, cputime, output_time
+      type(time_tracking), intent(in):: timings
+      real(f), intent(in):: time
       integer, allocatable:: ns(:)
       integer:: maxp, minp, sumiac, maxiac, miniac, noiac, i, j, k
 
       write (*, '(A79)') '_______________________________________________________________________________'
       write (*, '(A22,I7,A1,I7,9x,A19,F14.7)') '  current time step = ', itimestep, '/', maxtimestep, &
-         'current time (s) = ', real(time)
-      write (*, '(A65,F14.7)') '                                                  Walltime (s) = ', real(cputime)
+         'current time (s) = ', time
+      write (*, '(A65,F14.7)') '                                                  Walltime (s) = ', timings%walltime()
       write (*, '(A79)') '_______________________________________________________________________________'
 
       !Statistics for the interaction, Print information to screen
