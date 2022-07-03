@@ -68,7 +68,7 @@ contains
       rr = DOT_PRODUCT(dx(:), dx(:))
       muv = hsml*vr/(rr + hsml*hsml*etq*etq)
       mrho = 0.5_f*(p_i%rho + p_j%rho)
-      coeff = -(beta*muv - alpha*c)*muv/mrho
+      coeff = -mass*(beta*muv - alpha*c)*muv/mrho
 
    end function art_visc_coeff
 
