@@ -9,17 +9,16 @@ module single_step_m
 contains
 
    !==============================================================================================================================
-   attributes(global) pure subroutine single_step_kernel(ki, maxinter_perp, nt, nv, ng, nij, pij, pts, ardvxdt, exdvxdt, &
-                                                         indvxdt, codrhodt)
+   attributes(global) pure subroutine single_step_kernel(ki, maxinter_perp, nt, nv, ng, nij, pij, pts, dvxdti, drhodti)
 
       implicit none
       integer, intent(in), value:: ki, maxinter_perp
       integer, intent(in):: nt, nv, ng, nij(nt + nv + ng)
       type(interactions), intent(in):: pij(:, :)
       type(particles), intent(in):: pts(nt + nv + ng)
-      real(f), intent(inout):: ardvxdt(dim, nt + nv + ng), exdvxdt(dim, nt + nv + ng), indvxdt(dim, nt + nv + ng), &
-                               codrhodt(nt + nv + ng)
+      real(f), intent(inout):: dvxdti(:,:), drhodti(:)
       integer:: i, j, k, d
+      real(f):: a_coeff,tmp
       type(particles):: p_i,p_j
 
       ! Obtaining thread global index (used to assign particle index)
@@ -27,22 +26,31 @@ contains
 
       ! Beginning loop over
       if (i <= nt + nv + ng) then
+      
          p_i = pts(i)
+         
          do k = 1, nij(i)
+         
             j = pij(k, i)%j
             p_j = pts(j)
+            
+            ! Mirroring real particle onto virtual particle (if needed)
             if (p_i%itype > 0 .and. p_j%itype < 0) then
                call virt_mirror(p_i, p_j)
             elseif (p_i%itype < 0 .and. p_j%itype > 0) then
                call virt_mirror(p_j, p_i)
             end if
+            
+            !Density approximation or change rate
+            call con_density(ki, nt, nv, ng, p_i, p_j, pij(k, i)%dwdx, drhodti(i), drhodti(j))
 
-            call con_density(ki, nt, nv, ng, p_i, p_j, pij(k, i)%dwdx, codrhodt(i), codrhodt(j))
-
-            call int_force(ki, nt, nv, ng, p_i, p_j, pij(k, i)%dwdx, indvxdt(:, i), indvxdt(:, j))
-
-            call art_visc(ki, nt, nv, ng, p_i, p_j, pij(k, i)%dwdx, ardvxdt(:, i), indvxdt(:, j))
-
+            ! calculating coefficients for pressure force and artificial viscosity
+            a_coeff = int_force_coeff(ki, p_i, p_j) + art_visc_coeff(ki, p_i, p_j)
+            do d = 1,dim
+               tmp = atomicadd(dvxdti(d,i),pij(k,i)%dwdx(d)*a_coeff)
+               tmp = atomicadd(dvxdti(d,j),-pij(k,i)%dwdx(d)*a_coeff)
+            end do
+            
          end do
       end if
 
@@ -72,36 +80,6 @@ contains
    end subroutine virt_mirror
 
    !=================================================================================
-   attributes(device) pure subroutine art_visc(ki, nt, nv, ng, p_i, p_j, dwdx, ardvxdti, ardvxdtj)
-
-      use param, only: alpha, beta, etq, hsml, c
-
-      implicit none
-      integer, intent(in):: ki, nt, nv, ng
-      type(particles), intent(in):: p_i, p_j
-      real(f), intent(in):: dwdx(dim)
-      real(f), intent(inout):: ardvxdti(dim), ardvxdtj(dim)
-      real(f):: dx(dim), piv(dim), muv, vr, rr, h, mrho, dvx(dim), tmp
-      integer:: d
-
-      dx(:) = p_i%x(:) - p_j%x(:)
-      vr = dot_product(p_i%vx(:) - p_j%vx(:), dx(:))
-      if (vr > 0_f) vr = 0_f
-
-      !Artificial viscous force only if v_ij * r_ij < 0
-      rr = DOT_PRODUCT(dx(:), dx(:))
-      muv = hsml*vr/(rr + hsml*hsml*etq*etq)
-      mrho = 0.5_f*(p_i%rho + p_j%rho)
-      piv = (beta*muv - alpha*c)*muv/mrho*dwdx(:)
-
-      do d = 1, dim
-         tmp = atomicAdd(ardvxdti(d), -mass*piv(d))
-         tmp = atomicAdd(ardvxdtj(d), mass*piv(d))
-      end do
-
-   end subroutine art_visc
-
-   !=================================================================================
    attributes(device) pure subroutine ext_force(ki, nt, nv, ng, p_i, p_j, dwdx, exdvxdti, exdvxdtj)
 
       use param, only: p1, p2, rr0, dd
@@ -128,25 +106,6 @@ contains
    end subroutine ext_force
 
    !=================================================================================
-   attributes(device) pure subroutine int_force(ki, nt, nv, ng, p_i, p_j, dwdx, indvxdti, indvxdtj)
-
-      implicit none
-      integer, intent(in):: ki, nt, nv, ng
-      type(particles), intent(in):: p_i, p_j
-      real(f), intent(in):: dwdx(dim)
-      real(f), intent(inout):: indvxdti(dim), indvxdtj(dim)
-      real(f):: h(dim), tmp
-      integer:: d
-
-      h = -(p_i%p/p_i%rho**2 + p_j%p/p_j%rho**2)*dwdx(:)
-      do d = 1, dim
-         tmp = atomicAdd(indvxdti(d), mass*h(d))
-         tmp = atomicAdd(indvxdtj(d), -mass*h(d))
-      end do
-
-   end subroutine int_force
-
-   !=================================================================================
    attributes(device) pure subroutine con_density(ki, nt, nv, ng, p_i, p_j, dwdx, codrhodti, codrhodtj)
 
       implicit none
@@ -164,5 +123,38 @@ contains
       tmp = atomicAdd(codrhodtj, mass*vcc)
 
    end subroutine con_density
+   
+   !=================================================================================
+   attributes(device) pure function art_visc_coeff(ki, p_i, p_j) result(coeff)
+
+      use param, only: alpha, beta, etq, hsml, c
+
+      implicit none
+      integer, intent(in):: ki
+      type(particles), intent(in):: p_i, p_j
+      real(f):: dx(dim), piv(dim), muv, vr, rr, mrho, coeff
+
+      dx(:) = p_i%x(:) - p_j%x(:)
+      vr = DOT_PRODUCT(p_i%vx(:) - p_j%vx(:), dx(:))
+      if (vr > 0._f) vr = 0._f !Artificial viscous force only if v_ij * r_ij < 0
+
+      rr = DOT_PRODUCT(dx(:), dx(:))
+      muv = hsml*vr/(rr + hsml*hsml*etq*etq)
+      mrho = 0.5_f*(p_i%rho + p_j%rho)
+      coeff = -(beta*muv - alpha*c)*muv/mrho
+
+   end function art_visc_coeff
+
+   !=================================================================================
+   attributes(device) pure function int_force_coeff(ki, p_i, p_j) result(coeff)
+
+      implicit none
+      integer, intent(in):: ki
+      type(particles), intent(in):: p_i, p_j
+      real(f):: coeff
+
+      coeff = -mass*(p_i%p/p_i%rho**2 + p_j%p/p_j%rho**2)
+
+   end function int_force_coeff
 
 end module single_step_m

@@ -36,7 +36,7 @@ contains
       minx = HUGE(1._f); miny = HUGE(1._f); minz = HUGE(1._f)
       maxx = -HUGE(1._f); maxy = -HUGE(1._f); maxz = -HUGE(1._f)
       !Determining bounding box extents
-      !$cuf kernel do <<<(ntotal+nvirt+nghos)/128+1,128>>>
+      !$cuf kernel do <<<*,*>>>
       do i = 1, ntotal + nvirt + nghos
          minx = min(minx, parts_d(i)%x(1))
          miny = min(miny, parts_d(i)%x(2))
@@ -64,8 +64,8 @@ contains
                                                                  parts_d, pincell, cells)
 
       ierr = 0
-    call sweep <<< (ntotal + nvirt + nghos)/32 + 1, 32 >>> (maxinter_perp, scale_k, dcell, ntotal_d, nvirt_d, nghos_d, mingridx_d, &
-                                                              ngridx_d, parts_d, pincell, cells, niac_d, pairs_d, ierr)
+      call sweep <<< (ntotal + nvirt + nghos)/32 + 1, 32 >>> (maxinter_perp, scale_k, dcell, ntotal_d, nvirt_d, nghos_d, &
+                                                            mingridx_d, ngridx_d, parts_d, pincell, cells, niac_d, pairs_d, ierr)
       if (ierr == 1) then
          print *, ' >>> Error <<< : Too many interactions'
          stop

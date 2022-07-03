@@ -38,7 +38,6 @@ contains
       real(f):: time
       real:: tmpTime
       type(cudaEvent):: startEvent, stopEvent, startOutputEvent, stopOutputEvent, startTestEvent, stopTestEvent
-      real(f), device, allocatable:: exdvxdt(:, :), ardvxdt(:, :), indvxdt(:, :), codrhodt(:)
       integer, device, allocatable:: gind(:)
 
       ! Initializing timings
@@ -54,8 +53,7 @@ contains
       istat = cudaEventRecord(startEvent, 0)
 
       ! Allocating arrays relevant to solver
-      allocate (v_min(dim, ntotal), rho_min(ntotal), dvxdt(dim, ntotal, 4), drho(ntotal, 4))
-      allocate (exdvxdt(dim, maxn), ardvxdt(dim, maxn), indvxdt(dim, maxn), codrhodt(maxn))
+      allocate (v_min(dim, ntotal), rho_min(ntotal), dvxdt(dim, maxn, 4), drho(maxn, 4))
       allocate (gind(ntotal))
 
       ! Transferring necessary data to GPU
@@ -69,7 +67,7 @@ contains
       do itimestep = 1, maxtimestep
 
          ! Save particles' velocity, density information at start of time-step
-         !$cuf kernel do <<<(ntotal)/128+1,128>>>
+         !$cuf kernel do <<<*,*>>>
          do i = 1, ntotal
             rho_min(i) = parts_d(i)%rho
             v_min(:, i) = parts_d(i)%vx(:)
@@ -82,23 +80,25 @@ contains
 
          !Interaction parameters, calculating neighboring particles
          call flink_list(scale_k, maxinter_perp, ntotal, nvirt, nghos, ntotal_d, nvirt_d, nghos_d, parts_d, niac_d, pairs_d)
+         
+         !$cuf kernel do (2) <<<(*,*),(*,*)>>>
+         do ki = 1,4
+            do i = 1, ntotal
+               dvxdt(1:dim-1,i,ki) = 0._f
+               dvxdt(dim,i,ki) = -g
+               drho(i,ki) = 0._f
+            end do
+         end do
+            
          ! Beginning RK4 update (4 updates per timestep)
          do ki = 1, 4
 
             ! launching GPU kernel to calculate accelerations and density changes
-            !$cuf kernel do <<<(ntotal)/128+1,128>>>
-            do i = 1, ntotal
-               exdvxdt(1:dim - 1, i) = 0_f
-               exdvxdt(dim, i) = -g
-               ardvxdt(:, i) = 0_f
-               indvxdt(:, i) = 0_f
-               codrhodt(i) = 0_f
-            end do
-       call single_step_kernel <<< (ntotal + nvirt + nghos)/32 + 1, 32 >>> (ki, maxinter_perp, ntotal_d, nvirt_d, nghos_d, niac_d, &
-                                                                            pairs_d, parts_d, ardvxdt, exdvxdt, indvxdt, codrhodt)
+            call single_step_kernel <<< (ntotal + nvirt + nghos)/32 + 1, 32 >>> (ki, maxinter_perp, ntotal_d, nvirt_d, nghos_d, &
+                                                                                 niac_d, pairs_d, parts_d, dvxdt(:,:,ki), &
+                                                                                 drho(:,ki))
             ! launching GPU kernel to update particles' speed and density
-            call RK4_update <<< ntotal/1024 + 1, 1024 >>> (ki, ntotal_d, v_min, rho_min, ardvxdt, exdvxdt, indvxdt, &
-                                                           codrhodt, dvxdt, drho, parts_d)
+            call RK4_update <<< ntotal/1024 + 1, 1024 >>> (ki, ntotal_d, v_min, rho_min, dvxdt, drho, parts_d)
             call update_ghost_part <<< nghos/1024 + 1, 1024 >>> (ntotal_d, nvirt_d, nghos_d, parts_d, gind)
          end do
 
@@ -146,21 +146,19 @@ contains
    end subroutine time_integration
 
    !===============================================================================================================================
-   attributes(global) pure subroutine RK4_update(ki, nt, v_min, rho_min, ardvxdt, exdvxdt, indvxdt, codrhodt, dvxdt, drhodt, pts)
+   attributes(global) pure subroutine RK4_update(ki, nt, v_min, rho_min, dvxdt, drhodt, pts)
 
       implicit none
       integer, intent(in), value:: ki
       integer, intent(in):: nt
-      real(f), intent(in):: v_min(dim, nt), rho_min(nt), ardvxdt(dim, nt), exdvxdt(dim, nt), indvxdt(dim, nt), codrhodt(nt)
-      real(f), intent(inout):: dvxdt(dim, nt, 4), drhodt(nt, 4)
+      real(f), intent(in):: v_min(dim, nt), rho_min(nt)
+      real(f), intent(in):: dvxdt(:, :, :), drhodt(:, :)
       type(particles), intent(inout):: pts(nt)
       integer:: i
 
       i = blockDim%x*(blockIdx%x - 1) + threadIdx%x
 
       if (i <= nt) then
-         dvxdt(:, i, ki) = indvxdt(:, i) + exdvxdt(:, i) + ardvxdt(:, i)
-         drhodt(i, ki) = codrhodt(i)
          select case (ki)
          case default
             pts(i)%vx(:) = v_min(:, i) + 0.5_f*dt*dvxdt(:, i, ki)
