@@ -60,12 +60,12 @@ contains
 
       call zero_pincell <<< nblocks, nthreads >>> (ngridx_d, pincell)
 
-      call populate <<< (ntotal + nvirt + nghos)/32 + 1, 32 >>> (dcell, ntotal_d, nvirt_d, nghos_d, mingridx_d, ngridx_d, &
-                                                                 parts_d, pincell, cells)
+      call populate <<< (ntotal + nvirt + nghos)/32 + 1, 32 >>> (dcell, ntotal_d, nvirt_d, nghos_d, mingridx_d, ngridx_d, parts_d, &
+                                                                 pincell, cells)
 
       ierr = 0
       call sweep <<< (ntotal + nvirt + nghos)/32 + 1, 32 >>> (maxinter_perp, scale_k, dcell, ntotal_d, nvirt_d, nghos_d, &
-                                                            mingridx_d, ngridx_d, parts_d, pincell, cells, niac_d, pairs_d, ierr)
+                                                              mingridx_d, ngridx_d, parts_d, pincell, cells, niac_d, pairs_d, ierr)
       if (ierr == 1) then
          print *, ' >>> Error <<< : Too many interactions'
          stop

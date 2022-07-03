@@ -40,8 +40,8 @@ program SPH
    call output(0, save_step, ntotal, nvirt, 0, parts)
 
    !Entering discretized time-integration loop
-   call time_integration(scale_k,print_step, save_step, maxtimestep, cputime, output_time, test_time, maxinter_perp, maxn, &
-   ntotal, nvirt, nghos, parts, parts_d, niac, niac_d, pairs, pairs_d)
+   call time_integration(scale_k, print_step, save_step, maxtimestep, cputime, output_time, test_time, maxinter_perp, maxn, &
+                         ntotal, nvirt, nghos, parts, parts_d, niac, niac_d, pairs, pairs_d)
 
    !Printing post-amble to terminal
    call time_print
