@@ -4,7 +4,7 @@ module material_rates_m
    use param, only: mass, dim, f
 
    private
-   public:: art_visc, ext_force, int_force, con_density
+   public:: art_visc, ext_force, int_force, con_density, art_visc_coeff, int_force_coeff
 
 contains
 
@@ -92,5 +92,39 @@ contains
       codrhodtj = codrhodtj + mass*vcc
 
    end subroutine con_density
+
+   !=================================================================================
+   pure function art_visc_coeff(ki, p_i, p_j) result(coeff)
+
+      use param, only: alpha, beta, etq, hsml, c
+
+      implicit none
+      integer, intent(in):: ki
+      type(particles), intent(in):: p_i, p_j
+      real(f):: dx(dim), piv(dim), muv, vr, rr, mrho, coeff
+
+      dx(:) = p_i%x(:) - p_j%x(:)
+      vr = DOT_PRODUCT(p_i%vx(:) - p_j%vx(:), dx(:))
+      if (vr > 0_f) vr = 0_f
+
+      !Artificial viscous force only if v_ij * r_ij < 0
+      rr = DOT_PRODUCT(dx(:), dx(:))
+      muv = hsml*vr/(rr + hsml*hsml*etq*etq)
+      mrho = 0.5_f*(p_i%rho + p_j%rho)
+      coeff = -(beta*muv - alpha*c)*muv/mrho
+
+   end function art_visc_coeff
+
+   !=================================================================================
+   pure function int_force_coeff(ki, prhoi, prhoj) result(coeff)
+
+      implicit none
+      integer, intent(in):: ki
+      real(f), intent(in):: prhoi, prhoj
+      real(f):: coeff
+
+      coeff = -mass*(prhoi + prhoj)
+
+   end function int_force_coeff
 
 end module material_rates_m

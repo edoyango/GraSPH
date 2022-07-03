@@ -20,7 +20,7 @@ contains
 
    !==============================================================================================================================
    subroutine time_integration(maxtimestep, print_step, save_step, procid, numprocs, maxnloc, maxinter, MPI_types, timings, &
-                               scale_k, ntotal_loc, nvirt_loc, nhalo_loc, nghos_loc, ntotal, parts, pairs, gind)
+                               scale_k, ntotal_loc, nvirt_loc, nhalo_loc, nghos_loc, ntotal, parts, pairs, nexti, gind)
       ! Subroutine responsible for the main time-integration loop
 
       implicit none
@@ -28,7 +28,7 @@ contains
       type(MPI_derived_types), intent(in):: MPI_types
       real(f), intent(in):: scale_k
       type(time_tracking), intent(inout):: timings
-      integer, intent(inout):: ntotal_loc, nvirt_loc, nghos_loc, nhalo_loc, gind(:)
+      integer, intent(inout):: ntotal_loc, nvirt_loc, nghos_loc, nhalo_loc, nexti(:), gind(:)
       type(particles), intent(inout):: parts(maxnloc)
       type(interactions), intent(out):: pairs(maxinter)
       integer:: i, ki, itimestep, niac
@@ -59,7 +59,7 @@ contains
          end do
 
          !Interaction parameters, calculating neighboring particles
-         call flink_list(maxinter, scale_k, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, niac, parts, pairs)
+         call flink_list(maxinter, scale_k, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, niac, parts, pairs, nexti)
 
          do ki = 1, 4
 
@@ -81,7 +81,8 @@ contains
             if (ki > 1) call update_ghost_part(gind, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts)
 
             ! calculating forces
-            call single_step(ki, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, niac, pairs, dvxdt(:, :, ki), drho(:, ki))
+            call single_step(ki, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, niac, pairs, dvxdt(:, :, ki), drho(:, ki), &
+                             nexti)
 
             call RK4_update(ki, ntotal_loc, v_min, rho_min, dvxdt, drho, parts)
 

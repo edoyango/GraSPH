@@ -12,17 +12,17 @@ module flink_list_m
 contains
 
    !==============================================================================================================================
-   subroutine flink_list(maxinter, scale_k, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, niac, parts, pairs)
+   subroutine flink_list(maxinter, scale_k, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, niac, parts, pairs, nexti)
       ! save as above, but for 3D
 
       implicit none
       integer, intent(in):: maxinter, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc
       real(f), intent(in):: scale_k
       type(particles), intent(in):: parts(:)
-      integer, intent(out):: niac
+      integer, intent(out):: niac, nexti(:)
       type(interactions), intent(out):: pairs(:)
       integer, parameter:: maxpcell = 125
-      integer:: ngridx(3), jth, i, j, k, d, icell, jcell, kcell, xi, yi, zi, ierr
+      integer:: ngridx(3), jth, i, j, k, d, icell, jcell, kcell, xi, yi, zi, ierr = 0
       real(f):: mingridx(3), maxgridx(3), dcell
       integer, allocatable:: pincell(:, :, :), gridind(:, :), cells(:, :, :, :)
       integer, parameter:: sweep(3, 13) = reshape((/-1, -1, -1, &
@@ -73,14 +73,23 @@ contains
 
       niac = 0
       ierr = 0
+      nexti(1) = 1
       do i = 1, ntotal_loc + nhalo_loc + nvirt_loc + nghos_loc
-         icell = gridind(1, i); jcell = gridind(2, i); kcell = gridind(3, i)
+
+         ! Retrieving particle i's grid cell indices
+         icell = gridind(1, i)
+         jcell = gridind(2, i)
+         kcell = gridind(3, i)
+
+         ! finding pairs within cell icell,jcell
          do j = 1, pincell(icell, jcell, kcell)
             jth = cells(j, icell, jcell, kcell)
             if (jth > i) then
                call check_if_interact(maxinter, scale_k, parts(i), parts(jth), niac, pairs, ierr)
             end if
          end do
+
+         ! finding pairs within cells adjacent to i's cell
          do k = 1, 13
             xi = icell + sweep(1, k)
             yi = jcell + sweep(2, k)
@@ -90,6 +99,9 @@ contains
                call check_if_interact(maxinter, scale_k, parts(i), parts(jth), niac, pairs, ierr)
             end do
          end do
+
+         nexti(i + 1) = niac + 1
+
       end do
 
       if (ierr == 1) then
@@ -119,7 +131,6 @@ contains
          if (r <= hsml*scale_k) then
             niac = niac + 1
             if (niac < maxinter) then
-               pairs(niac)%i = p_i%indloc
                pairs(niac)%j = p_j%indloc
                call kernel(r, dxiac, hsml, pairs(niac)%w, pairs(niac)%dwdx(:))
             else

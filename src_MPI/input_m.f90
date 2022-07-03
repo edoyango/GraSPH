@@ -36,19 +36,19 @@ contains
    end function
 
    !==============================================================================================================================
-   subroutine allocatePersistentArrays(ntotal, nvirt, parts, pairs, gind, maxnloc, maxinter)
+   subroutine allocatePersistentArrays(ntotal, nvirt, parts, pairs, nexti, gind, maxnloc, maxinter)
 
       implicit none
       integer, intent(in):: ntotal, nvirt
-      integer, intent(inout), allocatable:: gind(:)
-      type(particles), intent(inout), allocatable:: parts(:)
-      type(interactions), intent(inout), allocatable:: pairs(:)
+      integer, intent(out), allocatable:: gind(:), nexti(:)
+      type(particles), intent(out), allocatable:: parts(:)
+      type(interactions), intent(out), allocatable:: pairs(:)
       integer, intent(out):: maxnloc, maxinter
 
       maxnloc = 2*ntotal + nvirt
       maxinter = 262*maxnloc
 
-      allocate (parts(maxnloc), pairs(maxinter), gind(ntotal))
+      allocate (parts(maxnloc), pairs(maxinter), nexti(maxnloc + 1), gind(ntotal))
 
    end subroutine allocatePersistentArrays
 
