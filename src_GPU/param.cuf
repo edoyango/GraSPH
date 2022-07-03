@@ -22,7 +22,7 @@ module param
    integer, parameter, public:: skf = 4
 
    !spacing and kernel radii parameter,public::s
-   real(f), parameter, public:: dxo = 0.5_f, kappa = 1.5_f, v_max = 44.3_f
+   real(f), parameter, public:: dxo = 0.5_f, kappa = 1.2_f, v_max = 44.3_f
 
    !material density (per particle)
    real(f), parameter, public:: irho = 1000_f
