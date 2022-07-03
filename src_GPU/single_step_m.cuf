@@ -16,30 +16,32 @@ contains
       integer, intent(in), value:: ki, maxinter_perp
       integer, intent(in):: nt, nv, ng, nij(nt + nv + ng)
       type(interactions), intent(in):: pij(:, :)
-      type(particles), intent(inout):: pts(nt + nv + ng)
+      type(particles), intent(in):: pts(nt + nv + ng)
       real(f), intent(inout):: ardvxdt(dim, nt + nv + ng), exdvxdt(dim, nt + nv + ng), indvxdt(dim, nt + nv + ng), &
                                codrhodt(nt + nv + ng)
       integer:: i, j, k, d
+      type(particles):: p_i,p_j
 
       ! Obtaining thread global index (used to assign particle index)
       i = blockDim%x*(blockIdx%x - 1) + threadIdx%x
 
       ! Beginning loop over
       if (i <= nt + nv + ng) then
-
+         p_i = pts(i)
          do k = 1, nij(i)
             j = pij(k, i)%j
-            if (pts(i)%itype > 0 .and. pts(j)%itype < 0) then
-               call virt_mirror(pts(i), pts(j))
-            elseif (pts(i)%itype < 0 .and. pts(j)%itype > 0) then
-               call virt_mirror(pts(j), pts(i))
+            p_j = pts(j)
+            if (p_i%itype > 0 .and. p_j%itype < 0) then
+               call virt_mirror(p_i, p_j)
+            elseif (p_i%itype < 0 .and. p_j%itype > 0) then
+               call virt_mirror(p_j, p_i)
             end if
 
-            call con_density(ki, nt, nv, ng, pts(i), pts(j), pij(k, i)%dwdx, codrhodt(i), codrhodt(j))
+            call con_density(ki, nt, nv, ng, p_i, p_j, pij(k, i)%dwdx, codrhodt(i), codrhodt(j))
 
-            call int_force(ki, nt, nv, ng, pts(i), pts(j), pij(k, i)%dwdx, indvxdt(:, i), indvxdt(:, j))
+            call int_force(ki, nt, nv, ng, p_i, p_j, pij(k, i)%dwdx, indvxdt(:, i), indvxdt(:, j))
 
-            call art_visc(ki, nt, nv, ng, pts(i), pts(j), pij(k, i)%dwdx, ardvxdt(:, i), indvxdt(:, j))
+            call art_visc(ki, nt, nv, ng, p_i, p_j, pij(k, i)%dwdx, ardvxdt(:, i), indvxdt(:, j))
 
          end do
       end if
