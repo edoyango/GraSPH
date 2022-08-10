@@ -19,11 +19,11 @@ Compilation of all source code requires hdf5 libraries where the serial and cuda
 
 # Compiling
 Compiling the code is done via the makescript.sh script. This can be invoked with one of the following arguments:
-- `makescript.sh serial-gnu`: compiles the code  in src_serial into the executable `sph-serial` using optimisation options specific to gfortran
-- `makescript.sh serial-intel`: compiles the code in src_serial into the executable `sph-serial` using optimisation options specific to ifort
-- `makescript.sh mpi-gnu`: compiles the code in src_MPI into the executable `sph-mpi` using optimisation options specific to gfortran (requires an mpi implementation)
-- `makescript.sh mpi-intel`: compiles the code in src_MPI into the executable `sph-mpi` using optimisation options specific to ifort (requires an mpi implementation)
-- `makescript.sh cuda`: compiles the code in src_GPU into the executable `sph-cuda` using optimisation options specific to nvfortran (requires NVIDIA HPC SDK).
+- `makescript.sh`: compiles the code  in src_serial into the executable `sph-serial` using optimisation options specific to gfortran
+- `makescript.sh --intel`: compiles the code in src_serial into the executable `sph-serial` using optimisation options specific to ifort
+- `makescript.sh --mpi`: compiles the code in src_MPI into the executable `sph-mpi` using optimisation options specific to gfortran (requires an mpi implementation)
+- `makescript.sh --mpi --intel`: compiles the code in src_MPI into the executable `sph-mpi` using optimisation options specific to ifort (requires an mpi implementation)
+- `makescript.sh --cuda`: compiles the code in src_GPU into the executable `sph-cuda` using optimisation options specific to nvfortran (requires NVIDIA HPC SDK).
 
 # Running
 Running the program requires running the executable and supplying three integer arguments e.g.:
