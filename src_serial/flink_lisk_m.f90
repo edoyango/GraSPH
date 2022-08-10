@@ -130,7 +130,7 @@ contains
             niac = niac + 1
             if (niac < maxinter) then
 !~                pairs(niac)%i = p_i%ind
-               pairs(niac)%j = p_j%ind
+               pairs(niac)%j = p_j%indloc
                call kernel(r, dxiac, hsml, pairs(niac)%w, pairs(niac)%dwdx(:))
             else
                ierr = 1

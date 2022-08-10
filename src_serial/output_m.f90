@@ -65,7 +65,7 @@ contains
       allocate (idatatmp(data_dims(1), data_dims(2)))
 
       ! particle index
-      idatatmp(:, 1) = pts_in(:)%ind
+      idatatmp(:, 1) = pts_in(:)%indloc
       call H5LTmake_dataset_int_f(fid_in, group_label//'/ind', 1, data_dims, idatatmp, ierr)
 
       ! process ID

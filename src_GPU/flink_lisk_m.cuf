@@ -187,13 +187,13 @@ contains
       real(f):: dxiac(dim), r
 
       ! only consider interactions when real particles are involved
-      if (p_i%ind /= p_j%ind .and. (p_i%itype == 1 .or. p_j%itype == 1)) then
+      if (p_i%indloc /= p_j%indloc .and. (p_i%itype == 1 .or. p_j%itype == 1)) then
          dxiac(:) = p_i%x(:) - p_j%x(:)
          r = SQRT(SUM(dxiac*dxiac))
          if (r < hsml*sk) then
             nij = nij + 1
             if (nij < maxint) then
-               pij(nij)%j = p_j%ind
+               pij(nij)%j = p_j%indloc
                call kernel(r, dxiac(:), hsml, pij(nij)%w, pij(nij)%dwdx(:))
             else
                tmp = atomicexch(ierr, 1)

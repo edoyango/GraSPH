@@ -1,6 +1,7 @@
 module summary_m
 
    use datatypes, only: time_tracking
+   use param, only: f, tf
 
    private
    public:: time_print, preamble, print_summary, print_update
@@ -78,7 +79,7 @@ contains
       implicit none
       integer, intent(in):: itimestep, maxtimestep, ntotal, nvirt, nghos, niac(:)
       type(time_tracking), intent(in):: timings
-      real, intent(in):: time
+      real(f), intent(in):: time
       integer:: maxp, minp, sumiac, maxiac, miniac, noiac, i, j, k, d
 
       write (*, '(A79)') '_______________________________________________________________________________'
