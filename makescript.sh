@@ -85,4 +85,9 @@ fi
 
 
 echo $MKFILES_DIR/$MKFILE
-make -f $MKFILES_DIR/$MKFILE FCFLAGS="$FCFLAGS"
+if [ -v FC ]
+then
+	make -f $MKFILES_DIR/$MKFILE FCFLAGS="$FCFLAGS" FC="$FC"
+else
+	make -f $MKFILES_DIR/$MKFILE FCFLAGS="$FCFLAGS"
+fi
