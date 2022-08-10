@@ -69,7 +69,8 @@ contains
          do j = 1, np
             do k = 1, op
                n = n + 1
-               parts(n)%ind = n
+               parts(n)%indloc = n
+               parts(n)%indglob = n
                parts(n)%x(1) = (i - 0.5_f)*dxo
                parts(n)%x(2) = (j - 0.5_f)*dxo
                parts(n)%x(3) = (k - 0.5_f)*dxo
@@ -99,7 +100,8 @@ contains
             do k = 1 - nlayer, rp + nlayer
                if (k < 1) then
                   n = n + 1
-                  parts(n)%ind = n
+                  parts(n)%indloc = n
+                  parts(n)%indglob = n
                   parts(n)%x(1) = vxmin + (i - 0.5_f)*dxo
                   parts(n)%x(2) = vymin + (j - 0.5_f)*dxo
                   parts(n)%x(3) = vzmin + (k - 0.5_f)*dxo
@@ -131,35 +133,35 @@ contains
          if (abs(pts(i)%x(1) - vxmin) < hsml*scale_k) then
             tmpi = atomicadd(ng, 1)
             pts(nt + nv + tmpi + 1) = pts(i)
-            gind(tmpi + 1) = pts(i)%ind
+            gind(tmpi + 1) = pts(i)%indloc
             pts(nt + nv + tmpi + 1)%itype = 2
-            pts(nt + nv + tmpi + 1)%ind = nt + nv + tmpi + 1
+            pts(nt + nv + tmpi + 1)%indloc = nt + nv + tmpi + 1
             pts(nt + nv + tmpi + 1)%x(1) = -pts(nt + nv + tmpi + 1)%x(1) + 2._f*vxmin
             pts(nt + nv + tmpi + 1)%vx(1) = -pts(nt + nv + tmpi + 1)%vx(1)
          end if
          if (abs(pts(i)%x(1) - vxmax) < hsml*scale_k) then
             tmpi = atomicadd(ng, 1)
             pts(nt + nv + tmpi + 1) = pts(i)
-            gind(tmpi + 1) = pts(i)%ind
+            gind(tmpi + 1) = pts(i)%indloc
             pts(nt + nv + tmpi + 1)%itype = 2
-            pts(nt + nv + tmpi + 1)%ind = nt + nv + tmpi + 1
+            pts(nt + nv + tmpi + 1)%indloc = nt + nv + tmpi + 1
             pts(nt + nv + tmpi + 1)%x(1) = -pts(nt + nv + tmpi + 1)%x(1) + 2._f*vxmax
             pts(nt + nv + tmpi + 1)%vx(1) = -pts(nt + nv + tmpi + 1)%vx(1)
          end if
          if (abs(pts(i)%x(2) - vymin) < hsml*scale_k) then
             tmpi = atomicadd(ng, 1)
             pts(nt + nv + tmpi + 1) = pts(i)
-            gind(tmpi + 1) = pts(i)%ind
+            gind(tmpi + 1) = pts(i)%indloc
             pts(nt + nv + tmpi + 1)%itype = 3
-            pts(nt + nv + tmpi + 1)%ind = nt + nv + tmpi + 1
+            pts(nt + nv + tmpi + 1)%indloc = nt + nv + tmpi + 1
             pts(nt + nv + tmpi + 1)%x(2) = -pts(nt + nv + tmpi + 1)%x(2) + 2._f*vymin
             pts(nt + nv + tmpi + 1)%vx(2) = -pts(nt + nv + tmpi + 1)%vx(2)
          end if
          if (abs(pts(i)%x(2) - vymax) < hsml*scale_k) then
             tmpi = atomicadd(ng, 1)
             pts(nt + nv + tmpi + 1) = pts(i)
-            gind(tmpi + 1) = pts(i)%ind
-            pts(nt + nv + tmpi + 1)%ind = nt + nv + tmpi + 1
+            gind(tmpi + 1) = pts(i)%indloc
+            pts(nt + nv + tmpi + 1)%indloc = nt + nv + tmpi + 1
             pts(nt + nv + tmpi + 1)%itype = 3
             pts(nt + nv + tmpi + 1)%x(2) = -pts(nt + nv + tmpi + 1)%x(2) + 2._f*vymax
             pts(nt + nv + tmpi + 1)%vx(2) = -pts(nt + nv + tmpi + 1)%vx(2)
@@ -167,9 +169,9 @@ contains
          if ((pts(i)%x(1) - vxmin)**2 + (pts(i)%x(2) - vymin)**2 < (hsml*scale_k)**2) then
             tmpi = atomicadd(ng, 1)
             pts(nt + nv + tmpi + 1) = pts(i)
-            gind(tmpi + 1) = pts(i)%ind
+            gind(tmpi + 1) = pts(i)%indloc
             pts(nt + nv + tmpi + 1)%itype = 5
-            pts(nt + nv + tmpi + 1)%ind = nt + nv + tmpi + 1
+            pts(nt + nv + tmpi + 1)%indloc = nt + nv + tmpi + 1
             pts(nt + nv + tmpi + 1)%x(1) = -pts(nt + nv + tmpi + 1)%x(1) + 2._f*vxmin
             pts(nt + nv + tmpi + 1)%x(2) = -pts(nt + nv + tmpi + 1)%x(2) + 2._f*vymin
             pts(nt + nv + tmpi + 1)%vx(1) = -pts(nt + nv + tmpi + 1)%vx(1)
@@ -178,9 +180,9 @@ contains
          if ((pts(i)%x(1) - vxmin)**2 + (pts(i)%x(2) - vymax)**2 < (hsml*scale_k)**2) then
             tmpi = atomicadd(ng, 1)
             pts(nt + nv + tmpi + 1) = pts(i)
-            gind(tmpi + 1) = pts(i)%ind
+            gind(tmpi + 1) = pts(i)%indloc
             pts(nt + nv + tmpi + 1)%itype = 5
-            pts(nt + nv + tmpi + 1)%ind = nt + nv + tmpi + 1
+            pts(nt + nv + tmpi + 1)%indloc = nt + nv + tmpi + 1
             pts(nt + nv + tmpi + 1)%x(1) = -pts(nt + nv + tmpi + 1)%x(1) + 2._f*vxmin
             pts(nt + nv + tmpi + 1)%x(2) = -pts(nt + nv + tmpi + 1)%x(2) + 2._f*vymax
             pts(nt + nv + tmpi + 1)%vx(1) = -pts(nt + nv + tmpi + 1)%vx(1)
@@ -189,9 +191,9 @@ contains
          if ((pts(i)%x(1) - vxmax)**2 + (pts(i)%x(2) - vymin)**2 < (hsml*scale_k)**2) then
             tmpi = atomicadd(ng, 1)
             pts(nt + nv + tmpi + 1) = pts(i)
-            gind(tmpi + 1) = pts(i)%ind
+            gind(tmpi + 1) = pts(i)%indloc
             pts(nt + nv + tmpi + 1)%itype = 5
-            pts(nt + nv + tmpi + 1)%ind = nt + nv + tmpi + 1
+            pts(nt + nv + tmpi + 1)%indloc = nt + nv + tmpi + 1
             pts(nt + nv + tmpi + 1)%x(1) = -pts(nt + nv + tmpi + 1)%x(1) + 2._f*vxmax
             pts(nt + nv + tmpi + 1)%x(2) = -pts(nt + nv + tmpi + 1)%x(2) + 2._f*vymin
             pts(nt + nv + tmpi + 1)%vx(1) = -pts(nt + nv + tmpi + 1)%vx(1)
@@ -200,9 +202,9 @@ contains
          if ((pts(i)%x(1) - vxmax)**2 + (pts(i)%x(2) - vymax)**2 < (hsml*scale_k)**2) then
             tmpi = atomicadd(ng, 1)
             pts(nt + nv + tmpi + 1) = pts(i)
-            gind(tmpi + 1) = pts(i)%ind
+            gind(tmpi + 1) = pts(i)%indloc
             pts(nt + nv + tmpi + 1)%itype = 5
-            pts(nt + nv + tmpi + 1)%ind = nt + nv + tmpi + 1
+            pts(nt + nv + tmpi + 1)%indloc = nt + nv + tmpi + 1
             pts(nt + nv + tmpi + 1)%x(1) = -pts(nt + nv + tmpi + 1)%x(1) + 2._f*vxmax
             pts(nt + nv + tmpi + 1)%x(2) = -pts(nt + nv + tmpi + 1)%x(2) + 2._f*vymax
             pts(nt + nv + tmpi + 1)%vx(1) = -pts(nt + nv + tmpi + 1)%vx(1)
@@ -269,7 +271,7 @@ contains
             j = pij(k, i)%j
             if (pts(i)%itype < 0 .and. pts(j)%itype > 0) then
                tmp = mass*pij(k, i)%w/pts(j)%rho
-               tmp2 = atomicadd(vw(pts(i)%ind - nt), tmp)
+               tmp2 = atomicadd(vw(pts(i)%indloc - nt), tmp)
                tmp2 = atomicadd(pts(i)%rho, mass*pij(k, i)%w)
                select case (pts(i)%itype)
                case (-1) ! top-bottom walls
@@ -287,7 +289,7 @@ contains
                end select
             else if (pts(j)%itype < 0 .and. pts(i)%itype > 0) then
                tmp = mass*pij(k, i)%w/pts(i)%rho
-               tmp2 = atomicadd(vw(pts(j)%ind - nt), tmp)
+               tmp2 = atomicadd(vw(pts(j)%indloc - nt), tmp)
                tmp2 = atomicadd(pts(j)%rho, mass*pij(k, i)%w)
                select case (pts(j)%itype)
                case (-1) ! top-bottom walls

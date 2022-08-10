@@ -1,7 +1,7 @@
 module summary_m
 
    use datatypes, only: particles, interactions, time_tracking
-   use param, only: f
+   use param, only: f, tf
 
    public:: time_print, preamble, print_summary, print_update
 
@@ -94,8 +94,8 @@ contains
       do i = 1, ntotal + nvirt + nghos
          do k = nexti(i), nexti(i + 1) - 1
             j = pairs(k)%j
-            ns(parts(i)%ind) = ns(parts(i)%ind) + 1
-            ns(parts(j)%ind) = ns(parts(j)%ind) + 1
+            ns(parts(i)%indloc) = ns(parts(i)%indloc) + 1
+            ns(parts(j)%indloc) = ns(parts(j)%indloc) + 1
          end do
       end do
 
@@ -105,16 +105,16 @@ contains
       miniac = huge(1)
       maxp = 1
       do i = 1, ntotal + nvirt + nghos
-         sumiac = sumiac + ns(parts(i)%ind)
-         if (ns(parts(i)%ind) > maxiac) then
-            maxiac = ns(parts(i)%ind)
+         sumiac = sumiac + ns(parts(i)%indloc)
+         if (ns(parts(i)%indloc) > maxiac) then
+            maxiac = ns(parts(i)%indloc)
             maxp = i
          end if
-         if (ns(parts(i)%ind) < miniac) then
-            miniac = ns(parts(i)%ind)
+         if (ns(parts(i)%indloc) < miniac) then
+            miniac = ns(parts(i)%indloc)
             minp = i
          end if
-         if (ns(parts(i)%ind) .eq. 0) noiac = noiac + 1
+         if (ns(parts(i)%indloc) .eq. 0) noiac = noiac + 1
       end do
 
       write (*, '(A40,I7)') ' >> Statistics: no. of ghost particles: ', nghos

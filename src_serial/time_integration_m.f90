@@ -1,7 +1,7 @@
 module time_integration_m
 
    use datatypes, only: particles, interactions, time_tracking, system_clock_timer
-   use param, only: f, dim, rh0, gamma, c, dt
+   use param, only: f, tf, dim, rh0, gamma, c, dt
 
    use flink_list_m, only: flink_list
    use input_m, only: generate_ghost_part, update_ghost_part
@@ -27,7 +27,7 @@ contains
       type(particles), intent(inout):: parts(:)
       type(interactions), intent(inout):: pairs(:)
       integer:: i, itimestep, ki, maxn
-      real(f):: tmptime
+      double precision:: tmptime
       real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drhodt(:, :)
 
       maxn = size(parts)

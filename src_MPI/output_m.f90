@@ -1,7 +1,7 @@
 module output_m
 
    use datatypes, only: particles
-   use param, only: f, dim, output_directory, output_phys, output_halo, output_virt, output_flt_type
+   use param, only: f, dim, output_directory
 
    use hdf5
    use mpi_f08

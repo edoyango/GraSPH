@@ -2,7 +2,7 @@ module time_integration_m
 
    use datatypes, only: particles, interactions, time_tracking
    use mpi_f08
-   use param, only: f, dim, dt, rh0, c, gamma
+   use param, only: f, tf, dim, dt, rh0, c, gamma
    use param_para, only: MPI_derived_types
 
    use input_m, only: generate_ghost_part, update_ghost_part
@@ -33,7 +33,7 @@ contains
       type(interactions), intent(out):: pairs(maxinter)
       integer:: i, ki, itimestep, niac
       real(f):: time = 0._f
-      double precision:: tmptime
+      double precision:: tmptime ! used to record wall time measurements
       real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drho(:, :)
 
       allocate (v_min(dim, maxnloc), rho_min(maxnloc), dvxdt(dim, maxnloc, 4), drho(maxnloc, 4))

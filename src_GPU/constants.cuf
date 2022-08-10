@@ -1,3 +1,0 @@
-module constants
-
-end module constants

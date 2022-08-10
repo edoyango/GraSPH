@@ -63,7 +63,8 @@ contains
          do j = 1, np
             do k = 1, op
                n = n + 1
-               parts(n)%ind = n
+               parts(n)%indloc = n
+               parts(n)%indglob = n
                parts(n)%x(1) = (i - 0.5_f)*dxo
                parts(n)%x(2) = (j - 0.5_f)*dxo
                parts(n)%x(3) = (k - 0.5_f)*dxo
@@ -90,7 +91,8 @@ contains
          do j = 1 - nlayer, qp + nlayer
             do k = 1, nlayer
                n = n + 1
-               parts(n)%ind = n
+               parts(n)%indloc = n
+               parts(n)%indglob = n
                parts(n)%x(1) = vxmin + (i - 0.5_f)*dxo
                parts(n)%x(2) = vymin + (j - 0.5_f)*dxo
                parts(n)%x(3) = vzmin - (k - 0.5_f)*dxo
@@ -123,7 +125,7 @@ contains
             ig = ntotal + nvirt + nghos
             gind(nghos) = i
             parts(ig) = parts(i)
-            parts(ig)%ind = ig
+            parts(ig)%indloc = ig
             parts(ig)%itype = 99
             parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmin
             parts(ig)%vx(1) = -parts(ig)%vx(1)
@@ -133,7 +135,7 @@ contains
             ig = ntotal + nvirt + nghos
             gind(nghos) = i
             parts(ig) = parts(i)
-            parts(ig)%ind = ig
+            parts(ig)%indloc = ig
             parts(ig)%itype = 99
             parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmax
             parts(ig)%vx(1) = -parts(ig)%vx(1)
@@ -143,7 +145,7 @@ contains
             ig = ntotal + nvirt + nghos
             gind(nghos) = i
             parts(ig) = parts(i)
-            parts(ig)%ind = ig
+            parts(ig)%indloc = ig
             parts(ig)%itype = 98
             parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymin
             parts(ig)%vx(2) = -parts(ig)%vx(2)
@@ -153,7 +155,7 @@ contains
             ig = ntotal + nvirt + nghos
             gind(nghos) = i
             parts(ig) = parts(i)
-            parts(ig)%ind = ig
+            parts(ig)%indloc = ig
             parts(ig)%itype = 98
             parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymax
             parts(ig)%vx(2) = -parts(ig)%vx(2)
@@ -163,7 +165,7 @@ contains
             ig = ntotal + nvirt + nghos
             gind(nghos) = i
             parts(ig) = parts(i)
-            parts(ig)%ind = ig
+            parts(ig)%indloc = ig
             parts(ig)%itype = 97
             parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmin
             parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymin
@@ -175,7 +177,7 @@ contains
             ig = ntotal + nvirt + nghos
             gind(nghos) = i
             parts(ig) = parts(i)
-            parts(ig)%ind = ig
+            parts(ig)%indloc = ig
             parts(ig)%itype = 97
             parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmin
             parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymax
@@ -187,7 +189,7 @@ contains
             ig = ntotal + nvirt + nghos
             gind(nghos) = i
             parts(ig) = parts(i)
-            parts(ig)%ind = ig
+            parts(ig)%indloc = ig
             parts(ig)%itype = 97
             parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmax
             parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymax
@@ -199,7 +201,7 @@ contains
             ig = ntotal + nvirt + nghos
             gind(nghos) = i
             parts(ig) = parts(i)
-            parts(ig)%ind = ig
+            parts(ig)%indloc = ig
             parts(ig)%itype = 97
             parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmax
             parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymin
