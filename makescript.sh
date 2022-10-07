@@ -69,18 +69,18 @@ done
 [ $CUDA -eq 1 ] && MKFILE=$MKFILE_CUDA
 
 if [ $INTEL -eq 1 ]; then
-	FCFLAGS="$FCFLAGS $FCFLAGS_intel"
-	[ $OPTIMISE -eq 1 ] && FCFLAGS="$FCFLAGS $FCFLAGS_intel_opt"
-	[ $DEBUG -eq 1 ] && FCFLAGS="$FCFLAGS $FCFLAGS_intel_debug"
+	FCFLAGS="$FCFLAGS_intel $FCFLAGS"
+	[ $OPTIMISE -eq 1 ] && FCFLAGS="$FCFLAGS_intel_opt $FCFLAGS"
+	[ $DEBUG -eq 1 ] && FCFLAGS="$FCFLAGS_intel_debug $FCFLAGS"
 elif [ $GNU -eq 1 ]; then
-	FCFLAGS="$FCFLAGS $FCFLAGS_gnu"
-	[ $OPTIMISE -eq 1 ] && FCFLAGS="$FCFLAGS $FCFLAGS_gnu_opt"
-	[ $DEBUG -eq 1 ] && FCFLAGS="$FCFLAGS $FCFLAGS_gnu_debug"
+	FCFLAGS="$FCFLAGS_gnu $FCFLAGS"
+	[ $OPTIMISE -eq 1 ] && FCFLAGS="$FCFLAGS_gnu_opt $FCFLAGS"
+	[ $DEBUG -eq 1 ] && FCFLAGS="$FCFLAGS_gnu_debug $FCFLAGS"
 elif [ $CUDA -eq 1 ]; then
-	FCFLAGS="$FCFLAGS $FCFLAGS_CUDA"
+	FCFLAGS="$FCFLAGS_CUDA $FCFLAGS"
 	echo $FCFLAGS
-	[ $OPTIMISE -eq 1 ] && FCFLAGS="$FCFLAGS $FCFLAGS_CUDA_opt"
-	[ $DEBUG -eq 1 ] && FCFLAGS="$FCFLAGS $FCFLAGS_CUDA_debug"
+	[ $OPTIMISE -eq 1 ] && FCFLAGS="$FCFLAGS_CUDA_opt $FCFLAGS"
+	[ $DEBUG -eq 1 ] && FCFLAGS="$FCFLAGS_CUDA_debug $FCFLAGS"
 fi
 
 
