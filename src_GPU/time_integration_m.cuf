@@ -76,7 +76,7 @@ contains
          nghos = nghos_d
 
          !Interaction parameters, calculating neighboring particles
-         call flink_list(scale_k, maxinter_perp, ntotal, nvirt, nghos, ntotal_d, nvirt_d, nghos_d, parts_d, niac_d, pairs_d)
+         call flink_list(scale_k, maxinter_perp, ntotal+nvirt+nghos, parts_d, niac_d, pairs_d)
 
          !$cuf kernel do (2) <<<(*,*),(*,*)>>>
          do ki = 1, 4
