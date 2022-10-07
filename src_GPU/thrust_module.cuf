@@ -1,0 +1,13 @@
+module thrust
+  
+  interface thrustsortbykey
+  
+    subroutine sortbykey_int(keys_in,values_in,N) bind(C,name="sortbykey_int_wrapper")
+      use iso_c_binding
+      integer(c_int), device, intent(inout):: keys_in(*), values_in(*)
+      integer(c_int), value, intent(in):: N
+    end subroutine sortbykey_int
+    
+  end interface thrustsortbykey
+  
+end module thrust
