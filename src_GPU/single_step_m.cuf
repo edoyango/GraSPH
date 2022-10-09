@@ -24,7 +24,7 @@ contains
       i = blockDim%x*(blockIdx%x - 1) + threadIdx%x
 
       ! Beginning loop over
-      if (i <= nt + nv) then
+      if (i <= np) then
          
          itype_i = itype(i)
          ind_i = ind(i)
@@ -52,7 +52,7 @@ contains
             end if
 
             !Density approximation or change rate
-            call con_density(ki, nt, nv, ind_i, ind_j, vx_i, vx_j, pij(k, i)%dwdx, drhodti(i), drhodti(j))
+            call con_density(ki, ind_i, ind_j, vx_i, vx_j, pij(k, i)%dwdx, drhodti(i), drhodti(j))
             
             ! calculating coefficients for pressure force and artificial viscosity
             a_coeff = int_force_coeff(ki, ind_i, ind_j, p_i, p_j, rho_i, rho_j) + art_visc_coeff(ki, ind_i, ind_j, rho_i, rho_j, x_i, x_j, vx_i, vx_j)
@@ -158,10 +158,10 @@ contains
    end subroutine ext_force
 
    !=================================================================================
-   attributes(device) pure subroutine con_density(ki, nt, nv, ind_i, ind_j, vx_i, vx_j, dwdx, codrhodti, codrhodtj)
+   attributes(device) pure subroutine con_density(ki, ind_i, ind_j, vx_i, vx_j, dwdx, codrhodti, codrhodtj)
 
       implicit none
-      integer, intent(in):: ki, nt, nv, ind_i, ind_j
+      integer, intent(in):: ki, ind_i, ind_j
       real(f), intent(in):: dwdx(dim), vx_i(dim), vx_j(dim)
       real(f), intent(inout):: codrhodti, codrhodtj
       real(f):: dvx(dim), vcc, tmp
