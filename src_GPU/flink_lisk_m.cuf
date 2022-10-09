@@ -41,14 +41,14 @@ contains
       !$cuf kernel do <<<*,*>>>
       do i = 1, n_p
          minx = min(minx, parts_d(i)%x(1))
-         miny = min(miny, parts_d(i)%x(2))
-         minz = min(minz, parts_d(i)%x(3))
          maxx = max(maxx, parts_d(i)%x(1))
+         miny = min(miny, parts_d(i)%x(2))
          maxy = max(maxy, parts_d(i)%x(2))
+         minz = min(minz, parts_d(i)%x(3))
          maxz = max(maxz, parts_d(i)%x(3))
       end do
       mingridx(1) = minx - 2.*dcell; mingridx(2) = miny - 2.*dcell; mingridx(3) = minz - 2.*dcell
-      maxgridx(1) = maxx + 2.*dcell; maxgridx(2) = maxy + 2.*dcell; maxgridx(3) = maxz + 2.*dcell
+      maxgridx(1) = maxx + 1.*dcell; maxgridx(2) = maxy + 1.*dcell; maxgridx(3) = maxz + 1.*dcell
       ngridx(:) = int((maxgridx(:) - mingridx(:))/dcell) + 1
       maxgridx(:) = mingridx(:) + ngridx*dcell
       ngridx_d(:) = ngridx(:)
@@ -77,9 +77,8 @@ contains
       !call thrustsortbykey(gridCellHash, parts_d, np)
       call thrustsortbykey(gridCellHash, mapping, n_p)
       
-      !$cuf kernel do
+      !$cuf kernel do 
       do i = 1,n_p
-!~          j_d = 
          partstmp_d(i) = parts_d(mapping(i))
       end do
       
@@ -120,7 +119,7 @@ contains
       end do
 
       ierr = 0
-      call sweep <<< n_p/32 + 1, 32 >>> (maxinter_perp, scale_k, ngridx_d, n_p, x, parts_d, gridCellHash, cellLoc, niac_d, pairs_d, ierr)
+      call sweep <<< n_p/64 + 1, 64 >>> (maxinter_perp, scale_k, ngridx_d, n_p, x, parts_d, gridCellHash, cellLoc, niac_d, pairs_d, ierr)
       if (ierr == 1) then
          print *, ' >>> Error <<< : Too many interactions'
          stop
@@ -160,7 +159,7 @@ contains
       integer, intent(inout):: ierr
       integer, intent(out):: nij(np)
       type(interactions), intent(out):: pij(maxint, np)
-      integer:: i, j, k, d, icell(dim), jcell(dim), hashAdj
+      integer:: i, j, k, d, icell(dim), jcell(dim), hashAdj, niji
       integer, parameter:: sweepinds(3, 13) = reshape((/-1,-1,-1, &
                                                          0,-1,-1, &
                                                          1,-1,-1, &
@@ -179,20 +178,20 @@ contains
 
       ! Beginning sweep
       if (i <= np) then
-         nij(i) = 0
-         do j = cellLoc(1,gridCellHash(i)), cellLoc(2,gridCellHash(i))
-            if (j>i) then
-               call check_if_interact(maxint, sk, pts(i), pts(j), nij(i), pij(:, i), ierr)
-            end if
+!~          nij(i) = 0
+         niji = 0
+         do j = i+1, cellLoc(2,gridCellHash(i))
+            call check_if_interact(maxint, sk, pts(i), pts(j), niji, pij(:, i), ierr)
          end do
          icell = hash2Cell(gridCellHash(i), ngx)
          do k = 1, 13
             jcell = icell(:) + sweepinds(:,k)
             hashAdj = cells2Hash(jcell, ngx)
             do j = cellLoc(1,hashAdj), cellLoc(2,hashAdj)
-               call check_if_interact(maxint, sk, pts(i), pts(j), nij(i), pij(:, i), ierr)
+               call check_if_interact(maxint, sk, pts(i), pts(j), niji, pij(:, i), ierr)
             end do
          end do
+         nij(i) = niji
       end if
 
    end subroutine sweep
