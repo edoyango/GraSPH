@@ -2,9 +2,12 @@ module single_step_m
 
    use datatypes, only: interactions, particles
    use param, only: dim, f, g, mass
+   
+   private
+   integer, pointer, texture:: itype_ss_Tex(:), ind_ss_Tex(:)
+   real(f), pointer, texture:: p_ss_Tex(:), rho_ss_Tex(:), x_ss_Tex(:,:), vx_ss_Tex(:,:)
 
-   public:: single_step_kernel
-   private:: art_visc, ext_force, int_force, con_density
+   public:: single_step_kernel, itype_ss_Tex, ind_ss_Tex, p_ss_Tex, rho_ss_Tex, x_ss_Tex, vx_ss_Tex
 
 contains
 
@@ -26,26 +29,26 @@ contains
       ! Beginning loop over
       if (i <= np) then
          
-         itype_i = itype(i)
-         ind_i = ind(i)
-         rho_i = rho(i)
-         p_i = p(i)
-         x_i = x(:,i)
-         vx_i = vx(:,i)
+         itype_i = itype_ss_Tex(i)
+         ind_i = ind_ss_Tex(i)
+         rho_i = rho_ss_Tex(i)
+         p_i = p_ss_Tex(i)
+         x_i = x_ss_Tex(:,i)
+         vx_i = vx_ss_Tex(:,i)
 
          do k = 1, nij(i)
 
             j = pij(k, i)%j
             
-            ind_j = ind(j)
-            rho_j = rho(j)
-            p_j = p(j)
-            x_j = x(:,j)
-            vx_j = vx(:,j)
+            ind_j = ind_ss_Tex(j)
+            rho_j = rho_ss_Tex(j)
+            p_j = p_ss_Tex(j)
+            x_j = x_ss_Tex(:,j)
+            vx_j = vx_ss_Tex(:,j)
 
             ! Mirroring real particle onto virtual particle (if needed)
             if (itype_i > 0 .and. itype_j < 0) then
-               call virt_mirror(ind_i, ind_j, p_i, p_j, rho_i, rho_j, x_i, x_j, vx_i, vx_j , itype(j))
+               call virt_mirror(ind_i, ind_j, p_i, p_j, rho_i, rho_j, x_i, x_j, vx_i, vx_j , itype_ss_Tex(j))
             elseif (itype_i < 0 .and. itype_j > 0) then
                call virt_mirror(ind_j, ind_i, p_j, p_i, rho_j, rho_i, x_j, x_i, vx_j, vx_i , itype_i)
             end if
