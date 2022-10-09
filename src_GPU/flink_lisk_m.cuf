@@ -148,7 +148,8 @@ contains
       integer, intent(inout):: ierr
       integer, intent(out):: nij(np)
       type(interactions), intent(out):: pij(maxint, np)
-      integer:: i, j, k, d, icell(dim), jcell(dim), hashAdj, niji
+      integer:: i, j, k, d, icell(dim), jcell(dim), hashAdj, niji, itypei
+      real(f):: xi(dim)
       integer, parameter:: sweepinds(3, 13) = reshape((/-1,-1,-1, &
                                                          0,-1,-1, &
                                                          1,-1,-1, &
@@ -167,18 +168,19 @@ contains
 
       ! Beginning sweep
       if (i <= np) then
-!~          nij(i) = 0
          niji = 0
+         xi = x(:,i)
+         itypei = itype(i)
          do j = i+1, cellLoc(2,gridCellHash(i))
             
-            call check_if_interact(maxint, sk, i, j, x(:,i), x(:,j), itype(i), itype(j), niji, pij(:, i), ierr)
+            call check_if_interact(maxint, sk, i, j, xi, x(:,j), itypei, itype(j), niji, pij(:, i), ierr)
          end do
          icell = hash2Cell(gridCellHash(i), ngx)
          do k = 1, 13
             jcell = icell(:) + sweepinds(:,k)
             hashAdj = cells2Hash(jcell, ngx)
             do j = cellLoc(1,hashAdj), cellLoc(2,hashAdj)
-               call check_if_interact(maxint, sk, i, j, x(:,i), x(:,j), itype(i), itype(j), niji, pij(:, i), ierr)
+               call check_if_interact(maxint, sk, i, j, xi, x(:,j), itypei, itype(j), niji, pij(:, i), ierr)
             end do
          end do
          nij(i) = niji
