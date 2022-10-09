@@ -24,7 +24,7 @@ contains
       type(particles), device, intent(inout):: parts_d(n_p)
       integer, device, intent(out):: niac_d(n_p)
       type(interactions), device, intent(out):: pairs_d(maxinter_perp, n_p)
-      integer, allocatable, device:: cellLoc(:,:)!, mapping(:)
+      integer, allocatable, device:: cellLoc(:,:)
       integer:: i, j, k, d, istat, ngridx(dim)
       real(f):: mingridx(dim), maxgridx(dim), dcell
       integer, device:: ngridx_d(dim), gridCellHash(n_p), j_d, mapping(n_p)
