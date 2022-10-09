@@ -44,32 +44,36 @@ contains
    end function return_nvirt
 
    !==============================================================================================================================
-   subroutine allocatePersistentArrays(ntotal, nvirt, maxn, maxinter_perp, parts, parts_d, pairs, pairs_d, niac, niac_d)
+   subroutine allocatePersistentArrays(ntotal, nvirt, maxn, maxinter_perp, pairs, pairs_d, niac, niac_d, itype, ind, itype_d, &
+   ind_d, p, rho, x, vx, p_d, rho_d, x_d, vx_d)
 
       implicit none
       integer, intent(in):: ntotal, nvirt, maxinter_perp
       integer, intent(out):: maxn
       integer, allocatable, intent(inout):: niac(:)
       integer, allocatable, intent(inout), device:: niac_d(:)
-      type(particles), allocatable, intent(inout):: parts(:)
-      type(particles), allocatable, intent(inout), device:: parts_d(:)
+      integer, allocatable, intent(inout):: itype(:), ind(:)
+      integer, allocatable, device, intent(inout):: itype_d(:), ind_d(:)
+      real(f), allocatable, intent(inout):: p(:), rho(:), x(:,:), vx(:,:)
+      real(f), allocatable, device, intent(inout):: p_d(:), rho_d(:), x_d(:,:), vx_d(:,:)
       type(interactions), allocatable, intent(inout):: pairs(:, :)
       type(interactions), allocatable, intent(inout), device:: pairs_d(:, :)
 
       maxn = ntotal + nvirt!+int(0.2*ntotal)
-
-      allocate (parts(maxn), parts_d(maxn))
+      allocate( itype(maxn), ind(maxn), p(maxn), rho(maxn), x(dim,maxn), vx(dim,maxn))
+      allocate(itype_d(maxn), ind_d(maxn), p_d(maxn), rho_d(maxn), x_d(dim,maxn), vx_d(dim,maxn))
       allocate (pairs(maxinter_perp, maxn), pairs_d(maxinter_perp, maxn))
       allocate (niac(maxn), niac_d(maxn))
 
    end subroutine allocatePersistentArrays
 
    !==============================================================================================================================
-   subroutine generate_real_part(ntotal, parts)
+   subroutine generate_real_part(ntotal, itype, ind, p, rho, x, vx)
 
       implicit none
       integer, intent(in):: ntotal
-      type(particles), intent(out):: parts(:)
+      integer, intent(out):: itype(ntotal), ind(ntotal)
+      real(f), intent(out):: p(ntotal), rho(ntotal), x(dim,ntotal), vx(dim,ntotal)
       integer:: i, j, k, d, n
       real(f):: xi, yi, zi
 
@@ -78,16 +82,14 @@ contains
          do j = 1, np
             do k = 1, op
                n = n + 1
-               parts(n)%indloc = n
-               parts(n)%indglob = n
-               parts(n)%x(1) = (i - 0.5_f)*dxo
-               parts(n)%x(2) = (j - 0.5_f)*dxo
-               parts(n)%x(3) = (k - 0.5_f)*dxo
-               parts(n)%vx(:) = 0._f
-               parts(n)%itype = 1
-               parts(n)%p = 0._f!(zl-parts(n)%x(3))*g*irho
-               parts(n)%rho = irho*(parts(n)%p*gamma/(c**2*irho) + 1)**(1._f/gamma)
-
+               itype(n) = 1
+               ind(n) = n
+               p(n) = 0._f
+               rho(n) = irho*(p(n)*gamma/(c**2*irho) + 1)**(1._f/gamma)
+               x(1,n) = (i - 0.5_f)*dxo
+               x(2,n) = (j - 0.5_f)*dxo
+               x(3,n) = (k - 0.5_f)*dxo
+               vx(:,n) = 0._f
             end do
          end do
       end do
@@ -95,11 +97,12 @@ contains
    end subroutine generate_real_part
 
    !==============================================================================================================================
-   subroutine generate_virt_part(ntotal, nvirt, parts)
+   subroutine generate_virt_part(ntotal, nvirt, itype, ind, p, rho, x, vx)
 
       implicit none
       integer, intent(in):: ntotal, nvirt
-      type(particles), intent(inout):: parts(:)
+      integer, intent(out):: itype(ntotal+nvirt), ind(ntotal+nvirt)
+      real(f), intent(out):: p(ntotal+nvirt), rho(ntotal+nvirt), x(dim,ntotal+nvirt), vx(dim,ntotal+nvirt)
       integer:: i, j, k, d, n
 
       n = ntotal
@@ -109,27 +112,26 @@ contains
             do k = 1 - nlayer, rp + nlayer
                if (.not.(i>=1 .and. i<=pp .and. j>=1 .and. j<=qp .and. k>=1 .and. k<=rp)) then
                   n = n + 1
-                  parts(n)%indloc = n
-                  parts(n)%indglob = n
-                  parts(n)%x(1) = vxmin + (i - 0.5_f)*dxo
-                  parts(n)%x(2) = vymin + (j - 0.5_f)*dxo
-                  parts(n)%x(3) = vzmin + (k - 0.5_f)*dxo
-                  parts(n)%vx(:) = 0._f
-                  parts(n)%rho = irho
-                  parts(n)%p = 0._f
                   if (k < 1) then
-                     parts(n)%itype = -1
+                     itype(n) = -1
                   else if (k > rp) then
-                     parts(n)%itype = -2
+                     itype(n) = -2
                   else if (i < 1) then
-                     parts(n)%itype = -3
+                     itype(n) = -3
                   else if (i>pp) then
-                     parts(n)%itype = -4
+                     itype(n) = -4
                   else if (j < 1) then
-                     parts(n)%itype = -5
+                     itype(n) = -5
                   else if (j > qp) then
-                     parts(n)%itype = -6
+                     itype(n) = -6
                   end if
+                  ind(n) = n
+                  p(n) = 0._f
+                  rho(n) = irho
+                  x(1,n) = vxmin + (i - 0.5_f)*dxo
+                  x(2,n) = vymin + (j - 0.5_f)*dxo
+                  x(3,n) = vzmin + (k - 0.5_f)*dxo
+                  vx(:,n) = 0._f
                end if
             end do
          end do

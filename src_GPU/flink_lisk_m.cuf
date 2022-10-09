@@ -13,7 +13,7 @@ module flink_list_m
 contains
 
    !==============================================================================================================================
-   subroutine flink_list(scale_k, maxinter_perp, n_p, parts_d, niac_d, pairs_d)
+   subroutine flink_list(scale_k, maxinter_perp, n_p, niac_d, pairs_d, itype_d, ind_d, p_d, rho_d, x_d, vx_d)
       ! save as above, but for 3D
       
       use thrust
@@ -21,18 +21,16 @@ contains
       implicit none
       real(f), intent(in):: scale_k
       integer, intent(in):: n_p, maxinter_perp
-      type(particles), device, intent(inout):: parts_d(n_p)
+      integer, device, intent(inout):: itype_d(n_p), ind_d(n_p)
+      real(f), device, intent(inout):: p_d(n_p), rho_d(n_p), x_d(dim,n_p), vx_d(dim,n_p)
       integer, device, intent(out):: niac_d(n_p)
       type(interactions), device, intent(out):: pairs_d(maxinter_perp, n_p)
       integer, allocatable, device:: cellLoc(:,:)
       integer:: i, j, k, d, istat, ngridx(dim)
       real(f):: mingridx(dim), maxgridx(dim), dcell
-      integer, device:: ngridx_d(dim), gridCellHash(n_p), j_d, mapping(n_p)
-      real(f), device:: mingridx_d(dim), maxgridx_d(dim), minx, miny, minz, maxx, maxy, maxz, x(dim,n_p)
+      integer, device:: ngridx_d(dim), gridCellHash(n_p), j_d, mapping(n_p), itype_tmp(n_p), ind_tmp(n_p)
+      real(f), device:: mingridx_d(dim), maxgridx_d(dim), minx, miny, minz, maxx, maxy, maxz, p_tmp(n_p), rho_tmp(n_p), x_tmp(dim,n_p), vx_tmp(dim,n_p)
       integer, managed:: ierr
-      type(particles), device, allocatable:: partstmp_d(:)
-      
-      allocate( partstmp_d(n_p))
 
       dcell = scale_k*hsml
       minx = HUGE(1._f); miny = HUGE(1._f); minz = HUGE(1._f)
@@ -40,12 +38,12 @@ contains
       !Determining bounding box extents
       !$cuf kernel do <<<*,*>>>
       do i = 1, n_p
-         minx = min(minx, parts_d(i)%x(1))
-         maxx = max(maxx, parts_d(i)%x(1))
-         miny = min(miny, parts_d(i)%x(2))
-         maxy = max(maxy, parts_d(i)%x(2))
-         minz = min(minz, parts_d(i)%x(3))
-         maxz = max(maxz, parts_d(i)%x(3))
+         minx = min(minx, x_d(1,i))
+         maxx = max(maxx, x_d(1,i))
+         miny = min(miny, x_d(2,i))
+         maxy = max(maxy, x_d(2,i))
+         minz = min(minz, x_d(3,i))
+         maxz = max(maxz, x_d(3,i))
       end do
       mingridx(1) = minx - 2.*dcell; mingridx(2) = miny - 2.*dcell; mingridx(3) = minz - 2.*dcell
       maxgridx(1) = maxx + 1.*dcell; maxgridx(2) = maxy + 1.*dcell; maxgridx(3) = maxz + 1.*dcell
@@ -62,12 +60,7 @@ contains
          cellLoc(2,i) = -1
       end do
 
-      !$cuf kernel do
-      do i = 1,n_p
-         x(:,i) = parts_d(i)%x(:)
-      end do
-
-      call map2Grid<<<n_p/1024 + 1, 1024>>>(dcell, x, ngridx_d, gridCellHash, mingridx_d, n_p)
+      call map2Grid<<<n_p/1024 + 1, 1024>>>(dcell, x_d, ngridx_d, gridCellHash, mingridx_d, n_p)
 
       !$cuf kernel do <<<*,1024>>>
       do i = 1,n_p
@@ -79,28 +72,24 @@ contains
       
       !$cuf kernel do 
       do i = 1,n_p
-         partstmp_d(i) = parts_d(mapping(i))
+         itype_tmp(i) = itype_d(mapping(i))
+         ind_tmp(i) = ind_d(mapping(i))
+         p_tmp(i) = p_d(mapping(i))
+         rho_tmp(i) = rho_d(mapping(i))
+         x_tmp(:,i) = x_d(:,mapping(i))
+         vx_tmp(:,i) = vx_d(:,mapping(i))
       end do
       
       !$cuf kernel do
       do i = 1,n_p
-         j_d = mapping(i)
-         partstmp_d(i) = parts_d(j_d)
-         partstmp_d(i)%indloc = i
+         itype_d(i) = itype_tmp(i)
+         ind_d(i) = ind_tmp(i)
+         p_d(i) = p_tmp(i)
+         rho_d(i) = rho_tmp(i)
+         x_d(:,i) = x_tmp(:,i)
+         vx_d(:,i) = vx_tmp(:,i)
       end do
       
-      !$cuf kernel do
-      do i = 1,n_p
-         parts_d(i) = partstmp_d(i)
-      end do
-      
-      !$cuf kernel do
-      do i = 1,n_p
-         do d = 1,dim
-            x(d,i) = parts_d(i)%x(d)
-         end do
-      end do
-
       !$cuf kernel do <<<*,1024>>>
       do i = 1, n_p
       
@@ -119,7 +108,7 @@ contains
       end do
 
       ierr = 0
-      call sweep <<< n_p/64 + 1, 64 >>> (maxinter_perp, scale_k, ngridx_d, n_p, x, parts_d, gridCellHash, cellLoc, niac_d, pairs_d, ierr)
+      call sweep <<< n_p/64 + 1, 64 >>> (maxinter_perp, scale_k, ngridx_d, n_p, x_d, itype_d, gridCellHash, cellLoc, niac_d, pairs_d, ierr)
       if (ierr == 1) then
          print *, ' >>> Error <<< : Too many interactions'
          stop
@@ -148,13 +137,13 @@ contains
    end subroutine map2Grid
    
    !==============================================================================================================================
-   attributes(global) subroutine sweep(maxint, sk, ngx, np, x, pts, gridCellHash, cellLoc, nij, pij, ierr)
+   attributes(global) subroutine sweep(maxint, sk, ngx, np, x, itype, gridCellHash, cellLoc, nij, pij, ierr)
 
       implicit none
       integer, intent(in), value:: np, maxint
       real(f), intent(in), value:: sk
       real(f), intent(in):: x(dim,np)
-      type(particles), intent(in):: pts(np)
+      integer, intent(in):: itype(np)
       integer, intent(in):: gridCellHash(np), cellLoc(:,:), ngx(dim)
       integer, intent(inout):: ierr
       integer, intent(out):: nij(np)
@@ -181,14 +170,15 @@ contains
 !~          nij(i) = 0
          niji = 0
          do j = i+1, cellLoc(2,gridCellHash(i))
-            call check_if_interact(maxint, sk, pts(i), pts(j), niji, pij(:, i), ierr)
+            
+            call check_if_interact(maxint, sk, i, j, x(:,i), x(:,j), itype(i), itype(j), niji, pij(:, i), ierr)
          end do
          icell = hash2Cell(gridCellHash(i), ngx)
          do k = 1, 13
             jcell = icell(:) + sweepinds(:,k)
             hashAdj = cells2Hash(jcell, ngx)
             do j = cellLoc(1,hashAdj), cellLoc(2,hashAdj)
-               call check_if_interact(maxint, sk, pts(i), pts(j), niji, pij(:, i), ierr)
+               call check_if_interact(maxint, sk, i, j, x(:,i), x(:,j), itype(i), itype(j), niji, pij(:, i), ierr)
             end do
          end do
          nij(i) = niji
@@ -197,27 +187,25 @@ contains
    end subroutine sweep
 
    !==============================================================================================================================
-   attributes(device) subroutine check_if_interact(maxint, sk, p_i, p_j, nij, pij, ierr)
+   attributes(device) subroutine check_if_interact(maxint, sk, i, j, xi, xj, itypei, itypej, nij, pij, ierr)
       ! subroutine to chekc if two particles are interacting and consequently adding to pair list
 
       implicit none
-      integer, intent(in):: maxint
-      real(f), intent(in):: sk
-      type(particles), intent(in):: p_i, p_j
+      integer, intent(in):: maxint, i, j, itypei, itypej
+      real(f), intent(in):: sk, xi(dim), xj(dim)
       integer, intent(inout):: nij, ierr
       type(interactions), intent(inout):: pij(maxint)
       integer:: tmp
       real(f):: dxiac(dim), r
 
       ! only consider interactions when real particles are involved
-      if (p_i%itype == 1 .or. p_j%itype == 1) then
-         
-         dxiac(:) = p_i%x(:) - p_j%x(:)
+      if (itypei == 1 .or. itypej == 1) then
+         dxiac(:) = xi(:) - xj(:)
          r = SQRT(SUM(dxiac*dxiac))
          if (r < hsml*sk) then
             nij = nij + 1
             if (nij < maxint) then
-               pij(nij)%j = p_j%indloc
+               pij(nij)%j = j
                call kernel(r, dxiac(:), hsml, pij(nij)%w, pij(nij)%dwdx(:))
             else
                tmp = atomicexch(ierr, 1)

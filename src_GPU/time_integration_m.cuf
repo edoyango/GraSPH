@@ -18,19 +18,20 @@ contains
 
    !==============================================================================================================================
    subroutine time_integration(scale_k, print_step, save_step, maxtimestep, timings, maxinter_perp, maxn, ntotal, nvirt, &
-                               parts, parts_d, niac, niac_d, pairs, pairs_d)
+                               niac, niac_d, pairs, pairs_d, itype, ind, itype_d, ind_d, p, rho, x, vx, p_d, rho_d, x_d, vx_d)
       ! Subroutine responsible for the main time-integration loop
 
       implicit none
       real(f), intent(in):: scale_k
       integer, intent(in):: print_step, save_step, maxtimestep, maxinter_perp, maxn, ntotal, nvirt
       type(time_tracking), intent(inout):: timings
-      integer, intent(out):: niac(:)
-      integer, device, intent(out):: niac_d(:)
-      type(particles), intent(inout):: parts(:)
-      type(particles), device, intent(out):: parts_d(:)
-      type(interactions), intent(out):: pairs(:, :)
-      type(interactions), device, intent(out):: pairs_d(:, :)
+      integer, intent(inout):: itype(maxn), ind(maxn)
+      real(f), intent(inout):: p(maxn), rho(maxn), x(dim,maxn), vx(dim,maxn)
+      integer, intent(out):: niac(maxn)
+      integer, device, intent(inout):: niac_d(maxn), itype_d(maxn), ind_d(maxn)
+      real(f), device, intent(inout):: p_d(maxn), rho_d(maxn), x_d(dim,maxn), vx_d(dim,maxn)
+      type(interactions), intent(out):: pairs(maxinter_perp, maxn)
+      type(interactions), device, intent(out):: pairs_d(maxinter_perp, maxn)
       integer:: i, j, k, d, n, istat, ki, itimestep
       integer, device:: ntotal_d, nvirt_d
       real(f), allocatable, device:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drho(:, :)
@@ -52,7 +53,12 @@ contains
       allocate (v_min(dim, maxn), rho_min(maxn), dvxdt(dim, maxn, 4), drho(maxn, 4))
 
       ! Transferring necessary data to GPU
-      parts_d(:) = parts(:)
+      itype_d = itype
+      ind_d = ind
+      p_d = p
+      rho_d = rho
+      x_d = x
+      vx_d = vx
       ntotal_d = ntotal
       nvirt_d = nvirt
 
@@ -61,19 +67,19 @@ contains
       do itimestep = 1, maxtimestep
 
          !Interaction parameters, calculating neighboring particles
-         call flink_list(scale_k, maxinter_perp, maxn, parts_d, niac_d, pairs_d)
+         call flink_list(scale_k, maxinter_perp, maxn, niac_d, pairs_d, itype_d, ind_d, p_d, rho_d, x_d, vx_d)
          
          ! Save particles' velocity, density information at start of time-step
          !$cuf kernel do <<<*,*>>>
-         do i = 1, ntotal+nvirt
-            rho_min(i) = parts_d(i)%rho
-            v_min(:, i) = parts_d(i)%vx(:)
+         do i = 1, maxn
+            rho_min(i) = rho_d(i)
+            v_min(:, i) = vx_d(:,i)
 !~             parts_d(i)%p = rh0*c**2*((parts_d(i)%rho/rh0)**gamma - 1._f)/gamma
          end do
 
          !$cuf kernel do (2) <<<(*,*),(*,*)>>>
          do ki = 1, 4
-            do i = 1, ntotal+nvirt
+            do i = 1, maxn
                dvxdt(1:dim - 1, i, ki) = 0._f
                dvxdt(dim, i, ki) = -g
                drho(i, ki) = 0._f
@@ -84,11 +90,12 @@ contains
          do ki = 1, 4
 
             ! launching GPU kernel to calculate accelerations and density changes
-            call single_step_kernel <<< (ntotal + nvirt)/32 + 1, 32 >>> (ki, maxinter_perp, ntotal_d, nvirt_d, niac_d, pairs_d, &
-                                                                         parts_d, dvxdt(:, :, ki), drho(:, ki))
+            call single_step_kernel <<< maxn/32 + 1, 32 >>> (ki, maxinter_perp, maxn, niac_d, pairs_d, itype_d, ind_d, p_d, rho_d, &
+                                                             x_d, vx_d, dvxdt(:, :, ki), drho(:, ki))
 
             ! launching GPU kernel to update particles' speed and density
-            call RK4_update <<< (ntotal+nvirt)/1024 + 1, 1024 >>> (ki, maxn, v_min, rho_min, dvxdt, drho, parts_d)
+            call RK4_update <<< maxn/1024 + 1, 1024 >>> (ki, maxn, v_min, rho_min, dvxdt, drho, itype_d, ind_d, p_d, rho_d, x_d, &
+                                                         vx_d)
 
          end do
 
@@ -102,8 +109,13 @@ contains
          if (mod(itimestep, save_step) .eq. 0) then
 
             ! transfer particle data from GPU to CPU
-            parts = parts_d
-            call output(itimestep, save_step, ntotal, nvirt, parts)
+            itype = itype_d
+            ind = ind_d
+            p = p_d
+            rho = rho_d
+            x = x_d
+            vx = vx_d
+            call output(itimestep, save_step, ntotal, nvirt, itype, ind, p, rho, x, vx)
          end if
 
          if (mod(itimestep, print_step) .eq. 0) then
@@ -135,32 +147,32 @@ contains
    end subroutine time_integration
 
    !===============================================================================================================================
-   attributes(global) pure subroutine RK4_update(ki, np, v_min, rho_min, dvxdt, drhodt, pts)
+   attributes(global) pure subroutine RK4_update(ki, np, v_min, rho_min, dvxdt, drhodt, itype, ind, p, rho, x, vx)
 
       implicit none
       integer, intent(in), value:: ki, np
+      integer, intent(in):: itype(np), ind(np)
       real(f), intent(in):: v_min(dim, np), rho_min(np)
       real(f), intent(in):: dvxdt(dim, np, 4), drhodt(np, 4)
-      type(particles), intent(inout):: pts(np)
+      real(f), intent(inout):: p(np), rho(np), x(dim,np), vx(dim,np)
       integer:: i
 
       i = blockDim%x*(blockIdx%x - 1) + threadIdx%x
 
-      if (i <= np .and. pts(i)%itype==1) then
+      if (i <= np .and. itype(i)==1) then
          select case (ki)
          case default
-            pts(i)%vx(:) = v_min(:, i) + 0.5_f*dt*dvxdt(:, i, ki)
-            pts(i)%rho = rho_min(i) + 0.5_f*dt*drhodt(i, ki)
+            vx(:,i) = v_min(:, i) + 0.5_f*dt*dvxdt(:, i, ki)
+            rho(i) = rho_min(i) + 0.5_f*dt*drhodt(i, ki)
          case (3)
-            pts(i)%vx(:) = v_min(:, i) + dt*dvxdt(:, i, 3)
-            pts(i)%rho = rho_min(i) + dt*drhodt(i, 3)
+            vx(:,i) = v_min(:, i) + dt*dvxdt(:, i, 3)
+            rho(i) = rho_min(i) + dt*drhodt(i, 3)
          case (4)
-            pts(i)%vx(:) = v_min(:, i) + &
-                           dt/6_f*(dvxdt(:, i, 1) + 2._f*dvxdt(:, i, 2) + 2._f*dvxdt(:, i, 3) + dvxdt(:, i, 4))
-            pts(i)%rho = rho_min(i) + dt/6._f*(drhodt(i, 1) + 2._f*drhodt(i, 2) + 2._f*drhodt(i, 3) + drhodt(i, 4))
-            pts(i)%x(:) = pts(i)%x(:) + dt*pts(i)%vx(:)
+            vx(:,i) = v_min(:, i) + dt/6_f*(dvxdt(:, i, 1) + 2._f*dvxdt(:, i, 2) + 2._f*dvxdt(:, i, 3) + dvxdt(:, i, 4))
+            rho(i) = rho_min(i) + dt/6._f*(drhodt(i, 1) + 2._f*drhodt(i, 2) + 2._f*drhodt(i, 3) + drhodt(i, 4))
+            x(:,i) = x(:,i) + dt*vx(:,i)
          end select
-         pts(i)%p = rh0*c**2*((pts(i)%rho/rh0)**gamma - 1._f)/gamma
+         p(i) = rh0*c**2*((rho(i)/rh0)**gamma - 1._f)/gamma
 
       end if
       
