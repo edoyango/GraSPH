@@ -6,7 +6,6 @@ module flink_list_m
    use cudafor
 
    private
-   integer, parameter:: maxpcell = 64
 
    public:: flink_list
 
@@ -22,7 +21,7 @@ contains
       real(f), intent(in):: scale_k
       integer, intent(in):: n_p, maxinter_perp
       integer, device, intent(inout):: itype_d(n_p), ind_d(n_p)
-      real(f), device, intent(inout):: p_d(n_p), rho_d(n_p), x_d(dim,n_p), vx_d(dim,n_p)
+      real(f), device, intent(inout):: p_d(n_p), rho_d(n_p), x_d(dim,n_p), vx_d(dim,n_p) 
       integer, device, intent(out):: niac_d(n_p)
       type(interactions), device, intent(out):: pairs_d(maxinter_perp, n_p)
       integer, allocatable, device:: cellLoc(:,:)
@@ -31,7 +30,7 @@ contains
       integer, device:: ngridx_d(dim), gridCellHash(n_p), j_d, mapping(n_p), itype_tmp(n_p), ind_tmp(n_p)
       real(f), device:: mingridx_d(dim), maxgridx_d(dim), minx, miny, minz, maxx, maxy, maxz, p_tmp(n_p), rho_tmp(n_p), x_tmp(dim,n_p), vx_tmp(dim,n_p)
       integer, managed:: ierr
-
+      
       dcell = scale_k*hsml
       minx = HUGE(1._f); miny = HUGE(1._f); minz = HUGE(1._f)
       maxx = -HUGE(1._f); maxy = -HUGE(1._f); maxz = -HUGE(1._f)
@@ -70,14 +69,17 @@ contains
       !call thrustsortbykey(gridCellHash, parts_d, np)
       call thrustsortbykey(gridCellHash, mapping, n_p)
       
-      !$cuf kernel do 
+      !$cuf kernel do
       do i = 1,n_p
-         itype_tmp(i) = itype_d(mapping(i))
-         ind_tmp(i) = ind_d(mapping(i))
-         p_tmp(i) = p_d(mapping(i))
-         rho_tmp(i) = rho_d(mapping(i))
-         x_tmp(:,i) = x_d(:,mapping(i))
-         vx_tmp(:,i) = vx_d(:,mapping(i))
+         j_d = mapping(i)
+         itype_tmp(i) = itype_d(j_d)
+         ind_tmp(i) = ind_d(j_d)
+         p_tmp(i) = p_d(j_d)
+         rho_tmp(i) = rho_d(j_d)
+         do d = 1,dim
+           x_tmp(d,i) = x_d(d,j_d)
+           vx_tmp(d,i) = vx_d(d,j_d)
+         end do
       end do
       
       !$cuf kernel do
@@ -143,13 +145,12 @@ contains
       integer, intent(in), value:: np, maxint
       real(f), intent(in), value:: sk
       real(f), intent(in):: x(dim,np)
-      integer, intent(in):: itype(np)
-      integer, intent(in):: gridCellHash(np), cellLoc(:,:), ngx(dim)
+      integer, intent(in):: gridCellHash(np), cellLoc(:,:), ngx(dim), itype(np)
       integer, intent(inout):: ierr
       integer, intent(out):: nij(np)
       type(interactions), intent(out):: pij(maxint, np)
-      integer:: i, j, k, d, icell(dim), jcell(dim), hashAdj, niji, itypei
-      real(f):: xi(dim)
+      integer:: i, j, k, d, icell(dim), jcell(dim), hashAdj, niji, itype_i
+      real(f):: x_i(dim)
       integer, parameter:: sweepinds(3, 13) = reshape((/-1,-1,-1, &
                                                          0,-1,-1, &
                                                          1,-1,-1, &
@@ -168,19 +169,19 @@ contains
 
       ! Beginning sweep
       if (i <= np) then
+!~          nij(i) = 0
          niji = 0
-         xi = x(:,i)
-         itypei = itype(i)
+         itype_i = itype(i)
+         x_i = x(:,i)
          do j = i+1, cellLoc(2,gridCellHash(i))
-            
-            call check_if_interact(maxint, sk, i, j, xi, x(:,j), itypei, itype(j), niji, pij(:, i), ierr)
+            call check_if_interact(maxint, sk, i, j, x_i, x(:,j), itype_i, itype(j), niji, pij(:, i), ierr)
          end do
          icell = hash2Cell(gridCellHash(i), ngx)
          do k = 1, 13
             jcell = icell(:) + sweepinds(:,k)
             hashAdj = cells2Hash(jcell, ngx)
             do j = cellLoc(1,hashAdj), cellLoc(2,hashAdj)
-               call check_if_interact(maxint, sk, i, j, xi, x(:,j), itypei, itype(j), niji, pij(:, i), ierr)
+               call check_if_interact(maxint, sk, i, j, x_i, x(:,j), itype_i, itype(j), niji, pij(:, i), ierr)
             end do
          end do
          nij(i) = niji
@@ -189,20 +190,21 @@ contains
    end subroutine sweep
 
    !==============================================================================================================================
-   attributes(device) subroutine check_if_interact(maxint, sk, i, j, xi, xj, itypei, itypej, nij, pij, ierr)
+   attributes(device) subroutine check_if_interact(maxint, sk, i, j, x_i, x_j, itype_i, itype_j, nij, pij, ierr)
       ! subroutine to chekc if two particles are interacting and consequently adding to pair list
 
       implicit none
-      integer, intent(in):: maxint, i, j, itypei, itypej
-      real(f), intent(in):: sk, xi(dim), xj(dim)
+      integer, intent(in):: maxint, itype_i, itype_j, i, j
+      real(f), intent(in):: sk, x_i(dim), x_j(dim)
       integer, intent(inout):: nij, ierr
       type(interactions), intent(inout):: pij(maxint)
       integer:: tmp
       real(f):: dxiac(dim), r
 
       ! only consider interactions when real particles are involved
-      if (itypei == 1 .or. itypej == 1) then
-         dxiac(:) = xi(:) - xj(:)
+      if (itype_i == 1 .or. itype_j == 1) then
+         
+         dxiac(:) = x_i(:) - x_j(:)
          r = SQRT(SUM(dxiac*dxiac))
          if (r < hsml*sk) then
             nij = nij + 1

@@ -9,12 +9,12 @@ module single_step_m
 contains
 
    !==============================================================================================================================
-   attributes(global) pure subroutine single_step_kernel(ki, maxinter_perp, np, nij, pij, itype, ind, p, rho, x, vx, dvxdti, drhodti)
+   attributes(global) pure subroutine single_step_kernel(ki, maxinter_perp, np, nij, pij, dvxdti, drhodti, itype, ind, p, rho, x, vx)
 
       implicit none
       integer, intent(in), value:: ki, maxinter_perp, np
       integer, intent(in):: nij(np), itype(np), ind(np)
-      real, intent(in):: p(np), rho(np), x(dim,np),vx(dim,np)
+      real(f), intent(in):: p(np), rho(np), x(dim,np), vx(dim,np)
       type(interactions), intent(in):: pij(maxinter_perp, np)
       real(f), intent(inout):: dvxdti(dim, np), drhodti(np)
       integer:: i, j, k, d, itype_i, itype_j, ind_i, ind_j
@@ -28,8 +28,8 @@ contains
          
          itype_i = itype(i)
          ind_i = ind(i)
-         p_i = p(i)
          rho_i = rho(i)
+         p_i = p(i)
          x_i = x(:,i)
          vx_i = vx(:,i)
 
@@ -37,25 +37,26 @@ contains
 
             j = pij(k, i)%j
             
-            itype_j = itype(j)
             ind_j = ind(j)
-            p_j = p(j)
             rho_j = rho(j)
+            p_j = p(j)
             x_j = x(:,j)
             vx_j = vx(:,j)
 
             ! Mirroring real particle onto virtual particle (if needed)
             if (itype_i > 0 .and. itype_j < 0) then
-               call virt_mirror(itype_i, p_i, rho_i, x_i, vx_i, itype_j, p_j, rho_j, x_j, vx_j)
+               call virt_mirror(ind_i, ind_j, p_i, p_j, rho_i, rho_j, x_i, x_j, vx_i, vx_j , itype(j))
             elseif (itype_i < 0 .and. itype_j > 0) then
-               call virt_mirror(itype_j, p_j, rho_j, x_j, vx_j, itype_i, p_i, rho_i, x_i, vx_i)
+               call virt_mirror(ind_j, ind_i, p_j, p_i, rho_j, rho_i, x_j, x_i, vx_j, vx_i , itype_i)
             end if
 
             !Density approximation or change rate
-            call con_density(ki, ind_i, ind_j, vx_i, vx_j, pij(k, i)%dwdx, drhodti(i), drhodti(j))
+            call con_density(ki, ind_i, ind_j, vx_i, vx_j,pij(k, i)%dwdx, drhodti(i), drhodti(j))
             
             ! calculating coefficients for pressure force and artificial viscosity
-            a_coeff = int_force_coeff(ki, ind_i, ind_j, p_i, p_j, rho_i, rho_j) + art_visc_coeff(ki, ind_i, ind_j, rho_i, rho_j, x_i, x_j, vx_i, vx_j)
+            a_coeff = int_force_coeff(ki, ind_i, ind_j, p_i, p_j, rho_i, rho_j) + &
+                      art_visc_coeff(ki, ind_i, ind_j, rho_i, rho_j, x_i, x_j, vx_i, vx_j)
+                      
             do d = 1, dim
                tmp = atomicadd(dvxdti(d, i), pij(k, i)%dwdx(d)*a_coeff)
                tmp = atomicadd(dvxdti(d, j), -pij(k, i)%dwdx(d)*a_coeff)
@@ -67,67 +68,62 @@ contains
    end subroutine single_step_kernel
 
    !==============================================================================================================================
-   attributes(device) pure subroutine virt_mirror(itype_r, p_r, rho_r, x_r, vx_r, itype_v, p_v, rho_v, x_v, vx_v)
+   attributes(device) pure subroutine virt_mirror(indr,indv,pr,pv,rhor,rhov,xr,xv,vxr,vxv,itypev)
 
       use input_m, only: vzmin, vzmax, vxmin, vxmax, vymin, vymax
 
       implicit none
-      integer, intent(in):: itype_r, itype_v
-      real(f), intent(in):: p_r, rho_r, x_r(dim), vx_r(dim), x_v(dim)
-      real(f), intent(out):: p_v, rho_v, vx_v(dim)
+      integer, intent(in):: indr, indv, itypev
+      real(f), intent(in):: xr(dim), xv(dim), pr, rhor, vxr(dim)
+      real(f), intent(out):: pv, rhov, vxv(dim)
       real(f):: da, db, beta
       real(f), parameter:: beta_max = 5._f
 
-      select case (itype_v)
+      select case (itypev)
         case default
-          da = ABS(x_r(3) - vzmin)
-          db = ABS(x_v(3) - vzmin)
+          da = ABS(xr(3) - vzmin)
+          db = ABS(xv(3) - vzmin)
         case (-2)
-          da = ABS(x_r(3) - vzmax)
-          db = ABS(x_v(3) - vzmax)
+          da = ABS(xr(3) - vzmax)
+          db = ABS(xv(3) - vzmax)
         case (-3)
-          da = ABS(x_r(1) - vxmin)
-          db = ABS(x_v(1) - vxmin)
+          da = ABS(xr(1) - vxmin)
+          db = ABS(xv(1) - vxmin)
         case (-4)
-          da = ABS(x_r(1) - vxmax)
-          db = ABS(x_v(1) - vxmax)
+          da = ABS(xr(1) - vxmax)
+          db = ABS(xv(1) - vxmax)
         case (-5)
-          da = ABS(x_r(2) - vymin)
-          db = ABS(x_v(2) - vymin)
+          da = ABS(xr(2) - vymin)
+          db = ABS(xv(2) - vymin)
         case (-6)
-          da = ABS(x_r(2) - vymax)
-          db = ABS(x_v(2) - vymax)
+          da = ABS(xr(2) - vymax)
+          db = ABS(xv(2) - vymax)
       end select
       
          beta = MIN(db/da, beta_max)
          if (da == 0._f) beta = beta_max
           
-      select case (itype_v)
+      select case (itypev)
         case default
-          vx_v(1) = -beta*vx_r(1)
-          vx_v(2) = -beta*vx_r(2)
-          vx_v(3) = -beta*vx_r(3)
-        case (-2)            
-          vx_V(1) =  beta*vx_r(1)
-          vx_V(2) =  beta*vx_r(2)
-          vx_V(3) = -beta*vx_r(3)
-        case (-3, -4)        
-          vx_v(1) = -beta*vx_r(1)
-          vx_v(2) =  beta*vx_r(2)
-          vx_v(3) =  beta*vx_r(3)
-        case (-5, -6)        
-          vx_v(1) =  beta*vx_r(1)
-          vx_v(2) = -beta*vx_r(2)
-          vx_v(3) =  beta*vx_r(3)
+          vxv(1) = -beta*vxr(1)
+          vxv(2) = -beta*vxr(2)
+          vxv(3) = -beta*vxr(3)
+        case (-2)
+          vxv(1) =  beta*vxr(1)
+          vxv(2) =  beta*vxr(2)
+          vxv(3) = -beta*vxr(3)
+        case (-3, -4)
+          vxv(1) = -beta*vxr(1)
+          vxv(2) =  beta*vxr(2)
+          vxv(3) =  beta*vxr(3)
+        case (-5, -6)
+          vxv(1) =  beta*vxr(1)
+          vxv(2) = -beta*vxr(2)
+          vxv(3) =  beta*vxr(3)
       end select
-         
       
-!~       beta = MIN(db/da, beta_max)
-!~       if (da == 0._f) beta = beta_max
-
-      rho_v = rho_r
-      p_v = p_r
-!~       pv%vx(:) = -beta*pr%vx(:)
+      pv = pr
+      rhov = rhor
 
    end subroutine virt_mirror
 
@@ -162,11 +158,11 @@ contains
 
       implicit none
       integer, intent(in):: ki, ind_i, ind_j
-      real(f), intent(in):: dwdx(dim), vx_i(dim), vx_j(dim)
+      real(f), intent(in):: vx_i(dim), vx_j(dim), dwdx(dim)
       real(f), intent(inout):: codrhodti, codrhodtj
       real(f):: dvx(dim), vcc, tmp
 
-      dvx(:) = vx_i(dim) - vx_j(dim)
+      dvx(:) = vx_i(:) - vx_j(:)
 
       vcc = DOT_PRODUCT(dvx(:), dwdx(:))
 
