@@ -74,10 +74,10 @@ contains
    end subroutine print_summary
 
    !==================================================================================================================================
-   subroutine print_update(itimestep, maxtimestep, timings, time, ntotal, nvirt, nghos, niac)
+   subroutine print_update(itimestep, maxtimestep, timings, time, ntotal, nvirt, niac)
 
       implicit none
-      integer, intent(in):: itimestep, maxtimestep, ntotal, nvirt, nghos, niac(:)
+      integer, intent(in):: itimestep, maxtimestep, ntotal, nvirt, niac(:)
       type(time_tracking), intent(in):: timings
       real(f), intent(in):: time
       integer:: maxp, minp, sumiac, maxiac, miniac, noiac, i, j, k, d
@@ -94,7 +94,7 @@ contains
       noiac = 0
       miniac = huge(1)
       maxp = 1
-      do i = 1, ntotal + nvirt + nghos
+      do i = 1, ntotal + nvirt
          sumiac = sumiac + niac(i)*2
          if (niac(i) > maxiac) then
             maxiac = niac(i)
@@ -106,11 +106,11 @@ contains
          end if
          if (niac(i) .eq. 0) noiac = noiac + 1
       end do
-      write (*, '(A40,I7)') ' >> Statistics: no. of ghost particles: ', nghos
+!~       write (*, '(A40,I7)') ' >> Statistics: no. of ghost particles: ', nghos
       write (*, '(A42)') ' >> Statistics: interactions per particle:'
       write (*, '(A14,I7,A23,I4)') '    Particle: ', maxp, ' maximal interactions: ', maxiac
       write (*, '(A14,I7,A23,I4)') '    Particle: ', minp, ' minimal interactions: ', miniac
-      write (*, '(A14,F14.7)') '    Average : ', real(sumiac)/real(ntotal + nvirt + nghos)
+      write (*, '(A14,F14.7)') '    Average : ', real(sumiac)/real(ntotal + nvirt)
       write (*, '(A18,I9)') '    Total pairs : ', sumiac
       write (*, '(A36,I7)') '    Particles with no interactions: ', noiac
 

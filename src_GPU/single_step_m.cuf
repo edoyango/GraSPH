@@ -9,23 +9,23 @@ module single_step_m
 contains
 
    !==============================================================================================================================
-   attributes(global) pure subroutine single_step_kernel(ki, maxinter_perp, nt, nv, ng, nij, pij, pts, dvxdti, drhodti)
+   attributes(global) pure subroutine single_step_kernel(ki, maxinter_perp, nt, nv, nij, pij, pts, dvxdti, drhodti)
 
       implicit none
       integer, intent(in), value:: ki, maxinter_perp
-      integer, intent(in):: nt, nv, ng, nij(nt + nv + ng)
-      type(interactions), intent(in):: pij(:, :)
-      type(particles), intent(in):: pts(nt + nv + ng)
-      real(f), intent(inout):: dvxdti(:, :), drhodti(:)
+      integer, intent(in):: nt, nv, nij(nt + nv)
+      type(interactions), intent(in):: pij(maxinter_perp, nt+nv)
+      type(particles), intent(in):: pts(nt + nv)
+      real(f), intent(inout):: dvxdti(dim, nt+nv), drhodti(nt+nv)
       integer:: i, j, k, d
-      real(f):: a_coeff, tmp
+      real(f):: a_coeff, tmp, vcc
       type(particles):: p_i, p_j
 
       ! Obtaining thread global index (used to assign particle index)
       i = blockDim%x*(blockIdx%x - 1) + threadIdx%x
 
       ! Beginning loop over
-      if (i <= nt + nv + ng) then
+      if (i <= nt + nv) then
 
          p_i = pts(i)
 
@@ -42,8 +42,8 @@ contains
             end if
 
             !Density approximation or change rate
-            call con_density(ki, nt, nv, ng, p_i, p_j, pij(k, i)%dwdx, drhodti(i), drhodti(j))
-
+            call con_density(ki, nt, nv, p_i, p_j, pij(k, i)%dwdx, drhodti(i), drhodti(j))
+            
             ! calculating coefficients for pressure force and artificial viscosity
             a_coeff = int_force_coeff(ki, p_i, p_j) + art_visc_coeff(ki, p_i, p_j)
             do d = 1, dim
@@ -59,7 +59,7 @@ contains
    !==============================================================================================================================
    attributes(device) pure subroutine virt_mirror(pr, pv)
 
-      use input_m, only: vzmin
+      use input_m, only: vzmin, vzmax, vxmin, vxmax, vymin, vymax
 
       implicit none
       type(particles), intent(in):: pr
@@ -67,15 +67,56 @@ contains
       real(f):: da, db, beta
       real(f), parameter:: beta_max = 5._f
 
-      da = ABS(pr%x(3) - vzmin)
-      db = ABS(pv%x(3) - vzmin)
-
-      beta = MIN(1._f + db/da, beta_max)
-      if (da == 0._f) beta = beta_max
+      select case (pv%itype)
+        case default
+          da = ABS(pr%x(3) - vzmin)
+          db = ABS(pv%x(3) - vzmin)
+        case (-2)
+          da = ABS(pr%x(3) - vzmax)
+          db = ABS(pv%x(3) - vzmax)
+        case (-3)
+          da = ABS(pr%x(1) - vxmin)
+          db = ABS(pv%x(1) - vxmin)
+        case (-4)
+          da = ABS(pr%x(1) - vxmax)
+          db = ABS(pv%x(1) - vxmax)
+        case (-5)
+          da = ABS(pr%x(2) - vymin)
+          db = ABS(pv%x(2) - vymin)
+        case (-6)
+          da = ABS(pr%x(2) - vymax)
+          db = ABS(pv%x(2) - vymax)
+      end select
+      
+         beta = MIN(db/da, beta_max)
+         if (da == 0._f) beta = beta_max
+          
+      select case (pv%itype)
+        case default
+          pv%vx(1) = -beta*pr%vx(1)
+          pv%vx(2) = -beta*pr%vx(2)
+          pv%vx(3) = -beta*pr%vx(3)
+        case (-2)
+          pv%vx(1) =  beta*pr%vx(1)
+          pv%vx(2) =  beta*pr%vx(2)
+          pv%vx(3) = -beta*pr%vx(3)
+        case (-3, -4)
+          pv%vx(1) = -beta*pr%vx(1)
+          pv%vx(2) =  beta*pr%vx(2)
+          pv%vx(3) =  beta*pr%vx(3)
+        case (-5, -6)
+          pv%vx(1) =  beta*pr%vx(1)
+          pv%vx(2) = -beta*pr%vx(2)
+          pv%vx(3) =  beta*pr%vx(3)
+      end select
+         
+      
+!~       beta = MIN(db/da, beta_max)
+!~       if (da == 0._f) beta = beta_max
 
       pv%rho = pr%rho
       pv%p = pr%p
-      pv%vx(:) = (1._f - beta)*pr%vx(:)
+!~       pv%vx(:) = -beta*pr%vx(:)
 
    end subroutine virt_mirror
 
@@ -106,10 +147,10 @@ contains
    end subroutine ext_force
 
    !=================================================================================
-   attributes(device) pure subroutine con_density(ki, nt, nv, ng, p_i, p_j, dwdx, codrhodti, codrhodtj)
+   attributes(device) pure subroutine con_density(ki, nt, nv, p_i, p_j, dwdx, codrhodti, codrhodtj)
 
       implicit none
-      integer, intent(in):: ki, nt, nv, ng
+      integer, intent(in):: ki, nt, nv
       type(particles), intent(in):: p_i, p_j
       real(f), intent(in):: dwdx(dim)
       real(f), intent(inout):: codrhodti, codrhodtj

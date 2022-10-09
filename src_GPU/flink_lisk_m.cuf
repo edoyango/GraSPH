@@ -24,13 +24,15 @@ contains
       type(particles), device, intent(inout):: parts_d(n_p)
       integer, device, intent(out):: niac_d(n_p)
       type(interactions), device, intent(out):: pairs_d(maxinter_perp, n_p)
-      integer, allocatable, device:: cellLoc(:,:)
+      integer, allocatable, device:: cellLoc(:,:)!, mapping(:)
       integer:: i, j, k, d, istat, ngridx(dim)
       real(f):: mingridx(dim), maxgridx(dim), dcell
-      integer, device:: ngridx_d(dim), gridCellHash(n_p), mapping(n_p)
+      integer, device:: ngridx_d(dim), gridCellHash(n_p), j_d, mapping(n_p)
       real(f), device:: mingridx_d(dim), maxgridx_d(dim), minx, miny, minz, maxx, maxy, maxz, x(dim,n_p)
       integer, managed:: ierr
-      type(particles), device:: partstmp_d(n_p)
+      type(particles), device, allocatable:: partstmp_d(:)
+      
+      allocate( partstmp_d(n_p))
 
       dcell = scale_k*hsml
       minx = HUGE(1._f); miny = HUGE(1._f); minz = HUGE(1._f)
@@ -45,8 +47,8 @@ contains
          maxy = max(maxy, parts_d(i)%x(2))
          maxz = max(maxz, parts_d(i)%x(3))
       end do
-      mingridx(1) = minx - dcell; mingridx(2) = miny - dcell; mingridx(3) = minz - dcell
-      maxgridx(1) = maxx + dcell; maxgridx(2) = maxy + dcell; maxgridx(3) = maxz + dcell
+      mingridx(1) = minx - 2.*dcell; mingridx(2) = miny - 2.*dcell; mingridx(3) = minz - 2.*dcell
+      maxgridx(1) = maxx + 2.*dcell; maxgridx(2) = maxy + 2.*dcell; maxgridx(3) = maxz + 2.*dcell
       ngridx(:) = int((maxgridx(:) - mingridx(:))/dcell) + 1
       maxgridx(:) = mingridx(:) + ngridx*dcell
       ngridx_d(:) = ngridx(:)
@@ -59,14 +61,14 @@ contains
          cellLoc(1,i) = 0
          cellLoc(2,i) = -1
       end do
-      
+
       !$cuf kernel do
       do i = 1,n_p
          x(:,i) = parts_d(i)%x(:)
       end do
-      
+
       call map2Grid<<<n_p/1024 + 1, 1024>>>(dcell, x, ngridx_d, gridCellHash, mingridx_d, n_p)
-      
+
       !$cuf kernel do <<<*,1024>>>
       do i = 1,n_p
          mapping(i) = i
@@ -77,7 +79,15 @@ contains
       
       !$cuf kernel do
       do i = 1,n_p
+!~          j_d = 
          partstmp_d(i) = parts_d(mapping(i))
+      end do
+      
+      !$cuf kernel do
+      do i = 1,n_p
+         j_d = mapping(i)
+         partstmp_d(i) = parts_d(j_d)
+         partstmp_d(i)%indloc = i
       end do
       
       !$cuf kernel do
@@ -91,7 +101,7 @@ contains
             x(d,i) = parts_d(i)%x(d)
          end do
       end do
-      
+
       !$cuf kernel do <<<*,1024>>>
       do i = 1, n_p
       
@@ -137,7 +147,7 @@ contains
       end if
      
    end subroutine map2Grid
-
+   
    !==============================================================================================================================
    attributes(global) subroutine sweep(maxint, sk, ngx, np, x, pts, gridCellHash, cellLoc, nij, pij, ierr)
 

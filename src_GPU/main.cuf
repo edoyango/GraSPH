@@ -10,7 +10,7 @@ program SPH
    use time_integration_m, only: time_integration
 
    implicit none
-   integer:: maxn, ntotal, nvirt, nghos, print_step, save_step, maxtimestep
+   integer:: maxn, ntotal, nvirt, print_step, save_step, maxtimestep
    real(f):: scale_k
    integer, allocatable:: niac(:)
    integer, allocatable, device:: niac_d(:)
@@ -19,7 +19,7 @@ program SPH
    type(interactions), allocatable:: pairs(:, :)
    type(interactions), allocatable, device:: pairs_d(:, :)
    type(time_tracking):: timings
-   integer, parameter:: maxinter_perp = 135
+   integer, parameter:: maxinter_perp = 80
 
    !Printing preamble to screen
    call preamble(maxtimestep, print_step, save_step)
@@ -38,10 +38,10 @@ program SPH
    !Creat physical and virtual boundary particles
    call generate_real_part(ntotal, parts)
    call generate_virt_part(ntotal, nvirt, parts)
-   call output(0, save_step, ntotal, nvirt, 0, parts)
+   call output(0, save_step, ntotal, nvirt, parts)
 
    !Entering discretized time-integration loop
-   call time_integration(scale_k, print_step, save_step, maxtimestep, timings, maxinter_perp, maxn, ntotal, nvirt, nghos, parts, &
+   call time_integration(scale_k, print_step, save_step, maxtimestep, timings, maxinter_perp, maxn, ntotal, nvirt, parts, &
                          parts_d, niac, niac_d, pairs, pairs_d)
 
    !Printing post-amble to terminal

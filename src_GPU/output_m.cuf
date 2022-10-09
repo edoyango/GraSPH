@@ -12,15 +12,16 @@ module output_m
 contains
 
    !==============================================================================================================================
-   subroutine output(itimestep, save_step, ntotal, nvirt, nghos, parts)
+   subroutine output(itimestep, save_step, ntotal, nvirt, parts)
       ! Subroutine to write data to disk. Called intermittently, determined by save_step supplied at run-time
 
       implicit none
-      integer, intent(in):: itimestep, save_step, ntotal, nvirt, nghos
+      integer, intent(in):: itimestep, save_step, ntotal, nvirt
       type(particles), intent(in):: parts(:)
-      integer(HID_T):: file_id, real_group_id, virt_group_id, ghos_group_id
+      integer(HID_T):: file_id, real_group_id, virt_group_id
       character(len=4)::number
-      integer:: n, ierr
+      integer:: n, ierr, i
+      type(particles), allocatable:: ptmp(:)
 
       n = itimestep/save_step
       write (number, '(I4.4)') n
@@ -37,13 +38,26 @@ contains
 
       call h5gcreate_f(file_id, "virt", virt_group_id, ierr)
       call h5gclose_f(virt_group_id, ierr)
-
-      call h5gcreate_f(file_id, "ghos", ghos_group_id, ierr)
-      call h5gclose_f(ghos_group_id, ierr)
-
-      call write_particle_data(file_id, 'real', parts(1:ntotal))
-      call write_particle_data(file_id, 'virt', parts(ntotal + 1:ntotal + nvirt))
-      call write_particle_data(file_id, 'ghos', parts(ntotal + nvirt + 1:ntotal + nvirt + nghos))
+      
+      allocate(ptmp(max(ntotal,nvirt)))
+      
+      n = 0
+      do i = 1,ntotal+nvirt
+         if (parts(i)%itype==1) then
+            n = n + 1
+            ptmp(n) = parts(i)
+         end if
+      end do
+      call write_particle_data(file_id, 'real', ptmp(1:n))
+      
+      n = 0
+      do i = 1,ntotal+nvirt
+         if (parts(i)%itype < 0) then
+            n = n + 1
+            ptmp(n) = parts(i)
+         end if
+      end do
+      call write_particle_data(file_id, 'virt', ptmp(1:n))
 
       call h5fclose_f(file_id, ierr)
 
