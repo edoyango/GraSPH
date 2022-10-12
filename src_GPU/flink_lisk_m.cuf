@@ -147,7 +147,7 @@ contains
       integer, intent(inout):: ierr
       integer, intent(out):: nij(np)
       type(interactions), intent(out):: pij(maxint, np)
-      integer:: i, j, k, d, icell(dim), jcell(dim), hashAdj, niji
+      integer:: i, j, k, d, icell(dim), jcell(dim), hashAdj, niji, tmp
       real(f):: x_i(dim)
       integer, parameter:: sweepinds(3, 13) = reshape((/-1,-1,-1, &
                                                          0,-1,-1, &
@@ -180,6 +180,7 @@ contains
             end do
          end do
          nij(i) = niji
+         if (niji==maxint) tmp = atomicexch(ierr,1)
       end if
 
    end subroutine sweep
@@ -203,12 +204,9 @@ contains
          r = SQRT(SUM(dxiac*dxiac))
          if (r < hsml*sk) then
             nij = nij + 1
-            if (nij < maxint) then
-               pij(nij)%j = j
-               call kernel(r, dxiac(:), hsml, pij(nij)%w, pij(nij)%dwdx(:))
-            else
-               tmp = atomicexch(ierr, 1)
-            end if
+            nij = min(nij,maxint)
+            pij(nij)%j = j
+            call kernel(r, dxiac(:), hsml, pij(nij)%w, pij(nij)%dwdx(:))
          end if
       end if
 
