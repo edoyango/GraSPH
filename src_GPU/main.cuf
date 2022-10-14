@@ -21,7 +21,7 @@ program SPH
    type(interactions), allocatable:: pairs(:, :)
    type(interactions), allocatable, device:: pairs_d(:, :)
    type(time_tracking):: timings
-   integer, parameter:: maxinter_perp = 80
+   integer, parameter:: maxinter_perp = 70
 
    !Printing preamble to screen
    call preamble(maxtimestep, print_step, save_step)

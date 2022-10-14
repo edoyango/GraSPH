@@ -29,13 +29,12 @@ contains
       real(f):: mingridx(dim), maxgridx(dim), dcell
       integer, device:: ngridx_d(dim), gridCellHash(n_p), j_d, mapping(n_p), itype_tmp(n_p), ind_tmp(n_p)
       real(f), device:: mingridx_d(dim), maxgridx_d(dim), minx, miny, minz, maxx, maxy, maxz, p_tmp(n_p), rho_tmp(n_p), x_tmp(dim,n_p), vx_tmp(dim,n_p)
-      integer, managed:: ierr
       
       dcell = scale_k*hsml
       minx = HUGE(1._f); miny = HUGE(1._f); minz = HUGE(1._f)
       maxx = -HUGE(1._f); maxy = -HUGE(1._f); maxz = -HUGE(1._f)
       !Determining bounding box extents
-      !$cuf kernel do <<<*,*>>>
+      !$cuf kernel do <<<*,*>>> reduce(max:maxx,maxy,maxz) reduce(min:minx,miny,minz)
       do i = 1, n_p
          minx = min(minx, x_fl_Tex(1,i))
          maxx = max(maxx, x_fl_Tex(1,i))
@@ -51,25 +50,25 @@ contains
       ngridx_d(:) = ngridx(:)
       mingridx_d = mingridx
       maxgridx_d = maxgridx
-
+      
       allocate (cellLoc(2,ngridx(1)*ngridx(2)*ngridx(3)))
       !$cuf kernel do (1) <<<*,*>>>
       do i = 1,ngridx(1)*ngridx(2)*ngridx(3)
          cellLoc(1,i) = 0
          cellLoc(2,i) = -1
       end do
-
+      
       call map2Grid<<<n_p/1024 + 1, 1024>>>(dcell, ngridx_d, gridCellHash, mingridx_d, n_p)
-
+      
       !$cuf kernel do <<<*,1024>>>
       do i = 1,n_p
          mapping(i) = i
       end do
-  
+      
       !call thrustsortbykey(gridCellHash, parts_d, np)
       call thrustsortbykey(gridCellHash, mapping, n_p)
       
-      !$cuf kernel do
+      !$cuf kernel do <<<*,*>>>
       do i = 1,n_p
          j_d = mapping(i)
          itype_tmp(i) = itype_fl_Tex(j_d)
@@ -109,12 +108,7 @@ contains
         
       end do
 
-      ierr = 0
-      call sweep <<< n_p/64 + 1, 64 >>> (maxinter_perp, scale_k, ngridx_d, n_p, gridCellHash, cellLoc, niac_d, pairs_d, ierr)
-      if (ierr == 1) then
-         print *, ' >>> Error <<< : Too many interactions'
-         stop
-      end if
+      call sweep <<< n_p/64 + 1, 64 >>> (maxinter_perp, scale_k, ngridx_d, n_p, gridCellHash, cellLoc, niac_d, pairs_d)
 
    end subroutine flink_list
 
@@ -138,13 +132,12 @@ contains
    end subroutine map2Grid
    
    !==============================================================================================================================
-   attributes(global) subroutine sweep(maxint, sk, ngx, np, gridCellHash, cellLoc, nij, pij, ierr)
+   attributes(global) subroutine sweep(maxint, sk, ngx, np, gridCellHash, cellLoc, nij, pij)
 
       implicit none
       integer, intent(in), value:: np, maxint
       real(f), intent(in), value:: sk
       integer, intent(in):: gridCellHash(np), cellLoc(:,:), ngx(dim)
-      integer, intent(inout):: ierr
       integer, intent(out):: nij(np)
       type(interactions), intent(out):: pij(maxint, np)
       integer:: i, j, k, d, icell(dim), jcell(dim), hashAdj, niji, tmp
@@ -169,30 +162,30 @@ contains
       if (i <= np) then
          niji = 0
          do j = i+1, cellLoc(2,gridCellHash(i))
-            call check_if_interact(maxint, sk, i, j, niji, pij(:, i), ierr)
+            call check_if_interact(maxint, sk, i, j, niji, pij(:, i))
          end do
          icell = hash2Cell(gridCellHash(i), ngx)
          do k = 1, 13
             jcell = icell(:) + sweepinds(:,k)
             hashAdj = cells2Hash(jcell, ngx)
             do j = cellLoc(1,hashAdj), cellLoc(2,hashAdj)
-               call check_if_interact(maxint, sk, i, j, niji, pij(:, i), ierr)
+               call check_if_interact(maxint, sk, i, j, niji, pij(:, i))
             end do
          end do
          nij(i) = niji
-         if (niji==maxint) tmp = atomicexch(ierr,1)
+         if (niji==maxint) write(*,*) '***ERROR*** Particle ',i,' has exceeded max interactions per particle' !tmp = atomicexch(ierr,1)
       end if
 
    end subroutine sweep
 
    !==============================================================================================================================
-   attributes(device) subroutine check_if_interact(maxint, sk, i, j, nij, pij, ierr)
+   attributes(device) subroutine check_if_interact(maxint, sk, i, j, nij, pij)
       ! subroutine to chekc if two particles are interacting and consequently adding to pair list
 
       implicit none
       integer, intent(in):: maxint, i, j
       real(f), intent(in):: sk
-      integer, intent(inout):: nij, ierr
+      integer, intent(inout):: nij
       type(interactions), intent(inout):: pij(maxint)
       integer:: tmp
       real(f):: dxiac(dim), r
