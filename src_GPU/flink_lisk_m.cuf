@@ -14,16 +14,16 @@ module flink_list_m
 contains
 
    !==============================================================================================================================
-   subroutine flink_list(scale_k, maxinter_perp, n_p, niac_d, pairs_d)
+   subroutine flink_list(scale_k, maxinter, n_p, niac_d, pairs_d)
       ! save as above, but for 3D
       
       use thrust
 
       implicit none
       real(f), intent(in):: scale_k
-      integer, intent(in):: n_p, maxinter_perp
-      integer, device, intent(out):: niac_d(n_p)
-      type(interactions), device, intent(out):: pairs_d(maxinter_perp, n_p)
+      integer, intent(in):: n_p, maxinter
+      integer, device, intent(out):: niac_d
+      type(interactions), device, intent(out):: pairs_d(maxinter)
       integer, allocatable, device:: cellLoc(:,:)
       integer:: i, j, k, d, istat, ngridx(dim)
       real(f):: mingridx(dim), maxgridx(dim), dcell
@@ -107,8 +107,9 @@ contains
          end if
         
       end do
-
-      call sweep <<< n_p/64 + 1, 64 >>> (maxinter_perp, scale_k, ngridx_d, n_p, gridCellHash, cellLoc, niac_d, pairs_d)
+      ! i = 0
+      niac_d = 0
+      call sweep <<< n_p/64 + 1, 64 >>> (maxinter, scale_k, ngridx_d, n_p, gridCellHash, cellLoc, niac_d, pairs_d)
 
    end subroutine flink_list
 
@@ -138,8 +139,8 @@ contains
       integer, intent(in), value:: np, maxint
       real(f), intent(in), value:: sk
       integer, intent(in):: gridCellHash(np), cellLoc(:,:), ngx(dim)
-      integer, intent(out):: nij(np)
-      type(interactions), intent(out):: pij(maxint, np)
+      integer, intent(inout):: nij
+      type(interactions), intent(out):: pij(maxint)
       integer:: i, j, k, d, icell(dim), jcell(dim), hashAdj, niji, tmp
       real(f):: x_i(dim)
       integer, parameter:: sweepinds(3, 13) = reshape((/-1,-1,-1, &
@@ -160,20 +161,18 @@ contains
 
       ! Beginning sweep
       if (i <= np) then
-         niji = 0
          do j = i+1, cellLoc(2,gridCellHash(i))
-            call check_if_interact(maxint, sk, i, j, niji, pij(:, i))
+            call check_if_interact(maxint, sk, i, j, nij, pij(:))
          end do
          icell = hash2Cell(gridCellHash(i), ngx)
          do k = 1, 13
             jcell = icell(:) + sweepinds(:,k)
             hashAdj = cells2Hash(jcell, ngx)
             do j = cellLoc(1,hashAdj), cellLoc(2,hashAdj)
-               call check_if_interact(maxint, sk, i, j, niji, pij(:, i))
+               call check_if_interact(maxint, sk, i, j, nij, pij(:))
             end do
          end do
-         nij(i) = niji
-         if (niji==maxint) write(*,*) '***ERROR*** Particle ',i,' has exceeded max interactions per particle' !tmp = atomicexch(ierr,1)
+         if (nij==maxint) write(*,*) '***ERROR*** Particle ',i,' has exceeded max interactions per particle' !tmp = atomicexch(ierr,1)
       end if
 
    end subroutine sweep
@@ -196,10 +195,10 @@ contains
          dxiac(:) = x_fl_Tex(:,i) - x_fl_Tex(:,j)
          r = SQRT(SUM(dxiac*dxiac))
          if (r < hsml*sk) then
-            nij = nij + 1
-            nij = min(nij,maxint)
-            pij(nij)%j = j
-            call kernel(r, dxiac(:), hsml, pij(nij)%w, pij(nij)%dwdx(:))
+            tmp = atomicadd(nij,1) + 1
+            pij(tmp)%i = i
+            pij(tmp)%j = j
+            call kernel(r, dxiac(:), hsml, pij(tmp)%w, pij(tmp)%dwdx(:))
          end if
       end if
 

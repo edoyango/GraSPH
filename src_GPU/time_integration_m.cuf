@@ -17,22 +17,22 @@ module time_integration_m
 contains
 
    !==============================================================================================================================
-   subroutine time_integration(scale_k, print_step, save_step, maxtimestep, timings, maxinter_perp, maxn, ntotal, nvirt, &
+   subroutine time_integration(scale_k, print_step, save_step, maxtimestep, timings, maxinter, maxn, ntotal, nvirt, &
                                niac, niac_d, pairs, pairs_d, itype, ind, itype_d, ind_d, p, rho, x, vx, p_d, rho_d, x_d, vx_d)
       ! Subroutine responsible for the main time-integration loop
 
       implicit none
       real(f), intent(in):: scale_k
-      integer, intent(in):: print_step, save_step, maxtimestep, maxinter_perp, maxn, ntotal, nvirt
+      integer, intent(in):: print_step, save_step, maxtimestep, maxinter, maxn, ntotal, nvirt
       type(time_tracking), intent(inout):: timings
       integer, intent(inout):: itype(maxn), ind(maxn)
       integer, device, intent(out), target:: itype_d(maxn), ind_d(maxn)
       real(f), intent(inout):: p(maxn), rho(maxn), x(dim,maxn), vx(dim,maxn)
       real(f), device, intent(out), target:: p_d(maxn), rho_d(maxn), x_d(dim,maxn), vx_d(dim,maxn) 
-      integer, intent(out):: niac(maxn)
-      integer, device, intent(out):: niac_d(maxn)
-      type(interactions), intent(out):: pairs(maxinter_perp, maxn)
-      type(interactions), device, intent(out):: pairs_d(maxinter_perp, maxn)
+      integer, intent(out):: niac
+      integer, device, intent(out):: niac_d
+      type(interactions), intent(out):: pairs(maxinter)
+      type(interactions), device, intent(out):: pairs_d(maxinter)
       integer:: i, j, k, d, n, istat, ki, itimestep
       integer, device:: ntotal_d, nvirt_d
       real(f), allocatable, device:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drho(:, :)
@@ -76,7 +76,7 @@ contains
       do itimestep = 1, maxtimestep
 
          !Interaction parameters, calculating neighboring particles
-         call flink_list(scale_k, maxinter_perp, maxn, niac_d, pairs_d)
+         call flink_list(scale_k, maxinter, maxn, niac_d, pairs_d)
 
          ! Save particles' velocity, density information at start of time-step
          !$cuf kernel do <<<*,*>>>
@@ -99,7 +99,7 @@ contains
          do ki = 1, 4
 
             ! launching GPU kernel to calculate accelerations and density changes
-            call single_step_kernel <<< maxn/32 + 1, 32 >>> (ki, maxinter_perp, maxn, niac_d, pairs_d, &
+            call single_step_kernel <<< niac_d/128 + 1, 128 >>> (ki, maxinter, maxn, niac_d, pairs_d, &
                                                              dvxdt(:, :, ki), drho(:, ki), itype_d, ind_d, p_d, rho_d, x_d, vx_d)
 
                                                              ! launching GPU kernel to update particles' speed and density
@@ -110,10 +110,10 @@ contains
          ! Update time
          time = time + dt
 
-         ! start timing of write time
+         ! ! start timing of write time
          istat = cudaEventRecord(startOutputEvent, 0)
 
-         ! write output data
+         ! ! write output data
          if (mod(itimestep, save_step) .eq. 0) then
 
             ! transfer particle data from GPU to CPU
@@ -133,7 +133,7 @@ contains
             istat = cudaEventElapsedTime(timings%t_wall, startEvent, stopEvent)
             timings%t_wall = timings%t_wall/1000.
             istat = cudaEventRecord(startOutputEvent, 0)
-            niac(:) = niac_d(:)
+            niac = niac_d
             call print_update(itimestep, maxtimestep, timings, time, ntotal, nvirt, niac)
 
          end if
