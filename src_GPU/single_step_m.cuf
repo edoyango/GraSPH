@@ -12,12 +12,11 @@ module single_step_m
 contains
 
    !==============================================================================================================================
-   attributes(global) pure subroutine single_step_kernel(ki, maxinter, np, nij, pij, dvxdti, drhodti, itype, ind, p, rho, x, vx)
+   attributes(global) pure subroutine single_step_kernel(ki, maxinter, np, nij, pij, dvxdti, drhodti)
 
       implicit none
       integer, intent(in), value:: ki, maxinter, np
-      integer, intent(in):: nij, itype(np), ind(np)
-      real(f), intent(in):: p(np), rho(np), x(dim,np), vx(dim,np)
+      integer, intent(in):: nij
       type(interactions), intent(in):: pij(maxinter)
       real(f), intent(inout):: dvxdti(dim, np), drhodti(np)
       integer:: i, j, k, d, itype_i, itype_j, ind_i, ind_j
@@ -32,6 +31,7 @@ contains
          i = pij(k)%i
          j = pij(k)%j
          itype_i = itype_ss_Tex(i)
+         itype_j = itype_ss_Tex(j)
          ind_i = ind_ss_Tex(i)
          rho_i = rho_ss_Tex(i)
          p_i = p_ss_Tex(i)
@@ -45,7 +45,7 @@ contains
 
             ! Mirroring real particle onto virtual particle (if needed)
          if (itype_i > 0 .and. itype_j < 0) then
-            call virt_mirror(ind_i, ind_j, p_i, p_j, rho_i, rho_j, x_i, x_j, vx_i, vx_j , itype_ss_Tex(j))
+            call virt_mirror(ind_i, ind_j, p_i, p_j, rho_i, rho_j, x_i, x_j, vx_i, vx_j , itype_j)
          elseif (itype_i < 0 .and. itype_j > 0) then
             call virt_mirror(ind_j, ind_i, p_j, p_i, rho_j, rho_i, x_j, x_i, vx_j, vx_i , itype_i)
          end if

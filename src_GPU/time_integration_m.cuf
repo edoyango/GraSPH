@@ -92,7 +92,7 @@ contains
          do ki = 1, 4
 
             ! launching GPU kernel to calculate accelerations and density changes
-            call single_step_kernel <<< niac_d/128 + 1, 128 >>> (ki, maxinter, maxn, niac_d, pairs_d, dvxdt, drho, itype_d, ind_d, p_d, rho_d, x_d, vx_d)
+            call single_step_kernel <<< niac_d/128 + 1, 128 >>> (ki, maxinter, maxn, niac_d, pairs_d, dvxdt, drho)
 
             ! launching GPU kernel to update particles' speed and density
             call RK4_update <<< maxn/512 + 1, 512 >>> (ki, maxn, v_min, rho_min, dvxdt, drho, dvxdt4, drho4, itype_d, ind_d, p_d, rho_d, x_d, vx_d)
@@ -102,49 +102,59 @@ contains
          ! Update time
          time = time + dt
 
-         ! ! start timing of write time
-         istat = cudaEventRecord(startOutputEvent, 0)
-
-         ! ! write output data
-         if (mod(itimestep, save_step) .eq. 0) then
-
-            ! transfer particle data from GPU to CPU
-            itype = itype_d
-            ind = ind_d
-            p = p_d
-            rho = rho_d
-            x = x_d
-            vx = vx_d
-            call output(itimestep, save_step, ntotal, nvirt, itype, ind, p, rho, x, vx)
-         end if
-
-         if (mod(itimestep, print_step) .eq. 0) then
-            ! recording elapsed wall time to print to terminal
-            istat = cudaEventRecord(stopEvent, 0)
-            istat = cudaEventSynchronize(stopEvent)
-            istat = cudaEventElapsedTime(timings%t_wall, startEvent, stopEvent)
-            timings%t_wall = timings%t_wall/1000.
-            istat = cudaEventRecord(startOutputEvent, 0)
-            niac = niac_d
-            call print_update(itimestep, maxtimestep, timings, time, ntotal, nvirt, niac)
-
-         end if
+         ! start timing of write time
+         if (mod(itimestep, save_step)==0 .or. mod(itimestep,print_step)==0) then 
          
-         ! End timing of output time
-         istat = cudaEventRecord(stopOutputEvent, 0)
-         istat = cudaEventSynchronize(stopOutputEvent)
-         istat = cudaEventElapsedTime(tmpTime, startOutputEvent, stopOutputEvent)
-         timings%t_output = timings%t_output + tmpTime/1000.
+            istat = cudaEventRecord(startOutputEvent, 0)
+
+            ! write output data
+            if (mod(itimestep, save_step) .eq. 0) then
+
+               ! transfer particle data from GPU to CPU
+               itype = itype_d
+               ind = ind_d
+               p = p_d
+               rho = rho_d
+               x = x_d
+               vx = vx_d
+               call output(itimestep, save_step, ntotal, nvirt, itype, ind, p, rho, x, vx)
+            end if
+
+            if (mod(itimestep, print_step) .eq. 0) then
+               ! recording elapsed wall time to print to terminal
+               timings%t_wall = RecordElapsedTime(startEvent, stopEvent, 0)/1000.
+               istat = cudaEventRecord(startOutputEvent, 0)
+               niac = niac_d
+               call print_update(itimestep, maxtimestep, timings, time, ntotal, nvirt, niac)
+
+            end if
+         
+            ! End timing of output time
+            timings%t_output = timings%t_output + RecordElapsedTime(startOutputEvent, stopOutputEvent, 0)/1000.
+
+         end if
 
       end do
 
       ! Ending timing of compute
-      istat = cudaEventRecord(stopEvent, 0)
-      istat = cudaEventSynchronize(stopEvent)
-      istat = cudaEventElapsedTime(timings%t_wall, startEvent, stopEvent)
-      timings%t_wall = timings%t_wall/1000.
+      timings%t_wall = RecordElapsedTime(startEvent, stopEvent, 0)/1000./1000.
 
    end subroutine time_integration
+
+   !===============================================================================================================================
+   function RecordElapsedTime(StartEvent, StopEvent, streamID) result(ElapsedTime)
+
+      implicit none
+      type(cudaEvent), intent(in):: StartEvent, StopEvent
+      integer, intent(in):: streamID
+      integer:: istat
+      real:: ElapsedTime
+
+      istat = cudaEventRecord(StopEvent, streamID)
+      istat = cudaEventSynchronize(stopEvent)
+      istat = cudaEventElapsedTime(ElapsedTime, StartEvent, StopEvent)
+
+   end function RecordElapsedTime
 
    !===============================================================================================================================
    attributes(global) pure subroutine RK4_update(ki, np, v_min, rho_min, dvxdt, drhodt, dvxdt4, drhodt4, itype, ind, p, rho, x, vx)
