@@ -35,7 +35,7 @@ contains
       type(interactions), device, intent(out):: pairs_d(maxinter)
       integer:: i, j, k, d, n, istat, ki, itimestep
       integer, device:: ntotal_d, nvirt_d
-      real(f), allocatable, device:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drho(:, :)
+      real(f), allocatable, device:: v_min(:, :), rho_min(:), dvxdt(:, :), drho(:), dvxdt4(:,:), drho4(:)
       real(f):: time
       real:: tmpTime
       type(cudaEvent):: startEvent, stopEvent, startOutputEvent, stopOutputEvent, startTestEvent, stopTestEvent
@@ -51,7 +51,7 @@ contains
       istat = cudaEventRecord(startEvent, 0)
       
       ! Allocating arrays relevant to solver
-      allocate (v_min(dim, maxn), rho_min(maxn), dvxdt(dim, maxn, 4), drho(maxn, 4))
+      allocate (v_min(dim, maxn), rho_min(maxn), dvxdt(dim, maxn), drho(maxn), dvxdt4(dim,maxn), drho4(maxn))
 
       ! Transferring necessary data to GPU
       itype_d = itype
@@ -79,31 +79,23 @@ contains
          call flink_list(scale_k, maxinter, maxn, niac_d, pairs_d)
 
          ! Save particles' velocity, density information at start of time-step
-         !$cuf kernel do <<<*,*>>>
+         !$cuf kernel do <<<*,512>>>
          do i = 1, ntotal+nvirt
             rho_min(i) = rho_d(i)
             v_min(:, i) = vx_d(:,i)
-!             parts_d(i)%p = rh0*c**2*((parts_d(i)%rho/rh0)**gamma - 1._f)/gamma
-         end do
-
-         !$cuf kernel do (2) <<<(*,*),(*,*)>>>
-         do ki = 1, 4
-            do i = 1, ntotal+nvirt
-               dvxdt(1:dim - 1, i, ki) = 0._f
-               dvxdt(dim, i, ki) = -g
-               drho(i, ki) = 0._f
-            end do
+            dvxdt(1:dim-1, i) = 0._f
+            dvxdt(dim,i) = -g
+            drho(i) = 0._f
          end do
 
          ! Beginning RK4 update (4 updates per timestep)
          do ki = 1, 4
 
             ! launching GPU kernel to calculate accelerations and density changes
-            call single_step_kernel <<< niac_d/128 + 1, 128 >>> (ki, maxinter, maxn, niac_d, pairs_d, &
-                                                             dvxdt(:, :, ki), drho(:, ki), itype_d, ind_d, p_d, rho_d, x_d, vx_d)
+            call single_step_kernel <<< niac_d/128 + 1, 128 >>> (ki, maxinter, maxn, niac_d, pairs_d, dvxdt, drho, itype_d, ind_d, p_d, rho_d, x_d, vx_d)
 
-                                                             ! launching GPU kernel to update particles' speed and density
-            call RK4_update <<< maxn/1024 + 1, 1024 >>> (ki, maxn, v_min, rho_min, dvxdt, drho, itype_d, ind_d, p_d, rho_d, x_d, vx_d)
+            ! launching GPU kernel to update particles' speed and density
+            call RK4_update <<< maxn/512 + 1, 512 >>> (ki, maxn, v_min, rho_min, dvxdt, drho, dvxdt4, drho4, itype_d, ind_d, p_d, rho_d, x_d, vx_d)
 
          end do
 
@@ -155,30 +147,52 @@ contains
    end subroutine time_integration
 
    !===============================================================================================================================
-   attributes(global) pure subroutine RK4_update(ki, np, v_min, rho_min, dvxdt, drhodt, itype, ind, p, rho, x, vx)
+   attributes(global) pure subroutine RK4_update(ki, np, v_min, rho_min, dvxdt, drhodt, dvxdt4, drhodt4, itype, ind, p, rho, x, vx)
 
       implicit none
       integer, intent(in), value:: ki, np
       integer, intent(in):: itype(np), ind(np)
-      real(f), intent(in):: v_min(dim, np), rho_min(np), dvxdt(dim, np, 4), drhodt(np, 4)
-      real(f), intent(inout):: p(np), rho(np), x(dim,np), vx(dim,np)
+      real(f), intent(in):: v_min(dim, np), rho_min(np)
+      real(f), intent(inout):: p(np), rho(np), x(dim,np), vx(dim,np), dvxdt(dim, np), drhodt(np), dvxdt4(dim, np), drhodt4(np)
       integer:: i
 
       i = blockDim%x*(blockIdx%x - 1) + threadIdx%x
 
       if (i <= np .and. itype(i)==1) then
+
+         ! Add current RK step's rate to final RK4 rate array.
          select case (ki)
-         case default
-            vx(:,i) = v_min(:, i) + 0.5_f*dt*dvxdt(:, i, ki)
-            rho(i) = rho_min(i) + 0.5_f*dt*drhodt(i, ki)
-         case (3)
-            vx(:,i) = v_min(:, i) + dt*dvxdt(:, i, 3)
-            rho(i) = rho_min(i) + dt*drhodt(i, 3)
+         case (1)
+            dvxdt4(:,i) = dvxdt(:,i)
+            drhodt4(i) = drhodt(i)
+         case (2,3)
+            dvxdt4(:,i) = dvxdt4(:,i) + 2._f*dvxdt(:,i)
+            drhodt4(i) = drhodt4(i) + 2._f*drhodt(i)
          case (4)
-            vx(:,i) = v_min(:, i) + &
-                           dt/6_f*(dvxdt(:, i, 1) + 2._f*dvxdt(:, i, 2) + 2._f*dvxdt(:, i, 3) + dvxdt(:, i, 4))
-            rho(i) = rho_min(i) + dt/6._f*(drhodt(i, 1) + 2._f*drhodt(i, 2) + 2._f*drhodt(i, 3) + drhodt(i, 4))
+            dvxdt4(:,i) = dvxdt4(:,i) + dvxdt(:,i)
+            drhodt4(i) = drhodt4(i) + drhodt(i)
+         end select
+
+         ! Update velocity, density, position as per RK4
+         select case (ki)
+         case (1, 2)
+            vx(:,i) = v_min(:, i) + 0.5_f*dt*dvxdt(:, i)
+            rho(i) = rho_min(i) + 0.5_f*dt*drhodt(i)
+         case (3)
+            vx(:,i) = v_min(:, i) + dt*dvxdt(:, i)
+            rho(i) = rho_min(i) + dt*drhodt(i)
+         case (4)
+            vx(:,i) = v_min(:, i) + dt/6_f*dvxdt4(:,i)
+            rho(i) = rho_min(i) + dt/6._f*drhodt4(i)
             x(:,i) = x(:,i) + dt*vx(:,i)
+         end select
+
+         ! initialize arrays for next RK step
+         select case(ki)
+         case(1,2,3)
+            dvxdt(1:dim-1,i) = 0._f
+            dvxdt(dim,i) = -g
+            drhodt(i) = 0._f
          end select
          p(i) = rh0*c**2*((rho(i)/rh0)**gamma - 1._f)/gamma
 
