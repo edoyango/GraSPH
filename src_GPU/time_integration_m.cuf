@@ -125,7 +125,8 @@ contains
                timings%t_wall = RecordElapsedTime(startEvent, stopEvent, 0)/1000.
                istat = cudaEventRecord(startOutputEvent, 0)
                niac = niac_d
-               call print_update(itimestep, maxtimestep, timings, time, ntotal, nvirt, niac)
+               if (mod(itimestep, save_step) .ne. 0) ind = ind_d
+               call print_update(itimestep, maxtimestep, timings, time, ntotal, nvirt, niac, pairs_d, ind)
 
             end if
          
@@ -137,7 +138,7 @@ contains
       end do
 
       ! Ending timing of compute
-      timings%t_wall = RecordElapsedTime(startEvent, stopEvent, 0)/1000./1000.
+      timings%t_wall = RecordElapsedTime(startEvent, stopEvent, 0)/1000.
 
    end subroutine time_integration
 
