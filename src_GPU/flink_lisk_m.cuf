@@ -9,7 +9,7 @@ module flink_list_m
    integer, pointer, texture:: itype_fl_Tex(:), ind_fl_Tex(:)
    real(f), pointer, texture:: p_fl_Tex(:), rho_fl_Tex(:), x_fl_Tex(:,:), vx_fl_Tex(:,:)
 
-   public:: flink_list, itype_fl_Tex, ind_fl_Tex, p_fl_Tex, rho_fl_Tex, x_fl_Tex, vx_fl_Tex
+   public:: flink_list, kernel_k, itype_fl_Tex, ind_fl_Tex, p_fl_Tex, rho_fl_Tex, x_fl_Tex, vx_fl_Tex
 
 contains
 
@@ -254,12 +254,33 @@ contains
          factor = 1_f/(thsml**dims*pi**(0.5_f*dims))
          if (q .ge. 0_f .and. q .le. 3_f) then
             tw = factor*exp(-q*q)
-            tdwdx(:) = tw*2_f*dx(:)/(thsml*thsml)
+            tdwdx(:) = tw*2._f*dx(:)/(thsml*thsml)
          end if
 
       END SELECT
 
    end subroutine kernel
+
+   !==============================================================================================================================
+   function kernel_k(skf) result(scale_k)
+      ! setting k parameter for kernel radius (r = kh)
+
+      implicit none
+      integer, intent(in):: skf
+      integer:: scale_k
+
+      select case (skf)
+      case default ! cubic, wenland C2, wenland C4, wenland C6
+         scale_k = 2._f
+      case (2) ! quartic
+         scale_k = 2.5_f
+      case (3) ! quantic
+         scale_k = 3._f
+      case (7)
+         scale_k = huge(1._f)
+      end select
+
+   end function kernel_k
    
    !=================================================================================================================================
    attributes(device) pure function cells2Hash(cellCoords, ncells) result(hash)
