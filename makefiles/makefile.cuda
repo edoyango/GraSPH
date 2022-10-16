@@ -22,16 +22,16 @@ sph-cuda: $(OBJ)
 
 	$(FC) -o $@ $^ $(FCFLAGS) -lhdf5_fortran -lhdf5_hl_fortran -lstdc++
 
-#clean:
-#	rm -f $(ODIR)/*.o
-#	rm -f $(ODIR)/*.obj
-#	rm -f $(ODIR)/*.mod
+clean:
+	rm -f $(ODIR)/*.o
+	rm -f $(ODIR)/*.obj
+	rm -f $(ODIR)/*.mod
 
 $(ODIR)/%.o: $(CDIR)/%.f90
-	$(FC) -c -o $@ $< $(FCFLAGS) -lhdf5 -libhdf5_fortran
+	$(FC) -c -o $@ $< $(FCFLAGS) 
 
 $(ODIR)/%.o: $(SDIR)/%.cuf
-	$(FC) -c -o $@ $< $(FCFLAGS) -lhdf5 -libhdf5_fortran
+	$(FC) -c -o $@ $< $(FCFLAGS) 
 
 $(ODIR)/%.o: $(SDIR)/%.cu
 	nvcc -c -o $@ $<
