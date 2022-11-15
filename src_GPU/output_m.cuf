@@ -53,6 +53,7 @@ contains
             ptmp(n)%vx = vx(:,i)
          end if
       end do
+      
       call write_particle_data(file_id, 'real', ptmp(1:n))
       
       n = 0

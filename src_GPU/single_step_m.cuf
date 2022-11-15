@@ -12,60 +12,56 @@ module single_step_m
 contains
 
    !==============================================================================================================================
-   attributes(global) pure subroutine single_step_kernel(ki, maxinter_perp, np, nij, pij, dvxdti, drhodti, itype, ind, p, rho, x, vx)
+   attributes(global) pure subroutine single_step_kernel(ki, maxinter, np, nij, pij, dvxdti, drhodti)
 
       implicit none
-      integer, intent(in), value:: ki, maxinter_perp, np
-      integer, intent(in):: nij(np), itype(np), ind(np)
-      real(f), intent(in):: p(np), rho(np), x(dim,np), vx(dim,np)
-      type(interactions), intent(in):: pij(maxinter_perp, np)
+      integer, intent(in), value:: ki, maxinter, np
+      integer, intent(in):: nij
+      type(interactions), intent(in):: pij(maxinter)
       real(f), intent(inout):: dvxdti(dim, np), drhodti(np)
       integer:: i, j, k, d, itype_i, itype_j, ind_i, ind_j
       real(f):: a_coeff, tmp, vcc, p_i, p_j, rho_i, rho_j, x_i(dim), x_j(dim), vx_i(dim), vx_j(dim)
 
       ! Obtaining thread global index (used to assign particle index)
-      i = blockDim%x*(blockIdx%x - 1) + threadIdx%x
+      k = blockDim%x*(blockIdx%x - 1) + threadIdx%x
 
       ! Beginning loop over
-      if (i <= np) then
+      if (k <= nij) then
          
+         i = pij(k)%i
+         j = pij(k)%j
          itype_i = itype_ss_Tex(i)
+         itype_j = itype_ss_Tex(j)
          ind_i = ind_ss_Tex(i)
          rho_i = rho_ss_Tex(i)
          p_i = p_ss_Tex(i)
          x_i = x_ss_Tex(:,i)
          vx_i = vx_ss_Tex(:,i)
-
-         do k = 1, nij(i)
-
-            j = pij(k, i)%j
-            
-            ind_j = ind_ss_Tex(j)
-            rho_j = rho_ss_Tex(j)
-            p_j = p_ss_Tex(j)
-            x_j = x_ss_Tex(:,j)
-            vx_j = vx_ss_Tex(:,j)
+         ind_j = ind_ss_Tex(j)
+         rho_j = rho_ss_Tex(j)
+         p_j = p_ss_Tex(j)
+         x_j = x_ss_Tex(:,j)
+         vx_j = vx_ss_Tex(:,j)
 
             ! Mirroring real particle onto virtual particle (if needed)
-            if (itype_i > 0 .and. itype_j < 0) then
-               call virt_mirror(ind_i, ind_j, p_i, p_j, rho_i, rho_j, x_i, x_j, vx_i, vx_j , itype_ss_Tex(j))
-            elseif (itype_i < 0 .and. itype_j > 0) then
-               call virt_mirror(ind_j, ind_i, p_j, p_i, rho_j, rho_i, x_j, x_i, vx_j, vx_i , itype_i)
-            end if
+         if (itype_i > 0 .and. itype_j < 0) then
+            call virt_mirror(ind_i, ind_j, p_i, p_j, rho_i, rho_j, x_i, x_j, vx_i, vx_j , itype_j)
+         elseif (itype_i < 0 .and. itype_j > 0) then
+            call virt_mirror(ind_j, ind_i, p_j, p_i, rho_j, rho_i, x_j, x_i, vx_j, vx_i , itype_i)
+         end if
 
-            !Density approximation or change rate
-            call con_density(ki, ind_i, ind_j, vx_i, vx_j,pij(k, i)%dwdx, drhodti(i), drhodti(j))
+         !Density approximation or change rate
+         call con_density(ki, ind_i, ind_j, vx_i, vx_j,pij(k)%dwdx, drhodti(i), drhodti(j))
             
-            ! calculating coefficients for pressure force and artificial viscosity
-            a_coeff = int_force_coeff(ki, ind_i, ind_j, p_i, p_j, rho_i, rho_j) + &
-                      art_visc_coeff(ki, ind_i, ind_j, rho_i, rho_j, x_i, x_j, vx_i, vx_j)
+         ! calculating coefficients for pressure force and artificial viscosity
+         a_coeff = int_force_coeff(ki, ind_i, ind_j, p_i, p_j, rho_i, rho_j) + &
+                   art_visc_coeff(ki, ind_i, ind_j, rho_i, rho_j, x_i, x_j, vx_i, vx_j)
                       
-            do d = 1, dim
-               tmp = atomicadd(dvxdti(d, i), pij(k, i)%dwdx(d)*a_coeff)
-               tmp = atomicadd(dvxdti(d, j), -pij(k, i)%dwdx(d)*a_coeff)
-            end do
-
+         do d = 1, dim
+            tmp = atomicadd(dvxdti(d, i), pij(k)%dwdx(d)*a_coeff)
+            tmp = atomicadd(dvxdti(d, j), -pij(k)%dwdx(d)*a_coeff)
          end do
+
       end if
 
    end subroutine single_step_kernel
