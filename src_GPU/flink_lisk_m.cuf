@@ -117,8 +117,8 @@ contains
    attributes(global) subroutine map2Grid(dc, ncells, gridCellHash, mingridx, n)
    
       implicit none
-      real, value:: dc
-      real, intent(in):: mingridx(dim)
+      real(f), value:: dc
+      real(f), intent(in):: mingridx(dim)
       integer, intent(in):: ncells(dim)
       integer, intent(out):: gridCellHash(:)
       integer:: d, i, ip, icell(dim)

@@ -32,7 +32,7 @@ module param
 
    !spacing and kernel radii parameters
    !note skf = 5 requires kappa at least 1.4, skf = 6 kappa at least 1.6 (approx values)
-   real(f), parameter:: dxo = 0.5_f, kappa = 1.2_f, v_max = 44.3_f
+   real(f), parameter:: dxo = 0.5_f, kappa = 1.5_f, v_max = 44.3_f
 
    !material density (per particle)
    real(f), parameter:: irho = 1000._f
@@ -40,14 +40,14 @@ module param
    !derived parameters. c: speed of sound, hsml: smoothing length, dt: time-step size, mass: mass per particle
    real(f), parameter:: c = 10._f*v_max, hsml = kappa*dxo, dt = 1.5_f*hsml/c, mass = irho*dxo**dim
 
-   integer, parameter:: mp = 50, np = 25, op = 50, pp = 3*mp, qp = np, rp = int(1.6*op), nlayer = 4
+   integer, parameter:: mp = 50, np = 25, op = 50, pp = 3*mp, qp = np, rp = int(2*op), nlayer = 4
 
    ! state equation parameter,public::s
    real(f), parameter:: rh0 = irho
    integer, parameter:: gamma = 7
 
    ! artificial viscosity parameters
-   real(f), parameter:: alpha = 0.05_f, beta = 0.05_f, etq = 0.1_f
+   real(f), parameter:: alpha = 0.1_f, beta = 0.1_f, etq = 0.1_f
 
    ! repulsive force parameter,public::s
    real(f), parameter:: rr0 = dxo, dd = 5._f*g*25._f

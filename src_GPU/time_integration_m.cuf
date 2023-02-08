@@ -35,7 +35,7 @@ contains
       type(interactions), device, intent(out):: pairs_d(maxinter)
       integer:: i, j, k, d, n, istat, ki, itimestep
       integer, device:: ntotal_d, nvirt_d
-      real(f), allocatable, device:: v_min(:, :), rho_min(:), dvxdt(:, :), drho(:), dvxdt4(:,:), drho4(:)
+      real(f), allocatable, device:: v_min(:, :), rho_min(:), dvxdt(:, :), drho(:), dvxdt4(:,:), drho4(:), vw(:)
       real(f):: time
       real:: tmpTime
       type(cudaEvent):: startEvent, stopEvent, startOutputEvent, stopOutputEvent, startTestEvent, stopTestEvent
@@ -51,7 +51,7 @@ contains
       istat = cudaEventRecord(startEvent, 0)
       
       ! Allocating arrays relevant to solver
-      allocate (v_min(dim, maxn), rho_min(maxn), dvxdt(dim, maxn), drho(maxn), dvxdt4(dim,maxn), drho4(maxn))
+      allocate (v_min(dim, maxn), rho_min(maxn), dvxdt(dim, maxn), drho(maxn), dvxdt4(dim,maxn), drho4(maxn), vw(maxn))
 
       ! Transferring necessary data to GPU
       itype_d = itype
@@ -90,6 +90,26 @@ contains
 
          ! Beginning RK4 update (4 updates per timestep)
          do ki = 1, 4
+
+            !$cuf kernel do <<<*, *>>>
+            do i = 1,maxn
+               if (itype_d(i)<0) then
+                  vw(i) = 0._f
+                  rho_d(i) = 0._f
+                  vx_d(:,i) = 0._f
+               end if
+            end do
+
+            call vmat_update<<< niac_d/128 + 1, 128>>>(maxinter, maxn, niac_d, pairs_d, vw, itype_d, rho_d, vx_d)
+
+            !$cuf kernel do <<<*, *>>>
+            do i = 1,maxn
+               if (itype_d(i)<0) then
+                  rho_d(i) = rho_d(i)/vw(i)
+                  vx_d(:,i) = vx_d(:,i)/vw(i)
+                  p_d(i) = rh0*c**2*((rho_d(i)/rh0)**gamma - 1._f)/gamma
+               end if
+            end do
 
             ! launching GPU kernel to calculate accelerations and density changes
             call single_step_kernel <<< niac_d/128 + 1, 128 >>> (ki, maxinter, maxn, niac_d, pairs_d, dvxdt, drho)
