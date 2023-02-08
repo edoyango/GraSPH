@@ -12,7 +12,7 @@ module param
    ! (CUDA's timing subroutines only accept single precision floats)
    ! (Reduction of MPI process' times are hard-coding double precision)
    integer, parameter:: df = kind(1.d0), sf = kind(1.)
-   integer, parameter:: f = sf, tf = sf
+   integer, parameter:: f = df, tf = sf
 
    ! constants: pi, g (gravity)
    real(f), parameter:: pi = 3.14159265358979323846_f, g = 9.81_f
@@ -38,7 +38,7 @@ module param
    real(f), parameter:: irho = 1000._f
 
    !derived parameters. c: speed of sound, hsml: smoothing length, dt: time-step size, mass: mass per particle
-   real(f), parameter:: c = 10._f*v_max, hsml = kappa*dxo, dt = 1.5_f*hsml/c, mass = irho*dxo**dim
+   real(f), parameter:: c = 10._f*v_max, hsml = kappa*dxo, dt = 0.1_f*hsml/c, mass = irho*dxo**dim
 
    integer, parameter:: mp = 50, np = 25, op = 50, pp = 3*mp, qp = np, rp = int(2*op), nlayer = 4
 

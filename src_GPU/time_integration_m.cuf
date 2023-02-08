@@ -71,6 +71,13 @@ contains
       x_fl_Tex => x_d         ; x_ss_Tex => x_d
       vx_fl_Tex => vx_d       ; vx_ss_Tex => vx_d
 
+      !$cuf kernel do <<<*,512>>>
+      do i = 1, maxn
+         dvxdt(1:dim-1, i) = 0._f
+         dvxdt(dim,i) = -g
+         drho(i) = 0._f
+      end do
+
       ! Time-integration (Leap-Frog)
       time = 0._f
       do itimestep = 1, maxtimestep
@@ -80,44 +87,45 @@ contains
 
          ! Save particles' velocity, density information at start of time-step
          !$cuf kernel do <<<*,512>>>
-         do i = 1, ntotal+nvirt
+         do i = 1, maxn
             rho_min(i) = rho_d(i)
+            rho_d(i) = rho_d(i) + 0.5_f*dt*drho(i)
             v_min(:, i) = vx_d(:,i)
+            vx_d(:,i) = vx_d(:,i) + 0.5_f*dt*dvxdt(:, i)
+            if (itype_d(i)<0) then
+               vw(i) = 0._f
+               rho_d(i) = 0._f
+               vx_d(:,i) = 0._f
+            end if
+         end do
+
+         call vmat_update<<< niac_d/128 + 1, 128>>>(maxinter, maxn, niac_d, pairs_d, vw, itype_d, rho_d, vx_d)
+
+         !$cuf kernel do <<<*, *>>>
+         do i = 1,maxn
+            if (itype_d(i)<0) then
+               rho_d(i) = rho_d(i)/vw(i)
+               vx_d(:,i) = vx_d(:,i)/vw(i)
+            end if
+            p_d(i) = rh0*c**2*((rho_d(i)/rh0)**gamma - 1._f)/gamma
             dvxdt(1:dim-1, i) = 0._f
             dvxdt(dim,i) = -g
             drho(i) = 0._f
          end do
 
-         ! Beginning RK4 update (4 updates per timestep)
-         do ki = 1, 4
-
-            !$cuf kernel do <<<*, *>>>
-            do i = 1,maxn
-               if (itype_d(i)<0) then
-                  vw(i) = 0._f
-                  rho_d(i) = 0._f
-                  vx_d(:,i) = 0._f
-               end if
-            end do
-
-            call vmat_update<<< niac_d/128 + 1, 128>>>(maxinter, maxn, niac_d, pairs_d, vw, itype_d, rho_d, vx_d)
-
-            !$cuf kernel do <<<*, *>>>
-            do i = 1,maxn
-               if (itype_d(i)<0) then
-                  rho_d(i) = rho_d(i)/vw(i)
-                  vx_d(:,i) = vx_d(:,i)/vw(i)
-                  p_d(i) = rh0*c**2*((rho_d(i)/rh0)**gamma - 1._f)/gamma
-               end if
-            end do
-
             ! launching GPU kernel to calculate accelerations and density changes
             call single_step_kernel <<< niac_d/128 + 1, 128 >>> (ki, maxinter, maxn, niac_d, pairs_d, dvxdt, drho)
 
             ! launching GPU kernel to update particles' speed and density
-            call RK4_update <<< maxn/512 + 1, 512 >>> (ki, maxn, v_min, rho_min, dvxdt, drho, dvxdt4, drho4, itype_d, ind_d, p_d, rho_d, x_d, vx_d)
+            ! call RK4_update <<< maxn/512 + 1, 512 >>> (ki, maxn, v_min, rho_min, dvxdt, drho, dvxdt4, drho4, itype_d, ind_d, p_d, rho_d, x_d, vx_d)
+            !$cuf kernel do
+            do i = 1, maxn
+               rho_d(i) = rho_min(i) + dt*drho(i)
+               vx_d(:,i) = v_min(:,i) + dt*dvxdt(:,i)
+               if (itype_d(i)>0) x_d(:,i) = x_d(:,i) + dt*vx_d(:,i)
+            end do
 
-         end do
+         ! end do
 
          ! Update time
          time = time + dt
