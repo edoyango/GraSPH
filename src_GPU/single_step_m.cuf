@@ -4,19 +4,18 @@ module single_step_m
    use param, only: dim, f, g, mass
    
    private
-   integer, pointer, texture:: itype_ss_Tex(:), ind_ss_Tex(:)
-   real(f), pointer, texture:: p_ss_Tex(:), rho_ss_Tex(:), x_ss_Tex(:,:), vx_ss_Tex(:,:)
 
-   public:: single_step_kernel, itype_ss_Tex, ind_ss_Tex, p_ss_Tex, rho_ss_Tex, x_ss_Tex, vx_ss_Tex
+   public:: single_step_kernel
 
 contains
 
    !==============================================================================================================================
-   attributes(global) pure subroutine single_step_kernel(ki, maxinter, np, nij, pij, dvxdti, drhodti)
+   attributes(global) pure subroutine single_step_kernel(ki, ind, itype, x, vx, rho, p, maxinter, np, nij, pij, dvxdti, drhodti)
 
       implicit none
       integer, intent(in), value:: ki, maxinter, np
-      integer, intent(in):: nij
+      integer, intent(in):: nij, ind(np), itype(np)
+      real(f), intent(in):: x(dim, np), vx(dim, np), rho(np), p(np)
       type(interactions), intent(in):: pij(maxinter)
       real(f), intent(inout):: dvxdti(dim, np), drhodti(np)
       integer:: i, j, k, d, itype_i, itype_j, ind_i, ind_j
@@ -30,18 +29,18 @@ contains
          
          i = pij(k)%i
          j = pij(k)%j
-         itype_i = itype_ss_Tex(i)
-         itype_j = itype_ss_Tex(j)
-         ind_i = ind_ss_Tex(i)
-         rho_i = rho_ss_Tex(i)
-         p_i = p_ss_Tex(i)
-         x_i = x_ss_Tex(:,i)
-         vx_i = vx_ss_Tex(:,i)
-         ind_j = ind_ss_Tex(j)
-         rho_j = rho_ss_Tex(j)
-         p_j = p_ss_Tex(j)
-         x_j = x_ss_Tex(:,j)
-         vx_j = vx_ss_Tex(:,j)
+         itype_i = itype(i)
+         itype_j = itype(j)
+         ind_i = ind(i)
+         rho_i = rho(i)
+         p_i = p(i)
+         x_i = x(:,i)
+         vx_i = vx(:,i)
+         ind_j = ind(j)
+         rho_j = rho(j)
+         p_j = p(j)
+         x_j = x(:,j)
+         vx_j = vx(:,j)
 
             ! Mirroring real particle onto virtual particle (if needed)
          ! if (itype_i > 0 .and. itype_j < 0) then

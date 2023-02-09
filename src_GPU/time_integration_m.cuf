@@ -6,10 +6,10 @@ module time_integration_m
    use cudafor
 
    use input_m, only: vmat_update, update_ghost_part, generate_ghost_part
-   use flink_list_m, only: flink_list, itype_fl_Tex, ind_fl_Tex, p_fl_Tex, rho_fl_Tex, x_fl_Tex, vx_fl_Tex, niac_fl_Tex
+   use flink_list_m, only: flink_list, niac_fl_Tex
    use output_m, only: output
    use summary_m, only: print_update
-   use single_step_m, only: single_step_kernel, itype_ss_Tex, ind_ss_Tex, p_ss_Tex, rho_ss_Tex, x_ss_Tex, vx_ss_Tex
+   use single_step_m, only: single_step_kernel
 
    private
    public:: time_integration
@@ -63,13 +63,6 @@ contains
       vx_d = vx
       ntotal_d = ntotal
       nvirt_d = nvirt
-      
-      itype_fl_Tex => itype_d ; itype_ss_Tex => itype_d
-      ind_fl_Tex => ind_d     ; ind_ss_Tex => ind_d
-      p_fl_Tex => p_d         ; p_ss_Tex => p_d
-      rho_fl_Tex => rho_d     ; rho_ss_Tex => rho_d
-      x_fl_Tex => x_d         ; x_ss_Tex => x_d
-      vx_fl_Tex => vx_d       ; vx_ss_Tex => vx_d
 
       !$cuf kernel do <<<*,512>>>
       do i = 1, maxn
@@ -83,7 +76,7 @@ contains
       do itimestep = 1, maxtimestep
 
          !Interaction parameters, calculating neighboring particles
-         call flink_list(scale_k, maxinter, maxn, niac_d, pairs_d)
+         call flink_list(ind_d, itype_d, x_d, vx_d, rho_d, p_d, scale_k, maxinter, maxn, niac_d, pairs_d)
 
          ! Save particles' velocity, density information at start of time-step
          !$cuf kernel do <<<*,512>>>
@@ -114,7 +107,7 @@ contains
          end do
 
             ! launching GPU kernel to calculate accelerations and density changes
-            call single_step_kernel <<< niac_d/128 + 1, 128 >>> (ki, maxinter, maxn, niac_d, pairs_d, dvxdt, drho)
+            call single_step_kernel <<< niac_d/128 + 1, 128 >>> (ki, ind_d, itype_d, x_d, vx_d, rho_d, p_d, maxinter, maxn, niac_d, pairs_d, dvxdt, drho)
 
             ! launching GPU kernel to update particles' speed and density
             ! call RK4_update <<< maxn/512 + 1, 512 >>> (ki, maxn, v_min, rho_min, dvxdt, drho, dvxdt4, drho4, itype_d, ind_d, p_d, rho_d, x_d, vx_d)
