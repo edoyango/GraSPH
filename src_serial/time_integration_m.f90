@@ -4,7 +4,7 @@ module time_integration_m
    use param, only: f, tf, dim, rh0, gamma, c, dt
 
    use flink_list_m, only: flink_list
-   use input_m, only: generate_ghost_part, update_ghost_part
+   use input_m, only: update_virt_part
    use output_m, only: output
    use single_step_m, only: single_step
    use summary_m, only: print_update
@@ -28,11 +28,11 @@ contains
       type(interactions), intent(inout):: pairs(:)
       integer:: i, itimestep, ki, maxn
       double precision:: tmptime
-      real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drhodt(:, :)
+      real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drhodt(:, :), vw(:)
 
       maxn = size(parts)
 
-      allocate (v_min(dim, ntotal), rho_min(ntotal), dvxdt(dim, maxn, 4), drhodt(maxn, 4))
+      allocate (v_min(dim, ntotal), rho_min(ntotal), dvxdt(dim, maxn, 4), drhodt(maxn, 4), vw(maxn))
       
       timings%t_wall = timings%t_wall - system_clock_timer()
 
@@ -46,12 +46,14 @@ contains
             parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1_f)/gamma
          end do
 
-         call generate_ghost_part(scale_k, ntotal, nvirt, nghos, parts, gind)
+         ! call generate_ghost_part(scale_k, ntotal, nvirt, nghos, parts, gind)
 
          !Interaction parameters, calculating neighboring particles
          call flink_list(scale_k, ntotal, nvirt, nghos, parts, niac, pairs, nexti)
 
          do ki = 1, 4
+
+            call update_virt_part(ki, ntotal, nvirt, nghos, parts, niac, pairs, nexti, vw)
 
             ! calculating rate of change of speed and density on particles
             call single_step(ki, ntotal, nvirt, nghos, niac, pairs, parts, dvxdt(:, :, ki), drhodt(:, ki), nexti)
@@ -60,7 +62,7 @@ contains
             call RK4_update(ki, ntotal, v_min, rho_min, dvxdt, drhodt, parts)
 
             ! updating ghost particles to reflect real particles
-            call update_ghost_part(ntotal, nvirt, nghos, gind, parts)
+            ! call update_ghost_part(ntotal, nvirt, nghos, gind, parts)
 
          end do
 

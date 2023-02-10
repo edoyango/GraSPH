@@ -12,7 +12,6 @@ contains
       use datatypes, only: particles, interactions
       use param, only: dim, f, g
 
-      use input_m, only: virt_mirror
       use material_rates_m, only: con_density, art_visc_coeff, int_force_coeff
 
       implicit none
@@ -43,13 +42,13 @@ contains
 
             j = pairs(k)%j
 
-            if (parts(i)%itype > 0 .and. parts(j)%itype < 0) then
-               call virt_mirror(parts(i), parts(j))
-               prho(j) = prho(i)
-            elseif (parts(i)%itype < 0 .and. parts(j)%itype > 0) then
-               call virt_mirror(parts(j), parts(i))
-               prho(i) = prho(j)
-            end if
+            ! if (parts(i)%itype > 0 .and. parts(j)%itype < 0) then
+            !    call virt_mirror(parts(i), parts(j))
+            !    prho(j) = prho(i)
+            ! elseif (parts(i)%itype < 0 .and. parts(j)%itype > 0) then
+            !    call virt_mirror(parts(j), parts(i))
+            !    prho(i) = prho(j)
+            ! end if
 
             !Density approximation or change rate
             call con_density(ki, parts(i), parts(j), pairs(k)%dwdx, drhoi(i), drhoi(j))
