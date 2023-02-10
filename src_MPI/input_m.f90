@@ -2,7 +2,7 @@ module input_m
 
    use datatypes, only: particles, interactions
    use mpi_f08
-   use param, only: dim, irho, dxo, f, hsml, mp, np, op, pp, qp, rp, nlayer
+   use param, only: dim, irho, dxo, f, hsml, mp, np, op, pp, qp, rp, nlayer, mass
 
    private
    real(f), parameter:: vxmin = 0._f, vymin = 0._f, vzmin = 0._f, &
@@ -10,8 +10,7 @@ module input_m
    real(f), parameter:: rxmin = 0._f, rymin = 0._f, rzmin = 0._f, &
                         rxmax = rxmin + mp*dxo, rymax = rymin + np*dxo, rzmax = rzmin + op*dxo
 
-   public:: return_ntotal, return_nvirt, allocatePersistentArrays, generate_real_part, generate_virt_part, generate_ghost_part, &
-            update_ghost_part, virt_mirror
+   public:: return_ntotal, return_nvirt, allocatePersistentArrays, generate_real_part, generate_virt_part, update_virt_part
 
 contains
 
@@ -31,7 +30,7 @@ contains
       implicit none
       integer:: nvirt
 
-      nvirt = nlayer*(2*nlayer + pp)*(2*nlayer + qp)
+      nvirt = (rp + 2*nlayer)*(2*nlayer + pp)*(2*nlayer + qp) - pp*qp*rp
 
    end function
 
@@ -124,19 +123,24 @@ contains
       !---Virtual particle on the bottom face
       do i = 1 - nlayer, pp + nlayer
          do j = 1 - nlayer, qp + nlayer
-            do k = 1, nlayer
-               n = n + 1
-               xi(1) = vxmin + (i - 0.5_f)*dxo
-               xi(2) = vymin + (j - 0.5_f)*dxo
-               xi(3) = vzmin - (k - 0.5_f)*dxo
-               if (all(xi(:) .ge. xmin_loc(:) .and. xi(:) .le. xmax_loc(:))) then
-                  nvirt_loc = nvirt_loc + 1
-                  parts(ntotal_loc + nhalo_loc + nvirt_loc)%indglob = n
-                  parts(ntotal_loc + nhalo_loc + nvirt_loc)%indloc = ntotal_loc + nhalo_loc + nvirt_loc
-                  parts(ntotal_loc + nhalo_loc + nvirt_loc)%itype = -1
-                  parts(ntotal_loc + nhalo_loc + nvirt_loc)%x(:) = xi(:)
-                  parts(ntotal_loc + nhalo_loc + nvirt_loc)%vx(:) = 0._f
-                  parts(ntotal_loc + nhalo_loc + nvirt_loc)%rho = irho
+            do k = 1 - nlayer, rp + nlayer
+               if ( i < 1 .or. i > pp .or. j < 1 .or. j > qp .or. k < 1 .or. k > rp ) then
+                  n = n + 1
+                  xi(1) = vxmin + (i - 0.5_f)*dxo
+                  xi(2) = vymin + (j - 0.5_f)*dxo
+                  xi(3) = vzmin + (k - 0.5_f)*dxo
+                  if (all(xi(:) .ge. xmin_loc(:) .and. xi(:) .le. xmax_loc(:))) then
+                     nvirt_loc = nvirt_loc + 1
+                     parts(ntotal_loc + nhalo_loc + nvirt_loc)%indglob = n
+                     parts(ntotal_loc + nhalo_loc + nvirt_loc)%indloc = ntotal_loc + nhalo_loc + nvirt_loc
+                     if (k < 1) parts(ntotal_loc + nhalo_loc + nvirt_loc)%itype = -1
+                     if (k > rp) parts(ntotal_loc + nhalo_loc + nvirt_loc)%itype = -2
+                     if (i < 1 .or. i > pp) parts(ntotal_loc + nhalo_loc + nvirt_loc)%itype = -3
+                     if (j < 1 .or. j > qp) parts(ntotal_loc + nhalo_loc + nvirt_loc)%itype = -4
+                     parts(ntotal_loc + nhalo_loc + nvirt_loc)%x(:) = xi(:)
+                     parts(ntotal_loc + nhalo_loc + nvirt_loc)%vx(:) = 0._f
+                     parts(ntotal_loc + nhalo_loc + nvirt_loc)%rho = irho
+                  end if
                end if
             end do
          end do
@@ -145,164 +149,80 @@ contains
    end subroutine generate_virt_part
 
    !==============================================================================================================================
-   pure subroutine generate_ghost_part(scale_k, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, gind)
+   subroutine update_virt_part(ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, niac, pairs, nexti, vw)
 
       implicit none
-      integer, intent(in):: ntotal_loc, nhalo_loc, nvirt_loc
-      real(f), intent(in):: scale_k
+      integer, intent(in):: ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, niac, nexti(:)
+      type(interactions), intent(in):: pairs(:)
       type(particles), intent(inout):: parts(:)
-      integer, intent(out):: nghos_loc, gind(:)
-      integer:: i, ig
+      real(f), intent(inout):: vw(:)
+      integer:: i, j, k
+      real(f):: tmp
 
-      nghos_loc = 0
+      vw(:) = 0._f
 
-      do i = 1, ntotal_loc + nhalo_loc
-         if (abs(parts(i)%x(1) - vxmin) < scale_k*hsml .and. parts(i)%x(1) > vxmin) then
-            nghos_loc = nghos_loc + 1
-            ig = ntotal_loc + nhalo_loc + nvirt_loc + nghos_loc
-            gind(nghos_loc) = i
-            parts(ig) = parts(i)
-            parts(ig)%indloc = ig
-            parts(ig)%itype = 99
-            parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmin
-            parts(ig)%vx(1) = -parts(ig)%vx(1)
+      do i = ntotal_loc+nhalo_loc+1, ntotal_loc+nhalo_loc+nvirt_loc
+         parts(i)%rho = 0._f
+         parts(i)%vx(:) = 0._f
+      end do
+
+      do i = 1, ntotal_loc + nhalo_loc + nvirt_loc + nghos_loc
+        do k = nexti(i), nexti(i + 1) - 1
+           j = pairs(k)%j
+         if (parts(i)%itype < 0 .and. parts(j)%itype > 0) then
+            tmp = mass*pairs(k)%w/parts(j)%rho
+            vw(i - ntotal_loc - nhalo_loc) = vw(i - ntotal_loc - nhalo_loc) + tmp
+            parts(i)%rho = parts(i)%rho + mass*pairs(k)%w
+            select case (parts(i)%itype)
+            case default
+              parts(i)%vx(:) = parts(i)%vx(:) - parts(j)%vx(:)*tmp
+           case (-2)
+              parts(i)%vx(1) = parts(i)%vx(1) + parts(j)%vx(1)*tmp
+              parts(i)%vx(2) = parts(i)%vx(2) + parts(j)%vx(2)*tmp
+              parts(i)%vx(3) = parts(i)%vx(3) - parts(j)%vx(3)*tmp
+            case (-3)
+              parts(i)%vx(1) = parts(i)%vx(1) - parts(j)%vx(1)*tmp
+              parts(i)%vx(2) = parts(i)%vx(2) + parts(j)%vx(2)*tmp
+              parts(i)%vx(3) = parts(i)%vx(3) + parts(j)%vx(3)*tmp
+            case (-4)
+              parts(i)%vx(1) = parts(i)%vx(1) + parts(j)%vx(1)*tmp
+              parts(i)%vx(2) = parts(i)%vx(2) - parts(j)%vx(2)*tmp
+              parts(i)%vx(3) = parts(i)%vx(3) + parts(j)%vx(3)*tmp
+            end select
+         else if (parts(j)%itype < 0 .and. parts(i)%itype > 0) then
+            tmp = mass*pairs(k)%w/parts(i)%rho
+            vw(j - ntotal_loc - nhalo_loc) = vw(j - ntotal_loc - nhalo_loc) + tmp
+            parts(j)%rho = parts(j)%rho + mass*pairs(k)%w
+            select case (parts(j)%itype)
+            case default
+              parts(j)%vx(:) = parts(j)%vx(:) - parts(i)%vx(:)*tmp
+            case (-2)
+              parts(j)%vx(1) = parts(j)%vx(1) + parts(i)%vx(1)*tmp
+              parts(j)%vx(2) = parts(j)%vx(2) + parts(i)%vx(2)*tmp
+              parts(j)%vx(3) = parts(j)%vx(3) - parts(i)%vx(3)*tmp
+            case (-3)
+              parts(j)%vx(1) = parts(j)%vx(1) - parts(i)%vx(1)*tmp
+              parts(j)%vx(2) = parts(j)%vx(2) + parts(i)%vx(2)*tmp
+              parts(j)%vx(3) = parts(j)%vx(3) + parts(i)%vx(3)*tmp
+            case (-4)
+              parts(j)%vx(1) = parts(j)%vx(1) + parts(i)%vx(1)*tmp
+              parts(j)%vx(2) = parts(j)%vx(2) - parts(i)%vx(2)*tmp
+              parts(j)%vx(3) = parts(j)%vx(3) + parts(i)%vx(3)*tmp
+            end select
          end if
-         if (abs(parts(i)%x(1) - vxmax) < scale_k*hsml .and. parts(i)%x(1) < vxmax) then
-            nghos_loc = nghos_loc + 1
-            ig = ntotal_loc + nhalo_loc + nvirt_loc + nghos_loc
-            gind(nghos_loc) = i
-            parts(ig) = parts(i)
-            parts(ig)%indloc = ig
-            parts(ig)%itype = 99
-            parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmax
-            parts(ig)%vx(1) = -parts(ig)%vx(1)
-         end if
-         if (abs(parts(i)%x(2) - vymin) < scale_k*hsml .and. parts(i)%x(2) > vymin) then
-            nghos_loc = nghos_loc + 1
-            ig = ntotal_loc + nhalo_loc + nvirt_loc + nghos_loc
-            gind(nghos_loc) = i
-            parts(ig) = parts(i)
-            parts(ig)%indloc = ig
-            parts(ig)%itype = 98
-            parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymin
-            parts(ig)%vx(2) = -parts(ig)%vx(2)
-         end if
-         if (abs(parts(i)%x(2) - vymax) < scale_k*hsml .and. parts(i)%x(2) < vymax) then
-            nghos_loc = nghos_loc + 1
-            ig = ntotal_loc + nhalo_loc + nvirt_loc + nghos_loc
-            gind(nghos_loc) = i
-            parts(ig) = parts(i)
-            parts(ig)%indloc = ig
-            parts(ig)%itype = 98
-            parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymax
-            parts(ig)%vx(2) = -parts(ig)%vx(2)
-         end if
-         if ((parts(i)%x(1) - vxmin)**2 + (parts(i)%x(2) - vymin)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) > vxmin) then
-            nghos_loc = nghos_loc + 1
-            ig = ntotal_loc + nhalo_loc + nvirt_loc + nghos_loc
-            gind(nghos_loc) = i
-            parts(ig) = parts(i)
-            parts(ig)%indloc = ig
-            parts(ig)%itype = 97
-            parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmin
-            parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymin
-            parts(ig)%vx(1) = -parts(ig)%vx(1)
-            parts(ig)%vx(2) = -parts(ig)%vx(2)
-         end if
-         if ((parts(i)%x(1) - vxmin)**2 + (parts(i)%x(2) - vymax)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) > vxmin) then
-            nghos_loc = nghos_loc + 1
-            ig = ntotal_loc + nhalo_loc + nvirt_loc + nghos_loc
-            gind(nghos_loc) = i
-            parts(ig) = parts(i)
-            parts(ig)%indloc = ig
-            parts(ig)%itype = 97
-            parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmin
-            parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymax
-            parts(ig)%vx(1) = -parts(ig)%vx(1)
-            parts(ig)%vx(2) = -parts(ig)%vx(2)
-         end if
-         if ((parts(i)%x(1) - vxmax)**2 + (parts(i)%x(2) - vymax)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) < vxmax) then
-            nghos_loc = nghos_loc + 1
-            ig = ntotal_loc + nhalo_loc + nvirt_loc + nghos_loc
-            gind(nghos_loc) = i
-            parts(ig) = parts(i)
-            parts(ig)%indloc = ig
-            parts(ig)%itype = 97
-            parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmax
-            parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymax
-            parts(ig)%vx(1) = -parts(ig)%vx(1)
-            parts(ig)%vx(2) = -parts(ig)%vx(2)
-         end if
-         if ((parts(i)%x(1) - vxmax)**2 + (parts(i)%x(2) - vymin)**2 < (scale_k*hsml)**2 .and. parts(i)%x(1) < vxmax) then
-            nghos_loc = nghos_loc + 1
-            ig = ntotal_loc + nhalo_loc + nvirt_loc + nghos_loc
-            gind(nghos_loc) = i
-            parts(ig) = parts(i)
-            parts(ig)%indloc = ig
-            parts(ig)%itype = 97
-            parts(ig)%x(1) = -parts(ig)%x(1) + 2._f*vxmax
-            parts(ig)%x(2) = -parts(ig)%x(2) + 2._f*vymin
-            parts(ig)%vx(1) = -parts(ig)%vx(1)
-            parts(ig)%vx(2) = -parts(ig)%vx(2)
+        end do
+      end do
+
+      do i = 1, nvirt_loc
+         if (vw(i) > 0._f) then
+            parts(ntotal_loc + nhalo_loc + i)%rho = parts(ntotal_loc + nhalo_loc + i)%rho/vw(i)
+            parts(ntotal_loc + nhalo_loc + i)%vx(:) = parts(ntotal_loc + nhalo_loc + i)%vx(:)/vw(i)
+         else
+            parts(ntotal_loc + nhalo_loc + i)%rho = irho
+            parts(ntotal_loc + nhalo_loc + i)%vx(:) = 0._f
          end if
       end do
 
-   end subroutine generate_ghost_part
-
-   !==============================================================================================================================
-   pure subroutine update_ghost_part(gind, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts)
-
-      implicit none
-      integer, intent(in):: ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, gind(:)
-      type(particles), intent(inout):: parts(:)
-      integer:: i, ig, ir
-
-      do i = 1, nghos_loc
-         ig = ntotal_loc + nhalo_loc + nvirt_loc + i
-         ir = gind(i)
-         select case (parts(ig)%itype)
-         case (99)
-            parts(ig)%rho = parts(ir)%rho
-            parts(ig)%p = parts(ir)%p
-            parts(ig)%vx(1) = -parts(ir)%vx(1)
-            parts(ig)%vx(2) = parts(ir)%vx(2)
-            parts(ig)%vx(3) = parts(ir)%vx(3)
-         case (98)
-            parts(ig)%rho = parts(ir)%rho
-            parts(ig)%p = parts(ir)%p
-            parts(ig)%vx(1) = parts(ir)%vx(1)
-            parts(ig)%vx(2) = -parts(ir)%vx(2)
-            parts(ig)%vx(3) = parts(ir)%vx(3)
-         case (97)
-            parts(ig)%rho = parts(ir)%rho
-            parts(ig)%p = parts(ir)%p
-            parts(ig)%vx(1) = -parts(ir)%vx(1)
-            parts(ig)%vx(2) = -parts(ir)%vx(2)
-            parts(ig)%vx(3) = parts(ir)%vx(3)
-         end select
-      end do
-
-   end subroutine update_ghost_part
-
-   !==============================================================================================================================
-   pure subroutine virt_mirror(pr, pv)
-
-      implicit none
-      type(particles), intent(in):: pr
-      type(particles), intent(inout):: pv
-      real(f):: da, db, beta
-      real(f), parameter:: beta_max = 5._f
-
-      da = ABS(pr%x(3) - vzmin)
-      db = ABS(pv%x(3) - vzmin)
-
-      beta = MIN(1._f + db/da, beta_max)
-      if (ISNAN(beta)) beta = beta_max
-
-      pv%rho = pr%rho
-      pv%p = pr%p
-      pv%vx(:) = (1._f - beta)*pr%vx(:)
-
-   end subroutine virt_mirror
+   end subroutine update_virt_part
 
 end module input_m

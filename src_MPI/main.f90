@@ -48,7 +48,8 @@ program SPH
    ! Generating initial geometry, performing initial partition, and assigning virtual and ghost particles.
    call generate_real_part(procid, numprocs, ntotal, ntotal_loc, parts)
    call ORB(0, procid, numprocs, MPI_types, scale_k, ntotal, ntotal_loc, nhalo_loc, nvirt_loc, parts, timings)
-   call generate_ghost_part(scale_k, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, gind)
+   ! call generate_ghost_part(scale_k, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, gind)
+   nghos_loc = 0
    call output(0, save_step, procid, numprocs, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, ntotal)
 
    !Entering discretized time-integration loop

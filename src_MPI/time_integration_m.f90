@@ -5,7 +5,7 @@ module time_integration_m
    use param, only: f, tf, dim, dt, rh0, c, gamma
    use param_para, only: MPI_derived_types
 
-   use input_m, only: generate_ghost_part, update_ghost_part
+   use input_m, only: update_virt_part
    use flink_list_m, only: flink_list
    use ORB_m, only: ORB, neighbours, n_process_neighbour
    use ORB_sr_m, only: ORB_sendrecv_haloupdate
@@ -34,9 +34,9 @@ contains
       integer:: i, ki, itimestep, niac
       real(f):: time = 0._f
       double precision:: tmptime ! used to record wall time measurements
-      real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drho(:, :)
+      real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drho(:, :), vw(:)
 
-      allocate (v_min(dim, maxnloc), rho_min(maxnloc), dvxdt(dim, maxnloc, 4), drho(maxnloc, 4))
+      allocate (v_min(dim, maxnloc), rho_min(maxnloc), dvxdt(dim, maxnloc, 4), drho(maxnloc, 4), vw(maxnloc))
       
       timings%t_wall = timings%t_wall - MPI_WTIME()
 
@@ -49,9 +49,6 @@ contains
          do i = 1, ntotal_loc + nhalo_loc
             parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1_f)/gamma
          end do
-
-         ! generating ghost particles
-         call generate_ghost_part(scale_k, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, gind)
 
          ! Storing velocity and density at initial time-step
          do i = 1, ntotal_loc
@@ -71,13 +68,12 @@ contains
                timings%t_dist = timings%t_dist + MPI_WTIME()
             end if
 
+            call update_virt_part(ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, niac, pairs, nexti, vw)
+
             ! update pressure of newly updated real and halo particles
-            do i = 1, ntotal_loc + nhalo_loc
+            do i = 1, ntotal_loc + nhalo_loc + nvirt_loc
                parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1_f)/gamma
             end do
-
-            ! update ghost particles
-            if (ki > 1) call update_ghost_part(gind, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts)
 
             ! calculating forces
             call single_step(ki, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, niac, pairs, dvxdt(:, :, ki), drho(:, ki), &
