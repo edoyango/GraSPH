@@ -5,7 +5,7 @@ module single_step_m
 contains
 
    !==============================================================================================================================
-   pure subroutine single_step(ki, ntotal, nvirt, nghos, niac, pairs, parts, dvxdti, drhoi, nexti)
+   pure subroutine single_step(ntotal, nvirt, nghos, niac, pairs, parts, dvxdti, drhoi, nexti)
       ! Container subroutine for all the rate-of-change calculations. Rate-of-changes are calculated seperately and then summed as
       ! required
 
@@ -15,7 +15,7 @@ contains
       use material_rates_m, only: con_density, art_visc_coeff, int_force_coeff
 
       implicit none
-      integer, intent(in):: ki, ntotal, nvirt, nghos, niac, nexti(:)
+      integer, intent(in):: ntotal, nvirt, nghos, niac, nexti(:)
       type(interactions), intent(in):: pairs(:)
       type(particles), intent(inout):: parts(:)
       real(f), intent(out):: dvxdti(dim, ntotal), drhoi(ntotal)
@@ -42,19 +42,11 @@ contains
 
             j = pairs(k)%j
 
-            ! if (parts(i)%itype > 0 .and. parts(j)%itype < 0) then
-            !    call virt_mirror(parts(i), parts(j))
-            !    prho(j) = prho(i)
-            ! elseif (parts(i)%itype < 0 .and. parts(j)%itype > 0) then
-            !    call virt_mirror(parts(j), parts(i))
-            !    prho(i) = prho(j)
-            ! end if
-
             !Density approximation or change rate
-            call con_density(ki, parts(i), parts(j), pairs(k)%dwdx, drhoi(i), drhoi(j))
+            call con_density(parts(i), parts(j), pairs(k)%dwdx, drhoi(i), drhoi(j))
 
             ! calculating coefficients for pressure force and artificial viscosity
-            a_coeff = int_force_coeff(ki, prho(i), prho(j)) + art_visc_coeff(ki, parts(i), parts(j))
+            a_coeff = int_force_coeff(prho(i), prho(j)) + art_visc_coeff(parts(i), parts(j))
             dvxdti(:, i) = dvxdti(:, i) + pairs(k)%dwdx(:)*a_coeff
             dvxdti(:, j) = dvxdti(:, j) - pairs(k)%dwdx(:)*a_coeff
 

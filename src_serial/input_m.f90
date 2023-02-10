@@ -122,10 +122,10 @@ contains
    end subroutine generate_virt_part
 
    !==============================================================================================================================
-    subroutine update_virt_part(ki, ntotal, nvirt, nghos, parts, niac, pairs, nexti, vw)
+    subroutine update_virt_part(ntotal, nvirt, nghos, parts, niac, pairs, nexti, vw)
 
        implicit none
-       integer, intent(in):: ki, ntotal, nvirt, nghos, niac, nexti(:)
+       integer, intent(in):: ntotal, nvirt, nghos, niac, nexti(:)
        type(interactions), intent(in):: pairs(:)
        type(particles), intent(inout):: parts(:)
        real(f), intent(inout):: vw(:)

@@ -1,7 +1,7 @@
 module time_integration_m
 
    use datatypes, only: particles, interactions, time_tracking, system_clock_timer
-   use param, only: f, tf, dim, rh0, gamma, c, dt
+   use param, only: f, tf, dim, rh0, gamma, c, dt, g
 
    use flink_list_m, only: flink_list
    use input_m, only: update_virt_part
@@ -28,42 +28,42 @@ contains
       type(interactions), intent(inout):: pairs(:)
       integer:: i, itimestep, ki, maxn
       double precision:: tmptime
-      real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drhodt(:, :), vw(:)
+      real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :), drhodt(:), vw(:)
 
       maxn = size(parts)
 
-      allocate (v_min(dim, ntotal), rho_min(ntotal), dvxdt(dim, maxn, 4), drhodt(maxn, 4), vw(maxn))
+      allocate (v_min(dim, ntotal), rho_min(ntotal), dvxdt(dim, maxn), drhodt(maxn), vw(maxn))
+
+      drhodt(1:ntotal) = 0._f
+      dvxdt(1:dim-1, 1:ntotal) = 0._f
+      dvxdt(dim, 1:ntotal) = -g
       
       timings%t_wall = timings%t_wall - system_clock_timer()
 
       ! Time-integration (Leap-Frog)
       do itimestep = 1, maxtimestep
 
-         ! Update density and velocity half a time step (not at first time-step)
-         do i = 1, ntotal
-            v_min(:, i) = parts(i)%vx(:)
-            rho_min(i) = parts(i)%rho
-            parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1_f)/gamma
-         end do
-
-         ! call generate_ghost_part(scale_k, ntotal, nvirt, nghos, parts, gind)
-
          !Interaction parameters, calculating neighboring particles
          call flink_list(scale_k, ntotal, nvirt, nghos, parts, niac, pairs, nexti)
 
-         do ki = 1, 4
+         ! Update density and velocity half a time step (not at first time-step)
+         do i = 1, ntotal
+            v_min(:, i) = parts(i)%vx(:)
+            parts(i)%vx(:) = parts(i)%vx(:) + 0.5_f*dt*dvxdt(:,i)
+            rho_min(i) = parts(i)%rho
+            parts(i)%rho = parts(i)%rho + 0.5_f*dt*drhodt(i)
+            parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1_f)/gamma
+         end do
 
-            call update_virt_part(ki, ntotal, nvirt, nghos, parts, niac, pairs, nexti, vw)
+         call update_virt_part(ntotal, nvirt, nghos, parts, niac, pairs, nexti, vw)
 
-            ! calculating rate of change of speed and density on particles
-            call single_step(ki, ntotal, nvirt, nghos, niac, pairs, parts, dvxdt(:, :, ki), drhodt(:, ki), nexti)
+         ! calculating rate of change of speed and density on particles
+         call single_step(ntotal, nvirt, nghos, niac, pairs, parts, dvxdt, drhodt, nexti)
 
-            ! applying update to particles
-            call RK4_update(ki, ntotal, v_min, rho_min, dvxdt, drhodt, parts)
-
-            ! updating ghost particles to reflect real particles
-            ! call update_ghost_part(ntotal, nvirt, nghos, gind, parts)
-
+         do i = 1,ntotal
+            parts(i)%vx(:) = v_min(:,i) + dt*dvxdt(:,i)
+            parts(i)%x(:) = parts(i)%x(:) + dt*parts(i)%vx(:)
+            parts(i)%rho = rho_min(i) + dt*drhodt(i)
          end do
 
          time = time + dt
