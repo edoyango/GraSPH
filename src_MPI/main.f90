@@ -7,7 +7,7 @@ program SPH
 
    use mpi_f08
    use output_m, only: output
-   use input_m, only: return_ntotal, return_nvirt, allocatePersistentArrays, generate_real_part, generate_ghost_part
+   use input_m, only: return_ntotal, return_nvirt, allocatePersistentArrays, generate_real_part
    use kernel_m, only: kernel_k
    use summary_m, only: preamble, time_print, print_summary
    use time_integration_m, only: time_integration

@@ -139,6 +139,11 @@ contains
       call MPI_WAITALL(n_request, request_halo, status, ierr)
 
       parts(ntotal_loc + 1:ntotal_loc + nhalo_loc)%itype = 2
+
+      do i = 1, n_process_neighbour
+         if (neighbours(i)%nhalo_send > 0) call MPI_TYPE_FREE(neighbours(i)%halotype_indexed, ierr)
+      end do
+      
       timings%t_dist = timings%t_dist + MPI_WTIME()
 
    end subroutine ORB
