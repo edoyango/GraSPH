@@ -6,13 +6,14 @@ module flink_list_m
    use cudafor
 
    private
+   real(f), parameter:: skin=0.05_f
 
    public:: flink_list, kernel_k
 
 contains
 
    !==============================================================================================================================
-   subroutine flink_list(ind_d, itype_d, x_d, vx_d, rho_d, p_d, scale_k, maxinter, n_p, niac_d, pairs_d)
+   subroutine flink_list(ind_d, itype_d, x_d, vx_d, rho_d, p_d, scale_k, maxinter, n_p, niac_d, pairs_d, xsincelast)
       ! save as above, but for 3D
       
       use thrust
@@ -21,16 +22,32 @@ contains
       real(f), intent(in):: scale_k
       integer, intent(in):: n_p, maxinter
       integer, device, intent(inout):: ind_d(n_p), itype_d(n_p)
-      real(f), device, intent(inout):: x_d(dim, n_p), vx_d(dim, n_p), rho_d(n_p), p_d(n_p)
-      integer, device, intent(out):: niac_d
-      type(interactions), device, intent(out):: pairs_d(maxinter)
+      real(f), device, intent(inout):: x_d(dim, n_p), vx_d(dim, n_p), rho_d(n_p), p_d(n_p), xsincelast(dim, n_p)
+      integer, device, intent(inout):: niac_d
+      type(interactions), device, intent(inout):: pairs_d(maxinter)
       integer, allocatable, device:: cellLoc(:,:)
       integer:: i, j, k, d, istat, ngridx(dim)
       real(f):: mingridx(dim), maxgridx(dim), dcell
       integer, device:: ngridx_d(dim), gridCellHash(n_p), j_d, mapping(n_p), itype_tmp(n_p), ind_tmp(n_p)
-      real(f), device:: mingridx_d(dim), maxgridx_d(dim), minx, miny, minz, maxx, maxy, maxz, p_tmp(n_p), rho_tmp(n_p), x_tmp(dim,n_p), vx_tmp(dim,n_p)
+      real(f), device:: mingridx_d(dim), maxgridx_d(dim), minx, miny, minz, maxx, maxy, maxz, p_tmp(n_p), rho_tmp(n_p), x_tmp(dim,n_p), vx_tmp(dim,n_p), rsincelast_d, r, dx(dim), hsml_d
+      real(f):: rsincelast
       
-      dcell = scale_k*hsml
+      dcell = (1._f+skin)*scale_k*hsml
+
+         rsincelast_d = 0._f
+         !$cuf kernel do (2) reduce(max:rsincelast_d)
+         do i = 1,n_p
+            do d = 1,dim
+               rsincelast_d = max(rsincelast_d, (x_d(d,i)-xsincelast(d,i))**2)
+            end do
+         end do
+         rsincelast = rsincelast_d
+         if (rsincelast <= skin*skin*scale_k*hsml*scale_k*hsml) then
+            hsml_d = hsml
+            call update_wdwdx<<<niac_d/1024+1, 1024>>>(hsml, n_p, niac_d, x_d, pairs_d)
+            return
+         end if
+
       minx = HUGE(1._f); miny = HUGE(1._f); minz = HUGE(1._f)
       maxx = -HUGE(1._f); maxy = -HUGE(1._f); maxz = -HUGE(1._f)
       !Determining bounding box extents
@@ -110,6 +127,8 @@ contains
       ! i = 0
       niac_d = 0
       call sweep <<< n_p/64 + 1, 64 >>> (x_d, itype_d, maxinter, scale_k, ngridx_d, n_p, gridCellHash, cellLoc, niac_d, pairs_d)
+
+      xsincelast = x_d
 
    end subroutine flink_list
 
@@ -195,7 +214,7 @@ contains
          
          dxiac(:) = xi(:) - xj(:)
          r = SQRT(SUM(dxiac*dxiac))
-         if (r < hsml*sk) then
+         if (r < (1._f+skin)*hsml*sk) then
             tmp = atomicadd(nij,1) + 1
             pij(tmp)%i = i
             pij(tmp)%j = j
@@ -310,4 +329,25 @@ contains
      
    end function hash2Cell
 
+   attributes(global) subroutine update_wdwdx(hsml, np, niac, x, pairs)
+
+      implicit none
+      real(f), intent(in), value:: hsml
+      integer, intent(in), value:: np
+      integer, intent(in):: niac
+      real(f), intent(in):: x(dim, np)
+      type(interactions), intent(inout):: pairs(niac)
+      integer:: i,j,k
+      real(f):: dx(dim), r
+
+      k = blockDim%x*(blockIdx%x - 1) + threadIdx%x
+      if (k <= niac) then
+         dx = x(:,pairs(k)%i) - x(:,pairs(k)%j)
+         r = sqrt(sum(dx*dx))
+         call kernel(r, dx, hsml, pairs(k)%w, pairs(k)%dwdx)
+      end if
+
+   end subroutine update_wdwdx
+
 end module flink_list_m
+
