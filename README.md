@@ -3,6 +3,7 @@ GraSPH is an SPH program originally inteded for simulations of bulk granular mat
 This repo contains Fortran source code files in src_serial, src_MPI, src_GPU, seperated by the level of paralellism. This code is an upgraded version of used in \[[1](https://doi.org/10.1016/j.compgeo.2020.103474), [2](https://doi.org/10.1007/s11440-021-01162-4), [3](https://doi.org/10.26180/14484099.v1)\]. Which incorporates more of Fortran and MPI's features, RK4 time-integration, structural changes enabling faster run times, and an option for GPU acceleration (although the speed-up is lacklustre). The code currently only simulation water via the classic "Weakly-compressible" approach. Simple granular models will be implemented soon.
 - src_serial contains code intended only on one core. Compilation requires only compiler (confirmed working with gfortran 9.4.0, ifort 2021.6.0).
 - src_MPI contains code intended to run multi-core configuration enabled with the MPI communication standard. (confirmed working with gfortran 9.4.0, ifort 2021.6.0, openmpi 4.1.2)
+  - NOTE: MPI version is no longer working and will be deprecated. Will be replace by a Fortran Coarray version instead.
 - src_GPU contains code intended to run on a CUDA-enabled GPU.
 
 NOTE This is a hobby project and is actively being developed. Major changes to the main branch can occur.
