@@ -1,6 +1,6 @@
 module summary_m
 
-   use datatypes, only: time_tracking
+   use datatypes, only: time_tracking, interactions
    use param, only: f, tf
 
    private
@@ -74,13 +74,17 @@ contains
    end subroutine print_summary
 
    !==================================================================================================================================
-   subroutine print_update(itimestep, maxtimestep, timings, time, ntotal, nvirt, nghos, niac)
+   subroutine print_update(itimestep, maxtimestep, timings, time, ntotal, nvirt, niac, pairs_d, ind)
+
+      use thrust
 
       implicit none
-      integer, intent(in):: itimestep, maxtimestep, ntotal, nvirt, nghos, niac(:)
+      integer, intent(in):: itimestep, maxtimestep, ntotal, nvirt, niac, ind(ntotal+nvirt)
       type(time_tracking), intent(in):: timings
+      type(interactions), device, intent(in):: pairs_d(niac)
       real(f), intent(in):: time
-      integer:: maxp, minp, sumiac, maxiac, miniac, noiac, i, j, k, d
+      integer::  i, k, d
+      integer, managed:: ns(ntotal+nvirt), maxp, minp, sumiac, maxiac, miniac, noiac, j
 
       write (*, '(A79)') '_______________________________________________________________________________'
       write (*, '(A22,I7,A1,I7,9x,A19,F14.7)') '  current time step = ', itimestep, '/', maxtimestep, &
@@ -88,32 +92,43 @@ contains
       write (*, '(A65,F14.7)') '                                                  Walltime (s) = ', timings%t_wall
       write (*, '(A79)') '_______________________________________________________________________________'
 
-      !Statistics for the interaction, Print information to screen
-      sumiac = 0
-      maxiac = -huge(1)
-      noiac = 0
-      miniac = huge(1)
-      maxp = 1
-      do i = 1, ntotal + nvirt + nghos
-         sumiac = sumiac + niac(i)*2
-         if (niac(i) > maxiac) then
-            maxiac = niac(i)
-            maxp = i
-         end if
-         if (niac(i) < miniac) then
-            miniac = niac(i)
-            minp = i
-         end if
-         if (niac(i) .eq. 0) noiac = noiac + 1
+      !$cuf kernel do (1) <<<*, 1024>>>
+      do i = 1,ntotal+nvirt
+         ns(i) = 0
       end do
-      write (*, '(A40,I7)') ' >> Statistics: no. of ghost particles: ', nghos
+
+      call countParticleInteractions<<<niac/32+1, 32>>>(niac, pairs_d, ntotal+nvirt, ns)
+
+      !Statistics for the interaction, Print information to screen
+      call thrustmaxelem(ns, maxiac, maxp, ntotal+nvirt)
+      call thrustminelem(ns, miniac, minp, ntotal+nvirt)
+      call thrustcountifzero(ns, noiac, ntotal+nvirt)
+      
       write (*, '(A42)') ' >> Statistics: interactions per particle:'
-      write (*, '(A14,I7,A23,I4)') '    Particle: ', maxp, ' maximal interactions: ', maxiac
-      write (*, '(A14,I7,A23,I4)') '    Particle: ', minp, ' minimal interactions: ', miniac
-      write (*, '(A14,F14.7)') '    Average : ', real(sumiac)/real(ntotal + nvirt + nghos)
-      write (*, '(A18,I9)') '    Total pairs : ', sumiac
+      write (*, '(A14,I7,A23,I4)') '    Particle: ', ind(maxp), ' maximal interactions: ', maxiac
+      write (*, '(A14,I7,A23,I4)') '    Particle: ', ind(minp), ' minimal interactions: ', miniac
+      write (*, '(A14,F14.7)') '    Average : ', 2.*real(niac)/real(ntotal + nvirt)
+      write (*, '(A18,I9)') '    Total pairs : ', niac
       write (*, '(A36,I7)') '    Particles with no interactions: ', noiac
 
    end subroutine print_update
+
+   !==================================================================================================================================
+   attributes(global) subroutine countParticleInteractions(niac, pij, np, ns)
+
+      implicit none
+      integer, value, intent(in):: niac, np
+      type(interactions), intent(in):: pij(niac)
+      integer, intent(inout):: ns(np)
+      integer:: k,tmp
+
+      k = blockDim%x*(blockIdx%x - 1) + threadIdx%x
+
+      if (k <= niac) then
+         tmp = atomicadd(ns(pij(k)%i), 1)
+         tmp = atomicadd(ns(pij(k)%j), 1)
+      end if
+
+   end subroutine countParticleInteractions
 
 end module summary_m

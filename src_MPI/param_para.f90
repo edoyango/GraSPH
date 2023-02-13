@@ -64,9 +64,9 @@ contains
       implicit none
       class(MPI_derived_types), intent(out):: self
       type(particles):: parts_dummy(2)
-      integer:: blockl(7), ierr
-      type(MPI_Datatype):: type(7)
-      integer(KIND=MPI_ADDRESS_KIND):: disp(7), basedisp
+      integer:: blockl(9), ierr
+      type(MPI_Datatype):: type(9)
+      integer(KIND=MPI_ADDRESS_KIND):: disp(9), basedisp
       integer, parameter:: sp = kind(1.)
 
       ! Selecting appropriate MPI float datatype
@@ -84,22 +84,24 @@ contains
       call MPI_GET_ADDRESS(parts_dummy(1)%indloc, disp(2), ierr)
       call MPI_GET_ADDRESS(parts_dummy(1)%itype, disp(3), ierr)
       call MPI_GET_ADDRESS(parts_dummy(1)%rho, disp(4), ierr)
-      call MPI_GET_ADDRESS(parts_dummy(1)%p, disp(5), ierr)
-      call MPI_GET_ADDRESS(parts_dummy(1)%x(1), disp(6), ierr)
-      call MPI_GET_ADDRESS(parts_dummy(1)%vx(1), disp(7), ierr)
+      call MPI_GET_ADDRESS(parts_dummy(1)%rho_min, disp(5), ierr)
+      call MPI_GET_ADDRESS(parts_dummy(1)%p, disp(6), ierr)
+      call MPI_GET_ADDRESS(parts_dummy(1)%x(1), disp(7), ierr)
+      call MPI_GET_ADDRESS(parts_dummy(1)%vx(1), disp(8), ierr)
+      call MPI_GET_ADDRESS(parts_dummy(1)%v_min(1), disp(9), ierr)
 
       ! Converting absolute addressed to relative address (relative to indglob)
       disp(:) = disp(:) - basedisp
 
       ! Size of each block in derived type
-      blockl(:) = (/1, 1, 1, 1, 1, dim, dim/)
+      blockl(:) = (/1, 1, 1, 1, 1, 1, dim, dim, dim/)
 
       ! Types of each block (MPI)
       type(1:3) = MPI_INTEGER
-      type(4:7) = self%ftype
+      type(4:9) = self%ftype
 
       ! Creating MPI user type
-      self%parttype = CreateMPITYPES_helper(7, disp, blockl, type)
+      self%parttype = CreateMPITYPES_helper(9, disp, blockl, type)
 
       ! Repeating process for halo exchanges (only subset) -------------------------------------------------------------------------
       ! Setting up type for initial halo particle exchange
@@ -153,7 +155,7 @@ contains
 
       call MPI_GET_ADDRESS(parts_dummy(1), disp_tmp(1), ierr)
       call MPI_GET_ADDRESS(parts_dummy(2), disp_tmp(2), ierr)
-      lb = 0; ext = disp_tmp(2) - disp_tmp(1)
+      lb = 0; ext = disp_tmp(2) - disp_tmp(1) - lb
       call MPI_TYPE_CREATE_RESIZED(tmptype, lb, ext, outtype, ierr)
       call MPI_TYPE_COMMIT(outtype, ierr)
       call MPI_TYPE_FREE(tmptype, ierr)

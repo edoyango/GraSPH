@@ -4,22 +4,24 @@ program SPH
    use param, only: skf, f
 
    use input_m, only: return_ntotal, return_nvirt, allocatePersistentArrays, generate_real_part, generate_virt_part
-   use kernel_m, only: kernel_k
+   use flink_list_m, only: kernel_k
    use output_m, only: output
    use summary_m, only: preamble, time_print, print_summary
    use time_integration_m, only: time_integration
 
    implicit none
-   integer:: maxn, ntotal, nvirt, nghos, print_step, save_step, maxtimestep
+   integer:: maxn, ntotal, nvirt, print_step, save_step, maxtimestep, maxinter
    real(f):: scale_k
-   integer, allocatable:: niac(:)
-   integer, allocatable, device:: niac_d(:)
-   type(particles), allocatable:: parts(:)
-   type(particles), allocatable, device:: parts_d(:)
-   type(interactions), allocatable:: pairs(:, :)
-   type(interactions), allocatable, device:: pairs_d(:, :)
+   integer:: niac
+   integer, device:: niac_d
+   integer, allocatable:: itype(:), ind(:)
+   integer, allocatable, device:: itype_d(:), ind_d(:)
+   real(f), allocatable:: p(:), rho(:), x(:,:), vx(:,:)
+   real(f), allocatable, device:: p_d(:), rho_d(:), x_d(:,:), vx_d(:,:)
+   type(interactions), allocatable:: pairs(:)
+   type(interactions), allocatable, device:: pairs_d(:)
    type(time_tracking):: timings
-   integer, parameter:: maxinter_perp = 135
+   integer, parameter:: maxinter_perp = 120
 
    !Printing preamble to screen
    call preamble(maxtimestep, print_step, save_step)
@@ -33,16 +35,17 @@ program SPH
    write (*, '(A24,1x,I9,1x,A19)') 'Total simulation size of', ntotal, 'physical particles.'
    write (*, '(A24,1x,I9,1x,A19)') '                        ', nvirt, 'virtual particles.'
 
-   call allocatePersistentArrays(ntotal, nvirt, maxn, maxinter_perp, parts, parts_d, pairs, pairs_d, niac, niac_d)
+   call allocatePersistentArrays(ntotal, nvirt, maxn, maxinter_perp, maxinter, pairs, pairs_d, itype, ind, itype_d, ind_d, p, &
+   rho, x, vx, p_d, rho_d, x_d, vx_d)
 
    !Creat physical and virtual boundary particles
-   call generate_real_part(ntotal, parts)
-   call generate_virt_part(ntotal, nvirt, parts)
-   call output(0, save_step, ntotal, nvirt, 0, parts)
+   call generate_real_part(ntotal, itype, ind, p, rho, x, vx)
+   call generate_virt_part(ntotal, nvirt, itype, ind, p, rho, x, vx)
+   call output(0, save_step, ntotal, nvirt, itype, ind, p, rho, x, vx)
 
    !Entering discretized time-integration loop
-   call time_integration(scale_k, print_step, save_step, maxtimestep, timings, maxinter_perp, maxn, ntotal, nvirt, nghos, parts, &
-                         parts_d, niac, niac_d, pairs, pairs_d)
+   call time_integration(scale_k, print_step, save_step, maxtimestep, timings, maxinter, maxn, ntotal, nvirt, niac, niac_d, &
+   pairs, pairs_d, itype, ind, itype_d, ind_d, p, rho, x, vx, p_d, rho_d, x_d, vx_d)
 
    !Printing post-amble to terminal
    call time_print

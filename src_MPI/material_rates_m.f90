@@ -9,12 +9,11 @@ module material_rates_m
 contains
 
    !=================================================================================
-   pure subroutine art_visc(ki, p_i, p_j, dwdx, ardvxdti, ardvxdtj)
+   pure subroutine art_visc(p_i, p_j, dwdx, ardvxdti, ardvxdtj)
 
       use param, only: alpha, beta, etq, hsml, c
 
       implicit none
-      integer, intent(in):: ki
       type(particles), intent(in):: p_i, p_j
       real(f), intent(in):: dwdx(dim)
       real(f), intent(inout):: ardvxdti(dim), ardvxdtj(dim)
@@ -36,12 +35,11 @@ contains
    end subroutine art_visc
 
    !=================================================================================
-   pure subroutine ext_force(ki, p_i, p_j, dwdx, exdvxdti, exdvxdtj)
+   pure subroutine ext_force(p_i, p_j, dwdx, exdvxdti, exdvxdtj)
 
       use param, only: p1, p2, rr0, dd
 
       implicit none
-      integer, intent(in):: ki
       type(particles), intent(in):: p_i, p_j
       real(f), intent(in):: dwdx(dim)
       real(f), intent(inout):: exdvxdti(dim), exdvxdtj(dim)
@@ -59,10 +57,9 @@ contains
    end subroutine ext_force
 
    !=================================================================================
-   pure subroutine int_force(ki, p_i, p_j, dwdx, indvxdti, indvxdtj)
+   pure subroutine int_force(p_i, p_j, dwdx, indvxdti, indvxdtj)
 
       implicit none
-      integer, intent(in):: ki
       type(particles), intent(in):: p_i, p_j
       real(f), intent(in):: dwdx(dim)
       real(f), intent(inout):: indvxdti(dim), indvxdtj(dim)
@@ -75,10 +72,9 @@ contains
    end subroutine int_force
 
    !=================================================================================
-   pure subroutine con_density(ki, p_i, p_j, dwdx, codrhodti, codrhodtj)
+   pure subroutine con_density(p_i, p_j, dwdx, codrhodti, codrhodtj)
 
       implicit none
-      integer, intent(in):: ki
       type(particles), intent(in):: p_i, p_j
       real(f), intent(in):: dwdx(dim)
       real(f), intent(inout):: codrhodti, codrhodtj
@@ -94,12 +90,11 @@ contains
    end subroutine con_density
 
    !=================================================================================
-   pure function art_visc_coeff(ki, p_i, p_j) result(coeff)
+   pure function art_visc_coeff(p_i, p_j) result(coeff)
 
       use param, only: alpha, beta, etq, hsml, c
 
       implicit none
-      integer, intent(in):: ki
       type(particles), intent(in):: p_i, p_j
       real(f):: dx(dim), piv(dim), muv, vr, rr, mrho, coeff
 
@@ -116,10 +111,9 @@ contains
    end function art_visc_coeff
 
    !=================================================================================
-   pure function int_force_coeff(ki, prhoi, prhoj) result(coeff)
+   pure function int_force_coeff(prhoi, prhoj) result(coeff)
 
       implicit none
-      integer, intent(in):: ki
       real(f), intent(in):: prhoi, prhoj
       real(f):: coeff
 

@@ -9,13 +9,13 @@ module datatypes
    !variable to store particle data
    type particles
       integer:: itype, indloc, indglob
-      real(f):: rho, p
-      real(f):: x(dim), vx(dim)
+      real(f):: rho, rho_min, p
+      real(f):: x(dim), vx(dim), v_min(dim)
    end type particles
 
    !variable to store particle interaction information
    type interactions
-      integer:: j
+      integer:: i, j
       real(f):: w, dwdx(dim)
    end type interactions
 

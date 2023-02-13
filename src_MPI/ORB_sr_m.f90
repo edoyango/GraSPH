@@ -237,15 +237,15 @@ contains
       pos1 = ntotal_loc
 
       ! Begin search
-      xmin_loc = bounds_loc(1:dim) + scale_k*hsml
-      xmax_loc = bounds_loc(dim + 1:2*dim) - scale_k*hsml
+      xmin_loc = bounds_loc(1:dim) + 2._f*scale_k*hsml
+      xmax_loc = bounds_loc(dim + 1:2*dim) - 2._f*scale_k*hsml
       do k = 1, maxloop
          do i = pos0, pos1
             xi(:) = parts(i)%x(:)
             if (any([xi(:) .le. xmin_loc(:), xi(:) .ge. xmax_loc(:)])) then ! if particle is potentially neighbour's halo
                do j = 1, n_process_neighbour
-                  xmin_rem(:) = neighbours(j)%bounds(1:dim) - scale_k*hsml
-                  xmax_rem(:) = neighbours(j)%bounds(dim + 1:2*dim) + scale_k*hsml
+                  xmin_rem(:) = neighbours(j)%bounds(1:dim) - 2._f*scale_k*hsml
+                  xmax_rem(:) = neighbours(j)%bounds(dim + 1:2*dim) + 2._f*scale_k*hsml
                   if (all([xi(:) .ge. xmin_rem(:), xi(:) .le. xmax_rem(:)])) then
 
                      neighbours(j)%nhalo_send = neighbours(j)%nhalo_send + 1

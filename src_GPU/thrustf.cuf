@@ -1,0 +1,46 @@
+module thrust
+  
+  interface thrustsortbykey
+  
+    subroutine sortbykey_int(keys_in,values_in,N) bind(C,name="sortbykey_int_wrapper")
+      use iso_c_binding
+      integer(c_int), device, intent(inout):: keys_in(*), values_in(*)
+      integer(c_int), value, intent(in):: N
+    end subroutine sortbykey_int
+    
+  end interface thrustsortbykey
+
+  interface thrustmaxelem
+
+    subroutine maxelem_int(data, maxvalue, maxindex, N) bind(C,name="max_int_wrapper")
+      use iso_c_binding
+      integer(c_int), device, intent(in):: data(*)
+      integer(c_int), value, intent(in):: N
+      integer(c_int), device, intent(out):: maxvalue, maxindex
+    end subroutine maxelem_int
+  
+  end interface thrustmaxelem
+
+  interface thrustminelem
+
+    subroutine minelem_int(data, minvalue, minindex, N) bind(C,name="min_int_wrapper")
+      use iso_c_binding
+      integer(c_int), device, intent(in):: data(*)
+      integer(c_int), value, intent(in):: N
+      integer(c_int), device, intent(out):: minvalue, minindex
+    end subroutine minelem_int
+  
+  end interface thrustminelem
+
+  interface thrustcountifzero
+
+    subroutine countifzero_int(data, nzero, N) bind(C, name="countifzero_int_wrapper")
+      use iso_c_binding
+      integer(c_int), device, intent(in):: data(*)
+      integer(c_int), value, intent(in):: N
+      integer(c_int), device, intent(out):: nzero
+    end subroutine countifzero_int
+
+  end interface thrustcountifzero
+  
+end module thrust

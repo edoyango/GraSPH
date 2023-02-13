@@ -92,10 +92,12 @@ contains
       call MPI_WAIT(request(4), status(4), ierr) ! Waiting for non-blocking exchange to complete
 
       global_dims(:) = [dim, sum(nghos_glob)]
-      displ(:) = [0, SUM(nghos_glob(1:procid))] ! hdf5 works with 0-indexing
+      if (global_dims(2) > 0) then
+         displ(:) = [0, SUM(nghos_glob(1:procid))] ! hdf5 works with 0-indexing
 
-      call write_particle_data(procid, fid, 'ghos', global_dims, displ, &
-                               parts(ntotal_loc + nhalo_loc + nvirt_loc + 1:ntotal_loc + nhalo_loc + nvirt_loc + nghos_loc))
+         call write_particle_data(procid, fid, 'ghos', global_dims, displ, &
+                                  parts(ntotal_loc + nhalo_loc + nvirt_loc + 1:ntotal_loc + nhalo_loc + nvirt_loc + nghos_loc))
+      end if
 
       ! Closing output file
       call h5fclose_f(fid, ierr)

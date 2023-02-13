@@ -2,10 +2,10 @@ module time_integration_m
 
    use datatypes, only: particles, interactions, time_tracking
    use mpi_f08
-   use param, only: f, tf, dim, dt, rh0, c, gamma
+   use param, only: f, tf, dim, dt, rh0, c, gamma, g
    use param_para, only: MPI_derived_types
 
-   use input_m, only: generate_ghost_part, update_ghost_part
+   use input_m, only: update_virt_part
    use flink_list_m, only: flink_list
    use ORB_m, only: ORB, neighbours, n_process_neighbour
    use ORB_sr_m, only: ORB_sendrecv_haloupdate
@@ -34,58 +34,57 @@ contains
       integer:: i, ki, itimestep, niac
       real(f):: time = 0._f
       double precision:: tmptime ! used to record wall time measurements
-      real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :, :), drho(:, :)
+      real(f), allocatable:: v_min(:, :), rho_min(:), dvxdt(:, :), drho(:), vw(:)
 
-      allocate (v_min(dim, maxnloc), rho_min(maxnloc), dvxdt(dim, maxnloc, 4), drho(maxnloc, 4))
+      allocate (v_min(dim, maxnloc), rho_min(maxnloc), dvxdt(dim, maxnloc), drho(maxnloc), vw(maxnloc))
+
+      drho(:) = 0._f
+      dvxdt(1:dim-1,:) = 0._f
+      dvxdt(dim, :) = -g
       
       timings%t_wall = timings%t_wall - MPI_WTIME()
 
       ! Time-integration (Leap-Frog)
       do itimestep = 1, maxtimestep
 
+         ! save properties at start of step, update properties to mid-step.
+         do i = 1,ntotal_loc
+            parts(i)%v_min(:) = parts(i)%vx(:)
+            parts(i)%vx(:) = parts(i)%vx(:) + 0.5_f*dt*dvxdt(:,i)
+            parts(i)%rho_min = parts(i)%rho
+            parts(i)%rho = parts(i)%rho + 0.5_f*dt*drho(i)
+         end do
+
          ! distributing particles
          call ORB(itimestep, procid, numprocs, MPI_types, scale_k, ntotal, ntotal_loc, nhalo_loc, nvirt_loc, parts, timings)
-
-         do i = 1, ntotal_loc + nhalo_loc
-            parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1_f)/gamma
-         end do
-
-         ! generating ghost particles
-         call generate_ghost_part(scale_k, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, gind)
-
-         ! Storing velocity and density at initial time-step
-         do i = 1, ntotal_loc
-            v_min(:, i) = parts(i)%vx(:)
-            rho_min(i) = parts(i)%rho
-         end do
 
          !Interaction parameters, calculating neighboring particles
          call flink_list(maxinter, scale_k, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, niac, parts, pairs, nexti)
 
-         do ki = 1, 4
-
             ! update halo particles after first increment
-            if (ki > 1) then
-               timings%t_dist = timings%t_dist - MPI_WTIME()
-               call ORB_sendrecv_haloupdate(ki, MPI_types%haloupdatetype, n_process_neighbour, neighbours, ntotal_loc, parts)
-               timings%t_dist = timings%t_dist + MPI_WTIME()
-            end if
+            ! if (ki > 1) then
+            !    timings%t_dist = timings%t_dist - MPI_WTIME()
+            !    call ORB_sendrecv_haloupdate(ki, MPI_types%haloupdatetype, n_process_neighbour, neighbours, ntotal_loc, parts)
+            !    timings%t_dist = timings%t_dist + MPI_WTIME()
+            ! end if
+
+            call update_virt_part(ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, niac, pairs, nexti, vw)
 
             ! update pressure of newly updated real and halo particles
-            do i = 1, ntotal_loc + nhalo_loc
+            do i = 1, ntotal_loc + nhalo_loc + nvirt_loc
                parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1_f)/gamma
             end do
 
-            ! update ghost particles
-            if (ki > 1) call update_ghost_part(gind, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts)
-
             ! calculating forces
-            call single_step(ki, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, niac, pairs, dvxdt(:, :, ki), drho(:, ki), &
-                             nexti)
+            call single_step(ntotal_loc, nhalo_loc, nvirt_loc, parts, niac, pairs, dvxdt, drho, nexti)
 
-            call RK4_update(ki, ntotal_loc, v_min, rho_min, dvxdt, drho, parts)
+            ! call RK4_update(ki, ntotal_loc, v_min, rho_min, dvxdt, drho, parts)
 
-         end do
+            do i = 1,ntotal_loc
+               parts(i)%vx(:) = parts(i)%v_min(:) + dt*dvxdt(:,i)
+               parts(i)%x(:) = parts(i)%x(:) + dt*parts(i)%vx(:)
+               parts(i)%rho = parts(i)%rho_min + dt*drho(i)
+            end do
 
          time = time + dt
 
