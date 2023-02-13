@@ -46,7 +46,7 @@ contains
       maxnloc = ntotal + nvirt
       maxinter = 262*maxnloc
 
-      allocate (parts(maxnloc)[*], pairs(maxinter), nexti(maxnloc + 1))
+      allocate (parts(maxnloc) [*], pairs(maxinter), nexti(maxnloc + 1))
 
    end subroutine allocatePersistentArrays
 
@@ -68,7 +68,7 @@ contains
       else
          n_loc = n_loc_i
       end if
-      n_start = (thisImage-1)*n_loc_i + 1
+      n_start = (thisImage - 1)*n_loc_i + 1
       n_done = n_start + n_loc_i - 1
 
       ! stopping program if array bounds are exceeded
