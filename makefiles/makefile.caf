@@ -7,6 +7,7 @@ _OBJ=param.caf.o \
 datatypes.caf.o \
 kernel_m.caf.o \
 param_para.caf.o \
+ORB_sr_m.caf.o \
 ORB_m.caf.o \
 summary_m.caf.o \
 input_m.caf.o \
@@ -34,10 +35,16 @@ $(SDIR)/%.f90 \
 $(ODIR)/param.caf.o
 	$(FC) -c -o $@ $< $(MAKE_FCFLAGS)
 
+$(ODIR)/ORB_sr_m.caf.o: \
+$(ODIR)/%.caf.o: \
+$(SDIR)/%.f90 \
+$(addprefix $(ODIR)/,param.caf.o datatypes.caf.o param_para.caf.o)
+	$(FC) -c -o $@ $< $(MAKE_FCFLAGS)
+
 $(ODIR)/ORB_m.caf.o: \
 $(ODIR)/%.caf.o: \
 $(SDIR)/%.f90 \
-$(ODIR)/param.caf.o $(ODIR)/datatypes.caf.o
+$(addprefix $(ODIR)/,param.caf.o datatypes.caf.o param_para.caf.o ORB_sr_m.caf.o)
 	$(FC) -c -o $@ $< $(MAKE_FCFLAGS)
 
 $(ODIR)/summary_m.caf.o $(ODIR)/param_para.caf.o: \
