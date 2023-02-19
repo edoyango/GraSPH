@@ -25,13 +25,12 @@ contains
       implicit none
       integer, intent(in):: thisImage, numImages, itimestep, ntotal
       real(f), intent(in):: scale_k
-      type(particles), intent(inout):: parts(:)
+      type(particles), codimension[*], intent(inout):: parts(:)
       type(time_tracking), intent(inout):: timings
-      integer, intent(inout):: ntotal_loc, nhalo_loc, nvirt_loc
+      integer, codimension[*], intent(inout):: ntotal_loc, nhalo_loc, nvirt_loc
       integer:: tree_layers, maxnode, stepsSincePrevious, ngridx(3), i, j, k, d, imageRange_ini(2), gridind_ini(3, 2), &
          nphys_recv_all
       real(f):: mingridx_ini(3), maxgridx_ini(3), current_to_previous(dim, dim), box_ratio_current(dim, dim)
-      real(f), allocatable:: bounds_glob(:, :)[:]
       logical:: free_face(2*dim) = .true.
 
       !allocating partitioning arrays and initialising diagnostic variables ------------------------------------------
@@ -68,8 +67,7 @@ contains
             partition_track%prev_part_tstep = itimestep
 
             ! Creating particle-in-cell grid
-            call particle_grid(thisImage, numImages, ntotal_loc, parts(1:ntotal_loc), ngridx, mingridx_ini, maxgridx_ini, &
-                               pincell_ORB, cellmins, cellmaxs)
+            call particle_grid(thisImage, numImages, ntotal_loc, parts(1:ntotal_loc), ngridx, mingridx_ini, maxgridx_ini)
 
             do d = 1,dim
                box_ratio_current(:, d) = DBLE(ngridx(d))/DBLE(ngridx(:))
@@ -107,9 +105,12 @@ contains
       end if
 
       timings%t_ORB = timings%t_ORB + system_clock_timer() ! conclude timing of ORB algorithm
+      if (thisImage==1) write(*,*) timings%t_ORB
 
       ! Particle distribution (physical, halo) -------------------------------------------------------------------------
       timings%t_dist = timings%t_dist - system_clock_timer() ! commence timing of particle distribution
+
+      sync all
 
       ! physical particle distribution
       call ORB_sendrecv_diffuse(itimestep, thisImage, bounds_loc, repartition_mode, n_process_neighbour, neighbours, &
@@ -119,15 +120,13 @@ contains
    end subroutine ORB
 
    !====================================================================================================================
-   subroutine particle_grid(thisImage, numImages, ntotal_loc, parts, ngridx, mingridx, maxgridx, pincell_ORB, &
-      cellmins, cellmaxs)
+   subroutine particle_grid(thisImage, numImages, ntotal_loc, parts, ngridx, mingridx, maxgridx)
 
       implicit none
       integer, intent(in):: thisImage, numImages, ntotal_loc
       type(particles), intent(in):: parts(:)
-      integer, intent(out):: ngridx(3), cellmins(3, numImages)[*], cellmaxs(3, numImages)[*]
+      integer, intent(out):: ngridx(3)
       real(f), intent(out):: mingridx(3), maxgridx(3)
-      integer, allocatable, intent(inout):: pincell_ORB(:, :, :)[:]
       real(f):: minx(3), maxx(3)
       integer:: i, j, k, d, cellrange(3), icell(3), n_nonzerocells, n, otherImage
 
@@ -193,6 +192,7 @@ contains
       ! for neighbourness
 
       use param_para, only: bound_extend
+      use iso_fortran_env, only: lock_type
 
       implicit none
       integer, intent(in):: thisImage, numImages, gridind_in(3, 2), numImages_in, node_in, &
@@ -299,6 +299,7 @@ contains
             if (.not.(any(bounds_loc(1:3)-scale_k*hsml > bounds_loc(4:6)[otherImage]) .or. &
                       any(bounds_loc(4:6)+scale_k*hsml < bounds_loc(1:3)[otherImage]))) then
                n_process_neighbour = n_process_neighbour + 1
+               neighbours(n_process_neighbour)%image = otherImage
                neighbours(n_process_neighbour)%bounds(:) = bounds_loc(:)[otherImage]
             end if
          end do

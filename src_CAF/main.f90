@@ -8,8 +8,8 @@ program SPH
    use summary_m, only: preamble
 
    implicit none
-   integer:: thisImage, numImages, maxtimestep, print_step, save_step, ntotal, nvirt, maxnloc, maxinter, ntotal_loc=0, &
-             nvirt_loc=0, nhalo_loc=0, i
+   integer:: thisImage, numImages, maxtimestep, print_step, save_step, ntotal, nvirt, maxnloc, maxinter, i
+   integer, codimension[*]:: ntotal_loc, nhalo_loc, nvirt_loc
    real(f):: scale_k
    integer, allocatable:: nexti(:)
    type(particles), allocatable, codimension[:]:: parts(:)
