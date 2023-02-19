@@ -1,18 +1,18 @@
 module ORB_sr_m
 
-   use datatypes, only: particles
+   use datatypes, only: particles, system_clock_timer
    use iso_fortran_env, only: lock_type
    use param_para, only: neighbour_data
-   use param, only: f, dim, hsml
+   use param, only: tf, f, dim, hsml
 
    private
-   public:: ORB_sendrecv_diffuse
+   public:: ORB_sendrecv_diffuse, ORB_sendrecv_halo
 
 contains
 
    !===================================================================================================================
    subroutine ORB_sendrecv_diffuse(itimestep, thisImage, bounds_loc, repartition_mode, n_process_neighbour, &
-                                    neighbours, n_recv_all, ntotal_loc, parts)
+                                    neighbours, old_ntotal_loc, ntotal_loc, parts)
       ! Recursive function to exchange physical particles. In cases were subdomain boundaries are updated, the possibility of needing
       ! diffusion is considered
 
@@ -22,15 +22,18 @@ contains
       integer, codimension[*], intent(inout):: ntotal_loc
       type(particles), codimension[*], intent(inout):: parts(:)
       type(neighbour_data), intent(inout):: neighbours(:)
-      integer, intent(out):: n_recv_all
-      integer:: i, j, k, d, n, searchrange(2), entrydepth=0, nphys_send_all, ndiffuse, diff_dest, displ0, displ1, &
-         old_ntotal_loc, neighbourImageIDs(n_process_neighbour)
+      integer, intent(out):: old_ntotal_loc
+      integer:: i, j, k, d, n, searchrange(2), entrydepth, nphys_send_all, ndiffuse, diff_dest, displ0, displ1, &
+         neighbourImageIDs(n_process_neighbour)
       real(f):: xmin_loc(dim), xmax_loc(dim), xi(dim), xmin_rem(dim), xmax_rem(dim), dr_min, dr
-      logical:: diffuse = .true.
+      real(tf):: tmptime
+      logical:: diffuse
       integer, allocatable:: removal_list(:)
       type(lock_type), save:: lock[*]
 
       ! Initialization
+      diffuse = .true.
+      entrydepth = 0
       searchrange(:) = [1, ntotal_loc]
       xmin_loc(:) = bounds_loc(1:dim)
       xmax_loc(:) = bounds_loc(dim+1:2*dim)
@@ -57,6 +60,8 @@ contains
             neighbours(i)%nphys_send = 0
             allocate( neighbours(i)%PhysPackSend(nphys_send_all))
          end do
+
+         tmptime = -system_clock_timer()
 
          ndiffuse = 0
          if (nphys_send_all > 0) then
@@ -114,6 +119,8 @@ contains
          ntotal_loc = ntotal_loc - nphys_send_all
          old_ntotal_loc = ntotal_loc
 
+         sync all
+
          ! neighbourImageIDs introduced because sync images didn't like non-contiguous arrays
          neighbourImageIDs = neighbours(1:n_process_neighbour)%image
          ! ensuring neighbour images have up-to-date ntotal_loc values
@@ -125,14 +132,23 @@ contains
 
                ! lock neighbour image, so this image can update ntotal_loc value
                lock(lock[neighbours(i)%image])
-               displ0 = ntotal_loc[neighbours(i)%image] + 1
-               displ1 = displ0 + neighbours(i)%nphys_send - 1
-               ntotal_loc[neighbours(i)%image] = displ1
+               neighbours(i)%physdispl(1) = ntotal_loc[neighbours(i)%image] + 1
+               neighbours(i)%physdispl(2) = neighbours(i)%physdispl(1) + neighbours(i)%nphys_send - 1
+               ntotal_loc[neighbours(i)%image] = neighbours(i)%physdispl(2)
                unlock(lock[neighbours(i)%image])
-
-               parts(displ0:displ1)[neighbours(i)%image] = neighbours(i)%PhysPackSend(1:neighbours(i)%nphys_send)
             end if
          end do
+
+         do i = 1, n_process_neighbour
+            if (neighbours(i)%nphys_send > 0) then
+               parts(neighbours(i)%physdispl(1):neighbours(i)%physdispl(2))[neighbours(i)%image] = &
+                  neighbours(i)%PhysPackSend(1:neighbours(i)%nphys_send)
+            end if
+         end do
+
+         tmptime = tmptime + system_clock_timer()
+
+         write(*,*) thisImage, tmptime
 
          ! if subdomain boundary update has occurred, check if diffusion is necessary.
          ! Perform if necessary
@@ -163,14 +179,102 @@ contains
 
          deallocate(removal_list)
 
+         sync images(neighbourImageIDs) ! ensuring transfer between neighbours have completed
+
          do i = 1, n_process_neighbour
             deallocate( neighbours(i)%PhysPackSend)
          end do
-
-         sync images(neighbourImageIDs) ! ensuring transfer between neighbours have completed
             
       end do diffuseloop
 
    end subroutine ORB_sendrecv_diffuse
+
+   !====================================================================================================================
+   subroutine ORB_sendrecv_halo(thisImage, bounds_loc, scale_k, n_process_neighbour, neighbours, old_ntotal_loc, &
+      ntotal_loc, nhalo_loc, parts)
+
+      !subroutine responsible for sending sending halo particle information between processes, given
+      !predetermined subdomain boundaires.
+      !Note: subdomain boundaries are used as inputs (bounds_glob).
+
+      implicit none
+      integer, intent(in):: thisImage, n_process_neighbour, old_ntotal_loc
+      integer, codimension[*], intent(in):: ntotal_loc
+      real(f), intent(in):: bounds_loc(2*dim), scale_k
+      type(neighbour_data), intent(inout):: neighbours(n_process_neighbour)
+      integer, codimension[*], intent(out):: nhalo_loc
+      type(particles), codimension[*], intent(inout):: parts(:)
+      integer:: i, j, k, d, n, searchrange(2), neighbourImageIDs(n_process_neighbour), displ0, displ1
+      real(f):: xmin_loc(dim), xmax_loc(dim), xi(dim), tmptime
+      type(lock_type), codimension[*], save:: lock
+
+      ! initialization
+      nhalo_loc = 0 
+
+      do i = 1, n_process_neighbour
+         neighbours(i)%nhalo_send = 0
+         if (allocated(neighbours(i)%halo_pindex) .and. ntotal_loc > size(neighbours(i)%halo_pindex)) &
+            deallocate(neighbours(i)%halo_pindex)
+         if (.not.allocated(neighbours(i)%halo_pindex)) allocate(neighbours(i)%halo_pindex(ntotal_loc))
+         if (allocated(neighbours(i)%HaloPackSend) .and. ntotal_loc > size(neighbours(i)%HaloPackSend)) &
+            deallocate(neighbours(i)%HaloPackSend)
+         if (.not.allocated(neighbours(i)%HaloPackSend)) allocate(neighbours(i)%HaloPackSend(ntotal_loc))
+      end do
+
+      neighbourImageIDs(:) = neighbours(1:n_process_neighbour)%image
+
+      ! halo particle send location determination
+      ! first loop loops over currently held particles
+      searchrange(:) = [1, old_ntotal_loc]
+      tmptime = -system_clock_timer()
+      ! begin search
+      xmin_loc = bounds_loc(1:dim) + 2._f*scale_k*hsml
+      xmax_loc = bounds_loc(dim + 1:2*dim) - 2._f*scale_k*hsml
+      do k = 1, 2
+         do i = searchrange(1), searchrange(2)
+            xi(:) = parts(i)%x(:)
+            if (any([xi(:) <= xmin_loc(:), xi(:) >= xmax_loc(:)])) then
+               do j = 1, n_process_neighbour
+                  if (all([xi(:) >= neighbours(j)%bounds(1:dim) - 2._f*scale_k*hsml, &
+                           xi(:) <= neighbours(j)%bounds(dim+1:2*dim) + 2._f*scale_k*hsml])) then
+                     neighbours(j)%nhalo_send = neighbours(j)%nhalo_send + 1
+                     neighbours(j)%halo_pindex(neighbours(j)%nhalo_send) = i
+                     neighbours(j)%HaloPackSend(neighbours(j)%nhalo_send) = parts(i)
+                  end if
+               end do
+            end if
+         end do
+
+         ! waiting for physicla particles to complete exchange if needed
+         sync images(neighbourImageIDs)
+
+         searchrange(:) = [old_ntotal_loc+1, ntotal_loc]
+
+      end do
+
+      ! each process places particles destined for another image, into that image's particle array
+      do i = 1, n_process_neighbour
+         if (neighbours(i)%nhalo_send > 0) then
+
+            ! lock neighbour image, so this image can update ntotal_loc value
+            lock(lock[neighbours(i)%image])
+            neighbours(i)%halodispl(1) = nhalo_loc[neighbours(i)%image] + 1
+            neighbours(i)%halodispl(2) = neighbours(i)%halodispl(1) + neighbours(i)%nhalo_send - 1
+            nhalo_loc[neighbours(i)%image] = neighbours(i)%halodispl(2)
+            unlock(lock[neighbours(i)%image])
+            neighbours(i)%halodispl(:) = neighbours(i)%halodispl(:) + ntotal_loc[neighbours(i)%image]
+         end if
+      end do
+
+      do i = 1, n_process_neighbour
+         if (neighbours(i)%nhalo_send > 0) then
+            parts(neighbours(i)%halodispl(1):neighbours(i)%halodispl(2))[neighbours(i)%image] = &
+               neighbours(i)%HaloPackSend(1:neighbours(i)%nhalo_send)
+         end if
+      end do
+
+      tmptime=tmptime+system_clock_timer()
+
+   end subroutine ORB_sendrecv_halo
 
 end module ORB_sr_m

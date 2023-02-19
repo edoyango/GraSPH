@@ -1,7 +1,8 @@
 module ORB_m
 
    use datatypes, only: particles, time_tracking, system_clock_timer
-   use ORB_sr_m, only: ORB_sendrecv_diffuse
+   use input_m, only: generate_virt_part
+   use ORB_sr_m, only: ORB_sendrecv_diffuse, ORB_sendrecv_halo
    use param, only: f, dim, hsml
    use param_para, only: neighbour_data, partition_tracking, dcell_ORB, box_ratio_threshold
 
@@ -29,14 +30,14 @@ contains
       type(time_tracking), intent(inout):: timings
       integer, codimension[*], intent(inout):: ntotal_loc, nhalo_loc, nvirt_loc
       integer:: tree_layers, maxnode, stepsSincePrevious, ngridx(3), i, j, k, d, imageRange_ini(2), gridind_ini(3, 2), &
-         nphys_recv_all
+         nphys_recv_all, old_ntotal_loc
       real(f):: mingridx_ini(3), maxgridx_ini(3), current_to_previous(dim, dim), box_ratio_current(dim, dim)
-      logical:: free_face(2*dim) = .true.
+      logical:: free_face(2*dim)
 
       !allocating partitioning arrays and initialising diagnostic variables ------------------------------------------
       timings%t_ORB = timings%t_ORB - system_clock_timer() ! commence timing of ORB algoirthm
       if (itimestep == 0) then
-         tree_layers = ceiling(log(dble(numImages))/log(2.d0))
+         tree_layers = ceiling(log(real(numImages,kind=f))/log(2.d0))
          maxnode = 2*2**tree_layers - 1
          allocate (node_cax(maxnode), neighbours(numImages))
          allocate( bounds_loc(2*dim)[*], cellmins(3, numImages)[*], cellmaxs(3, numImages)[*])
@@ -51,7 +52,7 @@ contains
            (mod(stepsSincePrevious, ORBcheck2) == 0))) then
 
          ! checking if change in particles on current image is > 5%
-         if (ntotal_loc > prev_load + 0.05_f*DBLE(ntotal)/DBLE(thisImage)) then
+         if (ntotal_loc > prev_load + 0.05_f*real(ntotal, kind=f)/real(thisImage, kind=f)) then
             repartition_mode = 2
          end if
 
@@ -70,7 +71,7 @@ contains
             call particle_grid(thisImage, numImages, ntotal_loc, parts(1:ntotal_loc), ngridx, mingridx_ini, maxgridx_ini)
 
             do d = 1,dim
-               box_ratio_current(:, d) = DBLE(ngridx(d))/DBLE(ngridx(:))
+               box_ratio_current(:, d) = real(ngridx(d), kind=f)/real(ngridx(:), kind=f)
             end do
 
             current_to_previous(:, :) = box_ratio_current(:, :)/box_ratio_previous(:, :)
@@ -94,6 +95,7 @@ contains
             gridind_ini(:, 2) = ngridx(:)
             imageRange_ini(1) = 1
             imageRange_ini(2) = numImages
+            free_face(2*dim) = .true.
 
             call ORB_bounds(thisImage, numImages, scale_k, gridind_ini, numImages, 1, imagerange_ini, ntotal, &
                dcell, mingridx_ini, maxgridx_ini, free_face)
@@ -114,7 +116,18 @@ contains
 
       ! physical particle distribution
       call ORB_sendrecv_diffuse(itimestep, thisImage, bounds_loc, repartition_mode, n_process_neighbour, neighbours, &
-                                nphys_recv_all, ntotal_loc, parts)
+                                old_ntotal_loc, ntotal_loc, parts)
+
+      ! halo particle interaction
+      call ORB_sendrecv_halo(thisImage, bounds_loc, scale_k, n_process_neighbour, neighbours, old_ntotal_loc, &
+                             ntotal_loc, nhalo_loc, parts)
+
+      ! update virtual particles
+      call generate_virt_part(thisImage, bounds_loc, scale_k, ntotal, ntotal_loc, nhalo_loc, nvirt_loc, parts)
+
+      sync all
+
+      timings%t_dist = timings%t_dist + system_clock_timer()
 
 
    end subroutine ORB
@@ -315,7 +328,7 @@ contains
       implicit none
       integer, intent(in):: thisImage, numImages, gridind_in(3, 2)
       integer, intent(out):: ngridx_trim(3)
-      integer:: i, j, k, n, newi(2), newj(2), newk(2), otherImage
+      integer:: i, j, k, n, newi(2), newj(2), newk(2)
 
       newi(:) = gridind_in(1, :)
       newj(:) = gridind_in(2, :)
