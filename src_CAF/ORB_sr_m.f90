@@ -146,10 +146,6 @@ contains
             end if
          end do
 
-         tmptime = tmptime + system_clock_timer()
-
-         write(*,*) thisImage, tmptime
-
          ! if subdomain boundary update has occurred, check if diffusion is necessary.
          ! Perform if necessary
          if (repartition_mode >= 2) then

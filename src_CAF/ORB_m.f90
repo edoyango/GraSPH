@@ -11,7 +11,7 @@ module ORB_m
    type(neighbour_data), allocatable:: neighbours(:)
    type(partition_tracking):: partition_track
    integer:: prev_load, n_process_neighbour, repartition_mode
-   integer, allocatable:: node_cax(:), pincell_ORB(:, :, :)[:], cellmins(:,:)[:], cellmaxs(:,:)[:]
+   integer, allocatable:: node_cax(:), pincell_ORB(:, :, :)[:], cellmins(:,:)[:], cellmaxs(:,:)[:], neighbourImageIDs(:)
    real(f), allocatable:: bounds_loc(:)[:]
    real(f), parameter:: dcell = hsml*dcell_ORB
 
@@ -30,7 +30,7 @@ contains
       type(time_tracking), intent(inout):: timings
       integer, codimension[*], intent(inout):: ntotal_loc, nhalo_loc, nvirt_loc
       integer:: tree_layers, maxnode, stepsSincePrevious, ngridx(3), i, j, k, d, imageRange_ini(2), gridind_ini(3, 2), &
-         nphys_recv_all, old_ntotal_loc
+         old_ntotal_loc
       real(f):: mingridx_ini(3), maxgridx_ini(3), current_to_previous(dim, dim), box_ratio_current(dim, dim)
       logical:: free_face(2*dim)
 
@@ -40,7 +40,8 @@ contains
          tree_layers = ceiling(log(real(numImages,kind=f))/log(2.d0))
          maxnode = 2*2**tree_layers - 1
          allocate (node_cax(maxnode), neighbours(numImages))
-         allocate( bounds_loc(2*dim)[*], cellmins(3, numImages)[*], cellmaxs(3, numImages)[*])
+         allocate( bounds_loc(2*dim)[*], cellmins(3, numImages)[*], cellmaxs(3, numImages)[*], &
+            neighbourImageIDs(numImages))
       end if
 
       ! Boundary Determiniation Algorithm ----------------------------------------------------------------------------
@@ -96,9 +97,14 @@ contains
             imageRange_ini(1) = 1
             imageRange_ini(2) = numImages
             free_face(2*dim) = .true.
+            n_process_neighbour = 0
 
             call ORB_bounds(thisImage, numImages, scale_k, gridind_ini, numImages, 1, imagerange_ini, ntotal, &
                dcell, mingridx_ini, maxgridx_ini, free_face)
+
+            neighbourImageIDs(1:n_process_neighbour) = neighbours(1:n_process_neighbour)%image
+
+            sync all
 
             deallocate(pincell_ORB)
 
@@ -107,12 +113,9 @@ contains
       end if
 
       timings%t_ORB = timings%t_ORB + system_clock_timer() ! conclude timing of ORB algorithm
-      if (thisImage==1) write(*,*) timings%t_ORB
 
       ! Particle distribution (physical, halo) -------------------------------------------------------------------------
       timings%t_dist = timings%t_dist - system_clock_timer() ! commence timing of particle distribution
-
-      sync all
 
       ! physical particle distribution
       call ORB_sendrecv_diffuse(itimestep, thisImage, bounds_loc, repartition_mode, n_process_neighbour, neighbours, &
@@ -125,7 +128,7 @@ contains
       ! update virtual particles
       call generate_virt_part(thisImage, bounds_loc, scale_k, ntotal, ntotal_loc, nhalo_loc, nvirt_loc, parts)
 
-      sync all
+      sync images(neighbourImageIDs(1:n_process_neighbour))
 
       timings%t_dist = timings%t_dist + system_clock_timer()
 
@@ -191,7 +194,7 @@ contains
          cellmaxs(:, thisImage)[otherImage] = cellmaxs(:, thisImage)[thisImage]
       end do
       
-      ! ensuring all images leave with full pincell_ORB
+      ! ensuring all images leave with consistent view of eachother's cellmins, cellmaxs
       sync all
 
    end subroutine particle_grid

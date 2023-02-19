@@ -85,7 +85,7 @@ module flink_list_m
           do j = 1, pincell(icell, jcell, kcell)
              jth = cells(j, icell, jcell, kcell)
              if (jth > i) then
-                call check_if_interact(maxinter, scale_k, parts(i), parts(jth), niac, pairs, ierr)
+                call check_if_interact(maxinter, scale_k, i, jth, parts(i), parts(jth), niac, pairs, ierr)
              end if
           end do
  
@@ -96,7 +96,7 @@ module flink_list_m
              zi = kcell + sweep(3, k)
              do j = 1, pincell(xi, yi, zi)
                 jth = cells(j, xi, yi, zi)
-                call check_if_interact(maxinter, scale_k, parts(i), parts(jth), niac, pairs, ierr)
+                call check_if_interact(maxinter, scale_k, i, jth, parts(i), parts(jth), niac, pairs, ierr)
              end do
           end do
  
@@ -112,11 +112,11 @@ module flink_list_m
     end subroutine flink_list
  
     !==============================================================================================================================
-    pure subroutine check_if_interact(maxinter, scale_k, p_i, p_j, niac, pairs, ierr)
+    pure subroutine check_if_interact(maxinter, scale_k, i, j, p_i, p_j, niac, pairs, ierr)
        ! subroutine to chekc if two particles are interacting and consequently adding to pair list
  
        implicit none
-       integer, intent(in):: maxinter
+       integer, intent(in):: maxinter, i, j
        real(f), intent(in):: scale_k
        type(particles), intent(in):: p_i, p_j
        integer, intent(inout):: niac
@@ -131,7 +131,7 @@ module flink_list_m
           if (r <= hsml*scale_k) then
              niac = niac + 1
              if (niac < maxinter) then
-                pairs(niac)%j = p_j%indloc
+                pairs(niac)%j = j
                 call kernel(r, dxiac, hsml, pairs(niac)%w, pairs(niac)%dwdx(:))
              else
                 ierr = 1
