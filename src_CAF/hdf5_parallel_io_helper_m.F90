@@ -1,5 +1,5 @@
 module hdf5_parallel_io_helper_m
-
+#ifdef PARALLEL
    use hdf5
    use mpi ! would prefer to use mpi_f08, but hdf5 doesn't play nicely with it
 
@@ -12,9 +12,9 @@ module hdf5_parallel_io_helper_m
 
    public:: hdf5_parallel_write, hdf5_parallel_fileopen
    private::  hdf5_parallel_write_dbl_r1, hdf5_parallel_write_dbl_r2, hdf5_parallel_write_int_r1
-
+#endif
 contains
-
+#ifdef PARALLEL
    !===============================================================================================================================
    subroutine hdf5_parallel_fileopen(fname, fid)
 
@@ -156,5 +156,5 @@ contains
       call h5pclose_f(plist_id, ierr)
 
    end subroutine hdf5_parallel_write_int_r1
-
+#endif
 end module hdf5_parallel_io_helper_m

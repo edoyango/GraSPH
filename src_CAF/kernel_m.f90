@@ -2,11 +2,12 @@ module kernel_m
 
    use param, only: f
 
+   private
    public:: kernel, kernel_k
 
 contains
 
-   !==============================================================================================================================
+   !====================================================================================================================
    pure subroutine kernel(r, dx, thsml, tw, tdwdx)
       ! Contains the kernels
       ! NB: DIM is a gfortran function where DIM(x,y) = MAX(0,x-y). DIM is slightly faster.
@@ -64,16 +65,16 @@ contains
 
    end subroutine kernel
 
-   !==============================================================================================================================
+   !====================================================================================================================
    pure function kernel_k(skf) result(scale_k)
-      ! setting k parameter for kernel radius (r = kh)
+      ! setting k parameter for kernel radius (kh)
 
       implicit none
       integer, intent(in):: skf
       real(f):: scale_k
 
       select case (skf)
-      case (1, 4, 5, 6)
+      case default
          scale_k = 2._f
       case (2)
          scale_k = 2.5_f

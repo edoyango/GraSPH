@@ -1,7 +1,6 @@
 module input_m
 
    use datatypes, only: particles, interactions
-   use mpi_f08
    use param, only: dim, irho, dxo, f, hsml, mp, np, op, pp, qp, rp, nlayer, mass
 
    private
@@ -10,11 +9,12 @@ module input_m
    real(f), parameter:: rxmin = 0._f, rymin = 0._f, rzmin = 0._f, &
                         rxmax = rxmin + mp*dxo, rymax = rymin + np*dxo, rzmax = rzmin + op*dxo
 
-   public:: return_ntotal, return_nvirt, allocatePersistentArrays, generate_real_part, generate_virt_part, update_virt_part
+   public:: return_ntotal, return_nvirt, allocatePersistentArrays, generate_real_part, generate_virt_part, &
+            update_virt_part
 
 contains
 
-   !==============================================================================================================================
+   !====================================================================================================================
    function return_ntotal() result(ntotal)
 
       implicit none
@@ -24,7 +24,7 @@ contains
 
    end function
 
-   !==============================================================================================================================
+   !====================================================================================================================
    function return_nvirt() result(nvirt)
 
       implicit none
@@ -34,42 +34,42 @@ contains
 
    end function
 
-   !==============================================================================================================================
-   subroutine allocatePersistentArrays(ntotal, nvirt, parts, pairs, nexti, gind, maxnloc, maxinter)
+   !====================================================================================================================
+   subroutine allocatePersistentArrays(ntotal, nvirt, parts, pairs, nexti, maxnloc, maxinter)
 
       implicit none
       integer, intent(in):: ntotal, nvirt
-      integer, intent(out), allocatable:: gind(:), nexti(:)
-      type(particles), intent(out), allocatable:: parts(:)
+      integer, intent(out), allocatable:: nexti(:)
+      type(particles), intent(inout), allocatable, codimension[:]:: parts(:)
       type(interactions), intent(out), allocatable:: pairs(:)
       integer, intent(out):: maxnloc, maxinter
 
-      maxnloc = 2*ntotal + nvirt
+      maxnloc = ntotal + nvirt
       maxinter = 262*maxnloc
 
-      allocate (parts(maxnloc), pairs(maxinter), nexti(maxnloc + 1), gind(ntotal))
+      allocate (parts(maxnloc) [*], pairs(maxinter), nexti(maxnloc + 1))
 
    end subroutine allocatePersistentArrays
 
-   !==============================================================================================================================
-   subroutine generate_real_part(procid, numprocs, ntotal, ntotal_loc, parts)
+   !====================================================================================================================
+   subroutine generate_real_part(thisImage, numImages, ntotal, ntotal_loc, parts)
       ! Generates initial physical particle configuration.
       ! 2 cases: return only number of particles retrieved, or generating the particles
 
       implicit none
-      integer, intent(in):: procid, numprocs, ntotal
+      integer, intent(in):: thisImage, numImages, ntotal
       integer, intent(out):: ntotal_loc
       type(particles), intent(out):: parts(:)
       integer:: i, j, k, n, n_loc, n_loc_i, n_start, n_done
 
       ! how many particles to generate per process
-      n_loc_i = ceiling(dble(ntotal)/numprocs)
-      if (procid .eq. numprocs - 1) then
-         n_loc = ntotal - (numprocs - 1)*n_loc_i
+      n_loc_i = ceiling(dble(ntotal)/numImages)
+      if (thisImage .eq. numImages) then
+         n_loc = ntotal - (numImages - 1)*n_loc_i
       else
          n_loc = n_loc_i
       end if
-      n_start = procid*n_loc_i + 1
+      n_start = (thisImage - 1)*n_loc_i + 1
       n_done = n_start + n_loc_i - 1
 
       ! stopping program if array bounds are exceeded
@@ -101,13 +101,14 @@ contains
 
    end subroutine generate_real_part
 
-   !==============================================================================================================================
-   subroutine generate_virt_part(procid, bounds_loc, scale_k, ntotal, ntotal_loc, nhalo_loc, nvirt_loc, parts)
+   !====================================================================================================================
+   subroutine generate_virt_part(thisImage, bounds_loc, scale_k, ntotal, ntotal_loc, nhalo_loc, nvirt_loc, parts)
+
       ! Generates the virtual particle configuration. Can change over time or remain static
       ! 2 cases: return only number of particles retrieved, or generating the particles
 
       implicit none
-      integer, intent(in):: procid, ntotal_loc, nhalo_loc, ntotal
+      integer, intent(in):: thisImage, ntotal_loc, nhalo_loc, ntotal
       real(f), intent(in):: bounds_loc(2*dim), scale_k
       type(particles), intent(inout):: parts(:)
       integer, intent(out):: nvirt_loc
@@ -124,7 +125,7 @@ contains
       do i = 1 - nlayer, pp + nlayer
          do j = 1 - nlayer, qp + nlayer
             do k = 1 - nlayer, rp + nlayer
-               if ( i < 1 .or. i > pp .or. j < 1 .or. j > qp .or. k < 1 .or. k > rp ) then
+               if (i < 1 .or. i > pp .or. j < 1 .or. j > qp .or. k < 1 .or. k > rp) then
                   n = n + 1
                   xi(1) = vxmin + (i - 0.5_f)*dxo
                   xi(2) = vymin + (j - 0.5_f)*dxo
@@ -149,10 +150,10 @@ contains
    end subroutine generate_virt_part
 
    !==============================================================================================================================
-   subroutine update_virt_part(ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, parts, niac, pairs, nexti, vw)
+   subroutine update_virt_part(ntotal_loc, nhalo_loc, nvirt_loc, parts, niac, pairs, nexti, vw)
 
       implicit none
-      integer, intent(in):: ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, niac, nexti(:)
+      integer, intent(in):: ntotal_loc, nhalo_loc, nvirt_loc, niac, nexti(:)
       type(interactions), intent(in):: pairs(:)
       type(particles), intent(inout):: parts(:)
       real(f), intent(inout):: vw(:)
@@ -161,56 +162,56 @@ contains
 
       vw(:) = 0._f
 
-      do i = ntotal_loc+nhalo_loc+1, ntotal_loc+nhalo_loc+nvirt_loc
+      do i = ntotal_loc + nhalo_loc + 1, ntotal_loc + nhalo_loc + nvirt_loc
          parts(i)%rho = 0._f
          parts(i)%vx(:) = 0._f
       end do
 
-      do i = 1, ntotal_loc + nhalo_loc + nvirt_loc + nghos_loc
-        do k = nexti(i), nexti(i + 1) - 1
-           j = pairs(k)%j
-         if (parts(i)%itype < 0 .and. parts(j)%itype > 0) then
-            tmp = mass*pairs(k)%w/parts(j)%rho
-            vw(i - ntotal_loc - nhalo_loc) = vw(i - ntotal_loc - nhalo_loc) + tmp
-            parts(i)%rho = parts(i)%rho + mass*pairs(k)%w
-            select case (parts(i)%itype)
-            case default
-              parts(i)%vx(:) = parts(i)%vx(:) - parts(j)%vx(:)*tmp
-           case (-2)
-              parts(i)%vx(1) = parts(i)%vx(1) + parts(j)%vx(1)*tmp
-              parts(i)%vx(2) = parts(i)%vx(2) + parts(j)%vx(2)*tmp
-              parts(i)%vx(3) = parts(i)%vx(3) - parts(j)%vx(3)*tmp
-            case (-3)
-              parts(i)%vx(1) = parts(i)%vx(1) - parts(j)%vx(1)*tmp
-              parts(i)%vx(2) = parts(i)%vx(2) + parts(j)%vx(2)*tmp
-              parts(i)%vx(3) = parts(i)%vx(3) + parts(j)%vx(3)*tmp
-            case (-4)
-              parts(i)%vx(1) = parts(i)%vx(1) + parts(j)%vx(1)*tmp
-              parts(i)%vx(2) = parts(i)%vx(2) - parts(j)%vx(2)*tmp
-              parts(i)%vx(3) = parts(i)%vx(3) + parts(j)%vx(3)*tmp
-            end select
-         else if (parts(j)%itype < 0 .and. parts(i)%itype > 0) then
-            tmp = mass*pairs(k)%w/parts(i)%rho
-            vw(j - ntotal_loc - nhalo_loc) = vw(j - ntotal_loc - nhalo_loc) + tmp
-            parts(j)%rho = parts(j)%rho + mass*pairs(k)%w
-            select case (parts(j)%itype)
-            case default
-              parts(j)%vx(:) = parts(j)%vx(:) - parts(i)%vx(:)*tmp
-            case (-2)
-              parts(j)%vx(1) = parts(j)%vx(1) + parts(i)%vx(1)*tmp
-              parts(j)%vx(2) = parts(j)%vx(2) + parts(i)%vx(2)*tmp
-              parts(j)%vx(3) = parts(j)%vx(3) - parts(i)%vx(3)*tmp
-            case (-3)
-              parts(j)%vx(1) = parts(j)%vx(1) - parts(i)%vx(1)*tmp
-              parts(j)%vx(2) = parts(j)%vx(2) + parts(i)%vx(2)*tmp
-              parts(j)%vx(3) = parts(j)%vx(3) + parts(i)%vx(3)*tmp
-            case (-4)
-              parts(j)%vx(1) = parts(j)%vx(1) + parts(i)%vx(1)*tmp
-              parts(j)%vx(2) = parts(j)%vx(2) - parts(i)%vx(2)*tmp
-              parts(j)%vx(3) = parts(j)%vx(3) + parts(i)%vx(3)*tmp
-            end select
-         end if
-        end do
+      do i = 1, ntotal_loc + nhalo_loc + nvirt_loc
+         do k = nexti(i), nexti(i + 1) - 1
+            j = pairs(k)%j
+            if (parts(i)%itype < 0 .and. parts(j)%itype > 0) then
+               tmp = mass*pairs(k)%w/parts(j)%rho
+               vw(i - ntotal_loc - nhalo_loc) = vw(i - ntotal_loc - nhalo_loc) + tmp
+               parts(i)%rho = parts(i)%rho + mass*pairs(k)%w
+               select case (parts(i)%itype)
+               case default
+                  parts(i)%vx(:) = parts(i)%vx(:) - parts(j)%vx(:)*tmp
+               case (-2)
+                  parts(i)%vx(1) = parts(i)%vx(1) + parts(j)%vx(1)*tmp
+                  parts(i)%vx(2) = parts(i)%vx(2) + parts(j)%vx(2)*tmp
+                  parts(i)%vx(3) = parts(i)%vx(3) - parts(j)%vx(3)*tmp
+               case (-3)
+                  parts(i)%vx(1) = parts(i)%vx(1) - parts(j)%vx(1)*tmp
+                  parts(i)%vx(2) = parts(i)%vx(2) + parts(j)%vx(2)*tmp
+                  parts(i)%vx(3) = parts(i)%vx(3) + parts(j)%vx(3)*tmp
+               case (-4)
+                  parts(i)%vx(1) = parts(i)%vx(1) + parts(j)%vx(1)*tmp
+                  parts(i)%vx(2) = parts(i)%vx(2) - parts(j)%vx(2)*tmp
+                  parts(i)%vx(3) = parts(i)%vx(3) + parts(j)%vx(3)*tmp
+               end select
+            else if (parts(j)%itype < 0 .and. parts(i)%itype > 0) then
+               tmp = mass*pairs(k)%w/parts(i)%rho
+               vw(j - ntotal_loc - nhalo_loc) = vw(j - ntotal_loc - nhalo_loc) + tmp
+               parts(j)%rho = parts(j)%rho + mass*pairs(k)%w
+               select case (parts(j)%itype)
+               case default
+                  parts(j)%vx(:) = parts(j)%vx(:) - parts(i)%vx(:)*tmp
+               case (-2)
+                  parts(j)%vx(1) = parts(j)%vx(1) + parts(i)%vx(1)*tmp
+                  parts(j)%vx(2) = parts(j)%vx(2) + parts(i)%vx(2)*tmp
+                  parts(j)%vx(3) = parts(j)%vx(3) - parts(i)%vx(3)*tmp
+               case (-3)
+                  parts(j)%vx(1) = parts(j)%vx(1) - parts(i)%vx(1)*tmp
+                  parts(j)%vx(2) = parts(j)%vx(2) + parts(i)%vx(2)*tmp
+                  parts(j)%vx(3) = parts(j)%vx(3) + parts(i)%vx(3)*tmp
+               case (-4)
+                  parts(j)%vx(1) = parts(j)%vx(1) + parts(i)%vx(1)*tmp
+                  parts(j)%vx(2) = parts(j)%vx(2) - parts(i)%vx(2)*tmp
+                  parts(j)%vx(3) = parts(j)%vx(3) + parts(i)%vx(3)*tmp
+               end select
+            end if
+         end do
       end do
 
       do i = 1, nvirt_loc

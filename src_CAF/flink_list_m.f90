@@ -12,11 +12,11 @@ module flink_list_m
 contains
 
    !==============================================================================================================================
-   subroutine flink_list(maxinter, scale_k, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc, niac, parts, pairs, nexti)
+   subroutine flink_list(maxinter, scale_k, ntotal_loc, nhalo_loc, nvirt_loc, niac, parts, pairs, nexti)
       ! save as above, but for 3D
 
       implicit none
-      integer, intent(in):: maxinter, ntotal_loc, nhalo_loc, nvirt_loc, nghos_loc
+      integer, intent(in):: maxinter, ntotal_loc, nhalo_loc, nvirt_loc
       real(f), intent(in):: scale_k
       type(particles), intent(in):: parts(:)
       integer, intent(out):: niac, nexti(:)
@@ -42,7 +42,7 @@ contains
       !Determining bounding box extents
       mingridx(:) = parts(1)%x(:)
       maxgridx(:) = parts(1)%x(:)
-      do i = 2, ntotal_loc + nhalo_loc + nvirt_loc + nghos_loc
+      do i = 2, ntotal_loc + nhalo_loc + nvirt_loc
          do d = 1, dim
             mingridx(d) = MIN(mingridx(d), parts(i)%x(d))
             maxgridx(d) = MAX(maxgridx(d), parts(i)%x(d))
@@ -57,12 +57,12 @@ contains
       maxgridx(:) = mingridx(:) + ngridx(:)*dcell
 
       allocate (pincell(ngridx(1), ngridx(2), ngridx(3)), &
-                gridind(dim, ntotal_loc + nhalo_loc + nvirt_loc + nghos_loc), &
+                gridind(dim, ntotal_loc + nhalo_loc + nvirt_loc), &
                 cells(maxpcell, ngridx(1), ngridx(2), ngridx(3)))
 
       pincell(:, :, :) = 0
 
-      do i = 1, ntotal_loc + nhalo_loc + nvirt_loc + nghos_loc
+      do i = 1, ntotal_loc + nhalo_loc + nvirt_loc
          gridind(:, i) = int((parts(i)%x(:) - mingridx(:))/dcell) + 1
          icell = gridind(1, i)
          jcell = gridind(2, i)
@@ -74,7 +74,7 @@ contains
       niac = 0
       ierr = 0
       nexti(1) = 1
-      do i = 1, ntotal_loc + nhalo_loc + nvirt_loc + nghos_loc
+      do i = 1, ntotal_loc + nhalo_loc + nvirt_loc
 
          ! Retrieving particle i's grid cell indices
          icell = gridind(1, i)
@@ -85,7 +85,7 @@ contains
          do j = 1, pincell(icell, jcell, kcell)
             jth = cells(j, icell, jcell, kcell)
             if (jth > i) then
-               call check_if_interact(maxinter, scale_k, parts(i), parts(jth), niac, pairs, ierr)
+               call check_if_interact(maxinter, scale_k, i, jth, parts(i), parts(jth), niac, pairs, ierr)
             end if
          end do
 
@@ -96,7 +96,7 @@ contains
             zi = kcell + sweep(3, k)
             do j = 1, pincell(xi, yi, zi)
                jth = cells(j, xi, yi, zi)
-               call check_if_interact(maxinter, scale_k, parts(i), parts(jth), niac, pairs, ierr)
+               call check_if_interact(maxinter, scale_k, i, jth, parts(i), parts(jth), niac, pairs, ierr)
             end do
          end do
 
@@ -112,11 +112,11 @@ contains
    end subroutine flink_list
 
    !==============================================================================================================================
-   pure subroutine check_if_interact(maxinter, scale_k, p_i, p_j, niac, pairs, ierr)
+   pure subroutine check_if_interact(maxinter, scale_k, i, j, p_i, p_j, niac, pairs, ierr)
       ! subroutine to chekc if two particles are interacting and consequently adding to pair list
 
       implicit none
-      integer, intent(in):: maxinter
+      integer, intent(in):: maxinter, i, j
       real(f), intent(in):: scale_k
       type(particles), intent(in):: p_i, p_j
       integer, intent(inout):: niac
@@ -131,7 +131,7 @@ contains
          if (r <= hsml*scale_k) then
             niac = niac + 1
             if (niac < maxinter) then
-               pairs(niac)%j = p_j%indloc
+               pairs(niac)%j = j
                call kernel(r, dxiac, hsml, pairs(niac)%w, pairs(niac)%dwdx(:))
             else
                ierr = 1

@@ -9,8 +9,12 @@ module input_m
    real(f), parameter, public:: rxmin = 0._f, rymin = 0._f, rzmin = 0._f, &
                                 rxmax = rxmin + mp*dxo, rymax = rymin + np*dxo, rzmax = rzmin + op*dxo
 
-   public:: return_ntotal, return_nvirt, allocatePersistentArrays, generate_real_part, generate_virt_part, &
-            generate_ghost_part, update_ghost_part
+   real(f), parameter:: vnorm(dim, 4) = reshape([-1._f, -1._f, -1._f, &
+                                                  1._f,  1._f, -1._f, &
+                                                 -1._f,  1._f,  1._f, &
+                                                  1._f, -1._f,  1._f], [dim, 4])
+
+   public:: return_ntotal, return_nvirt, allocatePersistentArrays, generate_real_part, generate_virt_part
 
 contains
 
@@ -114,14 +118,10 @@ contains
                      itype(n) = -1
                   else if (k > rp) then
                      itype(n) = -2
-                  else if (i < 1) then
+                  else if (i < 1 .or. i > pp) then
                      itype(n) = -3
-                  else if (i>pp) then
+                  else if (j < 1 .or. j > qp) then
                      itype(n) = -4
-                  else if (j < 1) then
-                     itype(n) = -5
-                  else if (j > qp) then
-                     itype(n) = -6
                   end if
                   ind(n) = n
                   p(n) = 0._f
@@ -158,38 +158,16 @@ contains
                tmp = mass*pij(k)%w/rho(j)
                tmp2 = atomicadd(vw(i), tmp)
                tmp2 = atomicadd(rho(i), mass*pij(k)%w)
-               select case (itype(i))
-               case (-1, 2) ! top-bottom walls
-                  tmp2 = atomicadd(vx(1,i), -vx(1,j)*tmp)
-                  tmp2 = atomicadd(vx(2,i), -vx(2,j)*tmp)
-                  tmp2 = atomicadd(vx(3,i), -vx(3,j)*tmp)
-               case (-5, -6) ! north-south walls
-                  tmp2 = atomicadd(vx(1,i), vx(1,j)*tmp)
-                  tmp2 = atomicadd(vx(2,i),-vx(2,j)*tmp)
-                  tmp2 = atomicadd(vx(3,i), vx(3,j)*tmp)
-               case (-3, -4) ! east-west walls
-                  tmp2 = atomicadd(vx(1,i),-vx(1,j)*tmp)
-                  tmp2 = atomicadd(vx(2,i), vx(2,j)*tmp)
-                  tmp2 = atomicadd(vx(3,i), vx(3,j)*tmp)
-               end select
+               do d = 1,dim
+                  tmp2 = atomicadd(vx(d, i), vnorm(d, -itype(i))*vx(d,j)*tmp)
+               end do
             else if (itype(j) < 0 .and. itype(i) > 0) then
                tmp = mass*pij(k)%w/rho(i)
                tmp2 = atomicadd(vw(j), tmp)
                tmp2 = atomicadd(rho(j), mass*pij(k)%w)
-               select case (itype(j))
-               case (-1, 2) ! top-bottom walls
-                  tmp2 = atomicadd(vx(1,j), -vx(1,i)*tmp)
-                  tmp2 = atomicadd(vx(2,j), -vx(2,i)*tmp)
-                  tmp2 = atomicadd(vx(3,j), -vx(3,i)*tmp)
-               case (-5, -6) ! north-south walls
-                  tmp2 = atomicadd(vx(1,j), vx(1,i)*tmp)
-                  tmp2 = atomicadd(vx(2,j),-vx(2,i)*tmp)
-                  tmp2 = atomicadd(vx(3,j), vx(3,i)*tmp)
-               case (-3, -4) ! east-west walls
-                  tmp2 = atomicadd(vx(1,j),-vx(1,i)*tmp)
-                  tmp2 = atomicadd(vx(2,j), vx(2,i)*tmp)
-                  tmp2 = atomicadd(vx(3,j), vx(3,i)*tmp)
-               end select
+               do d = 1,dim
+                  tmp2 = atomicadd(vx(d, j), vnorm(d, -itype(j))*vx(d,i)*tmp)
+               end do
             end if
       end if
 
