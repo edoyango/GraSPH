@@ -10,7 +10,7 @@ module input_m
                         rxmax = rxmin + mp*dxo, rymax = rymin + np*dxo, rzmax = rzmin + op*dxo
 
    public:: return_ntotal, return_nvirt, allocatePersistentArrays, generate_real_part, generate_virt_part, &
-      update_virt_part
+            update_virt_part
 
 contains
 
@@ -125,7 +125,7 @@ contains
       do i = 1 - nlayer, pp + nlayer
          do j = 1 - nlayer, qp + nlayer
             do k = 1 - nlayer, rp + nlayer
-               if ( i < 1 .or. i > pp .or. j < 1 .or. j > qp .or. k < 1 .or. k > rp ) then
+               if (i < 1 .or. i > pp .or. j < 1 .or. j > qp .or. k < 1 .or. k > rp) then
                   n = n + 1
                   xi(1) = vxmin + (i - 0.5_f)*dxo
                   xi(2) = vymin + (j - 0.5_f)*dxo
@@ -162,56 +162,56 @@ contains
 
       vw(:) = 0._f
 
-      do i = ntotal_loc+nhalo_loc+1, ntotal_loc+nhalo_loc+nvirt_loc
+      do i = ntotal_loc + nhalo_loc + 1, ntotal_loc + nhalo_loc + nvirt_loc
          parts(i)%rho = 0._f
          parts(i)%vx(:) = 0._f
       end do
 
       do i = 1, ntotal_loc + nhalo_loc + nvirt_loc
-        do k = nexti(i), nexti(i + 1) - 1
-           j = pairs(k)%j
-         if (parts(i)%itype < 0 .and. parts(j)%itype > 0) then
-            tmp = mass*pairs(k)%w/parts(j)%rho
-            vw(i - ntotal_loc - nhalo_loc) = vw(i - ntotal_loc - nhalo_loc) + tmp
-            parts(i)%rho = parts(i)%rho + mass*pairs(k)%w
-            select case (parts(i)%itype)
-            case default
-              parts(i)%vx(:) = parts(i)%vx(:) - parts(j)%vx(:)*tmp
-           case (-2)
-              parts(i)%vx(1) = parts(i)%vx(1) + parts(j)%vx(1)*tmp
-              parts(i)%vx(2) = parts(i)%vx(2) + parts(j)%vx(2)*tmp
-              parts(i)%vx(3) = parts(i)%vx(3) - parts(j)%vx(3)*tmp
-            case (-3)
-              parts(i)%vx(1) = parts(i)%vx(1) - parts(j)%vx(1)*tmp
-              parts(i)%vx(2) = parts(i)%vx(2) + parts(j)%vx(2)*tmp
-              parts(i)%vx(3) = parts(i)%vx(3) + parts(j)%vx(3)*tmp
-            case (-4)
-              parts(i)%vx(1) = parts(i)%vx(1) + parts(j)%vx(1)*tmp
-              parts(i)%vx(2) = parts(i)%vx(2) - parts(j)%vx(2)*tmp
-              parts(i)%vx(3) = parts(i)%vx(3) + parts(j)%vx(3)*tmp
-            end select
-         else if (parts(j)%itype < 0 .and. parts(i)%itype > 0) then
-            tmp = mass*pairs(k)%w/parts(i)%rho
-            vw(j - ntotal_loc - nhalo_loc) = vw(j - ntotal_loc - nhalo_loc) + tmp
-            parts(j)%rho = parts(j)%rho + mass*pairs(k)%w
-            select case (parts(j)%itype)
-            case default
-              parts(j)%vx(:) = parts(j)%vx(:) - parts(i)%vx(:)*tmp
-            case (-2)
-              parts(j)%vx(1) = parts(j)%vx(1) + parts(i)%vx(1)*tmp
-              parts(j)%vx(2) = parts(j)%vx(2) + parts(i)%vx(2)*tmp
-              parts(j)%vx(3) = parts(j)%vx(3) - parts(i)%vx(3)*tmp
-            case (-3)
-              parts(j)%vx(1) = parts(j)%vx(1) - parts(i)%vx(1)*tmp
-              parts(j)%vx(2) = parts(j)%vx(2) + parts(i)%vx(2)*tmp
-              parts(j)%vx(3) = parts(j)%vx(3) + parts(i)%vx(3)*tmp
-            case (-4)
-              parts(j)%vx(1) = parts(j)%vx(1) + parts(i)%vx(1)*tmp
-              parts(j)%vx(2) = parts(j)%vx(2) - parts(i)%vx(2)*tmp
-              parts(j)%vx(3) = parts(j)%vx(3) + parts(i)%vx(3)*tmp
-            end select
-         end if
-        end do
+         do k = nexti(i), nexti(i + 1) - 1
+            j = pairs(k)%j
+            if (parts(i)%itype < 0 .and. parts(j)%itype > 0) then
+               tmp = mass*pairs(k)%w/parts(j)%rho
+               vw(i - ntotal_loc - nhalo_loc) = vw(i - ntotal_loc - nhalo_loc) + tmp
+               parts(i)%rho = parts(i)%rho + mass*pairs(k)%w
+               select case (parts(i)%itype)
+               case default
+                  parts(i)%vx(:) = parts(i)%vx(:) - parts(j)%vx(:)*tmp
+               case (-2)
+                  parts(i)%vx(1) = parts(i)%vx(1) + parts(j)%vx(1)*tmp
+                  parts(i)%vx(2) = parts(i)%vx(2) + parts(j)%vx(2)*tmp
+                  parts(i)%vx(3) = parts(i)%vx(3) - parts(j)%vx(3)*tmp
+               case (-3)
+                  parts(i)%vx(1) = parts(i)%vx(1) - parts(j)%vx(1)*tmp
+                  parts(i)%vx(2) = parts(i)%vx(2) + parts(j)%vx(2)*tmp
+                  parts(i)%vx(3) = parts(i)%vx(3) + parts(j)%vx(3)*tmp
+               case (-4)
+                  parts(i)%vx(1) = parts(i)%vx(1) + parts(j)%vx(1)*tmp
+                  parts(i)%vx(2) = parts(i)%vx(2) - parts(j)%vx(2)*tmp
+                  parts(i)%vx(3) = parts(i)%vx(3) + parts(j)%vx(3)*tmp
+               end select
+            else if (parts(j)%itype < 0 .and. parts(i)%itype > 0) then
+               tmp = mass*pairs(k)%w/parts(i)%rho
+               vw(j - ntotal_loc - nhalo_loc) = vw(j - ntotal_loc - nhalo_loc) + tmp
+               parts(j)%rho = parts(j)%rho + mass*pairs(k)%w
+               select case (parts(j)%itype)
+               case default
+                  parts(j)%vx(:) = parts(j)%vx(:) - parts(i)%vx(:)*tmp
+               case (-2)
+                  parts(j)%vx(1) = parts(j)%vx(1) + parts(i)%vx(1)*tmp
+                  parts(j)%vx(2) = parts(j)%vx(2) + parts(i)%vx(2)*tmp
+                  parts(j)%vx(3) = parts(j)%vx(3) - parts(i)%vx(3)*tmp
+               case (-3)
+                  parts(j)%vx(1) = parts(j)%vx(1) - parts(i)%vx(1)*tmp
+                  parts(j)%vx(2) = parts(j)%vx(2) + parts(i)%vx(2)*tmp
+                  parts(j)%vx(3) = parts(j)%vx(3) + parts(i)%vx(3)*tmp
+               case (-4)
+                  parts(j)%vx(1) = parts(j)%vx(1) + parts(i)%vx(1)*tmp
+                  parts(j)%vx(2) = parts(j)%vx(2) - parts(i)%vx(2)*tmp
+                  parts(j)%vx(3) = parts(j)%vx(3) + parts(i)%vx(3)*tmp
+               end select
+            end if
+         end do
       end do
 
       do i = 1, nvirt_loc

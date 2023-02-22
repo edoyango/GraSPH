@@ -73,7 +73,7 @@ contains
    !====================================================================================================================
    subroutine print_summary(thisImage, numImages, timings, partition_track)
 
-      ! Obtains and prints final MPI summary data e.g. number of partitions, cut axes reorientations, and average 
+      ! Obtains and prints final MPI summary data e.g. number of partitions, cut axes reorientations, and average
       ! wall-times (broken down)
 
       use param_para, only: partition_tracking
@@ -94,7 +94,7 @@ contains
       call co_sum(t_dist_avg, result_image=1)
       call co_sum(t_output_avg, result_image=1)
 
-      if (thisImage==1) then
+      if (thisImage == 1) then
 
          call time_print
          t_wall_avg = t_wall_avg/numImages
@@ -102,14 +102,20 @@ contains
          t_dist_avg = t_dist_avg/numImages
          t_output_avg = t_output_avg/numImages
 
-         write(*, '(A)') '================================= TIME SUMMARY ================================'
+         write (*, '(A)') '================================= TIME SUMMARY ================================'
          write (*, '(A,F14.7)') 'Average Wall time (s)      = ', t_wall_avg
          write (*, '(A,F14.7)') 'Average Partition time (s) = ', t_ORB_avg
          write (*, '(A,F14.7)') 'Average Send/recv time (s) = ', t_dist_avg
          write (*, '(A,F14.7)') 'Average Output time (s)    = ', t_output_avg
          write (*, '(A)') '============================== PARTITION SUMMARY =============================='
-         write (*, '(A,I0)') '            Number of Partitions = ', partition_track%n_parts
-         if (partition_track%n_parts .eq. 1) then
+
+         if (partition_track%n_parts == 0) then
+            write (*, '(A)') '            Number of Partitions = N/A'
+         else
+            write (*, '(A,I0)') '            Number of Partitions = ', partition_track%n_parts
+         end if
+
+         if (partition_track%n_parts <= 1) then
             write (*, '(A)') '    Avg Timesteps B/N Partitions = N/A'
             write (*, '(A)') '    Max Timesteps B/N Partitions = N/A'
             write (*, '(A)') '    Min Timesteps B/N Partitions = N/A'
@@ -121,9 +127,14 @@ contains
          end if
 
          write (*, *)
-         write (*, '(A,I0)') 'Number of Cut Axis Reorientation = ', partition_track%n_reorients
 
-         if (partition_track%n_reorients .eq. 1) then
+         if (partition_track%n_reorients == 0) then
+            write (*, '(A)') 'Number of Cut Axis Reorientation = N/A'
+         else
+            write (*, '(A,I0)') 'Number of Cut Axis Reorientation = ', partition_track%n_reorients
+         end if
+
+         if (partition_track%n_reorients <= 1) then
             write (*, '(A)') 'Avg Timesteps B/N Reorientations = N/A'
             write (*, '(A)') 'Max Timesteps B/N Reorientations = N/A'
             write (*, '(A)') 'Min Timesteps B/N Reorientations = N/A'
@@ -140,7 +151,7 @@ contains
 
    !==================================================================================================================================
    subroutine print_loadbalance(thisImage, numImages, wtime, ntotal_loc, nhalo_loc, nvirt_loc, niac, itimestep, &
-         time, maxtimestep)
+                                time, maxtimestep)
       ! Prints load balance statistics. Called occasionally as determined by print_step
 
       implicit none
@@ -151,17 +162,17 @@ contains
       integer, codimension[:], allocatable:: n_glob(:, :)
       type(event_type), codimension[*], save:: putevents
 
-      allocate(n_glob(numImages, 4)[*])
+      allocate (n_glob(numImages, 4) [*])
 
-      n_glob(thisImage, 1)[1] = ntotal_loc
-      n_glob(thisImage, 2)[1] = nhalo_loc
-      n_glob(thisImage, 3)[1] = nvirt_loc
-      n_glob(thisImage, 4)[1] = niac
+      n_glob(thisImage, 1) [1] = ntotal_loc
+      n_glob(thisImage, 2) [1] = nhalo_loc
+      n_glob(thisImage, 3) [1] = nvirt_loc
+      n_glob(thisImage, 4) [1] = niac
 
-      event post (putevents[1])
+      event post(putevents[1])
 
-      if (thisImage==1) then
-         event wait (putevents, until_count=numImages)
+      if (thisImage == 1) then
+         event wait(putevents, until_count=numImages)
 
          !calculating summary statistics for load balance
          do i = 1, 4

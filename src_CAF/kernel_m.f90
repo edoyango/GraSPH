@@ -11,18 +11,18 @@ contains
    pure subroutine kernel(r, dx, thsml, tw, tdwdx)
       ! Contains the kernels
       ! NB: DIM is a gfortran function where DIM(x,y) = MAX(0,x-y). DIM is slightly faster.
-      
+
       use param, only: skf, dims => dim, pi
-      
+
       implicit none
       real(f), intent(in):: dx(dims), r, thsml
       real(f), intent(out):: tdwdx(dims), tw
       real(f):: q, factor
-      
+
       q = r/thsml
       tw = 0_f
       tdwdx(:) = 0._f
-      
+
       SELECT CASE (SKF)
       CASE (1) ! cubic
          if (dims == 2) factor = 10._f/(7._f*pi*thsml*thsml)
@@ -60,9 +60,9 @@ contains
             tw = factor*exp(-q*q)
             tdwdx(:) = tw*2._f*dx(:)/(thsml*thsml)
          end if
-      
+
       END SELECT
-   
+
    end subroutine kernel
 
    !====================================================================================================================
