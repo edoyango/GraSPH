@@ -130,10 +130,10 @@ contains
       call ORB_sendrecv_halo(thisImage, bounds_loc, scale_k, n_process_neighbour, neighbours, old_ntotal_loc, &
                              ntotal_loc, nhalo_loc, parts)
 
+      sync images(neighbourImageIDs(1:n_process_neighbour))
+
       ! update virtual particles
       call generate_virt_part(thisImage, bounds_loc, scale_k, ntotal, ntotal_loc, nhalo_loc, nvirt_loc, parts)
-
-      sync images(neighbourImageIDs(1:n_process_neighbour))
 
       timings%t_dist = timings%t_dist + system_clock_timer()
 

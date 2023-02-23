@@ -119,8 +119,6 @@ contains
          ntotal_loc = ntotal_loc - nphys_send_all
          old_ntotal_loc = ntotal_loc
 
-         sync all
-
          ! neighbourImageIDs introduced because sync images didn't like non-contiguous arrays
          neighbourImageIDs = neighbours(1:n_process_neighbour)%image
          ! ensuring neighbour images have up-to-date ntotal_loc values
@@ -226,8 +224,9 @@ contains
       ! begin search
       xmin_loc = bounds_loc(1:dim) + 1._f*scale_k*hsml
       xmax_loc = bounds_loc(dim + 1:2*dim) - 1._f*scale_k*hsml
-      do k = 1, 2
-         do i = searchrange(1), searchrange(2)
+      do k = 1, 1
+         !do i = searchrange(1), searchrange(2)
+         do i = 1, ntotal_loc
             xi(:) = parts(i)%x(:)
             if (any([xi(:) <= xmin_loc(:), xi(:) >= xmax_loc(:)])) then
                do j = 1, n_process_neighbour
