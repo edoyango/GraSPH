@@ -109,7 +109,7 @@ contains
 
             neighbourImageIDs(1:n_process_neighbour) = neighbours(1:n_process_neighbour)%image
 
-            sync all
+            ! sync all
 
             deallocate (pincell_ORB)
 
@@ -129,8 +129,6 @@ contains
       ! halo particle interaction
       call ORB_sendrecv_halo(thisImage, bounds_loc, scale_k, n_process_neighbour, neighbours, old_ntotal_loc, &
                              ntotal_loc, nhalo_loc, parts)
-
-      sync all !images(neighbourImageIDs(1:n_process_neighbour))
 
       ! update virtual particles
       call generate_virt_part(thisImage, bounds_loc, scale_k, ntotal, ntotal_loc, nhalo_loc, nvirt_loc, parts)

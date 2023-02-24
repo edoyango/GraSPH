@@ -12,7 +12,7 @@ module param
    ! (CUDA's timing subroutines only accept single precision floats)
    ! (Reduction of MPI process' times are hard-coding double precision)
    integer, parameter:: df = kind(1.d0), sf = kind(1.)
-   integer, parameter:: f = sf, tf = sf
+   integer, parameter:: f = df, tf = df
 
    ! constants: pi, g (gravity)
    real(f), parameter:: pi = 3.14159265358979323846_f, g = 9.81_f
@@ -32,7 +32,7 @@ module param
 
    !spacing and kernel radii parameters
    !note skf = 5 requires kappa at least 1.4, skf = 6 kappa at least 1.6 (approx values)
-   real(f), parameter:: dxo = 0.5_f, kappa = 1.5_f, v_max = 44.3_f
+   real(f), parameter:: dxo = 0.5_f, kappa = 1.5_f, v_max = 22.15_f
 
    !material density (per particle)
    real(f), parameter:: irho = 1000._f

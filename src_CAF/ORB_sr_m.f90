@@ -120,7 +120,7 @@ contains
          old_ntotal_loc = ntotal_loc
 
          ! neighbourImageIDs introduced because sync images didn't like non-contiguous arrays
-         neighbourImageIDs = neighbours(1:n_process_neighbour)%image
+         ! neighbourImageIDs = neighbours(1:n_process_neighbour)%image
          ! ensuring neighbour images have up-to-date ntotal_loc values
          sync all !images(neighbourImageIDs)
 
@@ -267,6 +267,8 @@ contains
                neighbours(i)%HaloPackSend(1:neighbours(i)%nhalo_send)
          end if
       end do
+
+      sync all
 
       tmptime = tmptime + system_clock_timer()
 

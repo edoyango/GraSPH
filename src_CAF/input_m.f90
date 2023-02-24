@@ -136,8 +136,10 @@ contains
                      parts(ntotal_loc + nhalo_loc + nvirt_loc)%indloc = ntotal_loc + nhalo_loc + nvirt_loc
                      if (k < 1) parts(ntotal_loc + nhalo_loc + nvirt_loc)%itype = -1
                      if (k > rp) parts(ntotal_loc + nhalo_loc + nvirt_loc)%itype = -2
-                     if (i < 1 .or. i > pp) parts(ntotal_loc + nhalo_loc + nvirt_loc)%itype = -3
                      if (j < 1 .or. j > qp) parts(ntotal_loc + nhalo_loc + nvirt_loc)%itype = -4
+                     if (i < 1 .or. i > pp) parts(ntotal_loc + nhalo_loc + nvirt_loc)%itype = -3
+                     if ( (i < 1 .and. j < 1) .or. (i < 1 .and. j > qp) .or. (i > pp .and. j < 1) .or. &
+                        (i > pp .and. j > qp)) parts(ntotal_loc+nhalo_loc+nvirt_loc)%itype=-5
                      parts(ntotal_loc + nhalo_loc + nvirt_loc)%x(:) = xi(:)
                      parts(ntotal_loc + nhalo_loc + nvirt_loc)%vx(:) = 0._f
                      parts(ntotal_loc + nhalo_loc + nvirt_loc)%rho = irho
@@ -189,6 +191,10 @@ contains
                   parts(i)%vx(1) = parts(i)%vx(1) + parts(j)%vx(1)*tmp
                   parts(i)%vx(2) = parts(i)%vx(2) - parts(j)%vx(2)*tmp
                   parts(i)%vx(3) = parts(i)%vx(3) + parts(j)%vx(3)*tmp
+               case (-5)
+                  parts(i)%vx(1) = parts(i)%vx(1) - parts(j)%vx(1)*tmp
+                  parts(i)%vx(2) = parts(i)%vx(2) - parts(j)%vx(2)*tmp
+                  parts(i)%vx(3) = parts(i)%vx(3) + parts(j)%vx(3)*tmp
                end select
             else if (parts(j)%itype < 0 .and. parts(i)%itype > 0) then
                tmp = mass*pairs(k)%w/parts(i)%rho
@@ -207,6 +213,10 @@ contains
                   parts(j)%vx(3) = parts(j)%vx(3) + parts(i)%vx(3)*tmp
                case (-4)
                   parts(j)%vx(1) = parts(j)%vx(1) + parts(i)%vx(1)*tmp
+                  parts(j)%vx(2) = parts(j)%vx(2) - parts(i)%vx(2)*tmp
+                  parts(j)%vx(3) = parts(j)%vx(3) + parts(i)%vx(3)*tmp
+               case (-5)
+                  parts(j)%vx(1) = parts(j)%vx(1) - parts(i)%vx(1)*tmp
                   parts(j)%vx(2) = parts(j)%vx(2) - parts(i)%vx(2)*tmp
                   parts(j)%vx(3) = parts(j)%vx(3) + parts(i)%vx(3)*tmp
                end select
