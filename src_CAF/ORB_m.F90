@@ -63,7 +63,7 @@ contains
 
          call co_max(repartition_mode)
 
-         if ((repartition_mode > 1) .or. (itimestep .eq. 1)) then
+         if ((repartition_mode > 1) .or. (itimestep .eq. 0)) then
 
             partition_track%n_parts = partition_track%n_parts + 1
             if (itimestep /= 1) then
@@ -130,7 +130,7 @@ contains
       call ORB_sendrecv_halo(thisImage, bounds_loc, scale_k, n_process_neighbour, neighbours, old_ntotal_loc, &
                              ntotal_loc, nhalo_loc, parts)
 
-      sync images(neighbourImageIDs(1:n_process_neighbour))
+      sync all !images(neighbourImageIDs(1:n_process_neighbour))
 
       ! update virtual particles
       call generate_virt_part(thisImage, bounds_loc, scale_k, ntotal, ntotal_loc, nhalo_loc, nvirt_loc, parts)

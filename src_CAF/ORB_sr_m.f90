@@ -122,7 +122,7 @@ contains
          ! neighbourImageIDs introduced because sync images didn't like non-contiguous arrays
          neighbourImageIDs = neighbours(1:n_process_neighbour)%image
          ! ensuring neighbour images have up-to-date ntotal_loc values
-         sync images(neighbourImageIDs)
+         sync all !images(neighbourImageIDs)
 
          ! each process places particles destined for another image, into that image's particle array
          do i = 1, n_process_neighbour
@@ -173,7 +173,7 @@ contains
 
          deallocate (removal_list)
 
-         sync images(neighbourImageIDs) ! ensuring transfer between neighbours have completed
+         sync all !images(neighbourImageIDs) ! ensuring transfer between neighbours have completed
 
          do i = 1, n_process_neighbour
             deallocate (neighbours(i)%PhysPackSend)
@@ -241,7 +241,7 @@ contains
          end do
 
          ! waiting for physicla particles to complete exchange if needed
-         sync images(neighbourImageIDs)
+         sync all !images(neighbourImageIDs)
 
          searchrange(:) = [old_ntotal_loc + 1, ntotal_loc]
 
