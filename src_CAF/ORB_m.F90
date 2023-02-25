@@ -109,7 +109,7 @@ contains
 
             !neighbourImageIDs(1:n_process_neighbour) = neighbours(1:n_process_neighbour)%image
 
-            sync all
+            ! sync all
 
             deallocate (pincell_ORB)
 
