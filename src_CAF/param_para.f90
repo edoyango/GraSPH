@@ -20,7 +20,7 @@ module param_para
 !                        next check will be at time-step N + ORBcheck1. If the boundaries are not updated, checks will occur every
 !                        ORBcheck2 time-steps thereafter. Too small and program will be very slow. Too large, and load balance will
 !                        be very poor in general. The more slowly the particles move, ORBchecks can be less frequent.
-   real(f), parameter, public:: dcell_ORB = 1_f, box_ratio_threshold = 0.25_f, bound_extend = 10_f
+   real(f), parameter, public:: dcell_ORB = 1._f, box_ratio_threshold = 0.25_f, bound_extend = 10._f
    integer, parameter, public:: ORBcheck1 = 200, ORBcheck2 = 100
 
    ! type to hold variables related to partitioning

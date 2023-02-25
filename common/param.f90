@@ -55,4 +55,6 @@ module param
 
    character(len=200), parameter:: output_directory = "outputdata"
 
+   integer, parameter:: halotype = 100 ! an extra identifier to distinguish halo from real ones
+
 end module param

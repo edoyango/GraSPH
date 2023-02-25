@@ -3,7 +3,7 @@ module ORB_sr_m
    use datatypes, only: particles, system_clock_timer
    use iso_fortran_env, only: lock_type
    use param_para, only: neighbour_data
-   use param, only: tf, f, dim, hsml
+   use param, only: tf, f, dim, hsml, halotype
 
    private
    public:: ORB_sendrecv_diffuse, ORB_sendrecv_halo
@@ -46,7 +46,7 @@ contains
          nphys_send_all = 0
          do i = searchrange(1), searchrange(2)
             xi(:) = parts(i)%x(:)
-            if (any([xi(:) < xmin_loc(:), xi(:) >= xmax_loc(:)])) then
+            if (any(xi(:) < xmin_loc(:)) .or. any(xi(:) >= xmax_loc(:))) then
                nphys_send_all = nphys_send_all + 1
                removal_list(nphys_send_all) = i
             end if
@@ -71,7 +71,7 @@ contains
                do n = 1, n_process_neighbour
                   xmin_rem(:) = neighbours(n)%bounds(1:dim)
                   xmax_rem(:) = neighbours(n)%bounds(dim + 1:2*dim)
-                  if (.not. any([xi(:) < xmin_rem(:), xi(:) >= xmax_rem(:)])) then
+                  if (.not. (any(xi(:) < xmin_rem(:)) .or. any(xi(:) >= xmax_rem(:)))) then
                      neighbours(n)%nphys_send = neighbours(n)%nphys_send + 1
                      neighbours(n)%PhysPackSend(neighbours(n)%nphys_send) = parts(i)
                      cycle loop_through_parts
@@ -207,11 +207,13 @@ contains
 
       do i = 1, n_process_neighbour
          neighbours(i)%nhalo_send = 0
-         if (allocated(neighbours(i)%halo_pindex) .and. ntotal_loc > size(neighbours(i)%halo_pindex)) &
-            deallocate (neighbours(i)%halo_pindex)
+         if (allocated(neighbours(i)%halo_pindex)) then
+            if (ntotal_loc > size(neighbours(i)%halo_pindex)) deallocate (neighbours(i)%halo_pindex) 
+         end if
          if (.not. allocated(neighbours(i)%halo_pindex)) allocate (neighbours(i)%halo_pindex(ntotal_loc))
-         if (allocated(neighbours(i)%HaloPackSend) .and. ntotal_loc > size(neighbours(i)%HaloPackSend)) &
-            deallocate (neighbours(i)%HaloPackSend)
+         if (allocated(neighbours(i)%HaloPackSend)) then
+            if (ntotal_loc > size(neighbours(i)%HaloPackSend)) deallocate (neighbours(i)%HaloPackSend)
+         end if
          if (.not. allocated(neighbours(i)%HaloPackSend)) allocate (neighbours(i)%HaloPackSend(ntotal_loc))
       end do
 
@@ -222,19 +224,21 @@ contains
       searchrange(:) = [1, old_ntotal_loc]
       tmptime = -system_clock_timer()
       ! begin search
-      xmin_loc = bounds_loc(1:dim) + 1._f*scale_k*hsml
-      xmax_loc = bounds_loc(dim + 1:2*dim) - 1._f*scale_k*hsml
+      xmin_loc = bounds_loc(1:dim) + 2._f*scale_k*hsml
+      xmax_loc = bounds_loc(dim + 1:2*dim) - 2._f*scale_k*hsml
       do k = 1, 1
          !do i = searchrange(1), searchrange(2)
          do i = 1, ntotal_loc
             xi(:) = parts(i)%x(:)
             if (any([xi(:) <= xmin_loc(:), xi(:) >= xmax_loc(:)])) then
                do j = 1, n_process_neighbour
-                  if (all([xi(:) >= neighbours(j)%bounds(1:dim) - 1._f*scale_k*hsml, &
-                           xi(:) <= neighbours(j)%bounds(dim + 1:2*dim) + 1._f*scale_k*hsml])) then
+                  if (all([xi(:) >= neighbours(j)%bounds(1:dim) - 2._f*scale_k*hsml, &
+                           xi(:) <= neighbours(j)%bounds(dim + 1:2*dim) + 2._f*scale_k*hsml])) then
                      neighbours(j)%nhalo_send = neighbours(j)%nhalo_send + 1
                      neighbours(j)%halo_pindex(neighbours(j)%nhalo_send) = i
                      neighbours(j)%HaloPackSend(neighbours(j)%nhalo_send) = parts(i)
+                     neighbours(j)%HaloPackSend(neighbours(j)%nhalo_send)%itype = &
+                        neighbours(j)%HaloPackSend(neighbours(j)%nhalo_send)%itype + halotype
                   end if
                end do
             end if

@@ -139,7 +139,7 @@ contains
                      if (j < 1 .or. j > qp) parts(ntotal_loc + nhalo_loc + nvirt_loc)%itype = -4
                      if (i < 1 .or. i > pp) parts(ntotal_loc + nhalo_loc + nvirt_loc)%itype = -3
                      if ( (i < 1 .and. j < 1) .or. (i < 1 .and. j > qp) .or. (i > pp .and. j < 1) .or. &
-                        (i > pp .and. j > qp)) parts(ntotal_loc+nhalo_loc+nvirt_loc)%itype=-5
+                        (i > pp .and. j > qp)) parts(ntotal_loc + nhalo_loc + nvirt_loc)%itype = -5
                      parts(ntotal_loc + nhalo_loc + nvirt_loc)%x(:) = xi(:)
                      parts(ntotal_loc + nhalo_loc + nvirt_loc)%vx(:) = 0._f
                      parts(ntotal_loc + nhalo_loc + nvirt_loc)%rho = irho

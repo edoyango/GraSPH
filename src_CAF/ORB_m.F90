@@ -107,9 +107,9 @@ contains
             call ORB_bounds(thisImage, numImages, scale_k, gridind_ini, numImages, 1, imagerange_ini, ntotal, &
                             dcell, mingridx_ini, maxgridx_ini, free_face)
 
-            neighbourImageIDs(1:n_process_neighbour) = neighbours(1:n_process_neighbour)%image
+            !neighbourImageIDs(1:n_process_neighbour) = neighbours(1:n_process_neighbour)%image
 
-            ! sync all
+            sync all
 
             deallocate (pincell_ORB)
 
@@ -167,6 +167,8 @@ contains
       call co_min(mingridx)
 
       ! Number of grid cells and adjusting max extent in each direction ------------------------------------------------
+      mingridx(:) = mingridx(:) - 0.5_f*dcell
+      maxgridx(:) = maxgridx(:) + 0.5_f*dcell
       ngridx(:) = int((maxgridx(:) - mingridx(:))/dcell) + 1
       maxgridx(:) = mingridx(:) + dcell*ngridx(:)
 
@@ -239,6 +241,7 @@ contains
       i = gridind_in(cax, 1) - 1
       n_p = 0
       np_per_node = int(ceiling(real(numImages_in)/2)/real(numImages_in)*ntotal_in)
+      pincol = 0
       do while (n_p < np_per_node)
          i = i + 1
          pincol = 0
@@ -305,7 +308,7 @@ contains
          bounds_loc(4:6) = mingridx_in(:) + gridind_out(:, 2)*dcell
 
          ! extend boundaries of free faces
-         do d = 1, dim
+         do d = 1, 3
             if (free_face(d)) bounds_loc(d) = bounds_loc(d) - bound_extend*scale_k*hsml
             if (free_face(3 + d)) bounds_loc(3 + d) = bounds_loc(3 + d) + bound_extend*scale_k*hsml
          end do

@@ -1,7 +1,7 @@
 module flink_list_m
 
    use datatypes, only: particles, interactions
-   use param, only: dim, hsml, f
+   use param, only: dim, hsml, f, halotype
 
    !use error_msg_m, only: error_msg
    use kernel_m, only: kernel
@@ -124,8 +124,12 @@ contains
       integer, intent(inout):: ierr
       real(f):: dxiac(dim), r
 
-      ! only consider interactions when real-real are involved
-      if ((p_i%itype > 0 .or. p_j%itype > 0)) then
+      ! only consider interactions between:
+      ! real-real
+      ! real-virtual
+      ! real-halo
+      ! halo-virtual - for deterimining boundary
+      if ((p_i%itype > 0 .or. p_j%itype > 0) .and. (p_i%itype < halotype .or. p_j%itype < halotype) ) then
          dxiac(:) = p_i%x(:) - p_j%x(:)
          r = SQRT(SUM(dxiac*dxiac))
          if (r <= hsml*scale_k) then
