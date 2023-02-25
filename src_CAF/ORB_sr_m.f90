@@ -1,7 +1,7 @@
 module ORB_sr_m
 
    use datatypes, only: particles, system_clock_timer
-   use iso_fortran_env, only: lock_type
+   use iso_fortran_env, only: lock_type, event_type
    use param_para, only: neighbour_data
    use param, only: tf, f, dim, hsml, halotype
 
@@ -29,7 +29,8 @@ contains
       real(tf):: tmptime
       logical:: diffuse
       integer, allocatable:: removal_list(:)
-      type(lock_type), save:: lock[*]
+      type(lock_type), codimension[*], save:: lock
+      type(event_type), codimension[*], save:: neighbourEvent(2)
 
       ! Initialization
       diffuse = .true.
@@ -122,7 +123,11 @@ contains
          ! neighbourImageIDs introduced because sync images didn't like non-contiguous arrays
          ! neighbourImageIDs = neighbours(1:n_process_neighbour)%image
          ! ensuring neighbour images have up-to-date ntotal_loc values
-         sync all !images(neighbourImageIDs)
+         ! sync all !images(neighbourImageIDs)
+         do n = 1, n_process_neighbour
+            event post (neighbourEvent(1)[neighbours(n)%image])
+         end do
+         event wait (neighbourEvent(1), until_count=n_process_neighbour)
 
          ! each process places particles destined for another image, into that image's particle array
          do i = 1, n_process_neighbour
@@ -173,7 +178,11 @@ contains
 
          deallocate (removal_list)
 
-         sync all !images(neighbourImageIDs) ! ensuring transfer between neighbours have completed
+         ! sync all !images(neighbourImageIDs) ! ensuring transfer between neighbours have completed
+         do n = 1, n_process_neighbour
+            event post (neighbourEvent(2)[neighbours(n)%image])
+         end do
+         event wait (neighbourEvent(2), until_count=n_process_neighbour)
 
          do i = 1, n_process_neighbour
             deallocate (neighbours(i)%PhysPackSend)
@@ -201,6 +210,7 @@ contains
       integer:: i, j, k, d, n, searchrange(2), neighbourImageIDs(n_process_neighbour), displ0, displ1
       real(f):: xmin_loc(dim), xmax_loc(dim), xi(dim), tmptime
       type(lock_type), codimension[*], save:: lock
+      type(event_type), codimension[*], save:: neighbourEvent(2)
 
       ! initialization
       nhalo_loc = 0
@@ -245,7 +255,11 @@ contains
          end do
 
          ! waiting for physicla particles to complete exchange if needed
-         sync all !images(neighbourImageIDs)
+         ! sync all !images(neighbourImageIDs)
+         do n = 1, n_process_neighbour
+            event post (neighbourEvent(1)[neighbours(n)%image])
+         end do
+         event wait (neighbourEvent(1), until_count=n_process_neighbour)
 
          searchrange(:) = [old_ntotal_loc + 1, ntotal_loc]
 
@@ -272,7 +286,10 @@ contains
          end if
       end do
 
-      sync all
+      do n = 1, n_process_neighbour
+         event post (neighbourEvent(2)[neighbours(n)%image])
+      end do
+      event wait (neighbourEvent(2), until_count=n_process_neighbour)
 
       tmptime = tmptime + system_clock_timer()
 
