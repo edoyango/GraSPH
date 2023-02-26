@@ -122,7 +122,7 @@ contains
       end if
       n_start = (thisImage - 1)*n_loc_i + 1
       n_done = n_start + n_loc_i - 1
-      write(*,*) thisImage, n_start, n_done
+      
       nvirt_loc = 0
       n = 0 ! counter used to track particle indices
 
