@@ -107,10 +107,6 @@ contains
             call ORB_bounds(thisImage, numImages, scale_k, gridind_ini, numImages, 1, imagerange_ini, ntotal, &
                             dcell, mingridx_ini, maxgridx_ini, free_face)
 
-            !neighbourImageIDs(1:n_process_neighbour) = neighbours(1:n_process_neighbour)%image
-
-            ! sync all
-
             deallocate (pincell_ORB)
 
          end if
@@ -130,6 +126,7 @@ contains
       call ORB_sendrecv_halo(thisImage, bounds_loc, scale_k, n_process_neighbour, neighbours, old_ntotal_loc, &
                              ntotal_loc, nhalo_loc, parts)
 
+      
       ! update virtual particles
       call generate_virt_part(thisImage, bounds_loc, scale_k, ntotal, ntotal_loc, nhalo_loc, nvirt_loc, parts)
 
@@ -224,6 +221,7 @@ contains
       integer:: i, j, k, d, ngridx_trim(3), A(3), cax, n_p, pincol, np_per_node, otherImage_limits(2, 3), otherImage, &
                 n, imagerange_out(2), gridind_out(3, 2), ntotal_out, numImages_out, node_out, imagerange_lo(2), &
                 imagerange_hi(2)
+      real(f):: bounds_rem(6)
 
       !determining cut axis. 1 = x, 2 = y ------------------------------------------------------------------------------
       if (repartition_mode == 3) then
@@ -319,11 +317,12 @@ contains
          do n = 1, numImages - 1
             otherImage = mod(thisImage + n, numImages)
             if (otherImage == 0) otherImage = numImages
-            if (.not. (any(bounds_loc(1:3) - scale_k*hsml > bounds_loc(4:6) [otherImage]) .or. &
-                       any(bounds_loc(4:6) + scale_k*hsml < bounds_loc(1:3) [otherImage]))) then
+            bounds_rem(:) = bounds_loc(:) [otherImage]
+            if (.not. (any(bounds_loc(1:3) - 0.5_f*scale_k*hsml > bounds_rem(4:6) + 0.5_f*scale_k*hsml) .or. &
+                       any(bounds_loc(4:6) + 0.5_f*scale_k*hsml < bounds_rem(1:3) - 0.5_f*scale_k*hsml))) then
                n_process_neighbour = n_process_neighbour + 1
                neighbours(n_process_neighbour)%image = otherImage
-               neighbours(n_process_neighbour)%bounds(:) = bounds_loc(:) [otherImage]
+               neighbours(n_process_neighbour)%bounds(:) = bounds_rem(:)
             end if
          end do
 
