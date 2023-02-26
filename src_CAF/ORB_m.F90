@@ -106,7 +106,7 @@ contains
             free_face(2*dim) = .true.
             n_process_neighbour = 0
 
-            call ORB_bounds(thisImage, numImages, scale_k, gridind_ini, numImages, 1, imagerange_ini, ntotal+nvirt, &
+            call ORB_bounds(thisImage, numImages, scale_k, gridind_ini, numImages, 1, imagerange_ini, ntotal, &
                             dcell, mingridx_ini, maxgridx_ini, free_face)
 
             deallocate (pincell_ORB)
@@ -193,10 +193,12 @@ contains
       ! Counting local particles in each cell, and tracking non-zero cells
       n_nonzerocells = 0
       do i = 1, ntotal_loc
-         icell(1:dim) = int((parts(i)%x(:) - mingridx(:))/dcell) + 1
-         if (dim == 2) icell(3) = 1
-         icell(:) = icell(:) - cellmins(:, thisImage) + 1
-         pincell_ORB(icell(1), icell(2), icell(3)) = pincell_ORB(icell(1), icell(2), icell(3)) + 1
+         if (parts(i)%itype > 0) then
+            icell(1:dim) = int((parts(i)%x(:) - mingridx(:))/dcell) + 1
+            if (dim == 2) icell(3) = 1
+            icell(:) = icell(:) - cellmins(:, thisImage) + 1
+            pincell_ORB(icell(1), icell(2), icell(3)) = pincell_ORB(icell(1), icell(2), icell(3)) + 1
+         end if
       end do
 
       ! Getting each image to share it's min-max cell indices to other images
