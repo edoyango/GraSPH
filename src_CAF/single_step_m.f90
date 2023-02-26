@@ -27,8 +27,8 @@ contains
 
       allocate (prho(ntotal_loc + nhalo_loc + nvirt_loc))
 
-      drhodt(1:ntotal_loc) = 0._f
-      do i = 1, ntotal_loc
+      drhodt(1:ntotal_loc+nvirt_loc) = 0._f
+      do i = 1, ntotal_loc+nvirt_loc
          dvxdt(1:dim - 1, i) = 0._f
          dvxdt(dim, i) = -g
       end do

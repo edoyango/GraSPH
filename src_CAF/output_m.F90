@@ -8,7 +8,7 @@ module output_m
 #else
    use h5lt
 #endif
-   use param, only: f, dim, output_directory
+   use param, only: f, dim, output_directory, halotype
 
    private
 #ifdef PARALLEL
@@ -27,7 +27,7 @@ contains
       implicit none
       integer, intent(in):: thisImage, numImages, itimestep, save_step, ntotal_loc, nhalo_loc, nvirt_loc, ntotal
       type(particles), intent(in):: parts(:)
-      integer:: ntotal_glob(numImages), nhalo_glob(numImages), nvirt_glob(numImages), ierr, n, i
+      integer:: ntotal_glob(numImages), nhalo_glob(numImages), nvirt_glob(numImages), ierr, n, i, nt, nv, nh
       type(MPI_Request):: request(3)
       type(MPI_Status):: status(3)
       integer(HID_T):: fid, real_group_id, virt_group_id, halo_group_id
@@ -36,6 +36,7 @@ contains
       character(len=220):: filepath
       character(len=4):: number
       logical:: test_init
+      type(particles), allocatable:: real_part_tmp(:), virt_part_tmp(:), halo_part_tmp(:)
 
       call MPI_INITIALIZED(test_init, ierr)
       if (.not. test_init) call MPI_INIT(ierr)
@@ -44,6 +45,25 @@ contains
       call MPI_IALLGATHER(ntotal_loc, 1, MPI_INTEGER, ntotal_glob, 1, MPI_INTEGER, MPI_COMM_WORLD, request(1), ierr)
       call MPI_IALLGATHER(nhalo_loc, 1, MPI_INTEGER, nhalo_glob, 1, MPI_INTEGER, MPI_COMM_WORLD, request(2), ierr)
       call MPI_IALLGATHER(nvirt_loc, 1, MPI_INTEGER, nvirt_glob, 1, MPI_INTEGER, MPI_COMM_WORLD, request(3), ierr)
+
+      ! putting real, virtual, halo particles into temporary arrays
+      allocate(real_part_tmp(ntotal_loc), virt_part_tmp(nvirt_loc), halo_part_tmp(nhalo_loc))
+
+      nt = 0
+      nv = 0
+      nh = 0
+      do i = 1, ntotal_loc+nvirt_loc+nhalo_loc
+         if (parts(i)%itype>0 .and. parts(i)%itype<halotype) then
+            nt = nt + 1
+            real_part_tmp(nt) = parts(i)
+         else if (parts(i)%itype<0 .and. parts(i)%itype>-halotype) then
+            nv = nv + 1
+            virt_part_tmp(nv) = parts(i)
+         else if (parts(i)%itype>halotype .or. parts(i)%itype<-halotype) then
+            nh = nh + 1
+            halo_part_tmp(nh) = parts(i)
+         end if
+      end do
 
       !Format number
       n = itimestep/save_step
@@ -73,7 +93,9 @@ contains
       global_dims(:) = [dim, ntotal]
       displ(:) = [0, SUM(ntotal_glob(1:thisImage - 1))] ! hdf5 works with 0-indexing
 
-      call write_particle_data_parallel(thisImage, fid, 'real', global_dims, displ, parts(1:ntotal_loc))
+      if (sum(ntotal_glob)/=0) then
+         call write_particle_data_parallel(thisImage, fid, 'real', global_dims, displ, real_part_tmp)
+      end if
 
       ! Writing data for halo particles ------------------------------------------------------------------------------------------
       ! defining array shapes and displacments
@@ -82,7 +104,9 @@ contains
       global_dims(:) = [dim, sum(nhalo_glob)]
       displ(:) = [0, SUM(nhalo_glob(1:thisImage - 1))] ! hdf5 works with 0-indexing
 
-      call write_particle_data_parallel(thisImage, fid, 'halo', global_dims, displ, parts(ntotal_loc + 1:ntotal_loc + nhalo_loc))
+      if (sum(nhalo_glob)/=0) then
+         call write_particle_data_parallel(thisImage, fid, 'halo', global_dims, displ, halo_part_tmp)
+      end if
 
       ! Writing data for virtual particles ---------------------------------------------------------------------------------------
       ! defining array shapes and displacments
@@ -91,8 +115,9 @@ contains
       global_dims(:) = [dim, sum(nvirt_glob)]
       displ(:) = [0, SUM(nvirt_glob(1:thisImage - 1))] ! hdf5 works with 0-indexing
 
-      call write_particle_data_parallel(thisImage, fid, 'virt', global_dims, displ, &
-                                        parts(ntotal_loc + nhalo_loc + 1:ntotal_loc + nhalo_loc + nvirt_loc))
+      if (sum(nvirt_glob)/=0) then
+         call write_particle_data_parallel(thisImage, fid, 'virt', global_dims, displ, virt_part_tmp)
+      end if
 
       ! Closing output file
       call h5fclose_f(fid, ierr)

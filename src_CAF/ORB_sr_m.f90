@@ -248,7 +248,7 @@ contains
                      neighbours(j)%halo_pindex(neighbours(j)%nhalo_send) = i
                      neighbours(j)%HaloPackSend(neighbours(j)%nhalo_send) = parts(i)
                      neighbours(j)%HaloPackSend(neighbours(j)%nhalo_send)%itype = &
-                        neighbours(j)%HaloPackSend(neighbours(j)%nhalo_send)%itype + halotype
+                        neighbours(j)%HaloPackSend(neighbours(j)%nhalo_send)%itype + sign(halotype, parts(i)%itype)
                   end if
                end do
             end if

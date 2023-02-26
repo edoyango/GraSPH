@@ -44,14 +44,12 @@ program SPH
    ! Generating initial geometry, performing initial partition, and assigning virtual particles
    call generate_real_part(thisImage, numImages, ntotal, ntotal_loc, parts)
 
-   call ORB(0, thisImage, numImages, scale_k, ntotal, ntotal_loc, nhalo_loc, nvirt_loc, parts, timings)
+   call generate_virt_part(thisImage, numImages, ntotal, ntotal_loc, nvirt, nvirt_loc, parts)
+   nhalo_loc = 0
+   call ORB(0, thisImage, numImages, scale_k, ntotal, ntotal_loc, nvirt, nvirt_loc, nhalo_loc, parts, timings)
 #ifdef PARALLEL
    call output_parallel(0, save_step, thisImage, numImages, ntotal_loc, nhalo_loc, nvirt_loc, parts, ntotal)
 #else
-   nhalo_loc = 0
-   bounds_loc(1:dim) = -huge(1._f)
-   bounds_loc(dim + 1:2*dim) = huge(1._f)
-   call generate_virt_part(thisImage, bounds_loc, scale_k, ntotal, ntotal_loc, nhalo_loc, nvirt_loc, parts)
    call output_serial(0, save_step, ntotal, nvirt, parts)
 #endif
 

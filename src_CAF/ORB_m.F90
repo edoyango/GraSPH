@@ -20,18 +20,20 @@ module ORB_m
 
 contains
 
-   subroutine ORB(itimestep, thisImage, numImages, scale_k, ntotal, ntotal_loc, nhalo_loc, nvirt_loc, parts, timings)
+   subroutine ORB(itimestep, thisImage, numImages, scale_k, ntotal, ntotal_loc, nvirt, nvirt_loc, nhalo_loc, parts, &
+         timings)
 
       use param_para, only: ORBcheck1, ORBcheck2
 
       implicit none
-      integer, intent(in):: thisImage, numImages, itimestep, ntotal
+      integer, intent(in):: thisImage, numImages, itimestep, ntotal, nvirt
       real(f), intent(in):: scale_k
       type(particles), codimension[*], intent(inout):: parts(:)
       type(time_tracking), intent(inout):: timings
       integer, codimension[*], intent(inout):: ntotal_loc, nhalo_loc, nvirt_loc
       integer:: tree_layers, maxnode, stepsSincePrevious, ngridx(3), i, j, k, d, imageRange_ini(2), gridind_ini(3, 2), &
-                old_ntotal_loc
+                old_ntv_loc
+      integer, codimension[*], save:: ntv_loc
       real(f):: mingridx_ini(3), maxgridx_ini(3), current_to_previous(dim, dim), box_ratio_current(dim, dim)
       logical:: free_face(2*dim)
 
@@ -57,7 +59,7 @@ contains
            (mod(stepsSincePrevious, ORBcheck2) == 0))) then
 
          ! checking if change in particles on current image is > 5%
-         if (ntotal_loc > prev_load + 0.05_f*real(ntotal, kind=f)/real(thisImage, kind=f)) then
+         if (ntotal_loc+nvirt_loc > prev_load + 0.05_f*real(ntotal+nvirt, kind=f)/real(thisImage, kind=f)) then
             repartition_mode = 2
          end if
 
@@ -73,8 +75,8 @@ contains
             partition_track%prev_part_tstep = itimestep
 
             ! Creating particle-in-cell grid
-            call particle_grid(thisImage, numImages, ntotal_loc, parts(1:ntotal_loc), ngridx, mingridx_ini, &
-               maxgridx_ini)
+            call particle_grid(thisImage, numImages, ntotal_loc+nvirt_loc, parts(1:ntotal_loc+nvirt_loc), ngridx, &
+               mingridx_ini, maxgridx_ini)
 
             do d = 1, dim
                box_ratio_current(:, d) = real(ngridx(d), kind=f)/real(ngridx(:), kind=f)
@@ -104,7 +106,7 @@ contains
             free_face(2*dim) = .true.
             n_process_neighbour = 0
 
-            call ORB_bounds(thisImage, numImages, scale_k, gridind_ini, numImages, 1, imagerange_ini, ntotal, &
+            call ORB_bounds(thisImage, numImages, scale_k, gridind_ini, numImages, 1, imagerange_ini, ntotal+nvirt, &
                             dcell, mingridx_ini, maxgridx_ini, free_face)
 
             deallocate (pincell_ORB)
@@ -119,16 +121,24 @@ contains
       timings%t_dist = timings%t_dist - system_clock_timer() ! commence timing of particle distribution
 
       ! physical particle distribution
+      ntv_loc = ntotal_loc + nvirt_loc
       call ORB_sendrecv_diffuse(itimestep, thisImage, bounds_loc, repartition_mode, n_process_neighbour, neighbours, &
-                                old_ntotal_loc, ntotal_loc, parts)
+                                old_ntv_loc, ntv_loc, parts)
 
       ! halo particle interaction
-      call ORB_sendrecv_halo(thisImage, bounds_loc, scale_k, n_process_neighbour, neighbours, old_ntotal_loc, &
-                             ntotal_loc, nhalo_loc, parts)
+      nhalo_loc = 0
+      call ORB_sendrecv_halo(thisImage, bounds_loc, scale_k, n_process_neighbour, neighbours, old_ntv_loc, &
+                             ntv_loc, nhalo_loc, parts)
 
-      
+      ntotal_loc = 0
+      nvirt_loc = 0
+      do i = 1, ntv_loc
+         if (parts(i)%itype>0) ntotal_loc = ntotal_loc + 1
+         if (parts(i)%itype<0) nvirt_loc = nvirt_loc + 1
+      end do
+
       ! update virtual particles
-      call generate_virt_part(thisImage, bounds_loc, scale_k, ntotal, ntotal_loc, nhalo_loc, nvirt_loc, parts)
+      ! call generate_virt_part(thisImage, numImages, ntotal, ntotal_loc, nvirt, nvirt_loc, parts)
 
       timings%t_dist = timings%t_dist + system_clock_timer()
 
