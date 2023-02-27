@@ -153,18 +153,21 @@ contains
          ! Perform if necessary
          if (repartition_mode >= 2) then
 
-            if (thisImage == 1) write (*, '(A)') 'Checking whether diffusion is needed...'
+            if (thisImage == 1) write (*, '(6x, A)') 'Checking whether diffusion is needed...'
 
             call co_sum(ndiffuse)
 
             if (ndiffuse == 0) then
                diffuse = .false.
-               if (thisImage == 1) write (*, '(A)') 'No diffusion needed. Continuing...'
+               if (thisImage == 1) then
+                  write (*, '(6x, A)') 'No diffusion needed. Continuing...'
+                  write (*, '(A)') "_______________________________________________________________________________"
+               end if
             else
                if (thisImage .eq. 1) then
-                  write (*, '(A,I0)') 'Diffusion occuring... Current timestep:         ', itimestep
-                  write (*, '(A,I0)') '                      Current depth:            ', entrydepth
-                  write (*, '(A,I0)') '                      Particles to be diffused: ', ndiffuse
+                  write (*, '(6x, A,I0)') 'Diffusion occuring... Current timestep:         ', itimestep
+                  write (*, '(6x, A,I0)') '                      Current depth:            ', entrydepth
+                  write (*, '(6x, A,I0)') '                      Particles to be diffused: ', ndiffuse
                end if
 
                entrydepth = entrydepth + 1
@@ -248,7 +251,7 @@ contains
                      neighbours(j)%halo_pindex(neighbours(j)%nhalo_send) = i
                      neighbours(j)%HaloPackSend(neighbours(j)%nhalo_send) = parts(i)
                      neighbours(j)%HaloPackSend(neighbours(j)%nhalo_send)%itype = &
-                        neighbours(j)%HaloPackSend(neighbours(j)%nhalo_send)%itype + halotype
+                        neighbours(j)%HaloPackSend(neighbours(j)%nhalo_send)%itype + sign(halotype, parts(i)%itype)
                   end if
                end do
             end if

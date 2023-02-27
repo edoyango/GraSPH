@@ -129,7 +129,8 @@ contains
       ! real-virtual
       ! real-halo
       ! halo-virtual - for deterimining boundary
-      if ((p_i%itype > 0 .or. p_j%itype > 0) .and. (p_i%itype < halotype .or. p_j%itype < halotype) ) then
+      ! if (.not.((p_i%itype<0 .and. p_j%itype<0) .or. (p_i%itype>halotype .and. p_j%itype>halotype))) then
+      if (p_i%itype>0 .or. p_j%itype>0) then
          dxiac(:) = p_i%x(:) - p_j%x(:)
          r = SQRT(SUM(dxiac*dxiac))
          if (r <= hsml*scale_k) then

@@ -20,18 +20,20 @@ module ORB_m
 
 contains
 
-   subroutine ORB(itimestep, thisImage, numImages, scale_k, ntotal, ntotal_loc, nhalo_loc, nvirt_loc, parts, timings)
+   subroutine ORB(itimestep, thisImage, numImages, scale_k, ntotal, ntotal_loc, nvirt, nvirt_loc, nhalo_loc, parts, &
+         timings)
 
       use param_para, only: ORBcheck1, ORBcheck2
 
       implicit none
-      integer, intent(in):: thisImage, numImages, itimestep, ntotal
+      integer, intent(in):: thisImage, numImages, itimestep, ntotal, nvirt
       real(f), intent(in):: scale_k
       type(particles), codimension[*], intent(inout):: parts(:)
       type(time_tracking), intent(inout):: timings
       integer, codimension[*], intent(inout):: ntotal_loc, nhalo_loc, nvirt_loc
       integer:: tree_layers, maxnode, stepsSincePrevious, ngridx(3), i, j, k, d, imageRange_ini(2), gridind_ini(3, 2), &
-                old_ntotal_loc
+                old_ntv_loc, ngridx_real(3)
+      integer, codimension[*], save:: ntv_loc
       real(f):: mingridx_ini(3), maxgridx_ini(3), current_to_previous(dim, dim), box_ratio_current(dim, dim)
       logical:: free_face(2*dim)
 
@@ -65,6 +67,14 @@ contains
 
          if ((repartition_mode > 1) .or. (itimestep .eq. 0)) then
 
+            if (thisImage == 1) then
+               write(*, '(A)') "_______________________________________________________________________________"
+               write(*, '(A)') "INFO: Image subdomain boundaries being updated"
+               write(*, '(6x, A, I0)') "Current timestep: ", itimestep
+               if (repartition_mode==2) write(*, '(6x, A)') "Repartition mode: Updating cut locations only"
+               if (repartition_mode==3) write(*, '(6x, A)') "Repartition mode: Updating cut orientations and locations"
+            end if
+
             partition_track%n_parts = partition_track%n_parts + 1
             if (itimestep /= 1) then
                partition_track%mintstep_bn_part = min(partition_track%mintstep_bn_part, stepsSincePrevious)
@@ -73,11 +83,11 @@ contains
             partition_track%prev_part_tstep = itimestep
 
             ! Creating particle-in-cell grid
-            call particle_grid(thisImage, numImages, ntotal_loc, parts(1:ntotal_loc), ngridx, mingridx_ini, &
-               maxgridx_ini)
+            call particle_grid(thisImage, numImages, ntotal_loc+nvirt_loc, parts(1:ntotal_loc+nvirt_loc), ngridx, &
+               mingridx_ini, maxgridx_ini, ngridx_real)
 
             do d = 1, dim
-               box_ratio_current(:, d) = real(ngridx(d), kind=f)/real(ngridx(:), kind=f)
+               box_ratio_current(:, d) = real(ngridx_real(d), kind=f)/real(ngridx_real(:), kind=f)
             end do
 
             current_to_previous(:, :) = box_ratio_current(:, :)/box_ratio_previous(:, :)
@@ -119,16 +129,24 @@ contains
       timings%t_dist = timings%t_dist - system_clock_timer() ! commence timing of particle distribution
 
       ! physical particle distribution
+      ntv_loc = ntotal_loc + nvirt_loc
       call ORB_sendrecv_diffuse(itimestep, thisImage, bounds_loc, repartition_mode, n_process_neighbour, neighbours, &
-                                old_ntotal_loc, ntotal_loc, parts)
+                                old_ntv_loc, ntv_loc, parts)
 
       ! halo particle interaction
-      call ORB_sendrecv_halo(thisImage, bounds_loc, scale_k, n_process_neighbour, neighbours, old_ntotal_loc, &
-                             ntotal_loc, nhalo_loc, parts)
+      nhalo_loc = 0
+      call ORB_sendrecv_halo(thisImage, bounds_loc, scale_k, n_process_neighbour, neighbours, old_ntv_loc, &
+                             ntv_loc, nhalo_loc, parts)
 
-      
+      ntotal_loc = 0
+      nvirt_loc = 0
+      do i = 1, ntv_loc
+         if (parts(i)%itype>0) ntotal_loc = ntotal_loc + 1
+         if (parts(i)%itype<0) nvirt_loc = nvirt_loc + 1
+      end do
+
       ! update virtual particles
-      call generate_virt_part(thisImage, bounds_loc, scale_k, ntotal, ntotal_loc, nhalo_loc, nvirt_loc, parts)
+      ! call generate_virt_part(thisImage, numImages, ntotal, ntotal_loc, nvirt, nvirt_loc, parts)
 
       timings%t_dist = timings%t_dist + system_clock_timer()
 
@@ -137,37 +155,59 @@ contains
    end subroutine ORB
 
    !====================================================================================================================
-   subroutine particle_grid(thisImage, numImages, ntotal_loc, parts, ngridx, mingridx, maxgridx)
+   subroutine particle_grid(thisImage, numImages, ntotal_loc, parts, ngridx, mingridx, maxgridx, ngridx_real)
 
       implicit none
       integer, intent(in):: thisImage, numImages, ntotal_loc
       type(particles), intent(in):: parts(:)
-      integer, intent(out):: ngridx(3)
+      integer, intent(out):: ngridx(3), ngridx_real(3)
       real(f), intent(out):: mingridx(3), maxgridx(3)
-      real(f):: minx(3), maxx(3)
+      real(f):: minx(3), maxx(3), minx_real(3), maxx_real(3), mingridx_real(3), maxgridx_real(3)
       integer:: i, j, k, d, cellrange(3), icell(3), n_nonzerocells, n, otherImage
 
       ! Local max, min, in each direction ------------------------------------------------------------------------------
-      minx(1:dim) = parts(1)%x(1:dim)
-      maxx(1:dim) = parts(1)%x(1:dim)
-      do i = 2, ntotal_loc
+      minx(1:dim) = huge(1._f)
+      maxx(1:dim) = -huge(1._f)
+      minx_real(1:dim) = huge(1._f)
+      maxx_real(1:dim) = -huge(1._f)
+      do i = 1, ntotal_loc
          do d = 1, dim
-            if (parts(i)%x(d) > maxx(d)) maxx(d) = parts(i)%x(d)
-            if (parts(i)%x(d) < minx(d)) minx(d) = parts(i)%x(d)
+            maxx(d) = max(maxx(d), parts(i)%x(d))
+            minx(d) = min(minx(d), parts(i)%x(d))
+            if (parts(i)%itype > 0) then
+               maxx_real(d) = max(maxx_real(d), parts(i)%x(d))
+               minx_real(d) = min(minx_real(d), parts(i)%x(d))
+            end if
          end do
       end do
+
+      if (dim==2) then
+         minx(3) = 0._f
+         maxx(3) = 0._f
+         maxx_real(3) = 0._f
+         minx_real(3) = 0._f
+      end if
 
       ! Global max, min, in each direction -----------------------------------------------------------------------------
       mingridx(:) = minx(:)
       maxgridx(:) = maxx(:)
+      mingridx_real(:) = minx_real(:)
+      maxgridx_real(:) = maxx_real(:)
       call co_max(maxgridx)
       call co_min(mingridx)
+      call co_max(maxgridx_real)
+      call co_min(mingridx_real)
 
       ! Number of grid cells and adjusting max extent in each direction ------------------------------------------------
       mingridx(:) = mingridx(:) - 0.5_f*dcell
       maxgridx(:) = maxgridx(:) + 0.5_f*dcell
       ngridx(:) = int((maxgridx(:) - mingridx(:))/dcell) + 1
       maxgridx(:) = mingridx(:) + dcell*ngridx(:)
+
+      mingridx_real(:) = mingridx_real(:) - 0.5_f*dcell
+      maxgridx_real(:) = maxgridx_real(:) + 0.5_f*dcell
+      ngridx_real(:) = int((maxgridx_real(:) - mingridx_real(:))/dcell) + 1
+      maxgridx_real(:) = mingridx_real(:) + dcell*ngridx_real(:)
 
       ! Reducing search area by locating indices in which local particles are contained within
       cellmins(:, thisImage) = int((minx(:) - mingridx(:))/dcell) + 1
@@ -183,10 +223,12 @@ contains
       ! Counting local particles in each cell, and tracking non-zero cells
       n_nonzerocells = 0
       do i = 1, ntotal_loc
-         icell(1:dim) = int((parts(i)%x(:) - mingridx(:))/dcell) + 1
-         if (dim == 2) icell(3) = 1
-         icell(:) = icell(:) - cellmins(:, thisImage) + 1
-         pincell_ORB(icell(1), icell(2), icell(3)) = pincell_ORB(icell(1), icell(2), icell(3)) + 1
+         if (parts(i)%itype > 0) then
+            icell(1:dim) = int((parts(i)%x(:) - mingridx(:))/dcell) + 1
+            if (dim == 2) icell(3) = 1
+            icell(:) = icell(:) - cellmins(:, thisImage) + 1
+            pincell_ORB(icell(1), icell(2), icell(3)) = pincell_ORB(icell(1), icell(2), icell(3)) + 1
+         end if
       end do
 
       ! Getting each image to share it's min-max cell indices to other images
