@@ -1,7 +1,10 @@
 module input_m
 
    use datatypes, only: particles, interactions
-   use param, only: dim, irho, dxo, f, hsml, mp, np, op, pp, qp, rp, nlayer, mass, halotype
+   use hdf5
+   use param, only: dim, irho, dxo, f, hsml, mp, np, op, pp, qp, rp, nlayer, mass, halotype, input_file
+   use hdf5_parallel_io_helper_m, only: hdf5_parallel_fileopen_read, hdf5_parallel_read
+   use mpi
 
    private
    real(f), parameter:: vxmin = 0._f, vymin = 0._f, vzmin = 0._f, &
@@ -60,44 +63,53 @@ contains
       integer, intent(in):: thisImage, numImages, ntotal
       integer, intent(out):: ntotal_loc
       type(particles), intent(out):: parts(:)
-      integer:: i, j, k, n, n_loc, n_loc_i, n_start, n_done
+      integer:: i, j, k, n, ierr, otherImage
+      integer, allocatable, codimension[:]:: ntotal_glob(:)
+      logical:: test_init
+      integer(HID_T):: fid
+      integer(HSIZE_T):: global_dims(2)
+      integer(HSSIZE_T):: displ(2)
 
       ! how many particles to generate per process
-      n_loc_i = ceiling(dble(ntotal)/numImages)
-      if (thisImage .eq. numImages) then
-         n_loc = ntotal - (numImages - 1)*n_loc_i
-      else
-         n_loc = n_loc_i
-      end if
-      n_start = (thisImage - 1)*n_loc_i + 1
-      n_done = n_start + n_loc_i - 1
+      ntotal_loc = ceiling(dble(ntotal)/numImages)
+      if (thisImage .eq. numImages) ntotal_loc = ntotal - (numImages - 1)*ntotal_loc
 
       ! stopping program if array bounds are exceeded
       !if ((procid .eq. 0) .and. (n_loc .gt. maxnloc)) call error_msg(1, 1)
 
-      ! intitial setup
-      n = 0
-      ntotal_loc = 0
-      do i = 1, mp
-         do j = 1, np
-            do k = 1, op
-               n = n + 1 ! tracking total number of particles generated
-               ! Only generating particles assigned to process
-               if ((n .ge. n_start) .and. (n .le. n_done)) then
-                  ntotal_loc = ntotal_loc + 1
-                  parts(ntotal_loc)%indglob = n
-                  parts(ntotal_loc)%indloc = ntotal_loc
-                  parts(ntotal_loc)%x(1) = rxmin + (i - 0.5_f)*dxo
-                  parts(ntotal_loc)%x(2) = rymin + (j - 0.5_f)*dxo
-                  parts(ntotal_loc)%x(3) = rzmin + (k - 0.5_f)*dxo
-                  parts(ntotal_loc)%vx(:) = 0._f
-                  parts(ntotal_loc)%itype = 1
-                  parts(ntotal_loc)%rho = irho
-                  parts(ntotal_loc)%p = 0._f
-               end if
-            end do
-         end do
+      ! Exchanging how many particles each process will read data for
+      allocate(ntotal_glob(numImages)[*])
+      do n = 0, numImages-1
+         otherImage = mod(thisImage+n, numImages)
+         if (otherImage==0) otherImage = numImages
+         ntotal_glob(thisImage) [otherImage] = ntotal_loc
       end do
+
+      call MPI_INITIALIZED(test_init, ierr)
+      if (.not. test_init) call MPI_INIT(ierr)
+
+      ! initializing hdf5
+      call h5open_f(ierr)
+
+      call hdf5_parallel_fileopen_read(input_file, fid)
+
+      sync all
+
+      global_dims(1) = dim; global_dims(2) = ntotal
+      displ(1) = 0; displ(2) = SUM(ntotal_glob(1:thisImage-1))
+      if (ntotal /= 0) call read_particle_data_parallel(thisImage, fid, 'real', global_dims, displ, parts(1:ntotal_loc))
+
+      do i = 1, ntotal_loc
+         parts(i)%indloc = i
+      end do
+
+      ! Closing output file
+      call h5fclose_f(fid, ierr)
+
+      ! closing hdf5
+      call h5close_f(ierr)
+
+      if (.not. test_init) call MPI_FINALIZE(ierr)
 
    end subroutine generate_real_part
 
@@ -111,48 +123,52 @@ contains
       integer, intent(in):: thisImage, numImages, ntotal_loc, ntotal, nvirt
       type(particles), intent(inout):: parts(:)
       integer, intent(out):: nvirt_loc
-      integer:: i, j, k, n, n_loc, n_loc_i, n_start, n_done
+      integer:: i, j, k, n, n_loc, n_loc_i, n_start, n_done, ierr, otherImage
+      integer, allocatable, codimension[:]:: nvirt_glob(:)
+      logical:: test_init
+      integer(HID_T):: fid
+      integer(HSIZE_T):: global_dims(2)
+      integer(HSSIZE_T):: displ(2)
 
       ! how many particles to generate per process
-      n_loc_i = ceiling(dble(nvirt)/numImages)
-      if (thisImage .eq. numImages) then
-         n_loc = nvirt - (numImages - 1)*n_loc_i
-      else
-         n_loc = n_loc_i
-      end if
-      n_start = (thisImage - 1)*n_loc_i + 1
-      n_done = n_start + n_loc_i - 1
-      
-      nvirt_loc = 0
-      n = 0 ! counter used to track particle indices
+      nvirt_loc = ceiling(dble(nvirt)/numImages)
+      if (thisImage .eq. numImages) nvirt_loc = nvirt - (numImages - 1)*nvirt_loc
 
-      !---Virtual particle on the bottom face
-      do i = 1 - nlayer, pp + nlayer
-         do j = 1 - nlayer, qp + nlayer
-            do k = 1 - nlayer, rp + nlayer
-               if (i < 1 .or. i > pp .or. j < 1 .or. j > qp .or. k < 1 .or. k > rp) then
-                  n = n + 1
-                  ! Only generating particles assigned to process
-                  if ((n .ge. n_start) .and. (n .le. n_done)) then
-                     nvirt_loc = nvirt_loc + 1
-                     parts(ntotal_loc + nvirt_loc)%indglob = n + ntotal
-                     parts(ntotal_loc + nvirt_loc)%indloc = ntotal_loc + nvirt_loc
-                     if (k < 1) parts(ntotal_loc + nvirt_loc)%itype = -1
-                     if (k > rp) parts(ntotal_loc + nvirt_loc)%itype = -2
-                     if (j < 1 .or. j > qp) parts(ntotal_loc + nvirt_loc)%itype = -4
-                     if (i < 1 .or. i > pp) parts(ntotal_loc + nvirt_loc)%itype = -3
-                     if ( (i < 1 .and. j < 1) .or. (i < 1 .and. j > qp) .or. (i > pp .and. j < 1) .or. &
-                        (i > pp .and. j > qp)) parts(ntotal_loc + nvirt_loc)%itype = -5
-                     parts(ntotal_loc + nvirt_loc)%x(1) = vxmin + (i - 0.5_f)*dxo
-                     parts(ntotal_loc + nvirt_loc)%x(2) = vymin + (j - 0.5_f)*dxo
-                     parts(ntotal_loc + nvirt_loc)%x(3) = vzmin + (k - 0.5_f)*dxo
-                     parts(ntotal_loc + nvirt_loc)%vx(:) = 0._f
-                     parts(ntotal_loc + nvirt_loc)%rho = irho
-                  end if
-               end if
-            end do
-         end do
+      ! Exchanging how many particles each process will read data for
+      allocate(nvirt_glob(numImages)[*])
+      do n = 0, numImages-1
+         otherImage = mod(thisImage+n, numImages)
+         if (otherImage==0) otherImage = numImages
+         nvirt_glob(thisImage) [otherImage] = nvirt_loc
       end do
+
+      call MPI_INITIALIZED(test_init, ierr)
+      if (.not. test_init) call MPI_INIT(ierr)
+
+      ! initializing hdf5
+      call h5open_f(ierr)
+
+      call hdf5_parallel_fileopen_read(input_file, fid)
+
+      sync all
+
+      global_dims(1) = dim; global_dims(2) = ntotal
+      displ(1) = 0; displ(2) = SUM(nvirt_glob(1:thisImage-1))
+
+      if (nvirt /= 0) call read_particle_data_parallel(thisImage, fid, 'virt', global_dims, displ, &
+         parts(ntotal_loc+1:ntotal_loc+nvirt_loc))
+
+      do i = ntotal_loc+1, ntotal_loc+nvirt_loc
+         parts(i)%indloc = i
+      end do
+
+      ! Closing output file
+      call h5fclose_f(fid, ierr)
+
+      ! closing hdf5
+      call h5close_f(ierr)
+
+      if (.not. test_init) call MPI_FINALIZE(ierr)
 
    end subroutine generate_virt_part
 
@@ -254,5 +270,54 @@ contains
       end do
 
    end subroutine update_virt_part
+
+   !====================================================================================================================
+   subroutine read_particle_data_parallel(thisImage, fid_in, particletype, gdims, ldispl, parts)
+
+      implicit none
+      integer(HID_T), intent(in):: fid_in
+      character(*), intent(in):: particletype
+      integer, intent(in):: thisImage
+      integer(HSIZE_T), intent(in):: gdims(2)
+      integer(HSSIZE_T), intent(in):: ldispl(2)
+      type(particles), intent(inout):: parts(:)
+      integer:: nelem, i
+      integer, allocatable:: int_tmp(:, :)
+      real(f), allocatable:: dbl_tmp(:, :)
+
+      nelem = size(parts, 1)
+      allocate(int_tmp(nelem, 1), dbl_tmp(nelem, 1))
+
+      ! read 1d arrays
+      call hdf5_parallel_read(fid_in, particletype//'/ind', ldispl(2), gdims(2), int_tmp(:, 1))
+      parts(:)%indglob = int_tmp(:, 1)
+      
+      call hdf5_parallel_read(fid_in, particletype//'/type', ldispl(2), gdims(2), int_tmp(:, 1))
+      parts(:)%itype = int_tmp(:, 1)
+
+      call hdf5_parallel_read(fid_in, particletype//'/rho', ldispl(2), gdims(2), dbl_tmp(:, 1))
+      parts(:)%rho = dbl_tmp(:, 1)
+
+      call hdf5_parallel_read(fid_in, particletype//'/p', ldispl(2), gdims(2), dbl_tmp(:, 1))
+      parts(:)%p = dbl_tmp(:, 1)
+
+      deallocate(int_tmp, dbl_tmp)
+
+      allocate( dbl_tmp(dim,nelem))
+
+      write(*,*) thisImage, ldispl
+      
+      call hdf5_parallel_read(fid_in, particletype//'/x', ldispl, gdims, dbl_tmp)
+      do i = 1, nelem
+         parts(i)%x(:) = dbl_tmp(:, i)
+      end do
+
+      call hdf5_parallel_read(fid_in, particletype//'/v', ldispl, gdims, dbl_tmp)
+      do i = 1, nelem
+         parts(i)%vx(:) = dbl_tmp(:, i)
+      end do
+
+
+   end subroutine read_particle_data_parallel
 
 end module input_m

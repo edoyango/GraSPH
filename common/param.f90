@@ -53,7 +53,8 @@ module param
    real(f), parameter:: rr0 = dxo, dd = 5._f*g*25._f
    integer, parameter:: p1 = 4, p2 = 2
 
-   character(len=200), parameter:: output_directory = "outputdata"
+   character(*), parameter:: output_directory = "outputdata"
+   character(*), parameter:: input_file = 'example/sph_out0000.h5'
 
    integer, parameter:: halotype = 100 ! an extra identifier to distinguish halo from real ones
 

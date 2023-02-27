@@ -48,7 +48,7 @@ contains
       call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, ierr)
 
       call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, ierr)
-      call h5fcreate_f(fname, H5F_ACC_RDONLY_F, fid, ierr, access_prp=plist_id)
+      call h5fopen_f(fname, H5F_ACC_RDONLY_F, fid, ierr, access_prp=plist_id)
       call h5pclose_f(plist_id, ierr)
 
    end subroutine hdf5_parallel_fileopen_read
@@ -187,13 +187,12 @@ contains
       integer(HID_T), intent(in):: fid
       character(len=*), intent(in):: dset_name
       integer(HSIZE_T), intent(in):: global_dims(2) ! shape of entire dataset being written
-      integer(HSSIZE_T), intent(in):: displ ! displacement of process
+      integer(HSSIZE_T), intent(in):: displ(2) ! displacement of process
       real(f), intent(out):: ddata(:, :) ! data local to MPI Process to write
       integer(HSIZE_T):: local_dims(2)
-      integer(HSSIZE_T):: displ_copy(2)
       integer, parameter:: rank = 2
 
-      local_dims = size(ddata)
+      local_dims = shape(ddata)
 
       ! Creating dataspace for entire dataset
       call h5screate_simple_f(rank, global_dims, dspace_id, ierr)
@@ -206,7 +205,7 @@ contains
       ! Creating dataspace in dataset for each process to write to
       call h5screate_simple_f(rank, local_dims, local_dspace_id, ierr)
       call h5dget_space_f(dset_id, dspace_id, ierr)
-      call h5sselect_hyperslab_f(dspace_id, H5S_SELECT_SET_F, displ_copy, local_dims, ierr)
+      call h5sselect_hyperslab_f(dspace_id, H5S_SELECT_SET_F, displ, local_dims, ierr)
       ! Create property list for collective dataset write
       call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, ierr)
       call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, ierr)
