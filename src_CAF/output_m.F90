@@ -4,7 +4,7 @@ module output_m
    use hdf5
 #ifdef PARALLEL
    use mpi_f08
-   use hdf5_parallel_io_helper_m, only: hdf5_parallel_fileopen, hdf5_parallel_write
+   use hdf5_parallel_io_helper_m, only: hdf5_parallel_fileopen_write, hdf5_parallel_write
 #else
    use h5lt
 #endif
@@ -74,7 +74,7 @@ contains
 
       ! creating hdf5 output file (hdf5_parallel_fileopen is a custom hdf5 wrapper subroutine)
       filepath = trim(output_directory)//"/sph_out"//number//".h5"
-      call hdf5_parallel_fileopen(filepath, fid)
+      call hdf5_parallel_fileopen_write(filepath, fid)
 
       ! creating groups in hdf5 output for real, halo, virtual, and ghost particles
       call h5gcreate_f(fid, "real", real_group_id, ierr)
