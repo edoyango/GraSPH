@@ -15,7 +15,8 @@ module hdf5_parallel_io_helper_m
    integer(HID_T), private:: plist_id, dspace_id, dset_id, local_dspace_id
    integer, private:: ierr
 
-   public:: hdf5_parallel_read, hdf5_parallel_write, hdf5_parallel_fileopen_read, hdf5_parallel_fileopen_write
+   public:: hdf5_parallel_read, hdf5_parallel_write, hdf5_parallel_fileopen_read, hdf5_parallel_fileopen_write, &
+      hdf5_parallel_attribute_write
    private:: hdf5_parallel_read_flt_r1, hdf5_parallel_read_flt_r2, hdf5_parallel_read_int_r1, &
       hdf5_parallel_write_flt_r1, hdf5_parallel_write_flt_r2, hdf5_parallel_write_int_r1
 #endif
@@ -53,11 +54,30 @@ contains
 
    end subroutine hdf5_parallel_fileopen_read
 
-   !===============================================================================================================================
-   subroutine hdf5_parallel_write_flt_r1(fid, dset_name, displ, global_dims, ddata)
+   !====================================================================================================================
+   subroutine hdf5_parallel_attribute_write(gid, n)
 
       implicit none
-      integer(HID_T), intent(in):: fid
+      integer(HID_T), intent(in):: gid
+      integer, intent(in):: n
+      integer(HID_T):: aspace_id, attr_id
+      integer(size_t):: dims(1) = 0
+
+      call h5pcreate_f(H5P_ATTRIBUTE_CREATE_f, plist_id, ierr)
+
+      call h5screate_f(H5S_SCALAR_F, aspace_id, ierr)
+      call h5acreate_f(gid, 'n', H5T_NATIVE_INTEGER, aspace_id, attr_id, ierr)
+      call h5awrite_f(attr_id, H5T_NATIVE_INTEGER, n, dims, ierr)
+      call h5aclose_f(attr_id, ierr)
+      call h5sclose_f(aspace_id, ierr)
+
+   end subroutine hdf5_parallel_attribute_write 
+
+   !===============================================================================================================================
+   subroutine hdf5_parallel_write_flt_r1(gid, dset_name, displ, global_dims, ddata)
+
+      implicit none
+      integer(HID_T), intent(in):: gid
       character(len=*), intent(in):: dset_name
       integer(HSIZE_T), intent(in):: global_dims ! shape of entire dataset being written
       integer(HSSIZE_T), intent(in):: displ ! displacement of process
@@ -74,7 +94,7 @@ contains
       call h5screate_simple_f(rank, global_dims_copy, dspace_id, ierr)
 
       ! Creating dataset for entire dataset
-      call h5dcreate_f(fid, dset_name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, ierr)
+      call h5dcreate_f(gid, dset_name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, ierr)
       call h5sclose_f(dspace_id, ierr)
 
       ! Creating dataspace in dataset for each process to write to
@@ -97,10 +117,10 @@ contains
    end subroutine hdf5_parallel_write_flt_r1
 
    !===============================================================================================================================
-   subroutine hdf5_parallel_read_flt_r1(fid, dset_name, displ, global_dims, ddata)
+   subroutine hdf5_parallel_read_flt_r1(gid, dset_name, displ, global_dims, ddata)
 
       implicit none
-      integer(HID_T), intent(in):: fid
+      integer(HID_T), intent(in):: gid
       character(len=*), intent(in):: dset_name
       integer(HSIZE_T), intent(in):: global_dims ! shape of entire dataset being written
       integer(HSSIZE_T), intent(in):: displ ! displacement of process
@@ -117,8 +137,7 @@ contains
       call h5screate_simple_f(rank, global_dims_copy, dspace_id, ierr)
 
       ! Creating dataset for entire dataset
-      ! call h5dcreate_f(fid, dset_name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, ierr)
-      call h5dopen_f(fid, dset_name, dset_id, ierr)
+      call h5dopen_f(gid, dset_name, dset_id, ierr)
       call h5sclose_f(dspace_id, ierr)
 
       ! Creating dataspace in dataset for each process to write to
@@ -141,10 +160,10 @@ contains
    end subroutine hdf5_parallel_read_flt_r1
 
    !===============================================================================================================================
-   subroutine hdf5_parallel_write_flt_r2(fid, dset_name, displ, global_dims, ddata)
+   subroutine hdf5_parallel_write_flt_r2(gid, dset_name, displ, global_dims, ddata)
 
       implicit none
-      integer(HID_T), intent(in):: fid
+      integer(HID_T), intent(in):: gid
       character(len=*), intent(in):: dset_name
       integer(HSIZE_T), intent(in):: global_dims(2) ! shape of entire dataset being written
       integer(HSSIZE_T), intent(in):: displ(2) ! displacement of process
@@ -158,7 +177,7 @@ contains
       call h5screate_simple_f(rank, global_dims, dspace_id, ierr)
 
       ! Creating dataset for entire dataset
-      call h5dcreate_f(fid, dset_name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, ierr)
+      call h5dcreate_f(gid, dset_name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, ierr)
       call h5sclose_f(dspace_id, ierr)
 
       ! Creating dataspace in dataset for each process to write to
@@ -181,10 +200,10 @@ contains
    end subroutine hdf5_parallel_write_flt_r2
 
    !===============================================================================================================================
-   subroutine hdf5_parallel_read_flt_r2(fid, dset_name, displ, global_dims, ddata)
+   subroutine hdf5_parallel_read_flt_r2(gid, dset_name, displ, global_dims, ddata)
 
       implicit none
-      integer(HID_T), intent(in):: fid
+      integer(HID_T), intent(in):: gid
       character(len=*), intent(in):: dset_name
       integer(HSIZE_T), intent(in):: global_dims(2) ! shape of entire dataset being written
       integer(HSSIZE_T), intent(in):: displ(2) ! displacement of process
@@ -198,8 +217,7 @@ contains
       call h5screate_simple_f(rank, global_dims, dspace_id, ierr)
 
       ! Creating dataset for entire dataset
-      ! call h5dcreate_f(fid, dset_name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, ierr)
-      call h5dopen_f(fid, dset_name, dset_id, ierr)
+      call h5dopen_f(gid, dset_name, dset_id, ierr)
       call h5sclose_f(dspace_id, ierr)
 
       ! Creating dataspace in dataset for each process to write to
@@ -222,10 +240,10 @@ contains
    end subroutine hdf5_parallel_read_flt_r2
 
    !===============================================================================================================================
-   subroutine hdf5_parallel_write_int_r1(fid, dset_name, displ, global_dims, idata)
+   subroutine hdf5_parallel_write_int_r1(gid, dset_name, displ, global_dims, idata)
 
       implicit none
-      integer(HID_T), intent(in):: fid
+      integer(HID_T), intent(in):: gid
       character(len=*), intent(in):: dset_name
       integer(HSIZE_T), intent(in):: global_dims ! shape of entire dataset being written
       integer(HSSIZE_T), intent(in):: displ ! displacement of process
@@ -242,7 +260,7 @@ contains
       call h5screate_simple_f(rank, global_dims_copy, dspace_id, ierr)
 
       ! Creating dataset for entire dataset
-      call h5dcreate_f(fid, dset_name, H5T_NATIVE_INTEGER, dspace_id, dset_id, ierr)
+      call h5dcreate_f(gid, dset_name, H5T_NATIVE_INTEGER, dspace_id, dset_id, ierr)
       call h5sclose_f(dspace_id, ierr)
 
       ! Creating dataspace in dataset for each process to write to
@@ -265,10 +283,10 @@ contains
    end subroutine hdf5_parallel_write_int_r1
 
    !===============================================================================================================================
-   subroutine hdf5_parallel_read_int_r1(fid, dset_name, displ, global_dims, idata)
+   subroutine hdf5_parallel_read_int_r1(gid, dset_name, displ, global_dims, idata)
 
       implicit none
-      integer(HID_T), intent(in):: fid
+      integer(HID_T), intent(in):: gid
       character(len=*), intent(in):: dset_name
       integer(HSIZE_T), intent(in):: global_dims ! shape of entire dataset being written
       integer(HSSIZE_T), intent(in):: displ ! displacement of process
@@ -285,8 +303,7 @@ contains
       call h5screate_simple_f(rank, global_dims_copy, dspace_id, ierr)
 
       ! Creating dataset for entire dataset
-      ! call h5dcreate_f(fid, dset_name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, ierr)
-      call h5dopen_f(fid, dset_name, dset_id, ierr)
+      call h5dopen_f(gid, dset_name, dset_id, ierr)
       call h5sclose_f(dspace_id, ierr)
 
       ! Creating dataspace in dataset for each process to write to

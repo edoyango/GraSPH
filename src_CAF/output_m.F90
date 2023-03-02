@@ -4,7 +4,7 @@ module output_m
    use hdf5
 #ifdef PARALLEL
    use mpi_f08
-   use hdf5_parallel_io_helper_m, only: hdf5_parallel_fileopen_write, hdf5_parallel_write
+   use hdf5_parallel_io_helper_m, only: hdf5_parallel_fileopen_write, hdf5_parallel_write, hdf5_parallel_attribute_write
 #else
    use h5lt
 #endif
@@ -30,7 +30,7 @@ contains
       integer:: ntotal_glob(numImages), nhalo_glob(numImages), nvirt_glob(numImages), ierr, n, i, nt, nv, nh
       type(MPI_Request):: request(3)
       type(MPI_Status):: status(3)
-      integer(HID_T):: fid, real_group_id, virt_group_id, halo_group_id
+      integer(HID_T):: fid, real_group_id, virt_group_id, halo_group_id, attr_id
       integer(HSIZE_T):: global_dims(2)
       integer(HSSIZE_T):: displ(2)
       character(len=220):: filepath
@@ -78,14 +78,9 @@ contains
 
       ! creating groups in hdf5 output for real, halo, virtual, and ghost particles
       call h5gcreate_f(fid, "real", real_group_id, ierr)
-      call h5gclose_f(real_group_id, ierr)
-
       call h5gcreate_f(fid, "virt", virt_group_id, ierr)
-      call h5gclose_f(virt_group_id, ierr)
-
       call h5gcreate_f(fid, "halo", halo_group_id, ierr)
-      call h5gclose_f(halo_group_id, ierr)
-
+      
       ! Writing data for real particles ------------------------------------------------------------------------------------------
       ! defining array shapes and displacments
       call MPI_WAIT(request(1), status(1), ierr) ! Waiting for non-blocking exchange to complete
@@ -94,8 +89,12 @@ contains
       displ(:) = [0, SUM(ntotal_glob(1:thisImage - 1))] ! hdf5 works with 0-indexing
 
       if (sum(ntotal_glob)/=0) then
-         call write_particle_data_parallel(thisImage, fid, 'real', global_dims, displ, real_part_tmp)
+         call write_particle_data_parallel(thisImage, real_group_id, global_dims, displ, real_part_tmp)
       end if
+
+      call hdf5_parallel_attribute_write(real_group_id, ntotal)
+      
+      call h5gclose_f(real_group_id, ierr)
 
       ! Writing data for halo particles ------------------------------------------------------------------------------------------
       ! defining array shapes and displacments
@@ -105,8 +104,12 @@ contains
       displ(:) = [0, SUM(nhalo_glob(1:thisImage - 1))] ! hdf5 works with 0-indexing
 
       if (sum(nhalo_glob)/=0) then
-         call write_particle_data_parallel(thisImage, fid, 'halo', global_dims, displ, halo_part_tmp)
+         call write_particle_data_parallel(thisImage, halo_group_id, global_dims, displ, halo_part_tmp)
       end if
+
+      call hdf5_parallel_attribute_write(halo_group_id, sum(nhalo_glob))
+
+      call h5gclose_f(halo_group_id, ierr)
 
       ! Writing data for virtual particles ---------------------------------------------------------------------------------------
       ! defining array shapes and displacments
@@ -116,8 +119,12 @@ contains
       displ(:) = [0, SUM(nvirt_glob(1:thisImage - 1))] ! hdf5 works with 0-indexing
 
       if (sum(nvirt_glob)/=0) then
-         call write_particle_data_parallel(thisImage, fid, 'virt', global_dims, displ, virt_part_tmp)
+         call write_particle_data_parallel(thisImage, virt_group_id, global_dims, displ, virt_part_tmp)
       end if
+
+      call hdf5_parallel_attribute_write(virt_group_id, sum(nvirt_glob))
+
+      call h5gclose_f(virt_group_id, ierr)
 
       ! Closing output file
       call h5fclose_f(fid, ierr)
@@ -130,11 +137,10 @@ contains
    end subroutine output_parallel
 
    !==============================================================================================================================
-   subroutine write_particle_data_parallel(thisImage, fid_in, particletype, gdims, ldispl, parts)
+   subroutine write_particle_data_parallel(thisImage, gid_in, gdims, ldispl, parts)
 
       implicit none
-      integer(HID_T), intent(in):: fid_in
-      character(*), intent(in):: particletype
+      integer(HID_T), intent(in):: gid_in
       integer, intent(in):: thisImage
       integer(HSIZE_T), intent(in):: gdims(2)
       integer(HSSIZE_T), intent(in):: ldispl(2)
@@ -148,15 +154,15 @@ contains
 
       ! writing 1D arrays
       int_tmp(:, 1) = parts(:)%indglob
-      call hdf5_parallel_write(fid_in, particletype//'/ind', ldispl(2), gdims(2), int_tmp(:, 1))
+      call hdf5_parallel_write(gid_in, 'ind', ldispl(2), gdims(2), int_tmp(:, 1))
       int_tmp(:, 1) = thisImage
-      call hdf5_parallel_write(fid_in, particletype//'/procid', ldispl(2), gdims(2), int_tmp(:, 1))
+      call hdf5_parallel_write(gid_in, 'procid', ldispl(2), gdims(2), int_tmp(:, 1))
       int_tmp(:, 1) = parts(:)%itype
-      call hdf5_parallel_write(fid_in, particletype//'/type', ldispl(2), gdims(2), int_tmp(:, 1))
+      call hdf5_parallel_write(gid_in, 'type', ldispl(2), gdims(2), int_tmp(:, 1))
       dbl_tmp(:, 1) = parts(:)%rho
-      call hdf5_parallel_write(fid_in, particletype//'/rho', ldispl(2), gdims(2), dbl_tmp(:, 1))
+      call hdf5_parallel_write(gid_in, 'rho', ldispl(2), gdims(2), dbl_tmp(:, 1))
       dbl_tmp(:, 1) = parts(:)%p
-      call hdf5_parallel_write(fid_in, particletype//'/p', ldispl(2), gdims(2), dbl_tmp(:, 1))
+      call hdf5_parallel_write(gid_in, 'p', ldispl(2), gdims(2), dbl_tmp(:, 1))
 
       deallocate (int_tmp, dbl_tmp)
 
@@ -168,7 +174,7 @@ contains
       end do
 
       ! writing position
-      call hdf5_parallel_write(fid_in, particletype//'/x', ldispl, gdims, dbl_tmp)
+      call hdf5_parallel_write(gid_in, 'x', ldispl, gdims, dbl_tmp)
 
       ! Converting velocity data to contiguous array
       do i = 1, nelem
@@ -176,7 +182,7 @@ contains
       end do
 
       ! writing velocity
-      call hdf5_parallel_write(fid_in, particletype//'/v', ldispl, gdims, dbl_tmp)
+      call hdf5_parallel_write(gid_in, 'v', ldispl, gdims, dbl_tmp)
 
       ! cleanup
       deallocate (dbl_tmp)

@@ -66,7 +66,7 @@ contains
       integer:: i, j, k, n, ierr, otherImage
       integer, allocatable, codimension[:]:: ntotal_glob(:)
       logical:: test_init
-      integer(HID_T):: fid
+      integer(HID_T):: fid, gid, plist_id
       integer(HSIZE_T):: global_dims(2)
       integer(HSSIZE_T):: displ(2)
 
@@ -93,15 +93,19 @@ contains
 
       call hdf5_parallel_fileopen_read(input_file, fid)
 
+      call h5gopen_f(fid, 'real', gid, ierr)
+
       sync all
 
       global_dims(1) = dim; global_dims(2) = ntotal
       displ(1) = 0; displ(2) = SUM(ntotal_glob(1:thisImage-1))
-      if (ntotal /= 0) call read_particle_data_parallel(thisImage, fid, 'real', global_dims, displ, parts(1:ntotal_loc))
+      if (ntotal /= 0) call read_particle_data_parallel(thisImage, gid, 'real', global_dims, displ, parts(1:ntotal_loc))
 
       do i = 1, ntotal_loc
          parts(i)%indloc = i
       end do
+
+      call h5gclose_f(gid, ierr)
 
       ! Closing output file
       call h5fclose_f(fid, ierr)
@@ -126,7 +130,7 @@ contains
       integer:: i, j, k, n, n_loc, n_loc_i, n_start, n_done, ierr, otherImage
       integer, allocatable, codimension[:]:: nvirt_glob(:)
       logical:: test_init
-      integer(HID_T):: fid
+      integer(HID_T):: fid, gid
       integer(HSIZE_T):: global_dims(2)
       integer(HSSIZE_T):: displ(2)
 
@@ -148,21 +152,27 @@ contains
       ! initializing hdf5
       call h5open_f(ierr)
 
+      ! opening file
       call hdf5_parallel_fileopen_read(input_file, fid)
+
+      ! opening "virt" group
+      call h5gopen_f(fid, 'virt', gid, ierr)
 
       sync all
 
+      ! reading virtual particle data (if nvirt > 0)
       global_dims(1) = dim; global_dims(2) = ntotal
       displ(1) = 0; displ(2) = SUM(nvirt_glob(1:thisImage-1))
-
-      if (nvirt /= 0) call read_particle_data_parallel(thisImage, fid, 'virt', global_dims, displ, &
+      if (nvirt /= 0) call read_particle_data_parallel(thisImage, gid, global_dims, displ, &
          parts(ntotal_loc+1:ntotal_loc+nvirt_loc))
 
       do i = ntotal_loc+1, ntotal_loc+nvirt_loc
          parts(i)%indloc = i
       end do
 
-      ! Closing output file
+
+      ! Closing group and file
+      call h5gclose_f(gid, ierr)
       call h5fclose_f(fid, ierr)
 
       ! closing hdf5
@@ -272,11 +282,10 @@ contains
    end subroutine update_virt_part
 
    !====================================================================================================================
-   subroutine read_particle_data_parallel(thisImage, fid_in, particletype, gdims, ldispl, parts)
+   subroutine read_particle_data_parallel(thisImage, gid_in, gdims, ldispl, parts)
 
       implicit none
-      integer(HID_T), intent(in):: fid_in
-      character(*), intent(in):: particletype
+      integer(HID_T), intent(in):: gid_in
       integer, intent(in):: thisImage
       integer(HSIZE_T), intent(in):: gdims(2)
       integer(HSSIZE_T), intent(in):: ldispl(2)
@@ -289,30 +298,28 @@ contains
       allocate(int_tmp(nelem, 1), dbl_tmp(nelem, 1))
 
       ! read 1d arrays
-      call hdf5_parallel_read(fid_in, particletype//'/ind', ldispl(2), gdims(2), int_tmp(:, 1))
+      call hdf5_parallel_read(gid_in, 'ind', ldispl(2), gdims(2), int_tmp(:, 1))
       parts(:)%indglob = int_tmp(:, 1)
       
-      call hdf5_parallel_read(fid_in, particletype//'/type', ldispl(2), gdims(2), int_tmp(:, 1))
+      call hdf5_parallel_read(gid_in, 'type', ldispl(2), gdims(2), int_tmp(:, 1))
       parts(:)%itype = int_tmp(:, 1)
 
-      call hdf5_parallel_read(fid_in, particletype//'/rho', ldispl(2), gdims(2), dbl_tmp(:, 1))
+      call hdf5_parallel_read(gid_in, 'rho', ldispl(2), gdims(2), dbl_tmp(:, 1))
       parts(:)%rho = dbl_tmp(:, 1)
 
-      call hdf5_parallel_read(fid_in, particletype//'/p', ldispl(2), gdims(2), dbl_tmp(:, 1))
+      call hdf5_parallel_read(gid_in, 'p', ldispl(2), gdims(2), dbl_tmp(:, 1))
       parts(:)%p = dbl_tmp(:, 1)
 
       deallocate(int_tmp, dbl_tmp)
 
       allocate( dbl_tmp(dim,nelem))
-
-      write(*,*) thisImage, ldispl
       
-      call hdf5_parallel_read(fid_in, particletype//'/x', ldispl, gdims, dbl_tmp)
+      call hdf5_parallel_read(gid_in, 'x', ldispl, gdims, dbl_tmp)
       do i = 1, nelem
          parts(i)%x(:) = dbl_tmp(:, i)
       end do
 
-      call hdf5_parallel_read(fid_in, particletype//'/v', ldispl, gdims, dbl_tmp)
+      call hdf5_parallel_read(gid_in, 'v', ldispl, gdims, dbl_tmp)
       do i = 1, nelem
          parts(i)%vx(:) = dbl_tmp(:, i)
       end do
