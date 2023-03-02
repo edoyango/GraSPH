@@ -14,8 +14,8 @@ module hdf5_parallel_io_helper_m
       module procedure hdf5_parallel_write_flt_r1, hdf5_parallel_write_flt_r2, hdf5_parallel_write_int_r1
    end interface hdf5_parallel_write
 
-   integer(HID_T), private:: plist_id, dspace_id, dset_id, local_dspace_id
-   integer, private:: ierr
+   integer(HID_T):: plist_id, compress_plist_id, dspace_id, dset_id, local_dspace_id
+   integer:: ierr
 
    public:: hdf5_parallel_read, hdf5_parallel_write, hdf5_parallel_fileopen_read, hdf5_parallel_fileopen_write, &
       hdf5_parallel_attribute_write, hdf5_parallel_attribute_read
@@ -110,9 +110,12 @@ contains
 
       ! Creating dataspace for entire dataset
       call h5screate_simple_f(rank, global_dims_copy, dspace_id, ierr)
+      call h5pcreate_f(H5P_DATASET_CREATE_F, compress_plist_id, ierr)
+      call h5pset_chunk_f(compress_plist_id, 1, global_dims_copy, ierr)
+      call h5pset_deflate_f(compress_plist_id, 6, ierr)
 
       ! Creating dataset for entire dataset
-      call h5dcreate_f(gid, dset_name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, ierr)
+      call h5dcreate_f(gid, dset_name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, ierr, dcpl_id=compress_plist_id)
       call h5sclose_f(dspace_id, ierr)
 
       ! Creating dataspace in dataset for each process to write to
@@ -131,6 +134,7 @@ contains
       call h5sclose_f(local_dspace_id, ierr)
       call h5dclose_f(dset_id, ierr)
       call h5pclose_f(plist_id, ierr)
+      call h5pclose_f(compress_plist_id, ierr)
 
    end subroutine hdf5_parallel_write_flt_r1
 
@@ -193,9 +197,12 @@ contains
 
       ! Creating dataspace for entire dataset
       call h5screate_simple_f(rank, global_dims, dspace_id, ierr)
+      call h5pcreate_f(H5P_DATASET_CREATE_F, compress_plist_id, ierr)
+      call h5pset_chunk_f(compress_plist_id, 2, global_dims, ierr)
+      call h5pset_deflate_f(compress_plist_id, 6, ierr)
 
       ! Creating dataset for entire dataset
-      call h5dcreate_f(gid, dset_name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, ierr)
+      call h5dcreate_f(gid, dset_name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, ierr, dcpl_id=compress_plist_id)
       call h5sclose_f(dspace_id, ierr)
 
       ! Creating dataspace in dataset for each process to write to
@@ -214,6 +221,7 @@ contains
       call h5sclose_f(local_dspace_id, ierr)
       call h5dclose_f(dset_id, ierr)
       call h5pclose_f(plist_id, ierr)
+      call h5pclose_f(compress_plist_id, ierr)
 
    end subroutine hdf5_parallel_write_flt_r2
 
@@ -276,9 +284,12 @@ contains
 
       ! Creating dataspace for entire dataset
       call h5screate_simple_f(rank, global_dims_copy, dspace_id, ierr)
+      call h5pcreate_f(H5P_DATASET_CREATE_F, compress_plist_id, ierr)
+      call h5pset_chunk_f(compress_plist_id, 1, global_dims_copy, ierr)
+      call h5pset_deflate_f(compress_plist_id, 6, ierr)
 
       ! Creating dataset for entire dataset
-      call h5dcreate_f(gid, dset_name, H5T_NATIVE_INTEGER, dspace_id, dset_id, ierr)
+      call h5dcreate_f(gid, dset_name, H5T_NATIVE_INTEGER, dspace_id, dset_id, ierr, dcpl_id=compress_plist_id)
       call h5sclose_f(dspace_id, ierr)
 
       ! Creating dataspace in dataset for each process to write to
@@ -297,6 +308,7 @@ contains
       call h5sclose_f(local_dspace_id, ierr)
       call h5dclose_f(dset_id, ierr)
       call h5pclose_f(plist_id, ierr)
+      call h5pclose_f(compress_plist_id, ierr)
 
    end subroutine hdf5_parallel_write_int_r1
 
