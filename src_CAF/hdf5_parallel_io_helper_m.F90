@@ -4,6 +4,8 @@ module hdf5_parallel_io_helper_m
    use mpi ! would prefer to use mpi_f08, but hdf5 doesn't play nicely with it
    use param, only: f
 
+   private
+
    interface hdf5_parallel_read
       module procedure hdf5_parallel_read_flt_r1, hdf5_parallel_read_flt_r2, hdf5_parallel_read_int_r1
    end interface hdf5_parallel_read
@@ -16,9 +18,8 @@ module hdf5_parallel_io_helper_m
    integer, private:: ierr
 
    public:: hdf5_parallel_read, hdf5_parallel_write, hdf5_parallel_fileopen_read, hdf5_parallel_fileopen_write, &
-      hdf5_parallel_attribute_write
-   private:: hdf5_parallel_read_flt_r1, hdf5_parallel_read_flt_r2, hdf5_parallel_read_int_r1, &
-      hdf5_parallel_write_flt_r1, hdf5_parallel_write_flt_r2, hdf5_parallel_write_int_r1
+      hdf5_parallel_attribute_write, hdf5_parallel_attribute_read
+
 #endif
 contains
 #ifdef PARALLEL
@@ -72,6 +73,23 @@ contains
       call h5sclose_f(aspace_id, ierr)
 
    end subroutine hdf5_parallel_attribute_write 
+
+   !====================================================================================================================
+   subroutine hdf5_parallel_attribute_read(gid, n)
+
+      implicit none
+      integer(HID_T), intent(in):: gid
+      integer, intent(out):: n
+      integer(HID_T):: aspace_id, attr_id
+      integer(size_t):: dims(1) = 0
+
+      call h5aopen_by_name_f(gid, '.', 'n', attr_id, ierr)
+      call h5aget_space_f(attr_id, aspace_id, ierr)
+      call h5aread_f(attr_id, H5T_NATIVE_INTEGER, n, dims, ierr)
+      call h5sclose_f(aspace_id, ierr)
+      call h5aclose_f(attr_id, ierr)
+
+   end subroutine hdf5_parallel_attribute_read
 
    !===============================================================================================================================
    subroutine hdf5_parallel_write_flt_r1(gid, dset_name, displ, global_dims, ddata)
