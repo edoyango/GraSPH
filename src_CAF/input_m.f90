@@ -2,7 +2,7 @@ module input_m
 
    use datatypes, only: particles, interactions
    use hdf5
-   use param, only: dim, irho, dxo, f, hsml, mp, np, op, pp, qp, rp, nlayer, mass, halotype, input_file
+   use param, only: dim, irho, dxo, f, hsml, mass, halotype, input_file
    use hdf5_parallel_io_helper_m, only: hdf5_parallel_fileopen_read, hdf5_parallel_read, hdf5_parallel_attribute_read
    use mpi
 
