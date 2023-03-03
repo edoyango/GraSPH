@@ -138,7 +138,13 @@ $(SDIR)/%.f90 \
 $(ODIR)/param.caf.o $(ODIR)/datatypes.caf.o
 	$(FC) -c -o $@ $< $(FCFLAGS)
 
-$(ODIR)/input_m.caf.o $(ODIR)/material_rates_m.caf.o: \
+$(ODIR)/input_m.caf.o: \
+$(ODIR)/%.caf.o: \
+$(SDIR)/%.F90 \
+$(ODIR)/param.caf.o $(ODIR)/datatypes.caf.o
+	$(FC) -c -o $@ $< $(FCFLAGS)
+
+$(ODIR)/material_rates_m.caf.o: \
 $(ODIR)/%.caf.o: \
 $(SDIR)/%.f90 \
 $(ODIR)/param.caf.o $(ODIR)/datatypes.caf.o
