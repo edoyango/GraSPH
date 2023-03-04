@@ -3,13 +3,8 @@ module input_m
    use datatypes, only: particles, interactions
    use hdf5
    use param, only: dim, irho, dxo, f, hsml, mass, halotype, input_file
-   use hdf5_parallel_io_helper_m, only: hdf5_attribute_read, hdf5_fileopen_read
-#ifdef PARALLEL
-   use hdf5_parallel_io_helper_m, only: hdf5_parallel_read
+   use hdf5_parallel_io_helper_m, only: hdf5_attribute_read, hdf5_fileopen_read, hdf5_parallel_read
    use mpi
-#else
-   use h5lt
-#endif
 
    public:: read_input_and_allocate, update_virt_part
 
@@ -121,16 +116,17 @@ contains
       call hdf5_attribute_read(gid_r, ntotal)
       call h5gopen_f(fid, 'virt', gid_v, ierr)
       call hdf5_attribute_read(gid_v, nvirt)
-      ! call h5ltget_attribute_int_f(fid, "real", "n", nbuff, ierr)
-      ! ntotal = nbuff(1)
-      ! call h5ltget_attribute_int_f(fid, "virt", "n", nbuff, ierr)
-      ! nvirt = nbuff(1)
 
       ! allocate arrays before reading particle data
       call allocatePersistentArrays(ntotal, nvirt, parts, pairs, nexti, maxnloc, maxinter)
 
-      call read_particle_data_serial(gid_r, parts(1:ntotal))
-      call read_particle_data_serial(gid_v, parts(ntotal+1:ntotal+nvirt))
+      ! call read_particle_data_serial(gid_r, parts(1:ntotal))
+      global_dims(1) = dim
+      global_dims(2) = ntotal
+      displ(1:2) = 0
+      call read_particle_data_parallel(thisImage, gid_r, global_dims, displ, parts(1:ntotal))
+      global_dims(2) = nvirt
+      call read_particle_data_parallel(thisImage, gid_v, global_dims, displ, parts(ntotal+1:ntotal+nvirt))
       ntotal_loc = ntotal
       nvirt_loc = nvirt
       do i = 1, ntotal+nvirt
@@ -244,7 +240,7 @@ contains
       end do
 
    end subroutine update_virt_part
-#ifdef PARALLEL
+
    !====================================================================================================================
    subroutine read_particle_data_parallel(thisImage, gid_in, gdims, ldispl, parts)
 
@@ -290,86 +286,5 @@ contains
 
 
    end subroutine read_particle_data_parallel
-#else
-   !===============================================================================================================================
-   subroutine read_particle_data_serial(gid_in, pts_out)
 
-      implicit none
-      integer(HID_T), intent(in):: gid_in
-      type(particles), intent(out):: pts_out(:)
-      integer(HSIZE_T):: data_dims(2)
-      integer:: nelem, i, ierr
-      integer, allocatable:: idatatmp(:, :)
-      real(f), allocatable:: fdatatmp(:, :)
-
-      nelem = size(pts_out)
-
-      ! Int data
-      data_dims(:) = [nelem, 1]
-      allocate (idatatmp(data_dims(1), data_dims(2)))
-
-      ! particle index
-      call H5LTread_dataset_int_f(gid_in, 'ind', idatatmp, data_dims, ierr)
-      pts_out(:)%indglob = idatatmp(:, 1)
-
-      ! particle type
-      call H5LTread_dataset_int_f(gid_in, 'type', idatatmp, data_dims, ierr)
-      pts_out(:)%itype = idatatmp(:, 1)
-
-      deallocate (idatatmp)
-
-      ! density
-      data_dims(:) = [nelem, 1]
-      allocate (fdatatmp(data_dims(1), data_dims(2)))
-      select case (f)
-      case (kind(1.))
-         call H5LTread_dataset_float_f(gid_in, 'rho', fdatatmp, data_dims, ierr)
-      case default
-         call H5LTread_dataset_double_f(gid_in, 'rho', fdatatmp, data_dims, ierr)
-      end select
-      pts_out(:)%rho = fdatatmp(:, 1)
-
-      ! pressure
-      select case (f)
-      case (kind(1.))
-         call H5LTread_dataset_float_f(gid_in, 'p', fdatatmp, data_dims, ierr)
-      case default
-         call H5LTread_dataset_double_f(gid_in, 'p', fdatatmp, data_dims, ierr)
-      end select
-      pts_out(:)%p = fdatatmp(:, 1)
-
-      deallocate (fdatatmp)
-
-            ! float data
-      data_dims(1) = dim
-      data_dims(2) = nelem
-      allocate (fdatatmp(data_dims(1), data_dims(2)))
-
-      ! position
-      select case (f)
-      case (kind(1.))
-         call H5LTread_dataset_float_f(gid_in, 'x', fdatatmp, data_dims, ierr)
-      case default
-         call H5LTread_dataset_double_f(gid_in, 'x', fdatatmp, data_dims, ierr)
-      end select
-      do i = 1, nelem
-         pts_out(i)%x(:) = fdatatmp(:, i)
-      end do
-
-      ! velocity
-      select case (f)
-      case (kind(1.))
-         call H5LTread_dataset_float_f(gid_in, 'v', fdatatmp, data_dims, ierr)
-      case default
-         call H5LTread_dataset_double_f(gid_in, 'v', fdatatmp, data_dims, ierr)
-      end select
-
-      do i = 1, nelem
-         pts_out(i)%vx(:) = fdatatmp(:, i)
-      end do
-
-      deallocate (fdatatmp)
-
-   end subroutine read_particle_data_serial
-#endif
 end module input_m

@@ -1,15 +1,14 @@
 module hdf5_parallel_io_helper_m
    use param, only: f
    use hdf5
-#ifdef PARALLEL
+! #ifdef PARALLEL
    use mpi ! would prefer to use mpi_f08, but hdf5 doesn't play nicely with it
-#endif
+! #endif
    private
 
    integer(HID_T):: plist_id, compress_plist_id, dspace_id, dset_id, local_dspace_id
    integer:: ierr
 
-#ifdef PARALLEL
    interface hdf5_parallel_read
       module procedure hdf5_parallel_read_flt_r1, hdf5_parallel_read_flt_r2, hdf5_parallel_read_int_r1
    end interface hdf5_parallel_read
@@ -17,11 +16,11 @@ module hdf5_parallel_io_helper_m
    interface hdf5_parallel_write
       module procedure hdf5_parallel_write_flt_r1, hdf5_parallel_write_flt_r2, hdf5_parallel_write_int_r1
    end interface hdf5_parallel_write
-
+#ifdef PARALLEL
    public:: hdf5_parallel_read, hdf5_parallel_write
 #endif
 
-   public:: hdf5_fileopen_read, hdf5_fileopen_write, hdf5_attribute_write, hdf5_attribute_read
+   public:: hdf5_fileopen_read, hdf5_fileopen_write, hdf5_attribute_write, hdf5_attribute_read, hdf5_parallel_read
 
 contains
 
@@ -95,7 +94,7 @@ contains
 
    end subroutine hdf5_attribute_read
 
-#ifdef PARALLEL
+! #ifdef PARALLEL
    !===============================================================================================================================
    subroutine hdf5_parallel_write_flt_r1(gid, dset_name, displ, global_dims, ddata)
 
@@ -129,9 +128,13 @@ contains
       call h5screate_simple_f(rank, local_dims, local_dspace_id, ierr)
       call h5dget_space_f(dset_id, dspace_id, ierr)
       call h5sselect_hyperslab_f(dspace_id, H5S_SELECT_SET_F, displ_copy, local_dims, ierr)
+#ifdef PARALLEL
       ! Create property list for collective dataset write
       call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, ierr)
       call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, ierr)
+#else
+      plist_id = H5P_DEFAULT_F
+#endif
       ! Write the dataset collectively.
       call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, ddata, global_dims_copy, ierr, file_space_id=dspace_id, &
                       mem_space_id=local_dspace_id, xfer_prp=plist_id)
@@ -172,14 +175,15 @@ contains
       ! Creating dataspace in dataset for each process to write to
       call h5screate_simple_f(rank, local_dims, local_dspace_id, ierr)
       call h5dget_space_f(dset_id, dspace_id, ierr)
-#ifdef PARALLEL
       call h5sselect_hyperslab_f(dspace_id, H5S_SELECT_SET_F, displ_copy, local_dims, ierr)
-#else
-      plist_id = H5P_DEFAULT
-#endif
+
+#ifdef PARALLEL
       ! Create property list for collective dataset write
       call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, ierr)
       call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, ierr)
+#else
+      plist_id = H5P_DEFAULT_F
+#endif
       ! Write the dataset collectively.
       call h5dread_f(dset_id, H5T_NATIVE_DOUBLE, ddata, global_dims_copy, ierr, file_space_id=dspace_id, &
          mem_space_id=local_dspace_id, xfer_prp=plist_id)
@@ -223,9 +227,13 @@ contains
       call h5screate_simple_f(rank, local_dims, local_dspace_id, ierr)
       call h5dget_space_f(dset_id, dspace_id, ierr)
       call h5sselect_hyperslab_f(dspace_id, H5S_SELECT_SET_F, displ, local_dims, ierr)
+#ifdef PARALLEL
       ! Create property list for collective dataset write
       call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, ierr)
       call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, ierr)
+#else
+      plist_id = H5P_DEFAULT_F
+#endif
       ! Write the dataset collectively.
       call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, ddata, global_dims, ierr, file_space_id=dspace_id, mem_space_id=local_dspace_id, &
                       xfer_prp=plist_id)
@@ -264,9 +272,13 @@ contains
       call h5screate_simple_f(rank, local_dims, local_dspace_id, ierr)
       call h5dget_space_f(dset_id, dspace_id, ierr)
       call h5sselect_hyperslab_f(dspace_id, H5S_SELECT_SET_F, displ, local_dims, ierr)
+#ifdef PARALLEL
       ! Create property list for collective dataset write
       call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, ierr)
       call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, ierr)
+#else
+      plist_id = H5P_DEFAULT_F
+#endif
       ! Write the dataset collectively.
       call h5dread_f(dset_id, H5T_NATIVE_DOUBLE, ddata, global_dims, ierr, file_space_id=dspace_id, &
          mem_space_id=local_dspace_id, xfer_prp=plist_id)
@@ -312,9 +324,13 @@ contains
       call h5screate_simple_f(rank, local_dims, local_dspace_id, ierr)
       call h5dget_space_f(dset_id, dspace_id, ierr)
       call h5sselect_hyperslab_f(dspace_id, H5S_SELECT_SET_F, displ_copy, local_dims, ierr)
+#ifdef PARALLEL
       ! Create property list for collective dataset write
       call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, ierr)
       call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, ierr)
+#else
+      plist_id = H5P_DEFAULT_F
+#endif
       ! Write the dataset collectively.
       call h5dwrite_f(dset_id, H5T_NATIVE_INTEGER, idata, global_dims_copy, ierr, file_space_id=dspace_id, &
                       mem_space_id=local_dspace_id, xfer_prp=plist_id)
@@ -356,9 +372,13 @@ contains
       call h5screate_simple_f(rank, local_dims, local_dspace_id, ierr)
       call h5dget_space_f(dset_id, dspace_id, ierr)
       call h5sselect_hyperslab_f(dspace_id, H5S_SELECT_SET_F, displ_copy, local_dims, ierr)
+#ifdef PARALLEL
       ! Create property list for collective dataset write
       call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, ierr)
       call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, ierr)
+#else
+      plist_id = H5P_DEFAULT_F
+#endif
       ! Write the dataset collectively.
       call h5dread_f(dset_id, H5T_NATIVE_INTEGER, idata, global_dims_copy, ierr, file_space_id=dspace_id, &
          mem_space_id=local_dspace_id, xfer_prp=plist_id)
@@ -370,5 +390,5 @@ contains
       call h5pclose_f(plist_id, ierr)
 
    end subroutine hdf5_parallel_read_int_r1
-#endif
+! #endif
 end module hdf5_parallel_io_helper_m
