@@ -4,7 +4,9 @@ module input_m
    use hdf5
    use param, only: dim, irho, dxo, f, hsml, mass, halotype, input_file
    use hdf5_parallel_io_helper_m, only: hdf5_attribute_read, hdf5_fileopen_read, hdf5_parallel_read
+#ifdef PARALLEL
    use mpi
+#endif
 
    public:: read_input_and_allocate, update_virt_part
 
@@ -67,7 +69,7 @@ contains
       ! allocate arrays before reading particle data
       call allocatePersistentArrays(ntotal, nvirt, parts, pairs, nexti, maxnloc, maxinter)
 
-      ! how many particles to read per process
+      ! how many particles to read per process. For 1 image, ntotal_loc = ntotal and nvirt_loc = nvirt
       ntotal_loc_rounded_avg = ceiling(dble(ntotal)/numImages)
       nvirt_loc_rounded_avg = ceiling(dble(nvirt)/numImages)
       if (thisImage .eq. numImages) then
@@ -255,7 +257,6 @@ contains
       do i = 1, nelem
          parts(i)%vx(:) = dbl_tmp(:, i)
       end do
-
 
    end subroutine read_particle_data_parallel
 

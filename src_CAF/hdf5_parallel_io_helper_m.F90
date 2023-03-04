@@ -1,9 +1,9 @@
 module hdf5_parallel_io_helper_m
    use param, only: f
    use hdf5
-! #ifdef PARALLEL
+#ifdef PARALLEL
    use mpi ! would prefer to use mpi_f08, but hdf5 doesn't play nicely with it
-! #endif
+#endif
    private
 
    integer(HID_T):: plist_id, compress_plist_id, dspace_id, dset_id, local_dspace_id
@@ -16,11 +16,9 @@ module hdf5_parallel_io_helper_m
    interface hdf5_parallel_write
       module procedure hdf5_parallel_write_flt_r1, hdf5_parallel_write_flt_r2, hdf5_parallel_write_int_r1
    end interface hdf5_parallel_write
-#ifdef PARALLEL
-   public:: hdf5_parallel_read, hdf5_parallel_write
-#endif
 
-   public:: hdf5_fileopen_read, hdf5_fileopen_write, hdf5_attribute_write, hdf5_attribute_read, hdf5_parallel_read
+   public:: hdf5_fileopen_read, hdf5_fileopen_write, hdf5_attribute_write, hdf5_attribute_read, hdf5_parallel_read, &
+      hdf5_parallel_write
 
 contains
 

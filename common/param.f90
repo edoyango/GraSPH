@@ -52,7 +52,7 @@ module param
    integer, parameter:: p1 = 4, p2 = 2
 
    character(*), parameter:: output_directory = "outputdata"
-   character(*), parameter:: input_file = 'example/sph_out0000.h5'
+   character(*), parameter:: input_file = 'example/dambreak.h5'
 
    integer, parameter:: halotype = 100 ! an extra identifier to distinguish halo from real ones
 

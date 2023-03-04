@@ -8,11 +8,7 @@ module time_integration_m
    use param, only: f, tf, dim, dt, rh0, c, gamma, g
    use single_step_m, only: single_step
    use summary_m, only: print_loadbalance
-#ifdef PARALLEL
-   use output_m, only: output_parallel
-#else
-   use output_m, only: output_serial
-#endif
+   use output_m, only: output
 
    private
    public:: time_integration
@@ -89,11 +85,11 @@ contains
 
          ! write output data
          if (mod(itimestep, save_step) .eq. 0) then
-#ifdef PARALLEL
-            call output_parallel(itimestep, save_step, thisImage, numImages, ntotal_loc, nhalo_loc, nvirt_loc, parts, ntotal)
-#else
-            call output_serial(itimestep, save_step, ntotal, nvirt, parts)
-#endif
+! #ifdef PARALLEL
+            call output(itimestep, save_step, thisImage, numImages, ntotal_loc, nhalo_loc, nvirt_loc, parts, ntotal)
+! #else
+!             call output_serial(itimestep, save_step, ntotal, nvirt, parts)
+! #endif
          end if
 
          if (mod(itimestep, print_step) .eq. 0) then

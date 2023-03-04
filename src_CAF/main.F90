@@ -7,11 +7,7 @@ program SPH
    use param, only: f, skf, dim
    use summary_m, only: preamble, print_summary
    use time_integration_m, only: time_integration
-#ifdef PARALLEL
-   use output_m, only: output_parallel
-#else
-   use output_m, only: output_serial
-#endif
+   use output_m, only: output
 
    implicit none
    integer:: thisImage, numImages, maxtimestep, print_step, save_step, ntotal, nvirt, maxnloc, maxinter, i
@@ -43,11 +39,7 @@ program SPH
 
    nhalo_loc = 0
    call ORB(0, thisImage, numImages, scale_k, ntotal, ntotal_loc, nvirt, nvirt_loc, nhalo_loc, parts, timings)
-#ifdef PARALLEL
-   call output_parallel(0, save_step, thisImage, numImages, ntotal_loc, nhalo_loc, nvirt_loc, parts, ntotal)
-#else
-   call output_serial(0, save_step, ntotal, nvirt, parts)
-#endif
+   call output(0, save_step, thisImage, numImages, ntotal_loc, nhalo_loc, nvirt_loc, parts, ntotal)
 
    ! Entering discretized time-integration loop
    call time_integration(maxtimestep, print_step, save_step, thisImage, numImages, maxnloc, maxinter, timings, scale_k, &
