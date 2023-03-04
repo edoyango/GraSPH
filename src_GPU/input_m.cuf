@@ -48,24 +48,18 @@ contains
    end function return_nvirt
 
    !==============================================================================================================================
-   subroutine allocatePersistentArrays(ntotal, nvirt, maxn, maxinter_perp, maxinter, pairs, pairs_d, itype, ind, itype_d, &
-   ind_d, p, rho, x, vx, p_d, rho_d, x_d, vx_d)
+   subroutine allocatePersistentArrays(ntotal, nvirt, maxn, maxinter_perp, maxinter, pairs, itype, ind, p, rho, x, vx)
 
       implicit none
       integer, intent(in):: ntotal, nvirt, maxinter_perp
       integer, intent(out):: maxn, maxinter
       integer, allocatable, intent(inout):: itype(:), ind(:)
-      integer, allocatable, device, intent(inout):: itype_d(:), ind_d(:)
       real(f), allocatable, intent(inout):: p(:), rho(:), x(:,:), vx(:,:)
-      real(f), allocatable, device, intent(inout):: p_d(:), rho_d(:), x_d(:,:), vx_d(:,:)
       type(interactions), allocatable, intent(inout):: pairs(:)
-      type(interactions), allocatable, intent(inout), device:: pairs_d(:)
 
       maxn = ntotal + nvirt!+int(0.2*ntotal)
       maxinter = maxinter_perp*maxn
       allocate( itype(maxn), ind(maxn), p(maxn), rho(maxn), x(dim,maxn), vx(dim,maxn))
-      allocate(itype_d(maxn), ind_d(maxn), p_d(maxn), rho_d(maxn), x_d(dim,maxn), vx_d(dim,maxn))
-      allocate (pairs(maxinter), pairs_d(maxinter))
 
    end subroutine allocatePersistentArrays
 

@@ -6,7 +6,7 @@ module time_integration_m
    use cudafor
 
    use input_m, only: vmat_update, update_ghost_part, generate_ghost_part
-   use flink_list_m, only: flink_list, niac_fl_Tex
+   use flink_list_m, only: flink_list
    use output_m, only: output
    use summary_m, only: print_update
    use single_step_m, only: single_step_kernel
@@ -18,7 +18,7 @@ contains
 
    !==============================================================================================================================
    subroutine time_integration(scale_k, print_step, save_step, maxtimestep, timings, maxinter, maxn, ntotal, nvirt, &
-                               niac, niac_d, pairs, pairs_d, itype, ind, itype_d, ind_d, p, rho, x, vx, p_d, rho_d, x_d, vx_d)
+                               niac, pairs, itype, ind, p, rho, x, vx)
       ! Subroutine responsible for the main time-integration loop
 
       implicit none
@@ -26,16 +26,15 @@ contains
       integer, intent(in):: print_step, save_step, maxtimestep, maxinter, maxn, ntotal, nvirt
       type(time_tracking), intent(inout):: timings
       integer, intent(inout):: itype(maxn), ind(maxn)
-      integer, device, intent(out):: itype_d(maxn), ind_d(maxn)
       real(f), intent(inout):: p(maxn), rho(maxn), x(dim,maxn), vx(dim,maxn)
-      real(f), device, intent(out):: p_d(maxn), rho_d(maxn), x_d(dim,maxn), vx_d(dim,maxn) 
       integer, intent(out):: niac
-      integer, device, intent(out):: niac_d
       type(interactions), intent(out):: pairs(maxinter)
-      type(interactions), device, intent(out):: pairs_d(maxinter)
       integer:: i, j, k, d, n, istat, ki, itimestep
-      integer, device:: ntotal_d, nvirt_d
-      real(f), allocatable, device:: v_min(:, :), rho_min(:), dvxdt(:, :), drho(:), dvxdt4(:,:), drho4(:), vw(:), xlast(:,:)
+      integer, device:: ntotal_d, nvirt_d, niac_d
+      integer, allocatable, device:: itype_d(:), ind_d(:)
+      real(f), allocatable, device:: p_d(:), rho_d(:), x_d(:, :), vx_d(:, :), v_min(:, :), rho_min(:), dvxdt(:, :), &
+         drho(:), dvxdt4(:,:), drho4(:), vw(:), xlast(:,:)
+      type(interactions), allocatable, device:: pairs_d(:)
       real(f):: time
       real:: tmpTime
       type(cudaEvent):: startEvent, stopEvent, startOutputEvent, stopOutputEvent, startTestEvent, stopTestEvent
@@ -50,9 +49,14 @@ contains
       istat = cudaEventCreate(startTestEvent)
       istat = cudaEventCreate(stopTestEvent)
       istat = cudaEventRecord(startEvent, 0)
+
+      ! Allocating device arrays
+      allocate( itype_d(maxn), ind_d(maxn), p_d(maxn), rho_d(maxn), x_d(dim, maxn), vx_d(dim, maxn), &
+         pairs_d(maxinter) )
       
       ! Allocating arrays relevant to solver
-      allocate (v_min(dim, maxn), rho_min(maxn), dvxdt(dim, maxn), drho(maxn), dvxdt4(dim,maxn), drho4(maxn), vw(maxn), xlast(dim,maxn))
+      allocate (v_min(dim, maxn), rho_min(maxn), dvxdt(dim, maxn), drho(maxn), dvxdt4(dim,maxn), drho4(maxn), &
+         vw(maxn), xlast(dim,maxn))
 
       xlast = huge(1._f)
 
