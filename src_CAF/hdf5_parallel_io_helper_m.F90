@@ -1,11 +1,15 @@
 module hdf5_parallel_io_helper_m
-#ifdef PARALLEL
-   use hdf5
-   use mpi ! would prefer to use mpi_f08, but hdf5 doesn't play nicely with it
    use param, only: f
-
+   use hdf5
+#ifdef PARALLEL
+   use mpi ! would prefer to use mpi_f08, but hdf5 doesn't play nicely with it
+#endif
    private
 
+   integer(HID_T):: plist_id, compress_plist_id, dspace_id, dset_id, local_dspace_id
+   integer:: ierr
+
+#ifdef PARALLEL
    interface hdf5_parallel_read
       module procedure hdf5_parallel_read_flt_r1, hdf5_parallel_read_flt_r2, hdf5_parallel_read_int_r1
    end interface hdf5_parallel_read
@@ -14,17 +18,15 @@ module hdf5_parallel_io_helper_m
       module procedure hdf5_parallel_write_flt_r1, hdf5_parallel_write_flt_r2, hdf5_parallel_write_int_r1
    end interface hdf5_parallel_write
 
-   integer(HID_T):: plist_id, compress_plist_id, dspace_id, dset_id, local_dspace_id
-   integer:: ierr
-
-   public:: hdf5_parallel_read, hdf5_parallel_write, hdf5_parallel_fileopen_read, hdf5_parallel_fileopen_write, &
-      hdf5_parallel_attribute_write, hdf5_parallel_attribute_read
-
+   public:: hdf5_parallel_read, hdf5_parallel_write
 #endif
+
+   public:: hdf5_fileopen_read, hdf5_fileopen_write, hdf5_attribute_write, hdf5_attribute_read
+
 contains
-#ifdef PARALLEL
+
    !===============================================================================================================================
-   subroutine hdf5_parallel_fileopen_write(fname, fid)
+   subroutine hdf5_fileopen_write(fname, fid)
 
       implicit none
       character(len=*):: fname
@@ -32,15 +34,16 @@ contains
 
       ! creating file access property list
       call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, ierr)
-
+#ifdef PARALLEL
       call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, ierr)
+#endif
       call h5fcreate_f(fname, H5F_ACC_TRUNC_F, fid, ierr, access_prp=plist_id)
       call h5pclose_f(plist_id, ierr)
 
-   end subroutine hdf5_parallel_fileopen_write
+   end subroutine hdf5_fileopen_write
 
    !===============================================================================================================================
-   subroutine hdf5_parallel_fileopen_read(fname, fid)
+   subroutine hdf5_fileopen_read(fname, fid)
 
       implicit none
       character(len=*):: fname
@@ -48,23 +51,23 @@ contains
 
       ! creating file access property list
       call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, ierr)
-
+#ifdef PARALLEL
       call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, ierr)
+#endif
       call h5fopen_f(fname, H5F_ACC_RDONLY_F, fid, ierr, access_prp=plist_id)
       call h5pclose_f(plist_id, ierr)
 
-   end subroutine hdf5_parallel_fileopen_read
+   end subroutine hdf5_fileopen_read
 
    !====================================================================================================================
-   subroutine hdf5_parallel_attribute_write(gid, n)
+   subroutine hdf5_attribute_write(gid, n)
 
       implicit none
       integer(HID_T), intent(in):: gid
       integer, intent(in):: n
       integer(HID_T):: aspace_id, attr_id
-      integer(size_t):: dims(1) = 0
-
-      call h5pcreate_f(H5P_ATTRIBUTE_CREATE_f, plist_id, ierr)
+      integer(SIZE_T):: dims(1) = 0
+      integer:: ierr
 
       call h5screate_f(H5S_SCALAR_F, aspace_id, ierr)
       call h5acreate_f(gid, 'n', H5T_NATIVE_INTEGER, aspace_id, attr_id, ierr)
@@ -72,16 +75,17 @@ contains
       call h5aclose_f(attr_id, ierr)
       call h5sclose_f(aspace_id, ierr)
 
-   end subroutine hdf5_parallel_attribute_write 
+   end subroutine hdf5_attribute_write 
 
    !====================================================================================================================
-   subroutine hdf5_parallel_attribute_read(gid, n)
+   subroutine hdf5_attribute_read(gid, n)
 
       implicit none
       integer(HID_T), intent(in):: gid
       integer, intent(out):: n
       integer(HID_T):: aspace_id, attr_id
       integer(size_t):: dims(1) = 0
+      integer:: ierr
 
       call h5aopen_by_name_f(gid, '.', 'n', attr_id, ierr)
       call h5aget_space_f(attr_id, aspace_id, ierr)
@@ -89,8 +93,9 @@ contains
       call h5sclose_f(aspace_id, ierr)
       call h5aclose_f(attr_id, ierr)
 
-   end subroutine hdf5_parallel_attribute_read
+   end subroutine hdf5_attribute_read
 
+#ifdef PARALLEL
    !===============================================================================================================================
    subroutine hdf5_parallel_write_flt_r1(gid, dset_name, displ, global_dims, ddata)
 

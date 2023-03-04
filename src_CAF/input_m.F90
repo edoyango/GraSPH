@@ -3,8 +3,9 @@ module input_m
    use datatypes, only: particles, interactions
    use hdf5
    use param, only: dim, irho, dxo, f, hsml, mass, halotype, input_file
+   use hdf5_parallel_io_helper_m, only: hdf5_attribute_read
 #ifdef PARALLEL
-   use hdf5_parallel_io_helper_m, only: hdf5_parallel_fileopen_read, hdf5_parallel_read, hdf5_parallel_attribute_read
+   use hdf5_parallel_io_helper_m, only: hdf5_parallel_fileopen_read, hdf5_parallel_read
    use mpi
 #else
    use h5lt
@@ -65,8 +66,8 @@ contains
       call h5gopen_f(fid, 'virt', gid_v, ierr)
 
       ! reading the 'n' attribute in each file to get ntotal and nvirt
-      call hdf5_parallel_attribute_read(gid_r, ntotal)
-      call hdf5_parallel_attribute_read(gid_v, nvirt)
+      call hdf5_attribute_read(gid_r, ntotal)
+      call hdf5_attribute_read(gid_v, nvirt)
 
       ! allocate arrays before reading particle data
       call allocatePersistentArrays(ntotal, nvirt, parts, pairs, nexti, maxnloc, maxinter)
@@ -116,10 +117,16 @@ contains
 #else
       call h5open_f(ierr)
       call h5fopen_f(input_file, H5F_ACC_RDONLY_F, fid, ierr)
-      call h5ltget_attribute_int_f(fid, "real", "n", nbuff, ierr)
-      ntotal = nbuff(1)
-      call h5ltget_attribute_int_f(fid, "virt", "n", nbuff, ierr)
-      nvirt = nbuff(1)
+      call h5gopen_f(fid, 'real', gid_r, ierr)
+      call hdf5_attribute_read(gid_r, ntotal)
+      call h5gclose_f(gid_r, ierr)
+      call h5gopen_f(fid, 'virt', gid_v, ierr)
+      call hdf5_attribute_read(gid_v, nvirt)
+      call h5gclose_f(gid_v, ierr)
+      ! call h5ltget_attribute_int_f(fid, "real", "n", nbuff, ierr)
+      ! ntotal = nbuff(1)
+      ! call h5ltget_attribute_int_f(fid, "virt", "n", nbuff, ierr)
+      ! nvirt = nbuff(1)
 
       ! allocate arrays before reading particle data
       call allocatePersistentArrays(ntotal, nvirt, parts, pairs, nexti, maxnloc, maxinter)

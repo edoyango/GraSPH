@@ -4,10 +4,11 @@ module output_m
    use hdf5
 #ifdef PARALLEL
    use mpi_f08
-   use hdf5_parallel_io_helper_m, only: hdf5_parallel_fileopen_write, hdf5_parallel_write, hdf5_parallel_attribute_write
+   use hdf5_parallel_io_helper_m, only: hdf5_fileopen_write, hdf5_parallel_write
 #else
    use h5lt
 #endif
+   use hdf5_parallel_io_helper_m, only: hdf5_attribute_write
    use param, only: f, dim, output_directory, halotype
 
    private
@@ -74,7 +75,7 @@ contains
 
       ! creating hdf5 output file (hdf5_parallel_fileopen is a custom hdf5 wrapper subroutine)
       filepath = trim(output_directory)//"/sph_out"//number//".h5"
-      call hdf5_parallel_fileopen_write(filepath, fid)
+      call hdf5_fileopen_write(filepath, fid)
 
       ! creating groups in hdf5 output for real, halo, virtual, and ghost particles
       call h5gcreate_f(fid, "real", real_group_id, ierr)
@@ -92,7 +93,7 @@ contains
          call write_particle_data_parallel(thisImage, real_group_id, global_dims, displ, real_part_tmp)
       end if
 
-      call hdf5_parallel_attribute_write(real_group_id, ntotal)
+      call hdf5_attribute_write(real_group_id, ntotal)
       
       call h5gclose_f(real_group_id, ierr)
 
@@ -107,7 +108,7 @@ contains
          call write_particle_data_parallel(thisImage, halo_group_id, global_dims, displ, halo_part_tmp)
       end if
 
-      call hdf5_parallel_attribute_write(halo_group_id, sum(nhalo_glob))
+      call hdf5_attribute_write(halo_group_id, sum(nhalo_glob))
 
       call h5gclose_f(halo_group_id, ierr)
 
@@ -122,7 +123,7 @@ contains
          call write_particle_data_parallel(thisImage, virt_group_id, global_dims, displ, virt_part_tmp)
       end if
 
-      call hdf5_parallel_attribute_write(virt_group_id, sum(nvirt_glob))
+      call hdf5_attribute_write(virt_group_id, sum(nvirt_glob))
 
       call h5gclose_f(virt_group_id, ierr)
 
@@ -197,8 +198,8 @@ contains
       implicit none
       integer, intent(in):: itimestep, save_step, ntotal, nvirt
       type(particles), intent(in):: parts(:)
-      integer(HID_T):: fid, real_group_id, virt_group_id
-      integer:: ierr
+      integer(HID_T):: fid, real_group_id, virt_group_id, attr_size
+      integer:: ierr, attr_tmp(1)
       character(len=4)::number
 
       write (number, '(I4.4)') itimestep/save_step
@@ -211,9 +212,17 @@ contains
 
       ! Creating groups for each of real, virtual, and ghost particles
       call h5gcreate_f(fid, "real", real_group_id, ierr)
+      attr_tmp(1) = ntotal
+      attr_size = 0
+      ! call h5ltset_attribute_int_f(real_group_id, ".", "n", attr_tmp, attr_size, ierr)
+      call hdf5_attribute_write(real_group_id, ntotal)
       call h5gclose_f(real_group_id, ierr)
 
       call h5gcreate_f(fid, "virt", virt_group_id, ierr)
+      attr_tmp(1) = nvirt
+      attr_size = 0
+      ! call h5ltset_attribute_int_f(virt_group_id, ".", "n", attr_tmp, attr_size, ierr)
+      call hdf5_attribute_write(virt_group_id, nvirt)
       call h5gclose_f(virt_group_id, ierr)
 
       call write_particle_data_serial(fid, 'real', parts(1:ntotal))
