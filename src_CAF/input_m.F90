@@ -3,9 +3,9 @@ module input_m
    use datatypes, only: particles, interactions
    use hdf5
    use param, only: dim, irho, dxo, f, hsml, mass, halotype, input_file
-   use hdf5_parallel_io_helper_m, only: hdf5_attribute_read
+   use hdf5_parallel_io_helper_m, only: hdf5_attribute_read, hdf5_fileopen_read
 #ifdef PARALLEL
-   use hdf5_parallel_io_helper_m, only: hdf5_parallel_fileopen_read, hdf5_parallel_read
+   use hdf5_parallel_io_helper_m, only: hdf5_parallel_read
    use mpi
 #else
    use h5lt
@@ -116,13 +116,11 @@ contains
       if (.not. test_init) call MPI_FINALIZE(ierr)
 #else
       call h5open_f(ierr)
-      call h5fopen_f(input_file, H5F_ACC_RDONLY_F, fid, ierr)
+      call hdf5_fileopen_read(input_file, fid)
       call h5gopen_f(fid, 'real', gid_r, ierr)
       call hdf5_attribute_read(gid_r, ntotal)
-      call h5gclose_f(gid_r, ierr)
       call h5gopen_f(fid, 'virt', gid_v, ierr)
       call hdf5_attribute_read(gid_v, nvirt)
-      call h5gclose_f(gid_v, ierr)
       ! call h5ltget_attribute_int_f(fid, "real", "n", nbuff, ierr)
       ! ntotal = nbuff(1)
       ! call h5ltget_attribute_int_f(fid, "virt", "n", nbuff, ierr)
@@ -131,14 +129,16 @@ contains
       ! allocate arrays before reading particle data
       call allocatePersistentArrays(ntotal, nvirt, parts, pairs, nexti, maxnloc, maxinter)
 
-      call read_particle_data_serial(fid, 'real', parts(1:ntotal))
-      call read_particle_data_serial(fid, 'virt', parts(ntotal+1:ntotal+nvirt))
+      call read_particle_data_serial(gid_r, parts(1:ntotal))
+      call read_particle_data_serial(gid_v, parts(ntotal+1:ntotal+nvirt))
       ntotal_loc = ntotal
       nvirt_loc = nvirt
       do i = 1, ntotal+nvirt
          parts(i)%indloc = i
       end do
 
+      call h5gclose_f(gid_r, ierr)
+      call h5gclose_f(gid_v, ierr)
       call h5fclose_f(fid, ierr)
       call h5close_f(ierr)
       
@@ -292,11 +292,10 @@ contains
    end subroutine read_particle_data_parallel
 #else
    !===============================================================================================================================
-   subroutine read_particle_data_serial(fid_in, group_label, pts_out)
+   subroutine read_particle_data_serial(gid_in, pts_out)
 
       implicit none
-      integer(HID_T), intent(in):: fid_in
-      character(*), intent(in):: group_label
+      integer(HID_T), intent(in):: gid_in
       type(particles), intent(out):: pts_out(:)
       integer(HSIZE_T):: data_dims(2)
       integer:: nelem, i, ierr
@@ -310,11 +309,11 @@ contains
       allocate (idatatmp(data_dims(1), data_dims(2)))
 
       ! particle index
-      call H5LTread_dataset_int_f(fid_in, group_label//'/ind', idatatmp, data_dims, ierr)
+      call H5LTread_dataset_int_f(gid_in, 'ind', idatatmp, data_dims, ierr)
       pts_out(:)%indglob = idatatmp(:, 1)
 
       ! particle type
-      call H5LTread_dataset_int_f(fid_in, group_label//'/type', idatatmp, data_dims, ierr)
+      call H5LTread_dataset_int_f(gid_in, 'type', idatatmp, data_dims, ierr)
       pts_out(:)%itype = idatatmp(:, 1)
 
       deallocate (idatatmp)
@@ -324,18 +323,18 @@ contains
       allocate (fdatatmp(data_dims(1), data_dims(2)))
       select case (f)
       case (kind(1.))
-         call H5LTread_dataset_float_f(fid_in, group_label//'/rho', fdatatmp, data_dims, ierr)
+         call H5LTread_dataset_float_f(gid_in, 'rho', fdatatmp, data_dims, ierr)
       case default
-         call H5LTread_dataset_double_f(fid_in, group_label//'/rho', fdatatmp, data_dims, ierr)
+         call H5LTread_dataset_double_f(gid_in, 'rho', fdatatmp, data_dims, ierr)
       end select
       pts_out(:)%rho = fdatatmp(:, 1)
 
       ! pressure
       select case (f)
       case (kind(1.))
-         call H5LTread_dataset_float_f(fid_in, group_label//'/p', fdatatmp, data_dims, ierr)
+         call H5LTread_dataset_float_f(gid_in, 'p', fdatatmp, data_dims, ierr)
       case default
-         call H5LTread_dataset_double_f(fid_in, group_label//'/p', fdatatmp, data_dims, ierr)
+         call H5LTread_dataset_double_f(gid_in, 'p', fdatatmp, data_dims, ierr)
       end select
       pts_out(:)%p = fdatatmp(:, 1)
 
@@ -349,9 +348,9 @@ contains
       ! position
       select case (f)
       case (kind(1.))
-         call H5LTread_dataset_float_f(fid_in, group_label//'/x', fdatatmp, data_dims, ierr)
+         call H5LTread_dataset_float_f(gid_in, 'x', fdatatmp, data_dims, ierr)
       case default
-         call H5LTread_dataset_double_f(fid_in, group_label//'/x', fdatatmp, data_dims, ierr)
+         call H5LTread_dataset_double_f(gid_in, 'x', fdatatmp, data_dims, ierr)
       end select
       do i = 1, nelem
          pts_out(i)%x(:) = fdatatmp(:, i)
@@ -360,9 +359,9 @@ contains
       ! velocity
       select case (f)
       case (kind(1.))
-         call H5LTread_dataset_float_f(fid_in, group_label//'/v', fdatatmp, data_dims, ierr)
+         call H5LTread_dataset_float_f(gid_in, 'v', fdatatmp, data_dims, ierr)
       case default
-         call H5LTread_dataset_double_f(fid_in, group_label//'/v', fdatatmp, data_dims, ierr)
+         call H5LTread_dataset_double_f(gid_in, 'v', fdatatmp, data_dims, ierr)
       end select
 
       do i = 1, nelem

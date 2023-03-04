@@ -172,7 +172,11 @@ contains
       ! Creating dataspace in dataset for each process to write to
       call h5screate_simple_f(rank, local_dims, local_dspace_id, ierr)
       call h5dget_space_f(dset_id, dspace_id, ierr)
+#ifdef PARALLEL
       call h5sselect_hyperslab_f(dspace_id, H5S_SELECT_SET_F, displ_copy, local_dims, ierr)
+#else
+      plist_id = H5P_DEFAULT
+#endif
       ! Create property list for collective dataset write
       call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, ierr)
       call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, ierr)
