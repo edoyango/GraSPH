@@ -49,12 +49,12 @@ contains
       ! initializing MPI (if needed)
       call MPI_INITIALIZED(test_init, ierr)
       if (.not. test_init) call MPI_INIT(ierr)
-
+#endif
       ! initializing hdf5
       call h5open_f(ierr)
 
       ! using helper subroutine to open file
-      call hdf5_parallel_fileopen_read(input_file, fid)
+      call hdf5_fileopen_read(input_file, fid)
 
       ! opening real and virtual particle groups in hdf5 file
       call h5gopen_f(fid, 'real', gid_r, ierr)
@@ -108,36 +108,8 @@ contains
       ! closing hdf5
       call h5close_f(ierr)
 
+#ifdef PARALLEL
       if (.not. test_init) call MPI_FINALIZE(ierr)
-#else
-      call h5open_f(ierr)
-      call hdf5_fileopen_read(input_file, fid)
-      call h5gopen_f(fid, 'real', gid_r, ierr)
-      call hdf5_attribute_read(gid_r, ntotal)
-      call h5gopen_f(fid, 'virt', gid_v, ierr)
-      call hdf5_attribute_read(gid_v, nvirt)
-
-      ! allocate arrays before reading particle data
-      call allocatePersistentArrays(ntotal, nvirt, parts, pairs, nexti, maxnloc, maxinter)
-
-      ! call read_particle_data_serial(gid_r, parts(1:ntotal))
-      global_dims(1) = dim
-      global_dims(2) = ntotal
-      displ(1:2) = 0
-      call read_particle_data_parallel(thisImage, gid_r, global_dims, displ, parts(1:ntotal))
-      global_dims(2) = nvirt
-      call read_particle_data_parallel(thisImage, gid_v, global_dims, displ, parts(ntotal+1:ntotal+nvirt))
-      ntotal_loc = ntotal
-      nvirt_loc = nvirt
-      do i = 1, ntotal+nvirt
-         parts(i)%indloc = i
-      end do
-
-      call h5gclose_f(gid_r, ierr)
-      call h5gclose_f(gid_v, ierr)
-      call h5fclose_f(fid, ierr)
-      call h5close_f(ierr)
-      
 #endif
 
    end subroutine read_input_and_allocate
