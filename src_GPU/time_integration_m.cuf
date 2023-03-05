@@ -26,21 +26,20 @@ contains
       integer, intent(in):: print_step, save_step, maxtimestep, maxinter, maxn, ntotal, nvirt
       type(time_tracking), intent(inout):: timings
       integer, intent(inout):: itype(maxn), ind(maxn)
-      integer, device, intent(out):: itype_d(maxn), ind_d(maxn)
+      integer, device, intent(out), target:: itype_d(maxn), ind_d(maxn)
       real(f), intent(inout):: p(maxn), rho(maxn), x(dim,maxn), vx(dim,maxn)
-      real(f), device, intent(out):: p_d(maxn), rho_d(maxn), x_d(dim,maxn), vx_d(dim,maxn) 
+      real(f), device, intent(out), target:: p_d(maxn), rho_d(maxn), x_d(dim,maxn), vx_d(dim,maxn) 
       integer, intent(out):: niac
       integer, device, intent(out):: niac_d
       type(interactions), intent(out):: pairs(maxinter)
       type(interactions), device, intent(out):: pairs_d(maxinter)
       integer:: i, j, k, d, n, istat, ki, itimestep
       integer, device:: ntotal_d, nvirt_d
-      real(f), allocatable, device:: v_min(:, :), rho_min(:), dvxdt(:, :), drho(:), dvxdt4(:,:), drho4(:), vw(:), xlast(:,:)
+      real(f), allocatable, device:: v_min(:, :), rho_min(:), dvxdt(:, :), drho(:), dvxdt4(:,:), drho4(:), vw(:)
       real(f):: time
       real:: tmpTime
       type(cudaEvent):: startEvent, stopEvent, startOutputEvent, stopOutputEvent, startTestEvent, stopTestEvent
       integer, device, allocatable:: gind(:)
-      real(f), device:: rsincelast
 
       ! creating cuda events and recording start event
       istat = cudaEventCreate(startEvent)
@@ -52,9 +51,7 @@ contains
       istat = cudaEventRecord(startEvent, 0)
       
       ! Allocating arrays relevant to solver
-      allocate (v_min(dim, maxn), rho_min(maxn), dvxdt(dim, maxn), drho(maxn), dvxdt4(dim,maxn), drho4(maxn), vw(maxn), xlast(dim,maxn))
-
-      xlast = huge(1._f)
+      allocate (v_min(dim, maxn), rho_min(maxn), dvxdt(dim, maxn), drho(maxn), dvxdt4(dim,maxn), drho4(maxn), vw(maxn))
 
       ! Transferring necessary data to GPU
       itype_d = itype
@@ -79,7 +76,7 @@ contains
       do itimestep = 1, maxtimestep
 
          !Interaction parameters, calculating neighboring particles
-         call flink_list(ind_d, itype_d, x_d, vx_d, rho_d, p_d, scale_k, maxinter, maxn, niac_d, pairs_d, xlast)
+         call flink_list(ind_d, itype_d, x_d, vx_d, rho_d, p_d, scale_k, maxinter, maxn, niac_d, pairs_d)
 
          ! Save particles' velocity, density information at start of time-step
          !$cuf kernel do <<<*,512>>>
