@@ -17,7 +17,7 @@ module input_m
                                                   1._f, -1._f,  1._f, &
                                                  -1._f, -1._f,  1._f], [dim, 4])
 
-   public:: return_ntotal, return_nvirt, allocatePersistentArrays, read_input_and_allocate
+   public:: return_ntotal, return_nvirt, read_input_and_allocate
 
 contains
 
@@ -67,12 +67,14 @@ contains
    end subroutine allocatePersistentArrays
 
    !==============================================================================================================================
-   subroutine read_input_and_allocate(ntotal, nvirt, itype, ind, p, rho, x, vx)
+   subroutine read_input_and_allocate(ntotal, nvirt, maxinter_perp, itype, ind, p, rho, x, vx, pairs, maxn, maxinter)
 
       implicit none
-      integer, intent(in):: ntotal, nvirt
-      integer, intent(out):: itype(ntotal+nvirt), ind(ntotal+nvirt)
-      real(f), intent(out):: p(ntotal+nvirt), rho(ntotal+nvirt), x(dim,ntotal+nvirt), vx(dim,ntotal+nvirt)
+      integer, intent(in):: ntotal, nvirt, maxinter_perp
+      integer, allocatable, intent(inout):: itype(:), ind(:)
+      real(f), allocatable, intent(inout):: p(:), rho(:), x(:, :), vx(:,:)
+      type(interactions), allocatable, intent(inout):: pairs(:)
+      integer, intent(out):: maxn, maxinter
       integer:: i, j, k, d, n, ierr
       real(f):: xi, yi, zi
       integer(HID_T):: fid, gid_r, gid_v
@@ -88,6 +90,8 @@ contains
       call h5gopen_f(fid, 'real', gid_r, ierr)
       call h5gopen_f(fid, 'virt', gid_v, ierr)
 
+      call allocatePersistentArrays(ntotal, nvirt, maxn, maxinter_perp, maxinter, pairs, itype, ind, p, rho, x, vx)
+
       ! reading real particle data from hdf5 file
       global_dims(1) = dim
       global_dims(2) = ntotal
@@ -96,8 +100,8 @@ contains
       global_dims(1) = dim
       global_dims(2) = nvirt
       if (nvirt /= 0) call read_particle_data_parallel(gid_v, global_dims, itype(ntotal+1:ntotal+nvirt), &
-         ind(ntotal+1:ntotal+nvirt), p(ntotal+1:ntotal+nvirt), rho(ntotal+1:ntotal+nvirt), x(:,ntotal+1:ntotal+nvirt), &
-         vx(:, ntotal+1:ntotal+nvirt))
+         ind(ntotal+1:ntotal+nvirt), p(ntotal+1:ntotal+nvirt), rho(ntotal+1:ntotal+nvirt), &
+         x(:, ntotal+1:ntotal+nvirt), vx(:, ntotal+1:ntotal+nvirt))
 
       ! closing groups and hdf5 file
       call h5gclose_f(gid_r, ierr)
