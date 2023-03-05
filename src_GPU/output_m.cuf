@@ -1,10 +1,9 @@
 module output_m
 
    use datatypes, only: particles
-   use param, only: output_directory, f, dim
-
    use hdf5
-   use h5lt
+   use hdf5_parallel_io_helper_m, only: hdf5_parallel_write, hdf5_fileopen_write, hdf5_attribute_write
+   use param, only: output_directory, f, dim
 
    private
    public:: output
@@ -22,6 +21,7 @@ contains
       character(len=4)::number
       integer:: n, ierr, i
       type(particles), allocatable:: ptmp(:)
+      integer(HSIZE_T):: global_dims(2)
 
       n = itimestep/save_step
       write (number, '(I4.4)') n
@@ -34,10 +34,8 @@ contains
 
       ! Creating groups for each of real, virtual, and ghost particles
       call h5gcreate_f(file_id, "real", real_group_id, ierr)
-      call h5gclose_f(real_group_id, ierr)
 
       call h5gcreate_f(file_id, "virt", virt_group_id, ierr)
-      call h5gclose_f(virt_group_id, ierr)
       
       allocate(ptmp(max(ntotal,nvirt)))
       
@@ -54,7 +52,10 @@ contains
          end if
       end do
       
-      call write_particle_data(file_id, 'real', ptmp(1:n))
+      global_dims(1) = dim
+      global_dims(2) = n
+      call hdf5_attribute_write(real_group_id, n)
+      call write_particle_data(real_group_id, global_dims, ptmp(1:n))
       
       n = 0
       do i = 1,ntotal+nvirt
@@ -68,92 +69,67 @@ contains
             ptmp(n)%vx = vx(:,i)
          end if
       end do
-      call write_particle_data(file_id, 'virt', ptmp(1:n))
 
+      global_dims(1) = dim
+      global_dims(2) = n
+      call hdf5_attribute_write(virt_group_id, n)
+      call write_particle_data(virt_group_id, global_dims, ptmp(1:n))
+
+      call h5gclose_f(real_group_id, ierr)
+      call h5gclose_f(virt_group_id, ierr)
       call h5fclose_f(file_id, ierr)
 
    end subroutine output
 
-   !===============================================================================================================================
-   subroutine write_particle_data(fid_in, group_label, pts_in)
+   !==============================================================================================================================
+   subroutine write_particle_data(gid_in, gdims, parts)
 
       implicit none
-      integer(HID_T), intent(in):: fid_in
-      character(*), intent(in):: group_label
-      type(particles), intent(in):: pts_in(:)
-      integer(HSIZE_T):: data_dims(2)
-      integer:: nelem, i, ierr
-      integer, allocatable:: idatatmp(:, :)
-      real(f), allocatable:: fdatatmp(:, :)
+      integer(HID_T), intent(in):: gid_in
+      integer(HSIZE_T), intent(in):: gdims(2)
+      integer(HSSIZE_T):: ldispl(2) = 0
+      type(particles), intent(in):: parts(:)
+      integer:: nelem, i
+      integer, allocatable:: int_tmp(:, :)
+      real(f), allocatable:: dbl_tmp(:, :)
 
-      nelem = size(pts_in)
+      nelem = size(parts, 1)
+      allocate (int_tmp(nelem, 1), dbl_tmp(nelem, 1))
 
-      ! Int data
-      data_dims(:) = [nelem, 1]
-      allocate (idatatmp(data_dims(1), data_dims(2)))
+      ! writing 1D arrays
+      int_tmp(:, 1) = parts(:)%indglob
+      call hdf5_parallel_write(gid_in, 'ind', ldispl(2), gdims(2), int_tmp(:, 1))
+      int_tmp(:, 1) = 1
+      call hdf5_parallel_write(gid_in, 'procid', ldispl(2), gdims(2), int_tmp(:, 1))
+      int_tmp(:, 1) = parts(:)%itype
+      call hdf5_parallel_write(gid_in, 'type', ldispl(2), gdims(2), int_tmp(:, 1))
+      dbl_tmp(:, 1) = parts(:)%rho
+      call hdf5_parallel_write(gid_in, 'rho', ldispl(2), gdims(2), dbl_tmp(:, 1))
+      dbl_tmp(:, 1) = parts(:)%p
+      call hdf5_parallel_write(gid_in, 'p', ldispl(2), gdims(2), dbl_tmp(:, 1))
 
-      ! particle index
-      idatatmp(:, 1) = pts_in(:)%indglob
-      call H5LTmake_dataset_int_f(fid_in, group_label//'/ind', 1, data_dims, idatatmp, ierr)
+      deallocate (int_tmp, dbl_tmp)
 
-      ! process ID
-      idatatmp(:, 1) = 0
-      call H5LTmake_dataset_int_f(fid_in, group_label//'/procid', 1, data_dims, idatatmp, ierr)
+      ! Converting position data to contiguous array
+      allocate (dbl_tmp(dim, nelem))
 
-      ! particle type
-      idatatmp(:, 1) = pts_in(:)%itype
-      call H5LTmake_dataset_int_f(fid_in, group_label//'/type', 1, data_dims, idatatmp, ierr)
-      deallocate (idatatmp)
-
-      ! float data
-      data_dims(:) = [dim, nelem]
-      allocate (fdatatmp(data_dims(1), data_dims(2)))
-
-      ! position
       do i = 1, nelem
-         fdatatmp(:, i) = pts_in(i)%x(:)
+         dbl_tmp(:, i) = parts(i)%x(:)
       end do
-      select case (f)
-      case (kind(1.))
-         call H5LTmake_dataset_float_f(fid_in, group_label//'/x', 2, data_dims, fdatatmp, ierr)
-      case default
-         call H5LTmake_dataset_double_f(fid_in, group_label//'/x', 2, data_dims, fdatatmp, ierr)
-      end select
 
-      ! velocity
+      ! writing position
+      call hdf5_parallel_write(gid_in, 'x', ldispl, gdims, dbl_tmp)
+
+      ! Converting velocity data to contiguous array
       do i = 1, nelem
-         fdatatmp(:, i) = pts_in(i)%vx(:)
+         dbl_tmp(:, i) = parts(i)%vx(:)
       end do
-      select case (f)
-      case (kind(1.))
-         call H5LTmake_dataset_float_f(fid_in, group_label//'/v', 2, data_dims, fdatatmp, ierr)
-      case default
-         call H5LTmake_dataset_double_f(fid_in, group_label//'/v', 2, data_dims, fdatatmp, ierr)
-      end select
 
-      deallocate (fdatatmp)
+      ! writing velocity
+      call hdf5_parallel_write(gid_in, 'v', ldispl, gdims, dbl_tmp)
 
-      ! density
-      data_dims(:) = [nelem, 1]
-      allocate (fdatatmp(data_dims(1), data_dims(2)))
-      fdatatmp(:, 1) = pts_in(:)%rho
-      select case (f)
-      case (kind(1.))
-         call H5LTmake_dataset_float_f(fid_in, group_label//'/rho', 1, data_dims, fdatatmp, ierr)
-      case default
-         call H5LTmake_dataset_double_f(fid_in, group_label//'/rho', 1, data_dims, fdatatmp, ierr)
-      end select
-
-      ! pressure
-      fdatatmp(:, 1) = pts_in(:)%p
-      select case (f)
-      case (kind(1.))
-         call H5LTmake_dataset_float_f(fid_in, group_label//'/p', 1, data_dims, fdatatmp, ierr)
-      case default
-         call H5LTmake_dataset_double_f(fid_in, group_label//'/p', 1, data_dims, fdatatmp, ierr)
-      end select
-
-      deallocate (fdatatmp)
+      ! cleanup
+      deallocate (dbl_tmp)
 
    end subroutine write_particle_data
 
