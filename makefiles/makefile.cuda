@@ -29,7 +29,7 @@ $(CDIR)/%.f90
 $(ODIR)/datatypes.cuf.o: \
 $(ODIR)/%.cuf.o: \
 $(CDIR)/%.f90 \
-$(CDIR)/param.f90
+$(ODIR)/param.cuf.o
 	$(FC) -c -o $@ $< $(MAKE_FCFLAGS)
 
 $(ODIR)/thrustc.cu.o: \
@@ -44,7 +44,8 @@ $(SDIR)/%.cuf
 
 $(ODIR)/hdf5_parallel_io_helper_m.cuf.o: \
 $(ODIR)/%.cuf.o: \
-$(CDIR)/%.F90 $(CDIR)/param.f90
+$(CDIR)/%.F90 \
+$(ODIR)/param.cuf.o
 	$(FC) -c -o $@ $< $(MAKE_FCFLAGS)
 
 $(ODIR)/summary_m.cuf.o $(ODIR)/output_m.cuf.o $(ODIR)/single_step_m.cuf.o $(ODIR)/flink_lisk_m.cuf.o: \

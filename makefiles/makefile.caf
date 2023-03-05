@@ -98,7 +98,7 @@ $(CDIR)/%.f90
 
 $(ODIR)/hdf5_parallel_io_helper_m.caf.o: \
 $(ODIR)/%.caf.o: \
-$(SDIR)/%.F90 \
+$(CDIR)/%.F90 \
 $(ODIR)/param.caf.o
 	$(FC) -c -o $@ $< $(FCFLAGS)
 
