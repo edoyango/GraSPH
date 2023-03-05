@@ -3,7 +3,7 @@ program SPH
    use datatypes, only: particles, interactions, time_tracking
    use param, only: skf, f
 
-   use input_m, only: return_ntotal, return_nvirt, read_input_and_allocate
+   use input_m, only: read_input_and_allocate
    use flink_list_m, only: kernel_k
    use output_m, only: output
    use summary_m, only: preamble, time_print, print_summary
@@ -25,14 +25,12 @@ program SPH
    ! setting k parameter for kernel radius (r = kh)
    scale_k = kernel_k(skf)
 
-   ntotal = return_ntotal()
-   nvirt = return_nvirt()
+   !Creat physical and virtual boundary particles
+   call read_input_and_allocate(maxinter_perp, itype, ind, p, rho, x, vx, pairs, maxn, maxinter, ntotal, nvirt)
 
    write (*, '(A24,1x,I9,1x,A19)') 'Total simulation size of', ntotal, 'physical particles.'
    write (*, '(A24,1x,I9,1x,A19)') '                        ', nvirt, 'virtual particles.'
 
-   !Creat physical and virtual boundary particles
-   call read_input_and_allocate(ntotal, nvirt, maxinter_perp, itype, ind, p, rho, x, vx, pairs, maxn, maxinter)
    call output(0, save_step, ntotal, nvirt, itype, ind, p, rho, x, vx)
 
    !Entering discretized time-integration loop

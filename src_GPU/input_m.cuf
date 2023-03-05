@@ -2,7 +2,7 @@ module input_m
 
    use datatypes, only: particles, interactions
    use hdf5
-   use hdf5_parallel_io_helper_m, only: hdf5_fileopen_read
+   use hdf5_parallel_io_helper_m, only: hdf5_fileopen_read, hdf5_attribute_read
    use param, only: dim, f, dxo, mp, np, op, pp, qp, rp, nlayer, irho, g, gamma, c, hsml, mass, input_file
 
    private
@@ -17,38 +17,9 @@ module input_m
                                                   1._f, -1._f,  1._f, &
                                                  -1._f, -1._f,  1._f], [dim, 5])
 
-   public:: return_ntotal, return_nvirt, read_input_and_allocate
+   public:: read_input_and_allocate
 
 contains
-
-   !==============================================================================================================================
-   pure function return_ntotal() result(ntotal)
-
-      implicit none
-      integer:: ntotal
-
-      ntotal = mp*np*op
-
-   end function return_ntotal
-
-   !==============================================================================================================================
-   pure function return_nvirt() result(nvirt)
-
-      implicit none
-      integer:: nvirt, i, j, k
-      
-      nvirt = 0
-      do i = 1 - nlayer, pp + nlayer
-         do j = 1 - nlayer, qp + nlayer
-            do k = 1 - nlayer, rp + nlayer
-               if (.not.(i>=1 .and. i<=pp .and. j>=1 .and. j<=qp .and. k>=1 .and. k<=rp)) then
-                  nvirt = nvirt + 1
-               end if
-            end do
-         end do
-      end do
-
-   end function return_nvirt
 
    !==============================================================================================================================
    subroutine allocatePersistentArrays(ntotal, nvirt, maxn, maxinter_perp, maxinter, pairs, itype, ind, p, rho, x, vx)
@@ -67,14 +38,14 @@ contains
    end subroutine allocatePersistentArrays
 
    !==============================================================================================================================
-   subroutine read_input_and_allocate(ntotal, nvirt, maxinter_perp, itype, ind, p, rho, x, vx, pairs, maxn, maxinter)
+   subroutine read_input_and_allocate(maxinter_perp, itype, ind, p, rho, x, vx, pairs, maxn, maxinter, ntotal, nvirt)
 
       implicit none
-      integer, intent(in):: ntotal, nvirt, maxinter_perp
+      integer, intent(in):: maxinter_perp
       integer, allocatable, intent(inout):: itype(:), ind(:)
       real(f), allocatable, intent(inout):: p(:), rho(:), x(:, :), vx(:,:)
       type(interactions), allocatable, intent(inout):: pairs(:)
-      integer, intent(out):: maxn, maxinter
+      integer, intent(out):: ntotal, nvirt, maxn, maxinter
       integer:: i, j, k, d, n, ierr
       real(f):: xi, yi, zi
       integer(HID_T):: fid, gid_r, gid_v
@@ -89,6 +60,9 @@ contains
       ! opening real and virtual particle groups in hdf5 file
       call h5gopen_f(fid, 'real', gid_r, ierr)
       call h5gopen_f(fid, 'virt', gid_v, ierr)
+
+      call hdf5_attribute_read(gid_r, ntotal)
+      call hdf5_attribute_read(gid_v, nvirt)
 
       call allocatePersistentArrays(ntotal, nvirt, maxn, maxinter_perp, maxinter, pairs, itype, ind, p, rho, x, vx)
 
