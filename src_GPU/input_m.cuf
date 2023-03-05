@@ -3,13 +3,7 @@ module input_m
    use datatypes, only: particles, interactions
    use hdf5
    use hdf5_parallel_io_helper_m, only: hdf5_fileopen_read, hdf5_attribute_read
-   use param, only: dim, f, dxo, mp, np, op, pp, qp, rp, nlayer, irho, g, gamma, c, hsml, mass, input_file
-
-   private
-   real(f), parameter, public:: vxmin = 0._f, vymin = 0._f, vzmin = 0._f, &
-                                vxmax = vxmin + pp*dxo, vymax = vymin + qp*dxo, vzmax = vzmin + rp*dxo
-   real(f), parameter, public:: rxmin = 0._f, rymin = 0._f, rzmin = 0._f, &
-                                rxmax = rxmin + mp*dxo, rymax = rymin + np*dxo, rzmax = rzmin + op*dxo
+   use param, only: dim, f, dxo, irho, g, gamma, c, hsml, mass, input_file
 
    real(f), parameter:: vnorm(dim, 5) = reshape([-1._f, -1._f, -1._f, &
                                                   1._f,  1._f, -1._f, &
