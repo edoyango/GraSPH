@@ -1,7 +1,9 @@
 module input_m
 
    use datatypes, only: particles, interactions
-   use param, only: dim, f, dxo, mp, np, op, pp, qp, rp, nlayer, irho, g, gamma, c, hsml, mass
+   use hdf5
+   use hdf5_parallel_io_helper_m, only: hdf5_fileopen_read
+   use param, only: dim, f, dxo, mp, np, op, pp, qp, rp, nlayer, irho, g, gamma, c, hsml, mass, input_file
 
    private
    real(f), parameter, public:: vxmin = 0._f, vymin = 0._f, vzmin = 0._f, &
@@ -12,9 +14,10 @@ module input_m
    real(f), parameter:: vnorm(dim, 4) = reshape([-1._f, -1._f, -1._f, &
                                                   1._f,  1._f, -1._f, &
                                                  -1._f,  1._f,  1._f, &
-                                                  1._f, -1._f,  1._f], [dim, 4])
+                                                  1._f, -1._f,  1._f, &
+                                                 -1._f, -1._f,  1._f], [dim, 4])
 
-   public:: return_ntotal, return_nvirt, allocatePersistentArrays, generate_real_part, generate_virt_part
+   public:: return_ntotal, return_nvirt, allocatePersistentArrays, read_input_and_allocate
 
 contains
 
@@ -64,72 +67,47 @@ contains
    end subroutine allocatePersistentArrays
 
    !==============================================================================================================================
-   subroutine generate_real_part(ntotal, itype, ind, p, rho, x, vx)
-
-      implicit none
-      integer, intent(in):: ntotal
-      integer, intent(out):: itype(ntotal), ind(ntotal)
-      real(f), intent(out):: p(ntotal), rho(ntotal), x(dim,ntotal), vx(dim,ntotal)
-      integer:: i, j, k, d, n
-      real(f):: xi, yi, zi
-
-      n = 0
-      do i = 1, mp
-         do j = 1, np
-            do k = 1, op
-               n = n + 1
-               itype(n) = 1
-               ind(n) = n
-               p(n) = 0._f
-               rho(n) = irho*(p(n)*gamma/(c**2*irho) + 1)**(1._f/gamma)
-               x(1,n) = (i - 0.5_f)*dxo
-               x(2,n) = (j - 0.5_f)*dxo
-               x(3,n) = (k - 0.5_f)*dxo
-               vx(:,n) = 0._f
-            end do
-         end do
-      end do
-
-   end subroutine generate_real_part
-
-   !==============================================================================================================================
-   subroutine generate_virt_part(ntotal, nvirt, itype, ind, p, rho, x, vx)
+   subroutine read_input_and_allocate(ntotal, nvirt, itype, ind, p, rho, x, vx)
 
       implicit none
       integer, intent(in):: ntotal, nvirt
       integer, intent(out):: itype(ntotal+nvirt), ind(ntotal+nvirt)
       real(f), intent(out):: p(ntotal+nvirt), rho(ntotal+nvirt), x(dim,ntotal+nvirt), vx(dim,ntotal+nvirt)
-      integer:: i, j, k, d, n
+      integer:: i, j, k, d, n, ierr
+      real(f):: xi, yi, zi
+      integer(HID_T):: fid, gid_r, gid_v
+      integer(HSIZE_T):: global_dims(2)
 
-      n = ntotal
+      ! initializing hdf5
+      call h5open_f(ierr)
 
-      do i = 1 - nlayer, pp + nlayer
-         do j = 1 - nlayer, qp + nlayer
-            do k = 1 - nlayer, rp + nlayer
-               if (.not.(i>=1 .and. i<=pp .and. j>=1 .and. j<=qp .and. k>=1 .and. k<=rp)) then
-                  n = n + 1
-                  if (k < 1) then
-                     itype(n) = -1
-                  else if (k > rp) then
-                     itype(n) = -2
-                  else if (i < 1 .or. i > pp) then
-                     itype(n) = -3
-                  else if (j < 1 .or. j > qp) then
-                     itype(n) = -4
-                  end if
-                  ind(n) = n
-                  p(n) = 0._f
-                  rho(n) = irho
-                  x(1,n) = vxmin + (i - 0.5_f)*dxo
-                  x(2,n) = vymin + (j - 0.5_f)*dxo
-                  x(3,n) = vzmin + (k - 0.5_f)*dxo
-                  vx(:,n) = 0._f
-               end if
-            end do
-         end do
-      end do
+      ! using helper subroutine to open file
+      call hdf5_fileopen_read(input_file, fid)
 
-   end subroutine generate_virt_part
+      ! opening real and virtual particle groups in hdf5 file
+      call h5gopen_f(fid, 'real', gid_r, ierr)
+      call h5gopen_f(fid, 'virt', gid_v, ierr)
+
+      ! reading real particle data from hdf5 file
+      global_dims(1) = dim
+      global_dims(2) = ntotal
+      if (ntotal /= 0) call read_particle_data_parallel(gid_r, global_dims, itype, ind, p, rho, x, vx)
+
+      global_dims(1) = dim
+      global_dims(2) = nvirt
+      if (nvirt /= 0) call read_particle_data_parallel(gid_v, global_dims, itype(ntotal+1:ntotal+nvirt), &
+         ind(ntotal+1:ntotal+nvirt), p(ntotal+1:ntotal+nvirt), rho(ntotal+1:ntotal+nvirt), x(:,ntotal+1:ntotal+nvirt), &
+         vx(:, ntotal+1:ntotal+nvirt))
+
+      ! closing groups and hdf5 file
+      call h5gclose_f(gid_r, ierr)
+      call h5gclose_f(gid_v, ierr)
+      call h5fclose_f(fid, ierr)
+
+      ! closing hdf5
+      call h5close_f(ierr)
+
+   end subroutine read_input_and_allocate
 
    !===============================================================================================================================
    attributes(global) subroutine vmat_update(maxinter, n_p, nij, pij, vw, itype, rho, vx)
@@ -166,5 +144,32 @@ contains
       end if
 
    end subroutine vmat_update
+
+   !====================================================================================================================
+   subroutine read_particle_data_parallel(gid_in, gdims, itype, ind, p, rho, x, vx)
+
+      use hdf5_parallel_io_helper_m, only: hdf5_parallel_read
+
+      implicit none
+      integer(HID_T), intent(in):: gid_in
+      integer(HSIZE_T), intent(in):: gdims(2)
+      integer, intent(out):: itype(gdims(2)), ind(gdims(2))
+      real(f), intent(out):: p(gdims(2)), rho(gdims(2)), x(gdims(1), gdims(2)), vx(gdims(1), gdims(2))
+      integer(HSSIZE_T):: ldispl(2) = 0
+
+      ! read 1d arrays
+      call hdf5_parallel_read(gid_in, 'ind', ldispl(2), gdims(2), ind)
+      
+      call hdf5_parallel_read(gid_in, 'type', ldispl(2), gdims(2), itype)
+
+      call hdf5_parallel_read(gid_in, 'rho', ldispl(2), gdims(2), rho)
+
+      call hdf5_parallel_read(gid_in, 'p', ldispl(2), gdims(2), p)
+      
+      call hdf5_parallel_read(gid_in, 'x', ldispl, gdims, x)
+
+      call hdf5_parallel_read(gid_in, 'v', ldispl, gdims, vx)
+
+   end subroutine read_particle_data_parallel
 
 end module input_m

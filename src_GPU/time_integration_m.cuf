@@ -39,7 +39,6 @@ contains
       real:: tmpTime
       type(cudaEvent):: startEvent, stopEvent, startOutputEvent, stopOutputEvent, startTestEvent, stopTestEvent
       integer, device, allocatable:: gind(:)
-      real(f), device:: rsincelast
 
       ! creating cuda events and recording start event
       istat = cudaEventCreate(startEvent)
@@ -55,10 +54,7 @@ contains
          pairs_d(maxinter) )
       
       ! Allocating arrays relevant to solver
-      allocate (v_min(dim, maxn), rho_min(maxn), dvxdt(dim, maxn), drho(maxn), dvxdt4(dim,maxn), drho4(maxn), &
-         vw(maxn), xlast(dim,maxn))
-
-      xlast = huge(1._f)
+      allocate (v_min(dim, maxn), rho_min(maxn), dvxdt(dim, maxn), drho(maxn), dvxdt4(dim,maxn), drho4(maxn), vw(maxn))
 
       ! Transferring necessary data to GPU
       itype_d = itype
@@ -83,7 +79,7 @@ contains
       do itimestep = 1, maxtimestep
 
          !Interaction parameters, calculating neighboring particles
-         call flink_list(ind_d, itype_d, x_d, vx_d, rho_d, p_d, scale_k, maxinter, maxn, niac_d, pairs_d, xlast)
+         call flink_list(ind_d, itype_d, x_d, vx_d, rho_d, p_d, scale_k, maxinter, maxn, niac_d, pairs_d)
 
          ! Save particles' velocity, density information at start of time-step
          !$cuf kernel do <<<*,512>>>
