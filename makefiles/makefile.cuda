@@ -7,6 +7,7 @@ _OBJ=param.cuf.o \
 datatypes.cuf.o \
 thrustc.cu.o \
 thrustf.cuf.o \
+hdf5_parallel_io_helper_m.cuf.o \
 summary_m.cuf.o \
 output_m.cuf.o \
 input_m.cuf.o \
@@ -28,7 +29,7 @@ $(CDIR)/%.f90
 $(ODIR)/datatypes.cuf.o: \
 $(ODIR)/%.cuf.o: \
 $(CDIR)/%.f90 \
-$(ODIR)/param.cuf.o
+$(CDIR)/param.f90
 	$(FC) -c -o $@ $< $(MAKE_FCFLAGS)
 
 $(ODIR)/thrustc.cu.o: \
@@ -39,6 +40,11 @@ $(SDIR)/%.cu
 $(ODIR)/thrustf.cuf.o: \
 $(ODIR)/%.cuf.o: \
 $(SDIR)/%.cuf
+	$(FC) -c -o $@ $< $(MAKE_FCFLAGS)
+
+$(ODIR)/hdf5_parallel_io_helper_m.cuf.o: \
+$(ODIR)/%.cuf.o: \
+$(CDIR)/%.F90 $(CDIR)/param.f90
 	$(FC) -c -o $@ $< $(MAKE_FCFLAGS)
 
 $(ODIR)/summary_m.cuf.o $(ODIR)/output_m.cuf.o $(ODIR)/single_step_m.cuf.o $(ODIR)/flink_lisk_m.cuf.o: \

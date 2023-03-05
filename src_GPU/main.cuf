@@ -3,7 +3,7 @@ program SPH
    use datatypes, only: particles, interactions, time_tracking
    use param, only: skf, f
 
-   use input_m, only: return_ntotal, return_nvirt, allocatePersistentArrays, generate_real_part, generate_virt_part
+   use input_m, only: return_ntotal, return_nvirt, allocatePersistentArrays, read_input_and_allocate
    use flink_list_m, only: kernel_k
    use output_m, only: output
    use summary_m, only: preamble, time_print, print_summary
@@ -39,8 +39,7 @@ program SPH
    rho, x, vx, p_d, rho_d, x_d, vx_d)
 
    !Creat physical and virtual boundary particles
-   call generate_real_part(ntotal, itype, ind, p, rho, x, vx)
-   call generate_virt_part(ntotal, nvirt, itype, ind, p, rho, x, vx)
+   call read_input_and_allocate(ntotal, nvirt, itype, ind, p, rho, x, vx)
    call output(0, save_step, ntotal, nvirt, itype, ind, p, rho, x, vx)
 
    !Entering discretized time-integration loop
