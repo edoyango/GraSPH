@@ -11,11 +11,11 @@ module input_m
    real(f), parameter, public:: rxmin = 0._f, rymin = 0._f, rzmin = 0._f, &
                                 rxmax = rxmin + mp*dxo, rymax = rymin + np*dxo, rzmax = rzmin + op*dxo
 
-   real(f), parameter:: vnorm(dim, 4) = reshape([-1._f, -1._f, -1._f, &
+   real(f), parameter:: vnorm(dim, 5) = reshape([-1._f, -1._f, -1._f, &
                                                   1._f,  1._f, -1._f, &
                                                  -1._f,  1._f,  1._f, &
                                                   1._f, -1._f,  1._f, &
-                                                 -1._f, -1._f,  1._f], [dim, 4])
+                                                 -1._f, -1._f,  1._f], [dim, 5])
 
    public:: return_ntotal, return_nvirt, read_input_and_allocate
 

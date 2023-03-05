@@ -42,13 +42,6 @@ contains
          x_j = x(:,j)
          vx_j = vx(:,j)
 
-            ! Mirroring real particle onto virtual particle (if needed)
-         ! if (itype_i > 0 .and. itype_j < 0) then
-         !    call virt_mirror(ind_i, ind_j, p_i, p_j, rho_i, rho_j, x_i, x_j, vx_i, vx_j , itype_j)
-         ! elseif (itype_i < 0 .and. itype_j > 0) then
-         !    call virt_mirror(ind_j, ind_i, p_j, p_i, rho_j, rho_i, x_j, x_i, vx_j, vx_i , itype_i)
-         ! end if
-
          !Density approximation or change rate
          call con_density(ki, ind_i, ind_j, vx_i, vx_j,pij(k)%dwdx, drhodti(i), drhodti(j))
             
@@ -64,66 +57,6 @@ contains
       end if
 
    end subroutine single_step_kernel
-
-   !==============================================================================================================================
-   attributes(device) pure subroutine virt_mirror(indr,indv,pr,pv,rhor,rhov,xr,xv,vxr,vxv,itypev)
-
-      use input_m, only: vzmin, vzmax, vxmin, vxmax, vymin, vymax
-
-      implicit none
-      integer, intent(in):: indr, indv, itypev
-      real(f), intent(in):: xr(dim), xv(dim), pr, rhor, vxr(dim)
-      real(f), intent(out):: pv, rhov, vxv(dim)
-      real(f):: da, db, beta
-      real(f), parameter:: beta_max = 5._f
-
-      select case (itypev)
-        case default
-          da = ABS(xr(3) - vzmin)
-          db = ABS(xv(3) - vzmin)
-        case (-2)
-          da = ABS(xr(3) - vzmax)
-          db = ABS(xv(3) - vzmax)
-        case (-3)
-          da = ABS(xr(1) - vxmin)
-          db = ABS(xv(1) - vxmin)
-        case (-4)
-          da = ABS(xr(1) - vxmax)
-          db = ABS(xv(1) - vxmax)
-        case (-5)
-          da = ABS(xr(2) - vymin)
-          db = ABS(xv(2) - vymin)
-        case (-6)
-          da = ABS(xr(2) - vymax)
-          db = ABS(xv(2) - vymax)
-      end select
-      
-         beta = MIN(db/da, beta_max)
-         if (da == 0._f) beta = beta_max
-          
-      select case (itypev)
-        case default
-          vxv(1) = -beta*vxr(1)
-          vxv(2) = -beta*vxr(2)
-          vxv(3) = -beta*vxr(3)
-        case (-2)
-          vxv(1) =  beta*vxr(1)
-          vxv(2) =  beta*vxr(2)
-          vxv(3) = -beta*vxr(3)
-        case (-3, -4)
-          vxv(1) = -beta*vxr(1)
-          vxv(2) =  beta*vxr(2)
-          vxv(3) =  beta*vxr(3)
-        case (-5, -6)
-          vxv(1) =  beta*vxr(1)
-          vxv(2) = -beta*vxr(2)
-          vxv(3) =  beta*vxr(3)
-      end select
-      
-      pv = pr
-      rhov = rhor
-
-   end subroutine virt_mirror
 
    !=================================================================================
    attributes(device) pure subroutine ext_force(ki, nt, nv, ng, p_i, p_j, dwdx, exdvxdti, exdvxdtj)
