@@ -19,7 +19,7 @@ main.cuf.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 sph-cuda: $(OBJ)
-	$(FC) -o $@ $^ $(MAKE_FCFLAGS) $(LDFLAGS) -lhdf5_fortran -lhdf5_hl_fortran -lstdc++
+	$(FC) -o $@ $^ $(MAKE_FCFLAGS) $(LDFLAGS) -lhdf5_fortran -lstdc++
 
 $(ODIR)/param.cuf.o: \
 $(ODIR)/%.cuf.o: \
