@@ -4,7 +4,11 @@ This repo contains Fortran source code files in src_CAF and src_GPU, seperated b
 - src_CAF contains code intended to run multi-core configuration enabled with the Coarray Fortran 2008 features. (confirmed working with gfortran 9.4.0, ifort 2021.8.0). Serial runs can also be setup (explained later).
 - src_GPU contains code intended to run on a CUDA-enabled GPU.
 
-NOTE This is a hobby project and is actively being developed. Major changes to the main branch can occur.
+Beginners may wish to read the [getting started page](https://ed-yang.com/docs/docs/start) on my website.
+
+The repo is setup to run the dam break case which uses the `example/dambreak.h5` input HDF5 file. See the [inputs page](https://ed-yang.com/docs/docs/inputs) to see how this HDF5 file is structured. Example scripts written in Python and Matlab are alo included in the `example` folder.
+
+**NOTE This is a hobby project and is actively being developed. Major changes to the main branch can occur.**
 
 # Prerequisites
 Compilation of all source code requires hdf5 libraries where the serial and cuda code requires the high-level libraries as well.
