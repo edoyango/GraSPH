@@ -7,6 +7,7 @@ _OBJ=param.cuf.o \
 datatypes.cuf.o \
 thrustc.cu.o \
 thrustf.cuf.o \
+hdf5_parallel_io_helper_m.cuf.o \
 summary_m.cuf.o \
 output_m.cuf.o \
 input_m.cuf.o \
@@ -18,7 +19,7 @@ main.cuf.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 sph-cuda: $(OBJ)
-	$(FC) -o $@ $^ $(MAKE_FCFLAGS) -lhdf5_fortran -lhdf5_hl_fortran -lstdc++
+	$(FC) -o $@ $^ $(MAKE_FCFLAGS) $(LDFLAGS) -lhdf5_fortran -lhdf5_hl_fortran -lstdc++
 
 $(ODIR)/param.cuf.o: \
 $(ODIR)/%.cuf.o: \
@@ -39,6 +40,12 @@ $(SDIR)/%.cu
 $(ODIR)/thrustf.cuf.o: \
 $(ODIR)/%.cuf.o: \
 $(SDIR)/%.cuf
+	$(FC) -c -o $@ $< $(MAKE_FCFLAGS)
+
+$(ODIR)/hdf5_parallel_io_helper_m.cuf.o: \
+$(ODIR)/%.cuf.o: \
+$(CDIR)/%.F90 \
+$(ODIR)/param.cuf.o
 	$(FC) -c -o $@ $< $(MAKE_FCFLAGS)
 
 $(ODIR)/summary_m.cuf.o $(ODIR)/output_m.cuf.o $(ODIR)/single_step_m.cuf.o $(ODIR)/flink_lisk_m.cuf.o: \

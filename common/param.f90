@@ -39,9 +39,7 @@ module param
 
    !derived parameters. c: speed of sound, hsml: smoothing length, dt: time-step size, mass: mass per particle
    real(f), parameter:: c = 10._f*v_max, hsml = kappa*dxo, dt = 0.1_f*hsml/c, mass = irho*dxo**dim
-
-   integer, parameter:: mp = 50, np = 25, op = 50, pp = 3*mp, qp = np, rp = int(1.6*op), nlayer = 4
-
+   
    ! state equation parameter,public::s
    real(f), parameter:: rh0 = irho
    integer, parameter:: gamma = 7
@@ -53,7 +51,8 @@ module param
    real(f), parameter:: rr0 = dxo, dd = 5._f*g*25._f
    integer, parameter:: p1 = 4, p2 = 2
 
-   character(len=200), parameter:: output_directory = "outputdata"
+   character(*), parameter:: output_directory = "outputdata"
+   character(*), parameter:: input_file = 'example/dambreak.h5'
 
    integer, parameter:: halotype = 100 ! an extra identifier to distinguish halo from real ones
 

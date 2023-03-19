@@ -98,7 +98,7 @@ $(CDIR)/%.f90
 
 $(ODIR)/hdf5_parallel_io_helper_m.caf.o: \
 $(ODIR)/%.caf.o: \
-$(SDIR)/%.F90 \
+$(CDIR)/%.F90 \
 $(ODIR)/param.caf.o
 	$(FC) -c -o $@ $< $(FCFLAGS)
 
@@ -129,7 +129,7 @@ $(addprefix $(ODIR)/,param.caf.o datatypes.caf.o param_para.caf.o)
 $(ODIR)/ORB_m.caf.o: \
 $(ODIR)/%.caf.o: \
 $(SDIR)/%.F90 \
-$(addprefix $(ODIR)/,param.caf.o datatypes.caf.o input_m.caf.o param_para.caf.o ORB_sr_m.caf.o)
+$(addprefix $(ODIR)/,param.caf.o datatypes.caf.o param_para.caf.o ORB_sr_m.caf.o)
 	$(FC) -c -o $@ $< $(FCFLAGS)
 
 $(ODIR)/summary_m.caf.o $(ODIR)/param_para.caf.o: \
@@ -138,7 +138,13 @@ $(SDIR)/%.f90 \
 $(ODIR)/param.caf.o $(ODIR)/datatypes.caf.o
 	$(FC) -c -o $@ $< $(FCFLAGS)
 
-$(ODIR)/input_m.caf.o $(ODIR)/material_rates_m.caf.o: \
+$(ODIR)/input_m.caf.o: \
+$(ODIR)/%.caf.o: \
+$(SDIR)/%.F90 \
+$(ODIR)/param.caf.o $(ODIR)/datatypes.caf.o
+	$(FC) -c -o $@ $< $(FCFLAGS)
+
+$(ODIR)/material_rates_m.caf.o: \
 $(ODIR)/%.caf.o: \
 $(SDIR)/%.f90 \
 $(ODIR)/param.caf.o $(ODIR)/datatypes.caf.o

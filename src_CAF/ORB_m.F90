@@ -1,7 +1,6 @@
 module ORB_m
 
    use datatypes, only: particles, time_tracking, system_clock_timer
-   use input_m, only: generate_virt_part
    use ORB_sr_m, only: ORB_sendrecv_diffuse, ORB_sendrecv_halo
    use param, only: f, dim, hsml
    use param_para, only: neighbour_data, partition_tracking, dcell_ORB, box_ratio_threshold

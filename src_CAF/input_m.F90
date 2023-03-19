@@ -1,38 +1,16 @@
 module input_m
 
    use datatypes, only: particles, interactions
-   use param, only: dim, irho, dxo, f, hsml, mp, np, op, pp, qp, rp, nlayer, mass, halotype
+   use hdf5
+   use param, only: dim, irho, dxo, f, hsml, mass, halotype, input_file
+   use hdf5_parallel_io_helper_m, only: hdf5_attribute_read, hdf5_fileopen_read, hdf5_parallel_read
+#ifdef PARALLEL
+   use mpi
+#endif
 
-   private
-   real(f), parameter:: vxmin = 0._f, vymin = 0._f, vzmin = 0._f, &
-                        vxmax = vxmin + pp*dxo, vymax = vymin + qp*dxo, vzmax = vzmin + rp*dxo
-   real(f), parameter:: rxmin = 0._f, rymin = 0._f, rzmin = 0._f, &
-                        rxmax = rxmin + mp*dxo, rymax = rymin + np*dxo, rzmax = rzmin + op*dxo
-
-   public:: return_ntotal, return_nvirt, allocatePersistentArrays, generate_real_part, generate_virt_part, &
-            update_virt_part
+   public:: read_input_and_allocate, update_virt_part
 
 contains
-
-   !====================================================================================================================
-   function return_ntotal() result(ntotal)
-
-      implicit none
-      integer:: ntotal
-
-      ntotal = mp*np*op
-
-   end function
-
-   !====================================================================================================================
-   function return_nvirt() result(nvirt)
-
-      implicit none
-      integer:: nvirt
-
-      nvirt = (rp + 2*nlayer)*(2*nlayer + pp)*(2*nlayer + qp) - pp*qp*rp
-
-   end function
 
    !====================================================================================================================
    subroutine allocatePersistentArrays(ntotal, nvirt, parts, pairs, nexti, maxnloc, maxinter)
@@ -52,109 +30,91 @@ contains
    end subroutine allocatePersistentArrays
 
    !====================================================================================================================
-   subroutine generate_real_part(thisImage, numImages, ntotal, ntotal_loc, parts)
+   subroutine read_input_and_allocate(thisImage, numImages, ntotal, ntotal_loc, nvirt, nvirt_loc, parts, pairs, nexti, &
+      maxnloc, maxinter)
       ! Generates initial physical particle configuration.
       ! 2 cases: return only number of particles retrieved, or generating the particles
 
       implicit none
-      integer, intent(in):: thisImage, numImages, ntotal
-      integer, intent(out):: ntotal_loc
-      type(particles), intent(out):: parts(:)
-      integer:: i, j, k, n, n_loc, n_loc_i, n_start, n_done
+      integer, intent(in):: thisImage, numImages
+      integer, intent(out):: ntotal, ntotal_loc, nvirt, nvirt_loc
+      type(particles), allocatable, codimension[:], intent(inout):: parts(:)
+      type(interactions), allocatable, intent(out):: pairs(:)
+      integer, allocatable, intent(out):: nexti(:)
+      integer, intent(out):: maxnloc, maxinter
+      integer:: i, j, k, n, ierr, otherImage, ntotal_loc_rounded_avg, nvirt_loc_rounded_avg, nbuff(1)
+      logical:: test_init
+      integer(HID_T):: fid, gid_r, gid_v, plist_id
+      integer(HSIZE_T):: global_dims(2)
+      integer(HSSIZE_T):: displ(2)
+#ifdef PARALLEL
+      ! initializing MPI (if needed)
+      call MPI_INITIALIZED(test_init, ierr)
+      if (.not. test_init) call MPI_INIT(ierr)
+#endif
+      ! initializing hdf5
+      call h5open_f(ierr)
 
-      ! how many particles to generate per process
-      n_loc_i = ceiling(dble(ntotal)/numImages)
+      ! using helper subroutine to open file
+      call hdf5_fileopen_read(input_file, fid)
+
+      ! opening real and virtual particle groups in hdf5 file
+      call h5gopen_f(fid, 'real', gid_r, ierr)
+      call h5gopen_f(fid, 'virt', gid_v, ierr)
+
+      ! reading the 'n' attribute in each file to get ntotal and nvirt
+      call hdf5_attribute_read(gid_r, ntotal)
+      call hdf5_attribute_read(gid_v, nvirt)
+
+      ! allocate arrays before reading particle data
+      call allocatePersistentArrays(ntotal, nvirt, parts, pairs, nexti, maxnloc, maxinter)
+
+      ! how many particles to read per process. For 1 image, ntotal_loc = ntotal and nvirt_loc = nvirt
+      ntotal_loc_rounded_avg = ceiling(dble(ntotal)/numImages)
+      nvirt_loc_rounded_avg = ceiling(dble(nvirt)/numImages)
       if (thisImage .eq. numImages) then
-         n_loc = ntotal - (numImages - 1)*n_loc_i
+         ntotal_loc = ntotal - (numImages - 1)*ntotal_loc_rounded_avg
+         nvirt_loc = nvirt - (numImages - 1)*nvirt_loc_rounded_avg
       else
-         n_loc = n_loc_i
+         ntotal_loc = ntotal_loc_rounded_avg
+         nvirt_loc = nvirt_loc_rounded_avg
       end if
-      n_start = (thisImage - 1)*n_loc_i + 1
-      n_done = n_start + n_loc_i - 1
 
       ! stopping program if array bounds are exceeded
       !if ((procid .eq. 0) .and. (n_loc .gt. maxnloc)) call error_msg(1, 1)
 
-      ! intitial setup
-      n = 0
-      ntotal_loc = 0
-      do i = 1, mp
-         do j = 1, np
-            do k = 1, op
-               n = n + 1 ! tracking total number of particles generated
-               ! Only generating particles assigned to process
-               if ((n .ge. n_start) .and. (n .le. n_done)) then
-                  ntotal_loc = ntotal_loc + 1
-                  parts(ntotal_loc)%indglob = n
-                  parts(ntotal_loc)%indloc = ntotal_loc
-                  parts(ntotal_loc)%x(1) = rxmin + (i - 0.5_f)*dxo
-                  parts(ntotal_loc)%x(2) = rymin + (j - 0.5_f)*dxo
-                  parts(ntotal_loc)%x(3) = rzmin + (k - 0.5_f)*dxo
-                  parts(ntotal_loc)%vx(:) = 0._f
-                  parts(ntotal_loc)%itype = 1
-                  parts(ntotal_loc)%rho = irho
-                  parts(ntotal_loc)%p = 0._f
-               end if
-            end do
-         end do
+      ! reading real particle data from hdf5 file
+      global_dims(1) = dim
+      global_dims(2) = ntotal
+      displ(1) = 0
+      displ(2) = (thisImage-1)*ntotal_loc_rounded_avg
+      if (ntotal /= 0) call read_particle_data_parallel(thisImage, gid_r, global_dims, displ, parts(1:ntotal_loc))
+
+      ! reading virtual particle data from hdf5 file
+      global_dims(1) = dim
+      global_dims(2) = nvirt
+      displ(1) = 0
+      displ(2) = (thisImage-1)*nvirt_loc_rounded_avg
+      if (nvirt /= 0) call read_particle_data_parallel(thisImage, gid_v, global_dims, displ, &
+         parts(ntotal_loc+1:ntotal_loc+nvirt_loc))
+
+      do i = 1, ntotal_loc+nvirt_loc
+         parts(i)%indloc = i
       end do
 
-   end subroutine generate_real_part
+      ! closing groups and hdf5 file
+      call h5gclose_f(gid_r, ierr)
+      call h5gclose_f(gid_v, ierr)
+      call h5fclose_f(fid, ierr)
 
-   !====================================================================================================================
-   subroutine generate_virt_part(thisImage, numImages, ntotal, ntotal_loc, nvirt, nvirt_loc, parts)
+      ! closing hdf5
+      call h5close_f(ierr)
 
-      ! Generates the virtual particle configuration. Can change over time or remain static
-      ! 2 cases: return only number of particles retrieved, or generating the particles
+#ifdef PARALLEL
+      if (.not. test_init) call MPI_FINALIZE(ierr)
+#endif
 
-      implicit none
-      integer, intent(in):: thisImage, numImages, ntotal_loc, ntotal, nvirt
-      type(particles), intent(inout):: parts(:)
-      integer, intent(out):: nvirt_loc
-      integer:: i, j, k, n, n_loc, n_loc_i, n_start, n_done
-
-      ! how many particles to generate per process
-      n_loc_i = ceiling(dble(nvirt)/numImages)
-      if (thisImage .eq. numImages) then
-         n_loc = nvirt - (numImages - 1)*n_loc_i
-      else
-         n_loc = n_loc_i
-      end if
-      n_start = (thisImage - 1)*n_loc_i + 1
-      n_done = n_start + n_loc_i - 1
-      
-      nvirt_loc = 0
-      n = 0 ! counter used to track particle indices
-
-      !---Virtual particle on the bottom face
-      do i = 1 - nlayer, pp + nlayer
-         do j = 1 - nlayer, qp + nlayer
-            do k = 1 - nlayer, rp + nlayer
-               if (i < 1 .or. i > pp .or. j < 1 .or. j > qp .or. k < 1 .or. k > rp) then
-                  n = n + 1
-                  ! Only generating particles assigned to process
-                  if ((n .ge. n_start) .and. (n .le. n_done)) then
-                     nvirt_loc = nvirt_loc + 1
-                     parts(ntotal_loc + nvirt_loc)%indglob = n + ntotal
-                     parts(ntotal_loc + nvirt_loc)%indloc = ntotal_loc + nvirt_loc
-                     if (k < 1) parts(ntotal_loc + nvirt_loc)%itype = -1
-                     if (k > rp) parts(ntotal_loc + nvirt_loc)%itype = -2
-                     if (j < 1 .or. j > qp) parts(ntotal_loc + nvirt_loc)%itype = -4
-                     if (i < 1 .or. i > pp) parts(ntotal_loc + nvirt_loc)%itype = -3
-                     if ( (i < 1 .and. j < 1) .or. (i < 1 .and. j > qp) .or. (i > pp .and. j < 1) .or. &
-                        (i > pp .and. j > qp)) parts(ntotal_loc + nvirt_loc)%itype = -5
-                     parts(ntotal_loc + nvirt_loc)%x(1) = vxmin + (i - 0.5_f)*dxo
-                     parts(ntotal_loc + nvirt_loc)%x(2) = vymin + (j - 0.5_f)*dxo
-                     parts(ntotal_loc + nvirt_loc)%x(3) = vzmin + (k - 0.5_f)*dxo
-                     parts(ntotal_loc + nvirt_loc)%vx(:) = 0._f
-                     parts(ntotal_loc + nvirt_loc)%rho = irho
-                  end if
-               end if
-            end do
-         end do
-      end do
-
-   end subroutine generate_virt_part
+   end subroutine read_input_and_allocate
 
    !==============================================================================================================================
    subroutine update_virt_part(ntotal_loc, nhalo_loc, nvirt_loc, parts, niac, pairs, nexti, vw)
@@ -254,5 +214,50 @@ contains
       end do
 
    end subroutine update_virt_part
+
+   !====================================================================================================================
+   subroutine read_particle_data_parallel(thisImage, gid_in, gdims, ldispl, parts)
+
+      implicit none
+      integer(HID_T), intent(in):: gid_in
+      integer, intent(in):: thisImage
+      integer(HSIZE_T), intent(in):: gdims(2)
+      integer(HSSIZE_T), intent(in):: ldispl(2)
+      type(particles), intent(inout):: parts(:)
+      integer:: nelem, i
+      integer, allocatable:: int_tmp(:, :)
+      real(f), allocatable:: dbl_tmp(:, :)
+
+      nelem = size(parts, 1)
+      allocate(int_tmp(nelem, 1), dbl_tmp(nelem, 1))
+
+      ! read 1d arrays
+      call hdf5_parallel_read(gid_in, 'ind', ldispl(2), gdims(2), int_tmp(:, 1))
+      parts(:)%indglob = int_tmp(:, 1)
+      
+      call hdf5_parallel_read(gid_in, 'type', ldispl(2), gdims(2), int_tmp(:, 1))
+      parts(:)%itype = int_tmp(:, 1)
+
+      call hdf5_parallel_read(gid_in, 'rho', ldispl(2), gdims(2), dbl_tmp(:, 1))
+      parts(:)%rho = dbl_tmp(:, 1)
+
+      call hdf5_parallel_read(gid_in, 'p', ldispl(2), gdims(2), dbl_tmp(:, 1))
+      parts(:)%p = dbl_tmp(:, 1)
+
+      deallocate(int_tmp, dbl_tmp)
+
+      allocate( dbl_tmp(dim,nelem))
+      
+      call hdf5_parallel_read(gid_in, 'x', ldispl, gdims, dbl_tmp)
+      do i = 1, nelem
+         parts(i)%x(:) = dbl_tmp(:, i)
+      end do
+
+      call hdf5_parallel_read(gid_in, 'v', ldispl, gdims, dbl_tmp)
+      do i = 1, nelem
+         parts(i)%vx(:) = dbl_tmp(:, i)
+      end do
+
+   end subroutine read_particle_data_parallel
 
 end module input_m
