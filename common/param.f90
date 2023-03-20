@@ -12,7 +12,7 @@ module param
    ! (CUDA's timing subroutines only accept single precision floats)
    ! (Reduction of MPI process' times are hard-coding double precision)
    integer, parameter:: df = kind(1.d0), sf = kind(1.)
-   integer, parameter:: f = sf, tf = df
+   integer, parameter:: f = df, tf = df
 
    ! constants: pi, g (gravity)
    real(f), parameter:: pi = 3.14159265358979323846_f, g = 9.81_f
@@ -52,7 +52,7 @@ module param
    integer, parameter:: p1 = 4, p2 = 2
 
    character(*), parameter:: output_directory = "outputdata"
-   character(*), parameter:: input_file = 'example/sph_out0000.h5' !'example/dambreak.h5'
+   character(*), parameter:: input_file = 'example/dambreak.h5'
 
    integer, parameter:: halotype = 100 ! an extra identifier to distinguish halo from real ones
 

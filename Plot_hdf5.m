@@ -21,13 +21,13 @@ numprocs = 2048;
 olddir = cd(path);
 %% Creating video object
 if vid 
-    aviobj = VideoWriter('Tdoor070enonlog','Uncompressed AVI');
-    aviobj.FrameRate = 15; open(aviobj);
+    aviobj = VideoWriter('dambreak','Uncompressed AVI');
+    aviobj.FrameRate = 30; open(aviobj);
 end
 
 %% Setting figure size and renderer
 hf     = figure('Renderer','OpenGL','color','w');
-hf.Position = [100 100 1200 700];
+hf.Position = [100 100 800 700];
 axis equal; hold on
 % axis labels
 % xlabel('x-extent','fontsize',12)
@@ -44,11 +44,12 @@ for i=1
     clf(hf,'reset'); axis equal; hold on;
 
     % colourbar
-    cbar = colorbar('WestOutside');
-    %     cbar.Position = [0.7 0.85 0.2 0.02];
-    %     cbar.Ticks = [0 0.05];
+    cbar = colorbar('SouthOutside');
+        cbar.Position = [0.3 0.85 0.2 0.02];
+%         cbar.Ticks = [0 11 22];
+%     caxis([0 22.15])
     colormap('jet')
-    %     ylabel(cbar,'Pressure (kPa)')
+        ylabel(cbar,'Speed (m/s)')
     set(cbar,'FontSize',12)
     %     set(gca,'ColorScale','log')
     set(gca,'fontsize',16)
@@ -58,8 +59,8 @@ for i=1
     if dim == 2
         axis([0 75 0 40]);
     elseif dim==3
-%         axis([0 75 0 14.5 -2 42]);
-        view(30,30);
+        axis([0 75 0 12.5 0 50]);
+        view(-40,25);
     end
 
     grid on; box on; axis on;
@@ -105,6 +106,8 @@ for i=1
     %% Choosing which quantities to plot and plotting physical particles
     pquant = sqrt(sum(rv(:,:).^2,1));   % speed
 %     pquant = rprocid;
+%     pquant = rind;
+%     pquant = rtype;
 %     pquant = [1,0,0]                                      % All particles red
 %     ind = find(rprocid==0); rx = rx(:,ind); pquant = pquant(ind);
     b = plot_helper(rx,pquant,25,'.');
@@ -123,12 +126,15 @@ for i=1
 %     vquant = vv;
 % %     vquant = sqrt(sum(vv(:,:).^2,1));   % speed
 %     % vquant = a22(1,:);
+%     vquant = vprocid;
+%     vquant = vtype;
+%     vquant = vind;
 %     ind = find(vprocid==2); vx = vx(:,ind);% vquant = vquant(ind);
     b = plot_helper(vx,vquant,25,'^');
 
     %% plotting ghost particles
 %     gquant = [0.7 0.7 0.7];
-    gquant = gv;
+%     gquant = gv;
 %     gquant = sqrt(a31(4,:).^2+a31(5,:).^2+a31(6,:).^2);   % speed
 %     %     gquant = -a33(3,:)/9.81/1600;
 %     ind = find(gprocid==2); gx = gx(:,ind); gquant = gquant(ind);
