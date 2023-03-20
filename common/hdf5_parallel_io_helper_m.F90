@@ -1,5 +1,5 @@
 module hdf5_parallel_io_helper_m
-   use param, only: f, inputf, outputf
+   use param, only: f
    use hdf5
 #ifdef PARALLEL
    use mpi ! would prefer to use mpi_f08, but hdf5 doesn't play nicely with it
@@ -101,7 +101,7 @@ contains
       character(len=*), intent(in):: dset_name
       integer(HSIZE_T), intent(in):: global_dims ! shape of entire dataset being written
       integer(HSSIZE_T), intent(in):: displ ! displacement of process
-      real(outputf), intent(in):: ddata(:) ! data local to MPI Process to write
+      real(f), intent(in):: ddata(:) ! data local to MPI Process to write
       integer(HSIZE_T):: local_dims(1), global_dims_copy(1), chunk_size(1)
       integer(HSSIZE_T):: displ_copy(1)
       integer, parameter:: rank = 1
@@ -119,7 +119,7 @@ contains
       call h5pset_deflate_f(compress_plist_id, 6, ierr)
 
       ! Creating dataset for entire dataset
-      select case (outputf)
+      select case (f)
       case (kind(1.))
          call h5dcreate_f(gid, dset_name, H5T_NATIVE_REAL, dspace_id, dset_id, ierr, dcpl_id=compress_plist_id)
       case default
@@ -139,7 +139,7 @@ contains
       plist_id = H5P_DEFAULT_F
 #endif
       ! Write the dataset collectively.
-      select case (outputf)
+      select case (f)
       case (kind(1.))
          call h5dwrite_f(dset_id, H5T_NATIVE_REAL, ddata, global_dims_copy, ierr, file_space_id=dspace_id, &
                          mem_space_id=local_dspace_id, xfer_prp=plist_id)
@@ -194,8 +194,14 @@ contains
       plist_id = H5P_DEFAULT_F
 #endif
       ! Write the dataset collectively.
-      call h5dread_f(dset_id, H5T_NATIVE_DOUBLE, ddata, global_dims_copy, ierr, file_space_id=dspace_id, &
-         mem_space_id=local_dspace_id, xfer_prp=plist_id)
+      select case (f)
+      case (kind(1.))
+         call h5dread_f(dset_id, H5T_NATIVE_REAL, ddata, global_dims_copy, ierr, file_space_id=dspace_id, &
+                        mem_space_id=local_dspace_id, xfer_prp=plist_id)
+      case default
+         call h5dread_f(dset_id, H5T_NATIVE_DOUBLE, ddata, global_dims_copy, ierr, file_space_id=dspace_id, &
+                        mem_space_id=local_dspace_id, xfer_prp=plist_id)
+      end select
 
       ! closing all dataspaces,datasets,property lists.
       call h5sclose_f(dspace_id, ierr)
@@ -213,7 +219,7 @@ contains
       character(len=*), intent(in):: dset_name
       integer(HSIZE_T), intent(in):: global_dims(2) ! shape of entire dataset being written
       integer(HSSIZE_T), intent(in):: displ(2) ! displacement of process
-      real(outputf), intent(in):: ddata(:, :) ! data local to MPI Process to write
+      real(f), intent(in):: ddata(:, :) ! data local to MPI Process to write
       integer(HSIZE_T):: local_dims(2), chunk_size(2)
       integer, parameter:: rank = 2
 
@@ -229,7 +235,7 @@ contains
       call h5pset_deflate_f(compress_plist_id, 6, ierr)
 
       ! Creating dataset for entire dataset
-      select case (outputf)
+      select case (f)
       case (kind(1.))
          call h5dcreate_f(gid, dset_name, H5T_NATIVE_REAL, dspace_id, dset_id, ierr, dcpl_id=compress_plist_id)
       case default
@@ -249,7 +255,7 @@ contains
       plist_id = H5P_DEFAULT_F
 #endif
       ! Write the dataset collectively.
-      select case (outputf)
+      select case (f)
       case (kind(1.))
          call h5dwrite_f(dset_id, H5T_NATIVE_REAL, ddata, global_dims, ierr, file_space_id=dspace_id, &
                          mem_space_id=local_dspace_id, xfer_prp=plist_id)
@@ -300,8 +306,14 @@ contains
       plist_id = H5P_DEFAULT_F
 #endif
       ! Write the dataset collectively.
-      call h5dread_f(dset_id, H5T_NATIVE_DOUBLE, ddata, global_dims, ierr, file_space_id=dspace_id, &
-         mem_space_id=local_dspace_id, xfer_prp=plist_id)
+      select case (f)
+      case (kind(1.))
+         call h5dread_f(dset_id, H5T_NATIVE_REAL, ddata, global_dims, ierr, file_space_id=dspace_id, &
+                        mem_space_id=local_dspace_id, xfer_prp=plist_id)
+      case default
+         call h5dread_f(dset_id, H5T_NATIVE_DOUBLE, ddata, global_dims, ierr, file_space_id=dspace_id, &
+                        mem_space_id=local_dspace_id, xfer_prp=plist_id)
+      end select
 
       ! closing all dataspaces,datasets,property lists.
       call h5sclose_f(dspace_id, ierr)

@@ -3,7 +3,7 @@ module input_m
    use datatypes, only: particles, interactions
    use hdf5
    use hdf5_parallel_io_helper_m, only: hdf5_fileopen_read, hdf5_attribute_read
-   use param, only: dim, f, dxo, irho, g, gamma, c, hsml, mass, input_file
+   use param, only: dim, f, dxo, irho, g, gamma, c, hsml, mass, input_file, inputf
 
    real(f), parameter:: vnorm(dim, 5) = reshape([-1._f, -1._f, -1._f, &
                                                   1._f,  1._f, -1._f, &

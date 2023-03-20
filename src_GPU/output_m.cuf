@@ -91,7 +91,7 @@ contains
       type(particles), intent(in):: parts(:)
       integer:: nelem, i
       integer, allocatable:: int_tmp(:, :)
-      real(outputf), allocatable:: dbl_tmp(:, :)
+      real(f), allocatable:: dbl_tmp(:, :)
 
       nelem = size(parts, 1)
       allocate (int_tmp(nelem, 1), dbl_tmp(nelem, 1))
