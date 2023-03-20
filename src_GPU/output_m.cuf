@@ -3,7 +3,7 @@ module output_m
    use datatypes, only: particles
    use hdf5
    use hdf5_parallel_io_helper_m, only: hdf5_parallel_write, hdf5_fileopen_write, hdf5_attribute_write
-   use param, only: output_directory, f, dim
+   use param, only: output_directory, f, dim, outputf
 
    private
    public:: output

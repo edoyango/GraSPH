@@ -119,7 +119,12 @@ contains
       call h5pset_deflate_f(compress_plist_id, 6, ierr)
 
       ! Creating dataset for entire dataset
-      call h5dcreate_f(gid, dset_name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, ierr, dcpl_id=compress_plist_id)
+      select case (f)
+      case (kind(1.))
+         call h5dcreate_f(gid, dset_name, H5T_NATIVE_REAL, dspace_id, dset_id, ierr, dcpl_id=compress_plist_id)
+      case default
+         call h5dcreate_f(gid, dset_name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, ierr, dcpl_id=compress_plist_id)
+      end select
       call h5sclose_f(dspace_id, ierr)
 
       ! Creating dataspace in dataset for each process to write to
@@ -134,8 +139,14 @@ contains
       plist_id = H5P_DEFAULT_F
 #endif
       ! Write the dataset collectively.
-      call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, ddata, global_dims_copy, ierr, file_space_id=dspace_id, &
-                      mem_space_id=local_dspace_id, xfer_prp=plist_id)
+      select case (f)
+      case (kind(1.))
+         call h5dwrite_f(dset_id, H5T_NATIVE_REAL, ddata, global_dims_copy, ierr, file_space_id=dspace_id, &
+                         mem_space_id=local_dspace_id, xfer_prp=plist_id)
+      case default
+         call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, ddata, global_dims_copy, ierr, file_space_id=dspace_id, &
+                         mem_space_id=local_dspace_id, xfer_prp=plist_id)
+      end select
 
       ! closing all dataspaces,datasets,property lists.
       call h5sclose_f(dspace_id, ierr)
@@ -183,8 +194,14 @@ contains
       plist_id = H5P_DEFAULT_F
 #endif
       ! Write the dataset collectively.
-      call h5dread_f(dset_id, H5T_NATIVE_DOUBLE, ddata, global_dims_copy, ierr, file_space_id=dspace_id, &
-         mem_space_id=local_dspace_id, xfer_prp=plist_id)
+      select case (f)
+      case (kind(1.))
+         call h5dread_f(dset_id, H5T_NATIVE_REAL, ddata, global_dims_copy, ierr, file_space_id=dspace_id, &
+                        mem_space_id=local_dspace_id, xfer_prp=plist_id)
+      case default
+         call h5dread_f(dset_id, H5T_NATIVE_DOUBLE, ddata, global_dims_copy, ierr, file_space_id=dspace_id, &
+                        mem_space_id=local_dspace_id, xfer_prp=plist_id)
+      end select
 
       ! closing all dataspaces,datasets,property lists.
       call h5sclose_f(dspace_id, ierr)
@@ -218,7 +235,12 @@ contains
       call h5pset_deflate_f(compress_plist_id, 6, ierr)
 
       ! Creating dataset for entire dataset
-      call h5dcreate_f(gid, dset_name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, ierr, dcpl_id=compress_plist_id)
+      select case (f)
+      case (kind(1.))
+         call h5dcreate_f(gid, dset_name, H5T_NATIVE_REAL, dspace_id, dset_id, ierr, dcpl_id=compress_plist_id)
+      case default
+         call h5dcreate_f(gid, dset_name, H5T_NATIVE_DOUBLE, dspace_id, dset_id, ierr, dcpl_id=compress_plist_id)
+      end select
       call h5sclose_f(dspace_id, ierr)
 
       ! Creating dataspace in dataset for each process to write to
@@ -233,8 +255,14 @@ contains
       plist_id = H5P_DEFAULT_F
 #endif
       ! Write the dataset collectively.
-      call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, ddata, global_dims, ierr, file_space_id=dspace_id, mem_space_id=local_dspace_id, &
-                      xfer_prp=plist_id)
+      select case (f)
+      case (kind(1.))
+         call h5dwrite_f(dset_id, H5T_NATIVE_REAL, ddata, global_dims, ierr, file_space_id=dspace_id, &
+                         mem_space_id=local_dspace_id, xfer_prp=plist_id)
+      case default
+         call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, ddata, global_dims, ierr, file_space_id=dspace_id, &
+                         mem_space_id=local_dspace_id, xfer_prp=plist_id)
+      end select
 
       ! closing all dataspaces,datasets,property lists.
       call h5sclose_f(dspace_id, ierr)
@@ -278,8 +306,14 @@ contains
       plist_id = H5P_DEFAULT_F
 #endif
       ! Write the dataset collectively.
-      call h5dread_f(dset_id, H5T_NATIVE_DOUBLE, ddata, global_dims, ierr, file_space_id=dspace_id, &
-         mem_space_id=local_dspace_id, xfer_prp=plist_id)
+      select case (f)
+      case (kind(1.))
+         call h5dread_f(dset_id, H5T_NATIVE_REAL, ddata, global_dims, ierr, file_space_id=dspace_id, &
+                        mem_space_id=local_dspace_id, xfer_prp=plist_id)
+      case default
+         call h5dread_f(dset_id, H5T_NATIVE_DOUBLE, ddata, global_dims, ierr, file_space_id=dspace_id, &
+                        mem_space_id=local_dspace_id, xfer_prp=plist_id)
+      end select
 
       ! closing all dataspaces,datasets,property lists.
       call h5sclose_f(dspace_id, ierr)
