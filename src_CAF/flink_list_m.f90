@@ -133,7 +133,7 @@ contains
       if (p_i%itype>0 .or. p_j%itype>0) then
          dxiac(:) = p_i%x(:) - p_j%x(:)
          r = SQRT(SUM(dxiac*dxiac))
-         if (r <= hsml*scale_k) then
+         if (r < hsml*scale_k) then
             niac = niac + 1
             if (niac < maxinter) then
                pairs(niac)%j = j

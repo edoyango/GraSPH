@@ -79,7 +79,7 @@ contains
       do itimestep = 1, maxtimestep
 
          !Interaction parameters, calculating neighboring particles
-         call flink_list(ind_d, itype_d, x_d, vx_d, rho_d, p_d, scale_k, maxinter, maxn, niac_d, pairs_d)
+         call flink_list(ind_d, itype_d, x_d, vx_d, rho_d, p_d, drho, dvxdt, scale_k, maxinter, maxn, niac_d, pairs_d)
 
          ! Save particles' velocity, density information at start of time-step
          !$cuf kernel do <<<*,512>>>
