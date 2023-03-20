@@ -6,7 +6,7 @@ module output_m
    use mpi_f08
 #endif
    use hdf5_parallel_io_helper_m, only: hdf5_attribute_write, hdf5_parallel_write, hdf5_fileopen_write
-   use param, only: f, dim, output_directory, halotype
+   use param, only: f, dim, output_directory, halotype, outputf
 
    private
    public:: output
@@ -174,7 +174,7 @@ contains
       type(particles), intent(in):: parts(:)
       integer:: nelem, i
       integer, allocatable:: int_tmp(:, :)
-      real(f), allocatable:: dbl_tmp(:, :)
+      real(outputf), allocatable:: dbl_tmp(:, :)
 
       nelem = size(parts, 1)
       allocate (int_tmp(nelem, 1), dbl_tmp(nelem, 1))

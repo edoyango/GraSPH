@@ -12,7 +12,7 @@ module param
    ! (CUDA's timing subroutines only accept single precision floats)
    ! (Reduction of MPI process' times are hard-coding double precision)
    integer, parameter:: df = kind(1.d0), sf = kind(1.)
-   integer, parameter:: f = df, tf = df
+   integer, parameter:: f = df, tf = df, inputf = df, outputf = sf
 
    ! constants: pi, g (gravity)
    real(f), parameter:: pi = 3.14159265358979323846_f, g = 9.81_f
