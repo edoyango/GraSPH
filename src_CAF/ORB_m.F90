@@ -60,19 +60,13 @@ contains
          ! checking if change in particles on current image is > 5%
          if (ntotal_loc > prev_load + 0.05_f*real(ntotal, kind=f)/real(thisImage, kind=f)) then
             repartition_mode = 2
+         else if (itimestep == 0) then 
+            repartition_mode = 3
          end if
 
          call co_max(repartition_mode)
 
-         if ((repartition_mode > 1) .or. (itimestep .eq. 0)) then
-
-            if (thisImage == 1) then
-               write(*, '(A)') "_______________________________________________________________________________"
-               write(*, '(A)') "INFO: Image subdomain boundaries being updated"
-               write(*, '(6x, A, I0)') "Current timestep: ", itimestep
-               if (repartition_mode==2) write(*, '(6x, A)') "Repartition mode: Updating cut locations only"
-               if (repartition_mode==3) write(*, '(6x, A)') "Repartition mode: Updating cut orientations and locations"
-            end if
+         if (repartition_mode > 1) then
 
             partition_track%n_parts = partition_track%n_parts + 1
             if (itimestep /= 1) then
@@ -103,6 +97,14 @@ contains
                end if
                partition_track%prev_reorient_tstep = itimestep
                partition_track%n_reorients = partition_track%n_reorients + 1
+            end if
+
+            if (thisImage == 1) then
+               write(*, '(A)') "_______________________________________________________________________________"
+               write(*, '(A)') "INFO: Image subdomain boundaries being updated"
+               write(*, '(6x, A, I0)') "Current timestep: ", itimestep
+               if (repartition_mode==2) write(*, '(6x, A)') "Repartition mode: Updating cut locations only"
+               if (repartition_mode==3) write(*, '(6x, A)') "Repartition mode: Updating cut orientations and locations"
             end if
 
             ! determine subdomain boundaries using particle distribution
