@@ -254,25 +254,32 @@ contains
       ! for neighbourness
 
       use param_para, only: bound_extend
-      use iso_fortran_env, only: lock_type
+      use iso_fortran_env, only: team_type
 
       implicit none
       integer, intent(in):: thisImage, numImages, gridind_in(3, 2), numImages_in, node_in, &
                             imagerange_in(2), ntotal_in
       real(f), intent(in):: mingridx_in(3), maxgridx_in(3), dcell, scale_k
       logical, intent(inout):: free_face(6) ! array to track which faces are cuts, and which faces are free
-      integer:: i, j, k, d, ngridx_trim(3), A(3), cax, n_p, pincol, np_per_node, otherImage_limits(2, 3), otherImage, &
+      integer:: i, j, k, d, ngridx_trim(3), A(3), n_p, pincol, np_per_node, otherImage_limits(2, 3), otherImage, &
                 n, imagerange_out(2), gridind_out(3, 2), ntotal_out, numImages_out, node_out, imagerange_lo(2), &
                 imagerange_hi(2)
+      integer, save:: cax[*]
       real(f):: bounds_rem(6)
 
       !determining cut axis. 1 = x, 2 = y ------------------------------------------------------------------------------
       if (repartition_mode == 3) then
-         call P_trim(thisImage, numImages, gridind_in, ngridx_trim)
-         A(1) = ngridx_trim(2)*ngridx_trim(3)
-         A(2) = ngridx_trim(1)*ngridx_trim(3)
-         A(3) = ngridx_trim(1)*ngridx_trim(2)
-         cax = minloc(A, 1)
+         if (thisImage == imagerange_in(1)) then
+            call P_trim(thisImage, numImages, gridind_in, ngridx_trim)
+            A(1) = ngridx_trim(2)*ngridx_trim(3)
+            A(2) = ngridx_trim(1)*ngridx_trim(3)
+            A(3) = ngridx_trim(1)*ngridx_trim(2)
+            cax = minloc(A, 1)
+            do i = imagerange_in(1)+1, imagerange_in(2)
+               cax[i] = cax
+            end do
+         end if
+         sync images ((/(i,i=imagerange_in(1),imagerange_in(2))/))
          node_cax(node_in) = cax
       else
          cax = node_cax(node_in)
