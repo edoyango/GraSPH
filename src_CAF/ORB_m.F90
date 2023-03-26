@@ -351,8 +351,8 @@ contains
 
       ! sync all !images ((/(i,i=imagerange_in(1),imagerange_in(2))/))
       
-      call co_broadcast(cut_loc, 1)
-      call co_broadcast(n_p, 1)
+      ! call co_broadcast(cut_loc, 1)
+      ! call co_broadcast(n_p, 1)
 
       !saving output information ---------------------------------------------------------------------------------------
       imagerange_lo(1) = imagerange_in(1)
