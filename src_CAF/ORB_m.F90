@@ -265,6 +265,7 @@ contains
                 n, imagerange_out(2), gridind_out(3, 2), ntotal_out, numImages_out, node_out, imagerange_lo(2), &
                 imagerange_hi(2)
       integer:: cax, cut_loc, n_p
+      integer, allocatable:: gridsums_loc(:)
       real(f):: bounds_rem(6)
 
       !determining cut axis. 1 = x, 2 = y ------------------------------------------------------------------------------
@@ -287,8 +288,26 @@ contains
          cax = node_cax(node_in)
       end if
 
+      ! allocate(gridsums_loc(gridind_in(cax,2)-gridind_in(cax,1)+1))
+
+      ! do i = gridind_in(cax,1), gridind_in(cax,2)
+      !    otherImage = thisImage
+      !    do d = 1, 3
+      !       otherImage_limits(1, d) = max(1, gridind_in(d, 1) - cellmins(d, otherImage) + 1)
+      !       otherImage_limits(2, d) = min(cellmaxs(d, otherImage), gridind_in(d, 2)) - cellmins(d, otherImage) + 1
+      !    end do
+      !    otherImage_limits(1:2, cax) = cut_loc - cellmins(cax, otherImage) + 1
+      !    if (i >= cellmins(cax, thisImage) .and. i <= cellmaxs(cax, thisImage)) then
+      !       gridsums_loc(i-gridind_in(cax,1)) = sum(pincell_ORB(otherImage_limits(1, 1):otherImage_limits(2, 1), &
+      !                                               otherImage_limits(1, 2):otherImage_limits(2, 2), &
+      !                                               otherImage_limits(1, 3):otherImage_limits(2, 3)) [otherImage])
+      !    else
+      !       gridsums_loc(i-gridind_in(cax,1)) = 0
+      !    end if
+      ! end do
+
       !cut location ----------------------------------------------------------------------------------------------------
-      if (thisImage == 1) then
+      ! if (thisImage == 1) then
          cut_loc = gridind_in(cax, 1) - 1
          n_p = 0
          np_per_node = int(ceiling(real(numImages_in)/2)/real(numImages_in)*ntotal_in)
@@ -296,9 +315,9 @@ contains
          do while (n_p < np_per_node)
             cut_loc = cut_loc + 1
             pincol = 0
-            do n = 0, numImages - 1
-               otherImage = mod(thisImage + n, numImages)
-               if (otherImage == 0) otherImage = numImages
+            ! do n = 0, numImages - 1
+               otherImage = thisImage !mod(thisImage + n, numImages)
+               ! if (otherImage == 0) otherImage = numImages
                if (cut_loc >= cellmins(cax, otherImage) .and. cut_loc <= cellmaxs(cax, otherImage)) then
    
                   do d = 1, 3
@@ -309,10 +328,11 @@ contains
                   otherImage_limits(1:2, cax) = cut_loc - cellmins(cax, otherImage) + 1
                   pincol = pincol + sum(pincell_ORB(otherImage_limits(1, 1):otherImage_limits(2, 1), &
                                                     otherImage_limits(1, 2):otherImage_limits(2, 2), &
-                                                    otherImage_limits(1, 3):otherImage_limits(2, 3)) [otherImage])
+                                                    otherImage_limits(1, 3):otherImage_limits(2, 3)))
    
                end if
-            end do
+            ! end do
+            call co_sum(pincol)
             n_p = n_p + pincol
          end do
    
@@ -327,7 +347,7 @@ contains
          !    n_p[i] = n_p
          ! end do
 
-      end if
+      ! end if
 
       ! sync all !images ((/(i,i=imagerange_in(1),imagerange_in(2))/))
       
