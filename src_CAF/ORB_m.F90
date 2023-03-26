@@ -261,10 +261,10 @@ contains
                             imagerange_in(2), ntotal_in
       real(f), intent(in):: mingridx_in(3), maxgridx_in(3), dcell, scale_k
       logical, intent(inout):: free_face(6) ! array to track which faces are cuts, and which faces are free
-      integer:: i, j, k, d, ngridx_trim(3), A(3), n_p, pincol, np_per_node, otherImage_limits(2, 3), otherImage, &
+      integer:: i, j, k, d, ngridx_trim(3), A(3), pincol, np_per_node, otherImage_limits(2, 3), otherImage, &
                 n, imagerange_out(2), gridind_out(3, 2), ntotal_out, numImages_out, node_out, imagerange_lo(2), &
                 imagerange_hi(2)
-      integer, save:: cax[*]
+      integer, save:: cax[*], cut_loc[*], n_p[*]
       real(f):: bounds_rem(6)
 
       !determining cut axis. 1 = x, 2 = y ------------------------------------------------------------------------------
@@ -286,38 +286,48 @@ contains
       end if
 
       !cut location ----------------------------------------------------------------------------------------------------
-      i = gridind_in(cax, 1) - 1
-      n_p = 0
-      np_per_node = int(ceiling(real(numImages_in)/2)/real(numImages_in)*ntotal_in)
-      pincol = 0
-      do while (n_p < np_per_node)
-         i = i + 1
+      if (thisImage == imagerange_in(1)) then
+         cut_loc = gridind_in(cax, 1) - 1
+         n_p = 0
+         np_per_node = int(ceiling(real(numImages_in)/2)/real(numImages_in)*ntotal_in)
          pincol = 0
-         do n = 0, numImages - 1
-            otherImage = mod(thisImage + n, numImages)
-            if (otherImage == 0) otherImage = numImages
-            if (i >= cellmins(cax, otherImage) .and. i <= cellmaxs(cax, otherImage)) then
-
-               do d = 1, 3
-                  otherImage_limits(1, d) = max(1, gridind_in(d, 1) - cellmins(d, otherImage) + 1)
-                  otherImage_limits(2, d) = min(cellmaxs(d, otherImage), gridind_in(d, 2)) - cellmins(d, otherImage) + 1
-               end do
-
-               otherImage_limits(1:2, cax) = i - cellmins(cax, otherImage) + 1
-               pincol = pincol + sum(pincell_ORB(otherImage_limits(1, 1):otherImage_limits(2, 1), &
-                                                 otherImage_limits(1, 2):otherImage_limits(2, 2), &
-                                                 otherImage_limits(1, 3):otherImage_limits(2, 3)) [otherImage])
-
-            end if
+         do while (n_p < np_per_node)
+            cut_loc = cut_loc + 1
+            pincol = 0
+            do n = 0, numImages - 1
+               otherImage = mod(thisImage + n, numImages)
+               if (otherImage == 0) otherImage = numImages
+               if (cut_loc >= cellmins(cax, otherImage) .and. cut_loc <= cellmaxs(cax, otherImage)) then
+   
+                  do d = 1, 3
+                     otherImage_limits(1, d) = max(1, gridind_in(d, 1) - cellmins(d, otherImage) + 1)
+                     otherImage_limits(2, d) = min(cellmaxs(d, otherImage), gridind_in(d, 2)) - cellmins(d, otherImage) + 1
+                  end do
+   
+                  otherImage_limits(1:2, cax) = cut_loc - cellmins(cax, otherImage) + 1
+                  pincol = pincol + sum(pincell_ORB(otherImage_limits(1, 1):otherImage_limits(2, 1), &
+                                                    otherImage_limits(1, 2):otherImage_limits(2, 2), &
+                                                    otherImage_limits(1, 3):otherImage_limits(2, 3)) [otherImage])
+   
+               end if
+            end do
+            n_p = n_p + pincol
          end do
-         n_p = n_p + pincol
-      end do
+   
+         ! extra step to nudge cut location backwards if that's a better position
+         if ((np_per_node - (n_p - pincol) < n_p - np_per_node)) then
+            cut_loc = cut_loc - 1
+            n_p = n_p - pincol
+         end if
+   
+         do i = imagerange_in(1)+1, imagerange_in(2)
+            cut_loc[i] = cut_loc
+            n_p[i] = n_p
+         end do
 
-      ! extra step to nudge cut location backwards if that's a better position
-      if ((np_per_node - (n_p - pincol) < n_p - np_per_node)) then
-         i = i - 1
-         n_p = n_p - pincol
       end if
+
+      sync images ((/(i,i=imagerange_in(1),imagerange_in(2))/))
 
       !saving output information ---------------------------------------------------------------------------------------
       imagerange_lo(1) = imagerange_in(1)
@@ -332,13 +342,13 @@ contains
          imagerange_out(:) = imagerange_lo(:)
          ntotal_out = n_p
          gridind_out(cax, 1) = gridind_in(cax, 1)
-         gridind_out(cax, 2) = i
+         gridind_out(cax, 2) = cut_loc
          free_face(3 + cax) = .false. ! "low" processes have cut on "upper" face
       else
          node_out = 2*node_in + 1
          imagerange_out(:) = imagerange_hi(:)
          ntotal_out = ntotal_in - n_p
-         gridind_out(cax, 1) = i + 1
+         gridind_out(cax, 1) = cut_loc + 1
          gridind_out(cax, 2) = gridind_in(cax, 2)
          free_face(cax) = .false. ! "upper" processes have cut on "lower" face
       end if
