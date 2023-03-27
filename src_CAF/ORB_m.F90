@@ -261,73 +261,62 @@ contains
                             imagerange_in(2), ntotal_in
       real(f), intent(in):: mingridx_in(3), maxgridx_in(3), dcell, scale_k
       logical, intent(inout):: free_face(6) ! array to track which faces are cuts, and which faces are free
-      integer:: i, j, k, d, ngridx_trim(3), A(3), pincol, np_per_node, otherImage_limits(2, 3), otherImage, &
+      integer:: i, ii, j, k, d, ngridx_trim(3), A(3), pincol, np_per_node, thisImage_limits(2, 3), otherImage, &
                 n, imagerange_out(2), gridind_out(3, 2), ntotal_out, numImages_out, node_out, imagerange_lo(2), &
                 imagerange_hi(2)
-      integer, save:: cax[*], cut_loc[*], n_p[*]
+      integer:: cax, cut_loc, n_p
+      integer, allocatable:: gridsums_loc(:)
       real(f):: bounds_rem(6)
 
       !determining cut axis. 1 = x, 2 = y ------------------------------------------------------------------------------
       if (repartition_mode == 3) then
-         if (thisImage == imagerange_in(1)) then
-            call P_trim(thisImage, numImages, gridind_in, ngridx_trim)
-            A(1) = ngridx_trim(2)*ngridx_trim(3)
-            A(2) = ngridx_trim(1)*ngridx_trim(3)
-            A(3) = ngridx_trim(1)*ngridx_trim(2)
-            cax = minloc(A, 1)
-            do i = imagerange_in(1)+1, imagerange_in(2)
-               cax[i] = cax
-            end do
-         end if
-         sync images ((/(i,i=imagerange_in(1),imagerange_in(2))/))
+         call P_trim(thisImage, numImages, gridind_in, ngridx_trim)
+         A(1) = ngridx_trim(2)*ngridx_trim(3)
+         A(2) = ngridx_trim(1)*ngridx_trim(3)
+         A(3) = ngridx_trim(1)*ngridx_trim(2)
+         cax = minloc(A, 1)
          node_cax(node_in) = cax
       else
          cax = node_cax(node_in)
       end if
 
-      !cut location ----------------------------------------------------------------------------------------------------
-      if (thisImage == imagerange_in(1)) then
-         cut_loc = gridind_in(cax, 1) - 1
-         n_p = 0
-         np_per_node = int(ceiling(real(numImages_in)/2)/real(numImages_in)*ntotal_in)
-         pincol = 0
-         do while (n_p < np_per_node)
-            cut_loc = cut_loc + 1
-            pincol = 0
-            do n = 0, numImages - 1
-               otherImage = mod(thisImage + n, numImages)
-               if (otherImage == 0) otherImage = numImages
-               if (cut_loc >= cellmins(cax, otherImage) .and. cut_loc <= cellmaxs(cax, otherImage)) then
-   
-                  do d = 1, 3
-                     otherImage_limits(1, d) = max(1, gridind_in(d, 1) - cellmins(d, otherImage) + 1)
-                     otherImage_limits(2, d) = min(cellmaxs(d, otherImage), gridind_in(d, 2)) - cellmins(d, otherImage) + 1
-                  end do
-   
-                  otherImage_limits(1:2, cax) = cut_loc - cellmins(cax, otherImage) + 1
-                  pincol = pincol + sum(pincell_ORB(otherImage_limits(1, 1):otherImage_limits(2, 1), &
-                                                    otherImage_limits(1, 2):otherImage_limits(2, 2), &
-                                                    otherImage_limits(1, 3):otherImage_limits(2, 3)) [otherImage])
-   
-               end if
-            end do
-            n_p = n_p + pincol
-         end do
-   
-         ! extra step to nudge cut location backwards if that's a better position
-         if ((np_per_node - (n_p - pincol) < n_p - np_per_node)) then
-            cut_loc = cut_loc - 1
-            n_p = n_p - pincol
-         end if
-   
-         do i = imagerange_in(1)+1, imagerange_in(2)
-            cut_loc[i] = cut_loc
-            n_p[i] = n_p
-         end do
+      allocate(gridsums_loc(gridind_in(cax,2)-gridind_in(cax,1)+1))
 
+      do i = gridind_in(cax,1), gridind_in(cax,2)
+         ii = i - gridind_in(cax, 1) + 1
+         if (i >= cellmins(cax, thisImage) .and. i <= cellmaxs(cax, thisImage)) then
+            do d = 1, 3
+               thisImage_limits(1, d) = max(1, gridind_in(d, 1) - cellmins(d, thisImage) + 1)
+               thisImage_limits(2, d) = min(cellmaxs(d, thisImage), gridind_in(d, 2)) - cellmins(d, thisImage) + 1
+            end do
+            thisImage_limits(1:2, cax) = i - cellmins(cax, thisImage) + 1
+         
+            gridsums_loc(ii) = sum(pincell_ORB(thisImage_limits(1, 1):thisImage_limits(2, 1), &
+                                              thisImage_limits(1, 2):thisImage_limits(2, 2), &
+                                              thisImage_limits(1, 3):thisImage_limits(2, 3)))
+         else
+            gridsums_loc(ii) = 0
+         end if
+      end do
+
+      call co_sum(gridsums_loc)
+
+      !cut location ----------------------------------------------------------------------------------------------------
+      cut_loc = gridind_in(cax, 1) - 1
+      n_p = 0
+      np_per_node = int(ceiling(real(numImages_in)/2)/real(numImages_in)*ntotal_in)
+      do while (n_p < np_per_node)
+         cut_loc = cut_loc + 1
+         n_p = n_p + gridsums_loc(cut_loc-gridind_in(cax,1)+1)
+      end do
+
+      ! extra step to nudge cut location backwards if that's a better position
+      if ((np_per_node - (n_p - gridsums_loc(cut_loc-gridind_in(cax,1)+1)) < n_p - np_per_node)) then
+         cut_loc = cut_loc - 1
+         n_p = n_p - gridsums_loc(cut_loc-gridind_in(cax,1)+1)
       end if
 
-      sync images ((/(i,i=imagerange_in(1),imagerange_in(2))/))
+      deallocate(gridsums_loc)
 
       !saving output information ---------------------------------------------------------------------------------------
       imagerange_lo(1) = imagerange_in(1)
@@ -337,40 +326,41 @@ contains
       gridind_out(:, 1) = gridind_in(:, 1)
       gridind_out(:, 2) = gridind_in(:, 2)
 
-      if (thisImage <= imagerange_lo(2)) then
-         node_out = 2*node_in
-         imagerange_out(:) = imagerange_lo(:)
-         ntotal_out = n_p
-         gridind_out(cax, 1) = gridind_in(cax, 1)
-         gridind_out(cax, 2) = cut_loc
-         free_face(3 + cax) = .false. ! "low" processes have cut on "upper" face
-      else
-         node_out = 2*node_in + 1
-         imagerange_out(:) = imagerange_hi(:)
-         ntotal_out = ntotal_in - n_p
-         gridind_out(cax, 1) = cut_loc + 1
-         gridind_out(cax, 2) = gridind_in(cax, 2)
-         free_face(cax) = .false. ! "upper" processes have cut on "lower" face
-      end if
-
+      node_out = 2*node_in
+      imagerange_out(:) = imagerange_lo(:)
+      ntotal_out = n_p
+      gridind_out(:, 1) = gridind_in(:, 1)
+      gridind_out(:, 2) = gridind_in(:, 2)
+      gridind_out(cax, 1) = gridind_in(cax, 1)
+      gridind_out(cax, 2) = cut_loc
+      free_face(3 + cax) = .false. ! "low" processes have cut on "upper" face
       numImages_out = imagerange_out(2) - imagerange_out(1) + 1
-
-      !travelling to child node/saving boundary information ------------------------------------------------------------
-      if (numImages_out /= 1) then
+      if (numImages_out > 1) then
          call ORB_bounds(thisImage, numImages, scale_k, gridind_out, numImages_out, node_out, imagerange_out, &
                          ntotal_out, dcell, mingridx_in, maxgridx_in, free_face)
-      else
-
-         ! calculating local boundaries from grid indices
+      else if (thisImage==imagerange_out(1)) then
          bounds_loc(1:3) = mingridx_in(:) + (gridind_out(:, 1) - 1)*dcell
          bounds_loc(4:6) = mingridx_in(:) + gridind_out(:, 2)*dcell
+      end if
 
-         ! extend boundaries of free faces
-         do d = 1, 3
-            if (free_face(d)) bounds_loc(d) = bounds_loc(d) - bound_extend*scale_k*hsml
-            if (free_face(3 + d)) bounds_loc(3 + d) = bounds_loc(3 + d) + bound_extend*scale_k*hsml
-         end do
+      node_out = 2*node_in + 1
+      imagerange_out(:) = imagerange_hi(:)
+      ntotal_out = ntotal_in - n_p
+      gridind_out(:, 1) = gridind_in(:, 1)
+      gridind_out(:, 2) = gridind_in(:, 2)
+      gridind_out(cax, 1) = cut_loc + 1
+      gridind_out(cax, 2) = gridind_in(cax, 2)
+      free_face(cax) = .false. ! "upper" processes have cut on "lower" face
+      numImages_out = imagerange_out(2) - imagerange_out(1) + 1
+      if (numImages_out > 1) then
+         call ORB_bounds(thisImage, numImages, scale_k, gridind_out, numImages_out, node_out, imagerange_out, &
+                         ntotal_out, dcell, mingridx_in, maxgridx_in, free_face)
+      else if (thisImage==imagerange_out(1)) then
+         bounds_loc(1:3) = mingridx_in(:) + (gridind_out(:, 1) - 1)*dcell
+         bounds_loc(4:6) = mingridx_in(:) + gridind_out(:, 2)*dcell
+      end if
 
+      if (node_in==1) then
          sync all
 
          ! loop over all other images to find neighbour processes
@@ -385,7 +375,6 @@ contains
                neighbours(n_process_neighbour)%bounds(:) = bounds_rem(:)
             end if
          end do
-
       end if
 
    end subroutine ORB_bounds
@@ -397,81 +386,82 @@ contains
       implicit none
       integer, intent(in):: thisImage, numImages, gridind_in(3, 2)
       integer, intent(out):: ngridx_trim(3)
-      integer:: i, j, k, n, newi(2), newj(2), newk(2)
-
-      newi(:) = gridind_in(1, :)
-      newj(:) = gridind_in(2, :)
-      newk(:) = gridind_in(3, :)
+      integer:: i, j, k, n, gridind_new(3, 2)
 
       !Trimming input grid ------------------------------------------------------------------------------------------------------
       !reducing x-length of grid
       !finding new start x-index
-      newi(1) = trim_helper(thisImage, numImages, 1, newi(1), newi(2), 2, newj, 3, newk)
+      gridind_new(1, 1) = trim_helper(thisImage, numImages, 1, gridind_in(1, 1), gridind_in(1, 2), 2, &
+                                      gridind_in(2, 1), gridind_in(2, 2), 3, gridind_in(3, 1), gridind_in(3, 2))
 
       !finding new end x-index
-      newi(2) = trim_helper(thisImage, numImages, 1, newi(2), newi(1), 2, newj, 3, newk)
+      gridind_new(1, 2) = trim_helper(thisImage, numImages, 1, gridind_in(1, 2), gridind_in(1, 1), 2, &
+                                      gridind_in(2, 1), gridind_in(2, 2), 3, gridind_in(3, 1), gridind_in(3, 2))
 
       !reducing y-length of grid
       !finding new start y-index
-      newj(1) = trim_helper(thisImage, numImages, 2, newj(1), newj(2), 1, newi, 3, newk)
+      gridind_new(2, 1) = trim_helper(thisImage, numImages, 2, gridind_in(2, 1), gridind_in(2, 2), 1, &
+                                      gridind_in(1, 1), gridind_in(1, 2), 3, gridind_in(3, 1), gridind_in(3, 2))
 
       !finding new end y-index
-      newj(2) = trim_helper(thisImage, numImages, 2, newj(2), newj(1), 1, newi, 3, newk)
+      gridind_new(2, 2) = trim_helper(thisImage, numImages, 2, gridind_in(2, 2), gridind_in(2, 1), 1, &
+                                      gridind_in(1, 1), gridind_in(1, 2), 3, gridind_in(3, 1), gridind_in(3, 2))
 
       !reducing z-length of grid
       !finding new start z-index
-      newk(1) = trim_helper(thisImage, numImages, 3, newk(1), newk(2), 1, newi, 2, newj)
+      gridind_new(3, 1) = trim_helper(thisImage, numImages, 3, gridind_in(3, 1), gridind_in(3, 2), 1, &
+                                      gridind_in(1, 1), gridind_in(1, 2), 2, gridind_in(2, 1), gridind_in(2, 2))
 
       !finding new end z-index
-      newk(2) = trim_helper(thisImage, numImages, 3, newk(2), newk(1), 1, newi, 2, newj)
+      gridind_new(3, 2) = trim_helper(thisImage, numImages, 3, gridind_in(3, 2), gridind_in(3, 1), 1, &
+                                      gridind_in(1, 1), gridind_in(1, 2), 2, gridind_in(2, 1), gridind_in(2, 2))
 
-      ngridx_trim(1) = newi(2) - newi(1) + 1
-      ngridx_trim(2) = newj(2) - newj(1) + 1
-      ngridx_trim(3) = newk(2) - newk(1) + 1
+      call co_min(gridind_new(:, 1))
+      call co_max(gridind_new(:, 2))
+
+      ngridx_trim(:) = gridind_new(:, 2) - gridind_new(:, 1) + 1
 
    end subroutine P_trim
 
    !=================================================================================
-   function trim_helper(thisImage, numImages, main_axis, main_start, main_end, off_axis1, off_limits1, off_axis2, &
-                        off_limits2) result(newindex)
+   function trim_helper(thisImage, numImages, main_axis, main_start, main_end, off_axis1, off_limits1_start, &
+                        off_limits1_end, off_axis2, off_limits2_start, off_limits2_end) result(newindex)
       ! function that performs the scanning to see if there are any non-zero cells
 
-      integer, intent(in):: thisImage, numImages, main_axis, main_start, main_end, off_axis1, off_limits1(2), &
-                            off_axis2, off_limits2(2)
-      integer:: newindex, step, a_main, n, otherImage, otherImage_limits(2, 3), otherImage_maxincell
+      integer, intent(in):: thisImage, numImages, main_axis, main_start, main_end, off_axis1, off_axis2, &
+         off_limits1_start, off_limits1_end, off_limits2_start, off_limits2_end
+      integer:: newindex, step, a_main, n, thisImage_limits(2, 3), thisImage_maxincell
 
       newindex = main_start
 
       step = sign(1, main_end - main_start)
       do a_main = main_start, main_end, step
-         do n = 0, numImages - 1
-            otherImage = mod(thisImage + n, numImages)
-            if (otherImage == 0) otherImage = numImages
-            if (.not. (a_main > cellmaxs(main_axis, otherImage) .or. &
-                       off_limits1(1) > cellmaxs(off_axis1, otherImage) .or. &
-                       off_limits2(1) > cellmaxs(off_axis2, otherImage) .or. &
-                       cellmins(main_axis, otherImage) > a_main .or. &
-                       cellmins(off_axis1, otherImage) > off_limits1(2) .or. &
-                       cellmins(off_axis2, otherImage) > off_limits2(2))) then
-               otherImage_limits(1:2, main_axis) = a_main - cellmins(main_axis, otherImage) + 1
-               otherImage_limits(1, off_axis1) = max(cellmins(off_axis1, otherImage), off_limits1(1)) - &
-                                                 cellmins(off_axis1, otherImage) + 1
-               otherImage_limits(2, off_axis1) = min(cellmaxs(off_axis1, otherImage), off_limits1(2)) - &
-                                                 cellmins(off_axis1, otherImage) + 1
-               otherImage_limits(1, off_axis2) = max(cellmins(off_axis2, otherImage), off_limits2(1)) - &
-                                                 cellmins(off_axis2, otherImage) + 1
-               otherImage_limits(2, off_axis2) = min(cellmaxs(off_axis2, otherImage), off_limits2(2)) - &
-                                                 cellmins(off_axis2, otherImage) + 1
-               otherImage_maxincell = maxval(pincell_ORB(otherImage_limits(1, 1):otherImage_limits(2, 1), &
-                                                         otherImage_limits(1, 2):otherImage_limits(2, 2), &
-                                                         otherImage_limits(1, 3):otherImage_limits(2, 3)) [otherImage])
-               if (otherImage_maxincell > 0) Then
-                  newindex = a_main
-                  return
-               end if
+         if (.not. (a_main > cellmaxs(main_axis, thisImage) .or. &
+                    off_limits1_start > cellmaxs(off_axis1, thisImage) .or. &
+                    off_limits2_start > cellmaxs(off_axis2, thisImage) .or. &
+                    cellmins(main_axis, thisImage) > a_main .or. &
+                    cellmins(off_axis1, thisImage) > off_limits1_end .or. &
+                    cellmins(off_axis2, thisImage) > off_limits2_end)) then
+            thisImage_limits(1:2, main_axis) = a_main - cellmins(main_axis, thisImage) + 1
+            thisImage_limits(1, off_axis1) = max(cellmins(off_axis1, thisImage), off_limits1_start) - &
+                                              cellmins(off_axis1, thisImage) + 1
+            thisImage_limits(2, off_axis1) = min(cellmaxs(off_axis1, thisImage), off_limits1_end) - &
+                                              cellmins(off_axis1, thisImage) + 1
+            thisImage_limits(1, off_axis2) = max(cellmins(off_axis2, thisImage), off_limits2_start) - &
+                                              cellmins(off_axis2, thisImage) + 1
+            thisImage_limits(2, off_axis2) = min(cellmaxs(off_axis2, thisImage), off_limits2_end) - &
+                                              cellmins(off_axis2, thisImage) + 1
+            thisImage_maxincell = maxval(pincell_ORB(thisImage_limits(1, 1):thisImage_limits(2, 1), &
+                                                      thisImage_limits(1, 2):thisImage_limits(2, 2), &
+                                                      thisImage_limits(1, 3):thisImage_limits(2, 3)))
+            if (thisImage_maxincell > 0) Then
+               newindex = a_main
+               return
             end if
-         end do
+         end if
       end do
+
+      newindex = main_end
 
    end function trim_helper
 
