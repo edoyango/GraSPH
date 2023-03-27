@@ -280,50 +280,39 @@ contains
          cax = node_cax(node_in)
       end if
 
-      ! allocate(gridsums_loc(gridind_in(cax,2)-gridind_in(cax,1)+1))
+      allocate(gridsums_loc(gridind_in(cax,2)-gridind_in(cax,1)+1))
 
-      ! do i = gridind_in(cax,1), gridind_in(cax,2)
-      !    otherImage = thisImage
-      !    do d = 1, 3
-      !       otherImage_limits(1, d) = max(1, gridind_in(d, 1) - cellmins(d, otherImage) + 1)
-      !       otherImage_limits(2, d) = min(cellmaxs(d, otherImage), gridind_in(d, 2)) - cellmins(d, otherImage) + 1
-      !    end do
-      !    otherImage_limits(1:2, cax) = cut_loc - cellmins(cax, otherImage) + 1
-      !    if (i >= cellmins(cax, thisImage) .and. i <= cellmaxs(cax, thisImage)) then
-      !       gridsums_loc(i-gridind_in(cax,1)) = sum(pincell_ORB(otherImage_limits(1, 1):otherImage_limits(2, 1), &
-      !                                               otherImage_limits(1, 2):otherImage_limits(2, 2), &
-      !                                               otherImage_limits(1, 3):otherImage_limits(2, 3)) [otherImage])
-      !    else
-      !       gridsums_loc(i-gridind_in(cax,1)) = 0
-      !    end if
-      ! end do
+      do i = gridind_in(cax,1), gridind_in(cax,2)
+         if (i >= cellmins(cax, thisImage) .and. i <= cellmaxs(cax, thisImage)) then
+            do d = 1, 3
+               thisImage_limits(1, d) = max(1, gridind_in(d, 1) - cellmins(d, thisImage) + 1)
+               thisImage_limits(2, d) = min(cellmaxs(d, thisImage), gridind_in(d, 2)) - cellmins(d, thisImage) + 1
+            end do
+            thisImage_limits(1:2, cax) = i - cellmins(cax, thisImage) + 1
+         
+            gridsums_loc(i) = sum(pincell_ORB(thisImage_limits(1, 1):thisImage_limits(2, 1), &
+                                              thisImage_limits(1, 2):thisImage_limits(2, 2), &
+                                              thisImage_limits(1, 3):thisImage_limits(2, 3)))
+         else
+            gridsums_loc(i) = 0
+         end if
+      end do
+
+      call co_sum(gridsums_loc)
 
       !cut location ----------------------------------------------------------------------------------------------------
       cut_loc = gridind_in(cax, 1) - 1
       n_p = 0
       np_per_node = int(ceiling(real(numImages_in)/2)/real(numImages_in)*ntotal_in)
-      pincol = 0
       do while (n_p < np_per_node)
          cut_loc = cut_loc + 1
-         pincol = 0
-         if (cut_loc >= cellmins(cax, thisImage) .and. cut_loc <= cellmaxs(cax, thisImage)) then
-            do d = 1, 3
-               thisImage_limits(1, d) = max(1, gridind_in(d, 1) - cellmins(d, thisImage) + 1)
-               thisImage_limits(2, d) = min(cellmaxs(d, thisImage), gridind_in(d, 2)) - cellmins(d, thisImage) + 1
-            end do
-            thisImage_limits(1:2, cax) = cut_loc - cellmins(cax, thisImage) + 1
-            pincol = pincol + sum(pincell_ORB(thisImage_limits(1, 1):thisImage_limits(2, 1), &
-                                              thisImage_limits(1, 2):thisImage_limits(2, 2), &
-                                              thisImage_limits(1, 3):thisImage_limits(2, 3)))
-         end if
-         call co_sum(pincol)
-         n_p = n_p + pincol
+         n_p = n_p + gridsums_loc(cut_loc)
       end do
 
       ! extra step to nudge cut location backwards if that's a better position
-      if ((np_per_node - (n_p - pincol) < n_p - np_per_node)) then
+      if ((np_per_node - (n_p - gridsums_loc(cut_loc)) < n_p - np_per_node)) then
          cut_loc = cut_loc - 1
-         n_p = n_p - pincol
+         n_p = n_p - gridsums_loc(cut_loc)
       end if
 
       !saving output information ---------------------------------------------------------------------------------------
@@ -400,29 +389,29 @@ contains
       !reducing x-length of grid
       !finding new start x-index
       gridind_new(1, 1) = trim_helper(thisImage, numImages, 1, gridind_in(1, 1), gridind_in(1, 2), 2, &
-                                      gridind_in(2, :), 3, gridind_in(3, :))
+                                      gridind_in(2, 1), gridind_in(2, 2), 3, gridind_in(3, 1), gridind_in(3, 2))
 
       !finding new end x-index
       gridind_new(1, 2) = trim_helper(thisImage, numImages, 1, gridind_in(1, 2), gridind_in(1, 1), 2, &
-                                      gridind_in(2, :), 3, gridind_in(3, :))
+                                      gridind_in(2, 1), gridind_in(2, 2), 3, gridind_in(3, 1), gridind_in(3, 2))
 
       !reducing y-length of grid
       !finding new start y-index
       gridind_new(2, 1) = trim_helper(thisImage, numImages, 2, gridind_in(2, 1), gridind_in(2, 2), 1, &
-                                      gridind_in(1, :), 3, gridind_in(3, :))
+                                      gridind_in(1, 1), gridind_in(1, 2), 3, gridind_in(3, 1), gridind_in(3, 2))
 
       !finding new end y-index
       gridind_new(2, 2) = trim_helper(thisImage, numImages, 2, gridind_in(2, 2), gridind_in(2, 1), 1, &
-                                      gridind_in(1, :), 3, gridind_in(3, :))
+                                      gridind_in(1, 1), gridind_in(1, 2), 3, gridind_in(3, 1), gridind_in(3, 2))
 
       !reducing z-length of grid
       !finding new start z-index
       gridind_new(3, 1) = trim_helper(thisImage, numImages, 3, gridind_in(3, 1), gridind_in(3, 2), 1, &
-                                      gridind_in(1, :), 2, gridind_in(2, :))
+                                      gridind_in(1, 1), gridind_in(1, 2), 2, gridind_in(2, 1), gridind_in(2, 2))
 
       !finding new end z-index
       gridind_new(3, 2) = trim_helper(thisImage, numImages, 3, gridind_in(3, 2), gridind_in(3, 1), 1, &
-                                      gridind_in(1, :), 2, gridind_in(2, :))
+                                      gridind_in(1, 1), gridind_in(1, 2), 2, gridind_in(2, 1), gridind_in(2, 2))
 
       call co_min(gridind_new(:, 1))
       call co_max(gridind_new(:, 2))
@@ -432,12 +421,12 @@ contains
    end subroutine P_trim
 
    !=================================================================================
-   function trim_helper(thisImage, numImages, main_axis, main_start, main_end, off_axis1, off_limits1, off_axis2, &
-                        off_limits2) result(newindex)
+   function trim_helper(thisImage, numImages, main_axis, main_start, main_end, off_axis1, off_limits1_start, &
+                        off_limits1_end, off_axis2, off_limits2_start, off_limits2_end) result(newindex)
       ! function that performs the scanning to see if there are any non-zero cells
 
-      integer, intent(in):: thisImage, numImages, main_axis, main_start, main_end, off_axis1, off_limits1(2), &
-                            off_axis2, off_limits2(2)
+      integer, intent(in):: thisImage, numImages, main_axis, main_start, main_end, off_axis1, off_axis2, &
+         off_limits1_start, off_limits1_end, off_limits2_start, off_limits2_end
       integer:: newindex, step, a_main, n, thisImage_limits(2, 3), thisImage_maxincell
 
       newindex = main_start
@@ -445,19 +434,19 @@ contains
       step = sign(1, main_end - main_start)
       do a_main = main_start, main_end, step
          if (.not. (a_main > cellmaxs(main_axis, thisImage) .or. &
-                    off_limits1(1) > cellmaxs(off_axis1, thisImage) .or. &
-                    off_limits2(1) > cellmaxs(off_axis2, thisImage) .or. &
+                    off_limits1_start > cellmaxs(off_axis1, thisImage) .or. &
+                    off_limits2_start > cellmaxs(off_axis2, thisImage) .or. &
                     cellmins(main_axis, thisImage) > a_main .or. &
-                    cellmins(off_axis1, thisImage) > off_limits1(2) .or. &
-                    cellmins(off_axis2, thisImage) > off_limits2(2))) then
+                    cellmins(off_axis1, thisImage) > off_limits1_end .or. &
+                    cellmins(off_axis2, thisImage) > off_limits2_end)) then
             thisImage_limits(1:2, main_axis) = a_main - cellmins(main_axis, thisImage) + 1
-            thisImage_limits(1, off_axis1) = max(cellmins(off_axis1, thisImage), off_limits1(1)) - &
+            thisImage_limits(1, off_axis1) = max(cellmins(off_axis1, thisImage), off_limits1_start) - &
                                               cellmins(off_axis1, thisImage) + 1
-            thisImage_limits(2, off_axis1) = min(cellmaxs(off_axis1, thisImage), off_limits1(2)) - &
+            thisImage_limits(2, off_axis1) = min(cellmaxs(off_axis1, thisImage), off_limits1_end) - &
                                               cellmins(off_axis1, thisImage) + 1
-            thisImage_limits(1, off_axis2) = max(cellmins(off_axis2, thisImage), off_limits2(1)) - &
+            thisImage_limits(1, off_axis2) = max(cellmins(off_axis2, thisImage), off_limits2_start) - &
                                               cellmins(off_axis2, thisImage) + 1
-            thisImage_limits(2, off_axis2) = min(cellmaxs(off_axis2, thisImage), off_limits2(2)) - &
+            thisImage_limits(2, off_axis2) = min(cellmaxs(off_axis2, thisImage), off_limits2_end) - &
                                               cellmins(off_axis2, thisImage) + 1
             thisImage_maxincell = maxval(pincell_ORB(thisImage_limits(1, 1):thisImage_limits(2, 1), &
                                                       thisImage_limits(1, 2):thisImage_limits(2, 2), &
