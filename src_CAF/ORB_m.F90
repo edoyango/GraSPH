@@ -394,43 +394,40 @@ contains
       implicit none
       integer, intent(in):: thisImage, numImages, gridind_in(3, 2)
       integer, intent(out):: ngridx_trim(3)
-      integer:: i, j, k, n, newi(2), newj(2), newk(2)
-
-      newi(:) = gridind_in(1, :)
-      newj(:) = gridind_in(2, :)
-      newk(:) = gridind_in(3, :)
+      integer:: i, j, k, n, gridind_new(3, 2)
 
       !Trimming input grid ------------------------------------------------------------------------------------------------------
       !reducing x-length of grid
       !finding new start x-index
-      newi(1) = trim_helper(thisImage, numImages, 1, newi(1), newi(2), 2, newj, 3, newk)
-      call co_min(newi(1))
+      gridind_new(1, 1) = trim_helper(thisImage, numImages, 1, gridind_in(1, 1), gridind_in(1, 2), 2, &
+                                      gridind_in(2, :), 3, gridind_in(3, :))
 
       !finding new end x-index
-      newi(2) = trim_helper(thisImage, numImages, 1, newi(2), newi(1), 2, newj, 3, newk)
-      call co_max(newi(2))
+      gridind_new(1, 2) = trim_helper(thisImage, numImages, 1, gridind_in(1, 2), gridind_in(1, 1), 2, &
+                                      gridind_in(2, :), 3, gridind_in(3, :))
 
       !reducing y-length of grid
       !finding new start y-index
-      newj(1) = trim_helper(thisImage, numImages, 2, newj(1), newj(2), 1, newi, 3, newk)
-      call co_min(newj(1))
+      gridind_new(2, 1) = trim_helper(thisImage, numImages, 2, gridind_in(2, 1), gridind_in(2, 2), 1, &
+                                      gridind_in(1, :), 3, gridind_in(3, :))
 
       !finding new end y-index
-      newj(2) = trim_helper(thisImage, numImages, 2, newj(2), newj(1), 1, newi, 3, newk)
-      call co_max(newj(2))
+      gridind_new(2, 2) = trim_helper(thisImage, numImages, 2, gridind_in(2, 2), gridind_in(2, 1), 1, &
+                                      gridind_in(1, :), 3, gridind_in(3, :))
 
       !reducing z-length of grid
       !finding new start z-index
-      newk(1) = trim_helper(thisImage, numImages, 3, newk(1), newk(2), 1, newi, 2, newj)
-      call co_min(newk(1))
+      gridind_new(3, 1) = trim_helper(thisImage, numImages, 3, gridind_in(3, 1), gridind_in(3, 2), 1, &
+                                      gridind_in(1, :), 2, gridind_in(2, :))
 
       !finding new end z-index
-      newk(2) = trim_helper(thisImage, numImages, 3, newk(2), newk(1), 1, newi, 2, newj)
-      call co_max(newk(2))
+      gridind_new(3, 2) = trim_helper(thisImage, numImages, 3, gridind_in(3, 2), gridind_in(3, 1), 1, &
+                                      gridind_in(1, :), 2, gridind_in(2, :))
 
-      ngridx_trim(1) = newi(2) - newi(1) + 1
-      ngridx_trim(2) = newj(2) - newj(1) + 1
-      ngridx_trim(3) = newk(2) - newk(1) + 1
+      call co_min(gridind_new(:, 1))
+      call co_max(gridind_new(:, 2))
+
+      ngridx_trim(:) = gridind_new(:, 2) - gridind_new(:, 1) + 1
 
    end subroutine P_trim
 
