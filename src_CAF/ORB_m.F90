@@ -261,7 +261,7 @@ contains
                             imagerange_in(2), ntotal_in
       real(f), intent(in):: mingridx_in(3), maxgridx_in(3), dcell, scale_k
       logical, intent(inout):: free_face(6) ! array to track which faces are cuts, and which faces are free
-      integer:: i, j, k, d, ngridx_trim(3), A(3), pincol, np_per_node, thisImage_limits(2, 3), otherImage, &
+      integer:: i, ii, j, k, d, ngridx_trim(3), A(3), pincol, np_per_node, thisImage_limits(2, 3), otherImage, &
                 n, imagerange_out(2), gridind_out(3, 2), ntotal_out, numImages_out, node_out, imagerange_lo(2), &
                 imagerange_hi(2)
       integer:: cax, cut_loc, n_p
@@ -283,6 +283,7 @@ contains
       allocate(gridsums_loc(gridind_in(cax,2)-gridind_in(cax,1)+1))
 
       do i = gridind_in(cax,1), gridind_in(cax,2)
+         ii = i - gridind_in(cax, 1) + 1
          if (i >= cellmins(cax, thisImage) .and. i <= cellmaxs(cax, thisImage)) then
             do d = 1, 3
                thisImage_limits(1, d) = max(1, gridind_in(d, 1) - cellmins(d, thisImage) + 1)
@@ -290,11 +291,11 @@ contains
             end do
             thisImage_limits(1:2, cax) = i - cellmins(cax, thisImage) + 1
          
-            gridsums_loc(i) = sum(pincell_ORB(thisImage_limits(1, 1):thisImage_limits(2, 1), &
+            gridsums_loc(ii) = sum(pincell_ORB(thisImage_limits(1, 1):thisImage_limits(2, 1), &
                                               thisImage_limits(1, 2):thisImage_limits(2, 2), &
                                               thisImage_limits(1, 3):thisImage_limits(2, 3)))
          else
-            gridsums_loc(i) = 0
+            gridsums_loc(ii) = 0
          end if
       end do
 
@@ -306,14 +307,16 @@ contains
       np_per_node = int(ceiling(real(numImages_in)/2)/real(numImages_in)*ntotal_in)
       do while (n_p < np_per_node)
          cut_loc = cut_loc + 1
-         n_p = n_p + gridsums_loc(cut_loc)
+         n_p = n_p + gridsums_loc(cut_loc-gridind_in(cax,1)+1)
       end do
 
       ! extra step to nudge cut location backwards if that's a better position
-      if ((np_per_node - (n_p - gridsums_loc(cut_loc)) < n_p - np_per_node)) then
+      if ((np_per_node - (n_p - gridsums_loc(cut_loc-gridind_in(cax,1)+1)) < n_p - np_per_node)) then
          cut_loc = cut_loc - 1
-         n_p = n_p - gridsums_loc(cut_loc)
+         n_p = n_p - gridsums_loc(cut_loc-gridind_in(cax,1)+1)
       end if
+
+      deallocate(gridsums_loc)
 
       !saving output information ---------------------------------------------------------------------------------------
       imagerange_lo(1) = imagerange_in(1)
