@@ -222,7 +222,7 @@ contains
       real(f), intent(in):: ddata(:, :) ! data local to MPI Process to write
       integer(HSIZE_T):: local_dims(2)
       integer, parameter:: rank = 2
-      integer(HSIZE_T), parameter:: chunk_size = [1, 131072/f] ! 128KB chunk size
+      integer(HSIZE_T), parameter:: chunk_size(2) = [1, 131072/f] ! 128KB chunk size
 
       local_dims = shape(ddata)
 
