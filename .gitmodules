@@ -1,0 +1,3 @@
+[submodule "FLAP"]
+	path = FLAP
+	url = https://github.com/szaghi/FLAP.git
