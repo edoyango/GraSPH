@@ -49,9 +49,6 @@ program SPH
       call argparse%get(switch='-p', val=print_step, error=argerror)
       call argparse%get(switch='-s', val=save_step, error=argerror)
 
-      write(*,*) maxtimestep
-      stop
-
    ! Saving image id and total number of images
    thisImage = this_image()
    numImages = num_images()
