@@ -88,10 +88,14 @@ time_integration_m.caf.o \
 main.caf.o \
 )
 
-sph: $(OBJ)
-	git submodule update --init --recursive
-	cd FLAP; make STATIC=yes COMPILER=$(compiler)
+sph: FLAP/static/libflap.a $(OBJ)
 	$(FC) -o $@ $^ $(FCFLAGS) -lhdf5_fortran -lhdf5 $(LDFLAGS)
+
+FLAP/static/libflap.a: FLAP
+	cd FLAP; make STATIC=yes COMPILER=$(compiler)
+
+FLAP:
+	git submodule update --init --recursive
 
 $(ODIR)/param.caf.o: \
 $(ODIR)/%.caf.o: \
