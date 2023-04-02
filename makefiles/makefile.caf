@@ -89,6 +89,8 @@ main.caf.o \
 )
 
 sph: $(OBJ)
+	git submodule update --init --recursive
+	cd FLAP; make STATIC=yes COMPILER=$(compiler)
 	$(FC) -o $@ $^ $(FCFLAGS) -lhdf5_fortran -lhdf5 $(LDFLAGS)
 
 $(ODIR)/param.caf.o: \
