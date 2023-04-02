@@ -18,8 +18,14 @@ main.cuf.o
 
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
-sph-cuda: $(OBJ)
+sph-cuda: FLAP/static/libflap.a $(OBJ)
 	$(FC) -o $@ $^ $(MAKE_FCFLAGS) $(LDFLAGS) -lhdf5_fortran -lstdc++
+
+FLAP/static/libflap.a: FLAP
+	cd FLAP; make STATIC=yes COMPILER=nv FC=$(FC)
+
+FLAP:
+	git submodule update --init --recursive
 
 $(ODIR)/param.cuf.o: \
 $(ODIR)/%.cuf.o: \
