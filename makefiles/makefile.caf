@@ -29,7 +29,7 @@ ifeq ($(compiler), gnu)
     FCFLAGS := $(FCFLAGS_GNU_GENERAL) $(FCFLAGS)
 	ifeq ($(mode), serial)
         FCFLAGS:=$(FCFLAGS) $(FCFLAGS_GNU_SERIAL)
-        LDFLAGS := $(LDFLAGS)#-lhdf5hl_fortran
+        LDFLAGS := $(LDFLAGS)
     else ifeq ($(mode), caf)
         FCFLAGS:=$(FCFLAGS) $(FCFLAGS_GNU_CAF)
     endif
@@ -48,7 +48,7 @@ else ifeq ($(compiler), intel)
     FCFLAGS := $(FCFLAGS_INTEL_GENERAL) $(FCFLAGS)
     ifeq ($(mode), serial)
         FCFLAGS:=$(FCFLAGS) $(FCFLAGS_INTEL_SERIAL)
-        LDFLAGS := $(LDFLAGS) -lhdf5hl_fortran
+        LDFLAGS := $(LDFLAGS)
     else ifeq ($(mode), caf)
         FCFLAGS:=$(FCFLAGS) $(FCFLAGS_INTEL_CAF)
     endif
