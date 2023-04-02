@@ -12,7 +12,7 @@ The repo is setup to run the dam break case which uses the `example/dambreak.h5`
 
 # Prerequisites
 Compilation of all source code requires hdf5 libraries where the serial and cuda code requires the high-level libraries as well.
-- hdf5 (with high-level libraries and built with openmpi)
+- hdf5 v1.10.7 or above (built with mpi)
 - make
 - An appropriate compiler:
   - nvfortran (tested with v21.9.0 to 23.0.0) - mandatory for GPU code;
