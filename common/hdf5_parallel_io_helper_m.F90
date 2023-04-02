@@ -102,9 +102,10 @@ contains
       integer(HSIZE_T), intent(in):: global_dims ! shape of entire dataset being written
       integer(HSSIZE_T), intent(in):: displ ! displacement of process
       real(f), intent(in):: ddata(:) ! data local to MPI Process to write
-      integer(HSIZE_T):: local_dims(1), global_dims_copy(1), chunk_size(1)
+      integer(HSIZE_T):: local_dims(1), global_dims_copy(1)
       integer(HSSIZE_T):: displ_copy(1)
       integer, parameter:: rank = 1
+      integer(HSIZE_T):: chunk_size(1)
 
       local_dims = size(ddata)
       global_dims_copy(1) = global_dims
@@ -113,8 +114,8 @@ contains
       ! Creating dataspace for entire dataset
       call h5screate_simple_f(rank, global_dims_copy, dspace_id, ierr)
 
-      chunk_size = global_dims_copy  ! need a better way to choose a value
       call h5pcreate_f(H5P_DATASET_CREATE_F, compress_plist_id, ierr)
+      chunk_size(1) = min(int(131072/f, kind=HSIZE_T), global_dims_copy(1)) ! 128KB chunk size
       call h5pset_chunk_f(compress_plist_id, 1, chunk_size, ierr)
       call h5pset_deflate_f(compress_plist_id, 6, ierr)
 
@@ -220,17 +221,18 @@ contains
       integer(HSIZE_T), intent(in):: global_dims(2) ! shape of entire dataset being written
       integer(HSSIZE_T), intent(in):: displ(2) ! displacement of process
       real(f), intent(in):: ddata(:, :) ! data local to MPI Process to write
-      integer(HSIZE_T):: local_dims(2), chunk_size(2)
+      integer(HSIZE_T):: local_dims(2)
       integer, parameter:: rank = 2
+      integer(HSIZE_T):: chunk_size(2)
 
       local_dims = shape(ddata)
 
       ! Creating dataspace for entire dataset
       call h5screate_simple_f(rank, global_dims, dspace_id, ierr)
 
-      chunk_size(1) = global_dims(1)  ! need a better way to choose a value
-      chunk_size(2) = global_dims(2)
       call h5pcreate_f(H5P_DATASET_CREATE_F, compress_plist_id, ierr)
+      chunk_size(1) = 1
+      chunk_size(2) = min(int(131072/f, kind=HSIZE_T), global_dims(2))! 128KB chunk size
       call h5pset_chunk_f(compress_plist_id, 2, chunk_size, ierr)
       call h5pset_deflate_f(compress_plist_id, 6, ierr)
 
@@ -332,9 +334,10 @@ contains
       integer(HSIZE_T), intent(in):: global_dims ! shape of entire dataset being written
       integer(HSSIZE_T), intent(in):: displ ! displacement of process
       integer, intent(in):: idata(:) ! data local to MPI Process to write
-      integer(HSIZE_T):: local_dims(1), global_dims_copy(1), chunk_size(1)
+      integer(HSIZE_T):: local_dims(1), global_dims_copy(1)
       integer(HSSIZE_T):: displ_copy(1) ! this exists because the hdf5 subroutine only accepts arrays, not constants
       integer, parameter:: rank = 1
+      integer(HSIZE_T):: chunk_size(1)
 
       local_dims = size(idata)
       global_dims_copy(1) = global_dims
@@ -343,8 +346,8 @@ contains
       ! Creating dataspace for entire dataset
       call h5screate_simple_f(rank, global_dims_copy, dspace_id, ierr)
 
-      chunk_size = global_dims_copy ! need a better way to choose a value
       call h5pcreate_f(H5P_DATASET_CREATE_F, compress_plist_id, ierr)
+      chunk_size(1) = min(int(131072/f, kind=HSIZE_T), global_dims_copy(1))
       call h5pset_chunk_f(compress_plist_id, 1, chunk_size, ierr)
       call h5pset_deflate_f(compress_plist_id, 6, ierr)
 
@@ -354,6 +357,7 @@ contains
 
       ! Creating dataspace in dataset for each process to write to
       call h5screate_simple_f(rank, local_dims, local_dspace_id, ierr)
+      chunk_size(1) = min(int(131072/kind(1), kind=HSIZE_T), global_dims_copy(1)) ! 128KB chunk size)
       call h5dget_space_f(dset_id, dspace_id, ierr)
       call h5sselect_hyperslab_f(dspace_id, H5S_SELECT_SET_F, displ_copy, local_dims, ierr)
 #ifdef PARALLEL
