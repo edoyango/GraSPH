@@ -4,9 +4,11 @@ program SPH
    use param, only: skf, f
 
    use input_m, only: read_input_and_allocate
+   use iso_fortran_env, only: output_unit
+   use flap, only: command_line_interface
    use flink_list_m, only: kernel_k
    use output_m, only: output
-   use summary_m, only: preamble, time_print, print_summary
+   use summary_m, only: preamble, time_print, print_summary, time_print
    use time_integration_m, only: time_integration
 
    implicit none
@@ -18,9 +20,59 @@ program SPH
    type(interactions), allocatable:: pairs(:)
    type(time_tracking):: timings
    integer, parameter:: maxinter_perp = 120
+   type(command_line_interface):: argparse
+   integer:: argerror
 
-   !Printing preamble to screen
-   call preamble(maxtimestep, print_step, save_step)
+   ! Parsing arguments
+   call argparse%init(description='GraSPH is a program to simulate fluids and granular flows using the SPH numerical ' &
+                                //'method.', &
+                      version = 'v0.1.0', &
+                      authors = 'Edward Yang', &
+                      license = 'MIT', &
+                      help = 'Usage: ', &
+                      examples = ['./sph -m 10000 -p 100 -s 100 -o outputdata -i example/dambreak.h5'])
+
+   call argparse%add(switch='--maxtimestep', &
+                     switch_ab='-m', &
+                     help='Max number of time-steps to run the simulation for.', &
+                     required=.true., &
+                     act='store', &
+                     error=argerror)
+   if (argerror /= 0) stop
+           
+   call argparse%add(switch='--printtimestep', &
+                     switch_ab='-p', &
+                     help='Interval of time-steps to write to terminal e.g., -p 1000 will print information every ' &
+                        //'1000 time-steps.', &
+                     required=.true., &
+                     act='store', &
+                     error=argerror)
+   if (argerror /= 0) stop
+
+   call argparse%add(switch='--savetimestep', &
+                     switch_ab='-s', &
+                     help='Interval of time-steps to save data e.g., -s 1000 will save output data every 1000 ' &
+                        //'time-steps. Data is saved to <output-directory>/sph_out*.h5.', &
+                     required=.true., &
+                     act='store', &
+                     error=argerror)
+   if (argerror /= 0) stop
+
+   call argparse%get(switch='-m', val=maxtimestep, error=argerror)
+   if (argerror /= 0) stop
+   call argparse%get(switch='-p', val=print_step, error=argerror)
+   if (argerror /= 0) stop
+   call argparse%get(switch='-s', val=save_step, error=argerror)
+   if (argerror /= 0) stop
+
+   ! printing preamble to screen
+   call time_print
+
+   write (*, '(A)') 'Executing with GPU acceleration...'
+
+   write (output_unit, '(A,I7,A)') 'Running ', maxtimestep, ' step(s).'
+   write (output_unit, '(A,I7,A)') 'Printing summary to screen every ', print_step, ' step(s).'
+   write (output_unit, '(A,I7,A)') 'Writing output to disc every ', save_step, ' step(s).'
 
    ! setting k parameter for kernel radius (r = kh)
    scale_k = kernel_k(skf)
