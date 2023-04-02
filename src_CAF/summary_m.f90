@@ -5,7 +5,7 @@ module summary_m
    use param, only: f, tf
 
    private
-   public:: preamble, print_summary, print_loadbalance
+   public:: print_summary, print_loadbalance, time_print
 
 contains
 
@@ -30,45 +30,6 @@ contains
       write (output_unit, "(30x,A)") "Time = "//timstr(1:2)//":"//timstr(3:4)//":"//timstr(5:10)
 
    end subroutine time_print
-
-   !====================================================================================================================
-   subroutine preamble(thisImage, numImages, maxtimestep, print_step, save_step)
-      ! Prints preamble information to terminal and checks that maxtimestep, print_step, save_step have been supplied
-
-      implicit none
-      integer, intent(in):: thisImage, numImages
-      integer, intent(out):: maxtimestep, print_step, save_step
-      character(len=100):: args(3)
-
-      if (command_argument_count() .lt. 3) then
-         if (thisImage .eq. 1) then
-            write (error_unit, '(A79)') '!!!ERROR!!! --- 3 commandline arguments must be provided: maxtimestep,'
-            write (error_unit, '(A56)') '                print_step, save_step. Program ending...'
-            stop
-         end if
-         error stop
-      else
-         call get_command_argument(1, args(1))
-         call get_command_argument(2, args(2))
-         call get_command_argument(3, args(3))
-         read (args, *) maxtimestep, print_step, save_step
-      end if
-
-      if (thisImage == 1) call time_print
-
-      if (numImages .eq. 1) then
-         write (*, '(A)') 'Executing code in serial!'
-      else
-         if (thisImage .eq. 1) write (*, '(A,I4,A)') 'Executing code in parallel with ', numImages, ' images!'
-      end if
-
-      if (thisImage == 1) then
-         write (output_unit, '(A,I7,A)') 'Running ', maxtimestep, ' step(s).'
-         write (output_unit, '(A,I7,A)') 'Printing summary to screen every ', print_step, ' step(s).'
-         write (output_unit, '(A,I7,A)') 'Writing output to disc every ', save_step, ' step(s).'
-      end if
-
-   end subroutine preamble
 
    !====================================================================================================================
    subroutine print_summary(thisImage, numImages, timings, partition_track)
