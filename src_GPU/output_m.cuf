@@ -3,7 +3,7 @@ module output_m
    use datatypes, only: particles
    use hdf5
    use hdf5_parallel_io_helper_m, only: hdf5_parallel_write, hdf5_fileopen_write, hdf5_attribute_write
-   use param, only: output_directory, f, dim, outputf
+   use param, only: f, dim, outputf
 
    private
    public:: output
@@ -11,10 +11,11 @@ module output_m
 contains
 
    !==============================================================================================================================
-   subroutine output(itimestep, save_step, ntotal, nvirt, itype, ind, p, rho, x, vx)
+   subroutine output(output_directory, itimestep, save_step, ntotal, nvirt, itype, ind, p, rho, x, vx)
       ! Subroutine to write data to disk. Called intermittently, determined by save_step supplied at run-time
 
       implicit none
+      character(*), intent(in):: output_directory
       integer, intent(in):: itimestep, save_step, ntotal, nvirt, itype(ntotal+nvirt), ind(ntotal+nvirt)
       real(f), intent(in):: p(ntotal+nvirt), rho(ntotal+nvirt), x(dim,ntotal+nvirt), vx(dim,ntotal+nvirt)
       integer(HID_T):: file_id, real_group_id, virt_group_id

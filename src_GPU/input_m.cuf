@@ -3,7 +3,7 @@ module input_m
    use datatypes, only: particles, interactions
    use hdf5
    use hdf5_parallel_io_helper_m, only: hdf5_fileopen_read, hdf5_attribute_read
-   use param, only: dim, f, dxo, irho, g, gamma, c, hsml, mass, input_file, inputf
+   use param, only: dim, f, dxo, irho, g, gamma, c, hsml, mass, inputf
 
    real(f), parameter:: vnorm(dim, 5) = reshape([-1._f, -1._f, -1._f, &
                                                   1._f,  1._f, -1._f, &
@@ -32,9 +32,11 @@ contains
    end subroutine allocatePersistentArrays
 
    !==============================================================================================================================
-   subroutine read_input_and_allocate(maxinter_perp, itype, ind, p, rho, x, vx, pairs, maxn, maxinter, ntotal, nvirt)
+   subroutine read_input_and_allocate(input_file, maxinter_perp, itype, ind, p, rho, x, vx, pairs, maxn, maxinter, &
+         ntotal, nvirt)
 
       implicit none
+      character(*), intent(in):: input_file
       integer, intent(in):: maxinter_perp
       integer, allocatable, intent(inout):: itype(:), ind(:)
       real(f), allocatable, intent(inout):: p(:), rho(:), x(:, :), vx(:,:)

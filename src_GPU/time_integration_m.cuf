@@ -18,7 +18,7 @@ contains
 
    !==============================================================================================================================
    subroutine time_integration(scale_k, print_step, save_step, maxtimestep, timings, maxinter, maxn, ntotal, nvirt, &
-                               niac, pairs, itype, ind, p, rho, x, vx)
+                               niac, pairs, itype, ind, p, rho, x, vx, output_directory)
       ! Subroutine responsible for the main time-integration loop
 
       implicit none
@@ -29,6 +29,7 @@ contains
       real(f), intent(inout):: p(maxn), rho(maxn), x(dim,maxn), vx(dim,maxn)
       integer, intent(out):: niac
       type(interactions), intent(out):: pairs(maxinter)
+      character(*), intent(in):: output_directory
       integer:: i, j, k, d, n, istat, ki, itimestep
       integer, device:: ntotal_d, nvirt_d, niac_d
       integer, allocatable, device:: itype_d(:), ind_d(:)
@@ -141,7 +142,7 @@ contains
                rho = rho_d
                x = x_d
                vx = vx_d
-               call output(itimestep, save_step, ntotal, nvirt, itype, ind, p, rho, x, vx)
+               call output(output_directory, itimestep, save_step, ntotal, nvirt, itype, ind, p, rho, x, vx)
             end if
 
             if (mod(itimestep, print_step) .eq. 0) then
