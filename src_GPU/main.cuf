@@ -22,6 +22,7 @@ program SPH
    integer, parameter:: maxinter_perp = 120
    type(command_line_interface):: argparse
    integer:: argerror
+   character(99):: input_file, output_directory
 
    ! Parsing arguments
    call argparse%init(description='GraSPH is a program to simulate fluids and granular flows using the SPH numerical ' &
@@ -58,12 +59,34 @@ program SPH
                      error=argerror)
    if (argerror /= 0) stop
 
+   call argparse%add(switch='--inputfile', &
+                     switch_ab='-i', &
+                     help='HDF5 file to read input data from.', &
+                     required=.true., &
+                     act='store', &
+                     error=argerror)
+   if (argerror /= 0) stop
+
+   call argparse%add(switch='--outputdir', &
+                     switch_ab='-o', &
+                     help='Directory to write output HDF5 data to.', &
+                     required=.true., &
+                     act='store', &
+                     error=argerror)
+   if (argerror /= 0) stop
+
    call argparse%get(switch='-m', val=maxtimestep, error=argerror)
    if (argerror /= 0) stop
    call argparse%get(switch='-p', val=print_step, error=argerror)
    if (argerror /= 0) stop
    call argparse%get(switch='-s', val=save_step, error=argerror)
    if (argerror /= 0) stop
+   call argparse%get(switch='-i', val=input_file, error=argerror)
+   if (argerror /= 0) stop
+   call argparse%get(switch='-o', val=output_directory, error=argerror)
+   if (argerror /= 0) stop
+
+   write(*,*) input_file
 
    ! printing preamble to screen
    call time_print
@@ -78,16 +101,17 @@ program SPH
    scale_k = kernel_k(skf)
 
    !Creat physical and virtual boundary particles
-   call read_input_and_allocate(maxinter_perp, itype, ind, p, rho, x, vx, pairs, maxn, maxinter, ntotal, nvirt)
+   call read_input_and_allocate(trim(input_file), maxinter_perp, itype, ind, p, rho, x, vx, pairs, maxn, maxinter, &
+      ntotal, nvirt)
 
    write (*, '(A24,1x,I9,1x,A19)') 'Total simulation size of', ntotal, 'physical particles.'
    write (*, '(A24,1x,I9,1x,A19)') '                        ', nvirt, 'virtual particles.'
 
-   call output(0, save_step, ntotal, nvirt, itype, ind, p, rho, x, vx)
+   call output(trim(output_directory), 0, save_step, ntotal, nvirt, itype, ind, p, rho, x, vx)
 
    !Entering discretized time-integration loop
    call time_integration(scale_k, print_step, save_step, maxtimestep, timings, maxinter, maxn, ntotal, nvirt, niac, &
-   pairs, itype, ind, p, rho, x, vx)
+   pairs, itype, ind, p, rho, x, vx, trim(output_directory))
 
    !Printing post-amble to terminal
    call time_print
