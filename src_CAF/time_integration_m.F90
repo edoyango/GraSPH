@@ -155,7 +155,6 @@ contains
                         pairs(inttmp)%j = jth
                         factor = 21._f/(256._f*pi*hsml*hsml*hsml)
                         q = r/hsml
-                        if (inttmp==1) write(*,*) inttmp, i, jth, r, factor*max(0._f, 2._f-q)**4*(2._f*q + 1._f)
                         pairs(inttmp)%w = factor*max(0._f, 2._f-q)**4*(2._f*q + 1._f)
                         pairs(inttmp)%dwdx = -factor*10._f*q*max(0._f, 2._f-q)**3*dx(:)/(r*hsml)
                      else
@@ -172,22 +171,23 @@ contains
                zi = kcell + sweep(3, k)
                do j = 1, pincell(xi, yi, zi)
                   jth = cells(j, xi, yi, zi)
-                  dx(:) = parts(i)%x(:) - parts(jth)%x(:)
-                  r = sqrt(sum(dx*dx))
-                  if (r < scale_k*hsml) then
-                     !$omp atomic capture
-                     niac = niac + 1
-                     inttmp = niac
-                     !$omp end atomic
-                     if (inttmp < maxinter) then
-                        pairs(inttmp)%j = jth
-                        factor = 21._f/(256._f*pi*hsml*hsml*hsml)
-                        q = r/hsml
-                        if (inttmp==1) write(*,*) inttmp, i, jth, r, factor*max(0._f, 2._f-q)**4*(2._f*q + 1._f)
-                        pairs(inttmp)%w = factor*max(0._f, 2._f-q)**4*(2._f*q + 1._f)
-                        pairs(inttmp)%dwdx = -factor*10._f*q*max(0._f, 2._f-q)**3*dx(:)/(r*hsml)
-                     else
-                        error stop
+                  if (parts(i)%itype > 0 .or. parts(jth)%itype > 0) then
+                     dx(:) = parts(i)%x(:) - parts(jth)%x(:)
+                     r = sqrt(sum(dx*dx))
+                     if (r < scale_k*hsml) then
+                        !$omp atomic capture
+                        niac = niac + 1
+                        inttmp = niac
+                        !$omp end atomic
+                        if (inttmp < maxinter) then
+                           pairs(inttmp)%j = jth
+                           factor = 21._f/(256._f*pi*hsml*hsml*hsml)
+                           q = r/hsml
+                           pairs(inttmp)%w = factor*max(0._f, 2._f-q)**4*(2._f*q + 1._f)
+                           pairs(inttmp)%dwdx = -factor*10._f*q*max(0._f, 2._f-q)**3*dx(:)/(r*hsml)
+                        else
+                           error stop
+                        end if
                      end if
                   end if
                end do
