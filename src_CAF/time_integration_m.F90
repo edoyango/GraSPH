@@ -156,10 +156,6 @@ contains
                      if (inttmp < maxinter) then
                         pairs(inttmp)%i = i
                         pairs(inttmp)%j = jth
-                        ! factor = 21._f/(256._f*pi*hsml*hsml*hsml)
-                        ! q = r/hsml
-                        ! pairs(inttmp)%w = factor*max(0._f, 2._f-q)**4*(2._f*q + 1._f)
-                        ! pairs(inttmp)%dwdx = -factor*10._f*q*max(0._f, 2._f-q)**3*dx(:)/(r*hsml)
                         call kernel(r, dx, hsml, pairs(inttmp)%w, pairs(inttmp)%dwdx)
                      else
                         error stop
@@ -186,10 +182,6 @@ contains
                         if (inttmp < maxinter) then
                            pairs(inttmp)%i = i
                            pairs(inttmp)%j = jth
-                           ! factor = 21._f/(256._f*pi*hsml*hsml*hsml)
-                           ! q = r/hsml
-                           ! pairs(inttmp)%w = factor*max(0._f, 2._f-q)**4*(2._f*q + 1._f)
-                           ! pairs(inttmp)%dwdx = -factor*10._f*q*max(0._f, 2._f-q)**3*dx(:)/(r*hsml)
                            call kernel(r, dx, hsml, pairs(inttmp)%w, pairs(inttmp)%dwdx)
                         else
                            error stop
