@@ -24,6 +24,7 @@ contains
 #ifdef PARALLEL
       type(MPI_Request):: request(3)
       type(MPI_Status):: status(3)
+      integer:: obtained_thread_lvl
 #endif
       integer(HID_T):: fid, real_group_id, virt_group_id, halo_group_id, attr_id
       integer(HSIZE_T):: global_dims(2)
@@ -35,7 +36,7 @@ contains
 
 #ifdef PARALLEL
       call MPI_INITIALIZED(test_init, ierr)
-      if (.not. test_init) call MPI_INIT(ierr)
+      if (.not. test_init) call MPI_INIT_THREAD(MPI_THREAD_FUNNELED, obtained_thread_lvl, ierr)
 
       ! Exchanging how many particles each process will output data for
       call MPI_IALLGATHER(ntotal_loc, 1, MPI_INTEGER, ntotal_glob, 1, MPI_INTEGER, MPI_COMM_WORLD, request(1), ierr)

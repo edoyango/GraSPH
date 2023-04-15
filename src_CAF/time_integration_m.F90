@@ -318,7 +318,6 @@ contains
          end do
          !$omp end do
 
-
          ! update pressure of newly updated real and halo particles
          !$omp do
          do i = 1, ntotal_loc + nvirt_loc
@@ -346,13 +345,9 @@ contains
 
          !$omp master
          ! write output data
-!          if (mod(itimestep, save_step) .eq. 0) then
-! ! #ifdef PARALLEL
-!             call output(itimestep, save_step, thisImage, numImages, ntotal_loc, nhalo_loc, nvirt_loc, parts, ntotal)
-! ! #else
-! !             call output_serial(itimestep, save_step, ntotal, nvirt, parts)
-! ! #endif
-!          end if
+         if (mod(itimestep, save_step) .eq. 0) then
+            call output(itimestep, save_step, thisImage, numImages, ntotal_loc, nhalo_loc, nvirt_loc, parts, ntotal)
+         end if
 
          if (mod(itimestep, print_step) .eq. 0) then
             tmptime = timings%t_wall + system_clock_timer()
