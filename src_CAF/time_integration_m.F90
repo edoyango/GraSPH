@@ -6,11 +6,12 @@ module time_integration_m
    use iso_fortran_env
    use ORB_m, only: ORB, neighbours, n_process_neighbour
 !    use ORB_sr_m, only: ORB_sendrecv_haloupdate
-   use param, only: f, tf, dt, rh0, c, gamma, g, hsml
+   use param, only: f, tf, dt, rh0, c, gamma, g, hsml, irho, mass
    use single_step_m, only: single_step
    use summary_m, only: print_loadbalance
    use omp_lib
    use output_m, only: output
+   use kernel_m, only: kernel
 
    private
    public:: time_integration
@@ -35,7 +36,7 @@ contains
       real(f), allocatable:: dvxdt(:, :), drhodt(:), vw(:)
 
       ! linked list variabls
-      real(f):: mingridx(dim), maxgridx(dim), dcell, dx(dim), r, tdwdx(dim), tw, factor, q
+      real(f):: mingridx(dim), maxgridx(dim), dcell, dx(dim), r, tdwdx(dim), tw, factor, q, flttmp, vxj(dim)
       integer:: ngridx(dim), icell, jcell, kcell, inttmp, jth, xi, yi, zi
       integer, allocatable:: pincell(:, :, :), cells(:, :, :, :), gridind(:, :)
       integer, parameter:: maxpcell = 125
@@ -64,9 +65,10 @@ contains
 
       timings%t_wall = timings%t_wall - system_clock_timer()
 
-      call omp_set_num_threads(12)
+      call omp_set_num_threads(2)
 
-      !$omp parallel default(shared) private(icell, jcell, kcell, inttmp, jth, dx, r, factor, q, xi, yi, zi)
+      !$omp parallel default(shared) &
+      !$omp private(icell, jcell, kcell, inttmp, jth, dx, r, factor, q, xi, yi, zi, i, j, k, flttmp, vxj)
 
       ! Time-integration (Leap-Frog)
       do itimestep = 1, maxtimestep
@@ -152,11 +154,13 @@ contains
                      inttmp = niac
                      !$omp end atomic
                      if (inttmp < maxinter) then
+                        pairs(inttmp)%i = i
                         pairs(inttmp)%j = jth
-                        factor = 21._f/(256._f*pi*hsml*hsml*hsml)
-                        q = r/hsml
-                        pairs(inttmp)%w = factor*max(0._f, 2._f-q)**4*(2._f*q + 1._f)
-                        pairs(inttmp)%dwdx = -factor*10._f*q*max(0._f, 2._f-q)**3*dx(:)/(r*hsml)
+                        ! factor = 21._f/(256._f*pi*hsml*hsml*hsml)
+                        ! q = r/hsml
+                        ! pairs(inttmp)%w = factor*max(0._f, 2._f-q)**4*(2._f*q + 1._f)
+                        ! pairs(inttmp)%dwdx = -factor*10._f*q*max(0._f, 2._f-q)**3*dx(:)/(r*hsml)
+                        call kernel(r, dx, hsml, pairs(inttmp)%w, pairs(inttmp)%dwdx)
                      else
                         error stop
                      end if
@@ -180,11 +184,13 @@ contains
                         inttmp = niac
                         !$omp end atomic
                         if (inttmp < maxinter) then
+                           pairs(inttmp)%i = i
                            pairs(inttmp)%j = jth
-                           factor = 21._f/(256._f*pi*hsml*hsml*hsml)
-                           q = r/hsml
-                           pairs(inttmp)%w = factor*max(0._f, 2._f-q)**4*(2._f*q + 1._f)
-                           pairs(inttmp)%dwdx = -factor*10._f*q*max(0._f, 2._f-q)**3*dx(:)/(r*hsml)
+                           ! factor = 21._f/(256._f*pi*hsml*hsml*hsml)
+                           ! q = r/hsml
+                           ! pairs(inttmp)%w = factor*max(0._f, 2._f-q)**4*(2._f*q + 1._f)
+                           ! pairs(inttmp)%dwdx = -factor*10._f*q*max(0._f, 2._f-q)**3*dx(:)/(r*hsml)
+                           call kernel(r, dx, hsml, pairs(inttmp)%w, pairs(inttmp)%dwdx)
                         else
                            error stop
                         end if
@@ -195,31 +201,152 @@ contains
          end do
          !$omp end do
 
-            
-
          !$omp single
-         write(*,*) pairs(1)%w, pairs(2)%w, pairs(2)%w, pairs(1)%dwdx !sum(pincell), cells(1:pincell(3, 3, 3), 3, 3, 3)
          deallocate(pincell, cells)
          !$omp end single
 
          ! call update_virt_part(ntotal_loc, nhalo_loc, nvirt_loc, parts, niac, pairs, nexti, vw)
+         !$omp do
+         do i = 1, ntotal_loc+nvirt_loc
+            if (parts(i)%itype < 0) then
+               vw(i) = 0._f
+               parts(i)%rho = 0._f
+               parts(i)%vx(:) = 0._f
+            end if
+         end do
+         !$omp end do
 
-         ! ! update pressure of newly updated real and halo particles
-         ! do i = 1, ntotal_loc + nhalo_loc + nvirt_loc
-         !    parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1._f)/gamma
-         ! end do
+         !$omp do
+         do k = 1, niac
+            i = pairs(k)%i
+            j = pairs(k)%j
+            if ( parts(i)%itype < 0 .and. parts(j)%itype > 0) then
+               flttmp = mass*pairs(k)%w/parts(j)%rho
+               !$omp atomic
+               vw(i) = vw(i) + flttmp
+               !$omp atomic
+               parts(i)%rho = parts(i)%rho + mass*pairs(k)%w
+               vxj = parts(j)%vx(:)*flttmp
+               select case (parts(i)%itype)
+               case default
+                  !$omp atomic
+                  parts(i)%vx(1) = parts(i)%vx(1) - vxj(1)
+                  !$omp atomic
+                  parts(i)%vx(2) = parts(i)%vx(2) - vxj(2)
+                  !$omp atomic
+                  parts(i)%vx(3) = parts(i)%vx(3) - vxj(3)
+               case (-2)
+                  !$omp atomic
+                  parts(i)%vx(1) = parts(i)%vx(1) + vxj(1)
+                  !$omp atomic
+                  parts(i)%vx(2) = parts(i)%vx(2) + vxj(2)
+                  !$omp atomic
+                  parts(i)%vx(3) = parts(i)%vx(3) - vxj(3)
+               case (-3)
+                  !$omp atomic
+                  parts(i)%vx(1) = parts(i)%vx(1) - vxj(1)
+                  !$omp atomic
+                  parts(i)%vx(2) = parts(i)%vx(2) + vxj(2)
+                  !$omp atomic
+                  parts(i)%vx(3) = parts(i)%vx(3) + vxj(3)
+               case (-4)
+                  !$omp atomic
+                  parts(i)%vx(1) = parts(i)%vx(1) + vxj(1)
+                  !$omp atomic
+                  parts(i)%vx(2) = parts(i)%vx(2) - vxj(2)
+                  !$omp atomic
+                  parts(i)%vx(3) = parts(i)%vx(3) + vxj(3)
+               case (-5)
+                  !$omp atomic
+                  parts(i)%vx(1) = parts(i)%vx(1) - vxj(1)
+                  !$omp atomic
+                  parts(i)%vx(2) = parts(i)%vx(2) - vxj(2)
+                  !$omp atomic
+                  parts(i)%vx(3) = parts(i)%vx(3) + vxj(3)
+               end select
+            else if (parts(j)%itype < 0 .and. parts(i)%itype > 0) then
+               flttmp = mass*pairs(k)%w/parts(i)%rho
+               !$omp atomic
+               vw(j) = vw(j) + flttmp
+               !$omp atomic
+               parts(j)%rho = parts(j)%rho + mass*pairs(k)%w
+               vxj = parts(i)%vx(:)*flttmp
+               select case (parts(j)%itype)
+               case default
+                  !$omp atomic
+                  parts(j)%vx(1) = parts(j)%vx(1) - vxj(1)
+                  !$omp atomic
+                  parts(j)%vx(2) = parts(j)%vx(2) - vxj(2)
+                  !$omp atomic
+                  parts(j)%vx(3) = parts(j)%vx(3) - vxj(3)
+               case (-2)
+                  !$omp atomic
+                  parts(j)%vx(1) = parts(j)%vx(1) + vxj(1)
+                  !$omp atomic
+                  parts(j)%vx(2) = parts(j)%vx(2) + vxj(2)
+                  !$omp atomic
+                  parts(j)%vx(3) = parts(j)%vx(3) - vxj(3)
+               case (-3)
+                  !$omp atomic
+                  parts(j)%vx(1) = parts(j)%vx(1) - vxj(1)
+                  !$omp atomic
+                  parts(j)%vx(2) = parts(j)%vx(2) + vxj(2)
+                  !$omp atomic
+                  parts(j)%vx(3) = parts(j)%vx(3) + vxj(3)
+               case (-4)
+                  !$omp atomic
+                  parts(j)%vx(1) = parts(j)%vx(1) + vxj(1)
+                  !$omp atomic
+                  parts(j)%vx(2) = parts(j)%vx(2) - vxj(2)
+                  !$omp atomic
+                  parts(j)%vx(3) = parts(j)%vx(3) + vxj(3)
+               case (-5)
+                  !$omp atomic
+                  parts(j)%vx(1) = parts(j)%vx(1) - vxj(1)
+                  !$omp atomic
+                  parts(j)%vx(2) = parts(j)%vx(2) - vxj(2)
+                  !$omp atomic
+                  parts(j)%vx(3) = parts(j)%vx(3) + vxj(3)
+               end select
+            end if
+         end do
+         !$omp end do
+
+         !$omp do
+         do i = 1, ntotal_loc+nvirt_loc
+            if (parts(i)%itype < 0) then
+               if (vw(i) > 0._f) then
+                  parts(i)%rho = parts(i)%rho/vw(i)
+                  parts(i)%vx(:) = parts(i)%vx(:)/vw(i)
+               else
+                  parts(i)%rho = irho
+                  parts(i)%vx(:) = 0._f
+               end if
+            end if
+         end do
+         !$omp end do
+
+
+         ! update pressure of newly updated real and halo particles
+         !$omp do
+         do i = 1, ntotal_loc + nvirt_loc
+            parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1._f)/gamma
+         end do
+         !$omp end do
 
          ! ! calculating forces
          ! call single_step(ntotal_loc, nhalo_loc, nvirt_loc, parts, niac, pairs, dvxdt, drhodt, nexti)
 
-         ! ! updating positions and velocity to full timestep
-         ! do i = 1, ntotal_loc+nvirt_loc
-         !    if (parts(i)%itype==1) then
-         !       parts(i)%rho = parts(i)%rho_min + dt*drhodt(i)
-         !       parts(i)%vx(:) = parts(i)%v_min(:) + dt*dvxdt(:, i)
-         !       parts(i)%x(:) = parts(i)%x(:) + dt*parts(i)%vx(:)
-         !    end if
-         ! end do
+         ! updating positions and velocity to full timestep
+         !$omp do
+         do i = 1, ntotal_loc+nvirt_loc
+            if (parts(i)%itype==1) then
+               parts(i)%rho = parts(i)%rho_min + dt*drhodt(i)
+               parts(i)%vx(:) = parts(i)%v_min(:) + dt*dvxdt(:, i)
+               parts(i)%x(:) = parts(i)%x(:) + dt*parts(i)%vx(:)
+            end if
+         end do
+         !$omp end do
 
          time = time + dt
 
