@@ -56,4 +56,29 @@ module param
 
    integer, parameter:: halotype = 100 ! an extra identifier to distinguish halo from real ones
 
+contains
+
+   pure function index_to_imageindex(ntotal, numImages, indin) result(imageindex)
+   
+      implicit none
+      integer, intent(in):: ntotal, numImages, indin
+      integer:: imageindex(2), ntotal_loc_rounded_avg
+   
+      ntotal_loc_rounded_avg = ceiling(real(ntotal, f)/numImages)
+      imageindex(2) = ceiling(real(ntotal, f)/ntotal_loc_rounded_avg)
+      imageindex(1) = indin - (imageindex(2)-1)*ntotal_loc_rounded_avg
+   
+   end function index_to_imageindex
+
+   pure function imageindex_to_index(ntotal, numImages, imageindexin) result(indout)
+
+      implicit none
+      integer, intent(in):: ntotal, numImages, imageindexin(2)
+      integer:: indout, ntotal_loc_rounded_avg
+
+      ntotal_loc_rounded_avg = ceiling(real(ntotal, f)/numImages)
+      indout = (imageindexin(2)-1)*ntotal_loc_rounded_avg + imageindexin(1)
+
+   end function imageindex_to_index
+
 end module param

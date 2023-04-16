@@ -54,30 +54,31 @@ contains
          end do
 
          ! distributing particles
-         call ORB(itimestep, thisImage, numImages, scale_k, ntotal, ntotal_loc, nvirt, nvirt_loc, nhalo_loc, parts, &
-            timings)
+         ! call ORB(itimestep, thisImage, numImages, scale_k, ntotal, ntotal_loc, nvirt, nvirt_loc, nhalo_loc, parts, &
+            ! timings)
 
          ! Finding neighbours within kh
-         call flink_list(maxinter, scale_k, ntotal_loc, nhalo_loc, nvirt_loc, niac, parts, pairs, nexti)
+         call flink_list(thisImage, numImages, maxinter, scale_k, ntotal+nvirt, ntotal_loc, nvirt_loc, niac, parts, &
+            pairs, nexti)
 
-         call update_virt_part(ntotal_loc, nhalo_loc, nvirt_loc, parts, niac, pairs, nexti, vw)
+         ! call update_virt_part(ntotal_loc, nhalo_loc, nvirt_loc, parts, niac, pairs, nexti, vw)
 
-         ! update pressure of newly updated real and halo particles
-         do i = 1, ntotal_loc + nhalo_loc + nvirt_loc
-            parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1._f)/gamma
-         end do
+         ! ! update pressure of newly updated real and halo particles
+         ! do i = 1, ntotal_loc + nhalo_loc + nvirt_loc
+         !    parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1._f)/gamma
+         ! end do
 
-         ! calculating forces
-         call single_step(ntotal_loc, nhalo_loc, nvirt_loc, parts, niac, pairs, dvxdt, drhodt, nexti)
+         ! ! calculating forces
+         ! call single_step(ntotal_loc, nhalo_loc, nvirt_loc, parts, niac, pairs, dvxdt, drhodt, nexti)
 
-         ! updating positions and velocity to full timestep
-         do i = 1, ntotal_loc+nvirt_loc
-            if (parts(i)%itype==1) then
-               parts(i)%rho = parts(i)%rho_min + dt*drhodt(i)
-               parts(i)%vx(:) = parts(i)%v_min(:) + dt*dvxdt(:, i)
-               parts(i)%x(:) = parts(i)%x(:) + dt*parts(i)%vx(:)
-            end if
-         end do
+         ! ! updating positions and velocity to full timestep
+         ! do i = 1, ntotal_loc+nvirt_loc
+         !    if (parts(i)%itype==1) then
+         !       parts(i)%rho = parts(i)%rho_min + dt*drhodt(i)
+         !       parts(i)%vx(:) = parts(i)%v_min(:) + dt*dvxdt(:, i)
+         !       parts(i)%x(:) = parts(i)%x(:) + dt*parts(i)%vx(:)
+         !    end if
+         ! end do
 
          time = time + dt
 
