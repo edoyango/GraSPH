@@ -19,8 +19,7 @@ contains
       type(interactions), intent(in):: pij(maxinter)
       real(f), intent(inout):: dvxdti(dim, np), drhodti(np)
       integer:: i, j, k, d, itype_i, itype_j, ind_i, ind_j
-      real(f):: a_coeff, tmp, vcc, p_i, p_j, rho_i, rho_j, x_i(dim), x_j(dim), vx_i(dim), vx_j(dim), tdwdx(dim)
-      logical:: test
+      real(f):: a_coeff, tmp, vcc, p_i, p_j, rho_i, rho_j, vx_i(dim), vx_j(dim), tdwdx(dim)
 
       ! Obtaining thread global index (used to assign particle index)
       k = blockDim%x*(blockIdx%x - 1) + threadIdx%x
@@ -36,12 +35,10 @@ contains
          ind_i = ind(i)
          rho_i = rho(i)
          p_i = p(i)
-         x_i = x(:,i)
          vx_i = vx(:,i)
          ind_j = ind(j)
          rho_j = rho(j)
          p_j = p(j)
-         x_j = x(:,j)
          vx_j = vx(:,j)
 
          !Density approximation or change rate
@@ -49,7 +46,7 @@ contains
             
          ! calculating coefficients for pressure force and artificial viscosity
          a_coeff = int_force_coeff(ki, ind_i, ind_j, p_i, p_j, rho_i, rho_j) + &
-                   art_visc_coeff(ki, ind_i, ind_j, rho_i, rho_j, x_i, x_j, vx_i, vx_j)
+                   art_visc_coeff(ki, ind_i, ind_j, rho_i, rho_j, pij(k)%dx, vx_i, vx_j)
                       
          do d = 1, dim
             tmp = atomicadd(dvxdti(d, i), tdwdx(d)*a_coeff)
@@ -105,16 +102,16 @@ contains
    end subroutine con_density
 
    !=================================================================================
-   attributes(device) pure function art_visc_coeff(ki, ind_i, ind_j, rho_i, rho_j, x_i, x_j, vx_i, vx_j) result(coeff)
+   attributes(device) pure function art_visc_coeff(ki, ind_i, ind_j, rho_i, rho_j, dx, vx_i, vx_j) result(coeff)
 
       use param, only: alpha, beta, etq, hsml, c
 
       implicit none
       integer, intent(in):: ki, ind_i, ind_j
-      real(f), intent(in):: rho_i, rho_j, x_i(dim), x_j(dim), vx_i(dim), vx_j(dim)
-      real(f):: dx(dim), piv(dim), muv, vr, rr, mrho, coeff
+      real(f), intent(in):: rho_i, rho_j, dx(dim), vx_i(dim), vx_j(dim)
+      real(f):: piv(dim), muv, vr, rr, mrho, coeff
 
-      dx(:) = x_i(:) - x_j(:)
+      ! dx(:) = x_i(:) - x_j(:)
       vr = DOT_PRODUCT(vx_i(:) - vx_j(:), dx(:))
       if (vr > 0._f) vr = 0._f !Artificial viscous force only if v_ij * r_ij < 0
 
