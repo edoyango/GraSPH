@@ -13,9 +13,9 @@ program SPH
    integer:: maxn, ntotal, nvirt, print_step, save_step, maxtimestep, maxinter
    real(f):: scale_k
    integer:: niac
-   integer, allocatable:: itype(:), ind(:)
-   real(f), allocatable:: p(:), rho(:), x(:,:), vx(:,:)
-   type(interactions), allocatable:: pairs(:)
+   integer, allocatable:: itype(:), ind(:), pairs(:, :)
+   real(f), allocatable:: p(:), rho(:), x(:,:), vx(:,:), w(:), dwdx(:, :)
+   ! type(interactions), allocatable:: pairs(:)
    type(time_tracking):: timings
    integer, parameter:: maxinter_perp = 120
 
@@ -26,7 +26,7 @@ program SPH
    scale_k = kernel_k(skf)
 
    !Creat physical and virtual boundary particles
-   call read_input_and_allocate(maxinter_perp, itype, ind, p, rho, x, vx, pairs, maxn, maxinter, ntotal, nvirt)
+   call read_input_and_allocate(maxinter_perp, itype, ind, p, rho, x, vx, pairs, w, dwdx, maxn, maxinter, ntotal, nvirt)
 
    write (*, '(A24,1x,I9,1x,A19)') 'Total simulation size of', ntotal, 'physical particles.'
    write (*, '(A24,1x,I9,1x,A19)') '                        ', nvirt, 'virtual particles.'
@@ -35,7 +35,7 @@ program SPH
 
    !Entering discretized time-integration loop
    call time_integration(scale_k, print_step, save_step, maxtimestep, timings, maxinter, maxn, ntotal, nvirt, niac, &
-   pairs, itype, ind, p, rho, x, vx)
+   pairs, w, dwdx, itype, ind, p, rho, x, vx)
 
    !Printing post-amble to terminal
    call time_print

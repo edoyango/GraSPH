@@ -18,7 +18,7 @@ contains
 
    !==============================================================================================================================
    subroutine time_integration(scale_k, print_step, save_step, maxtimestep, timings, maxinter, maxn, ntotal, nvirt, &
-                               niac, pairs, itype, ind, p, rho, x, vx)
+                               niac, pairs, w, dwdx, itype, ind, p, rho, x, vx)
       ! Subroutine responsible for the main time-integration loop
 
       implicit none
@@ -27,14 +27,15 @@ contains
       type(time_tracking), intent(inout):: timings
       integer, intent(inout):: itype(maxn), ind(maxn)
       real(f), intent(inout):: p(maxn), rho(maxn), x(dim,maxn), vx(dim,maxn)
-      integer, intent(out):: niac
-      type(interactions), intent(out):: pairs(maxinter)
+      integer, intent(out):: niac, pairs(2, maxinter)
+      real(f), intent(out):: w(maxinter), dwdx(dim, maxinter)
+      ! type(interactions), intent(out):: pairs(maxinter)
       integer:: i, j, k, d, n, istat, ki, itimestep
       integer, device:: ntotal_d, nvirt_d, niac_d
-      integer, allocatable, device:: itype_d(:), ind_d(:)
+      integer, allocatable, device:: itype_d(:), ind_d(:), pairs_d(:, :)
       real(f), allocatable, device:: p_d(:), rho_d(:), x_d(:, :), vx_d(:, :), v_min(:, :), rho_min(:), dvxdt(:, :), &
-         drho(:), dvxdt4(:,:), drho4(:), vw(:), xlast(:,:)
-      type(interactions), allocatable, device:: pairs_d(:)
+         drho(:), dvxdt4(:,:), drho4(:), vw(:), xlast(:,:), w_d(:), dwdx_d(:, :)
+      ! type(interactions), allocatable, device:: pairs_d(:)
       real(f):: time
       real:: tmpTime
       type(cudaEvent):: startEvent, stopEvent, startOutputEvent, stopOutputEvent, startTestEvent, stopTestEvent
@@ -51,7 +52,7 @@ contains
 
       ! Allocating device arrays
       allocate( itype_d(maxn), ind_d(maxn), p_d(maxn), rho_d(maxn), x_d(dim, maxn), vx_d(dim, maxn), &
-         pairs_d(maxinter) )
+         pairs_d(2, maxinter), w_d(maxinter), dwdx_d(dim, maxinter) )
       
       ! Allocating arrays relevant to solver
       allocate (v_min(dim, maxn), rho_min(maxn), dvxdt(dim, maxn), drho(maxn), dvxdt4(dim,maxn), drho4(maxn), vw(maxn))
@@ -79,7 +80,8 @@ contains
       do itimestep = 1, maxtimestep
 
          !Interaction parameters, calculating neighboring particles
-         call flink_list(ind_d, itype_d, x_d, vx_d, rho_d, p_d, drho, dvxdt, scale_k, maxinter, maxn, niac_d, pairs_d)
+         call flink_list(ind_d, itype_d, x_d, vx_d, rho_d, p_d, drho, dvxdt, scale_k, maxinter, maxn, niac_d, pairs_d, &
+            w_d, dwdx_d)
 
          ! Save particles' velocity, density information at start of time-step
          !$cuf kernel do <<<*,512>>>
@@ -95,7 +97,7 @@ contains
             end if
          end do
 
-         call vmat_update<<< niac_d/128 + 1, 128>>>(maxinter, maxn, niac_d, pairs_d, vw, itype_d, rho_d, vx_d)
+         call vmat_update<<< niac_d/128 + 1, 128>>>(maxinter, maxn, niac_d, pairs_d, w_d, vw, itype_d, rho_d, vx_d)
 
          !$cuf kernel do <<<*, *>>>
          do i = 1,maxn
@@ -110,7 +112,7 @@ contains
          end do
 
             ! launching GPU kernel to calculate accelerations and density changes
-            call single_step_kernel <<< niac_d/128 + 1, 128 >>> (ki, ind_d, itype_d, x_d, vx_d, rho_d, p_d, maxinter, maxn, niac_d, pairs_d, dvxdt, drho)
+            call single_step_kernel <<< niac_d/128 + 1, 128 >>> (ki, ind_d, itype_d, x_d, vx_d, rho_d, p_d, maxinter, maxn, niac_d, pairs_d, dwdx_d, dvxdt, drho)
 
             ! launching GPU kernel to update particles' speed and density
             ! call RK4_update <<< maxn/512 + 1, 512 >>> (ki, maxn, v_min, rho_min, dvxdt, drho, dvxdt4, drho4, itype_d, ind_d, p_d, rho_d, x_d, vx_d)

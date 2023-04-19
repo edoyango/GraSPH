@@ -10,13 +10,13 @@ module single_step_m
 contains
 
    !==============================================================================================================================
-   attributes(global) pure subroutine single_step_kernel(ki, ind, itype, x, vx, rho, p, maxinter, np, nij, pij, dvxdti, drhodti)
+   attributes(global) pure subroutine single_step_kernel(ki, ind, itype, x, vx, rho, p, maxinter, np, nij, pij, dwdx, dvxdti, drhodti)
 
       implicit none
       integer, intent(in), value:: ki, maxinter, np
-      integer, intent(in):: nij, ind(np), itype(np)
-      real(f), intent(in):: x(dim, np), vx(dim, np), rho(np), p(np)
-      type(interactions), intent(in):: pij(maxinter)
+      integer, intent(in):: nij, ind(np), itype(np), pij(2, maxinter)
+      real(f), intent(in):: x(dim, np), vx(dim, np), rho(np), p(np), dwdx(dim, maxinter)
+      ! type(interactions), intent(in):: pij(maxinter)
       real(f), intent(inout):: dvxdti(dim, np), drhodti(np)
       integer:: i, j, k, d, itype_i, itype_j, ind_i, ind_j
       real(f):: a_coeff, tmp, vcc, p_i, p_j, rho_i, rho_j, x_i(dim), x_j(dim), vx_i(dim), vx_j(dim)
@@ -27,8 +27,8 @@ contains
       ! Beginning loop over
       if (k <= nij) then
          
-         i = pij(k)%i
-         j = pij(k)%j
+         i = pij(1, k) !pij(k)%i
+         j = pij(2, k) !pij(k)%j
          itype_i = itype(i)
          itype_j = itype(j)
          ind_i = ind(i)
@@ -43,15 +43,15 @@ contains
          vx_j = vx(:,j)
 
          !Density approximation or change rate
-         call con_density(ki, ind_i, ind_j, vx_i, vx_j,pij(k)%dwdx, drhodti(i), drhodti(j))
+         call con_density(ki, ind_i, ind_j, vx_i, vx_j, dwdx(:, k), drhodti(i), drhodti(j))
             
          ! calculating coefficients for pressure force and artificial viscosity
          a_coeff = int_force_coeff(ki, ind_i, ind_j, p_i, p_j, rho_i, rho_j) + &
                    art_visc_coeff(ki, ind_i, ind_j, rho_i, rho_j, x_i, x_j, vx_i, vx_j)
                       
          do d = 1, dim
-            tmp = atomicadd(dvxdti(d, i), pij(k)%dwdx(d)*a_coeff)
-            tmp = atomicadd(dvxdti(d, j), -pij(k)%dwdx(d)*a_coeff)
+            tmp = atomicadd(dvxdti(d, i), dwdx(d, k)*a_coeff)
+            tmp = atomicadd(dvxdti(d, j), -dwdx(d, k)*a_coeff)
          end do
 
       end if

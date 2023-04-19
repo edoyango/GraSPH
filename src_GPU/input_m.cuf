@@ -16,29 +16,32 @@ module input_m
 contains
 
    !==============================================================================================================================
-   subroutine allocatePersistentArrays(ntotal, nvirt, maxn, maxinter_perp, maxinter, pairs, itype, ind, p, rho, x, vx)
+   subroutine allocatePersistentArrays(ntotal, nvirt, maxn, maxinter_perp, maxinter, pairs, w, dwdx, itype, ind, p, &
+         rho, x, vx)
 
       implicit none
       integer, intent(in):: ntotal, nvirt, maxinter_perp
       integer, intent(out):: maxn, maxinter
-      integer, allocatable, intent(inout):: itype(:), ind(:)
-      real(f), allocatable, intent(inout):: p(:), rho(:), x(:,:), vx(:,:)
-      type(interactions), allocatable, intent(inout):: pairs(:)
+      integer, allocatable, intent(inout):: itype(:), ind(:), pairs(:, :)
+      real(f), allocatable, intent(inout):: p(:), rho(:), x(:,:), vx(:,:), w(:), dwdx(:, :)
+      ! type(interactions), allocatable, intent(inout):: pairs(:)
 
       maxn = ntotal + nvirt!+int(0.2*ntotal)
       maxinter = maxinter_perp*maxn
       allocate( itype(maxn), ind(maxn), p(maxn), rho(maxn), x(dim,maxn), vx(dim,maxn))
+      allocate( pairs(2, maxinter), w(maxinter), dwdx(dim, maxinter))
 
    end subroutine allocatePersistentArrays
 
    !==============================================================================================================================
-   subroutine read_input_and_allocate(maxinter_perp, itype, ind, p, rho, x, vx, pairs, maxn, maxinter, ntotal, nvirt)
+   subroutine read_input_and_allocate(maxinter_perp, itype, ind, p, rho, x, vx, pairs, w, dwdx, maxn, maxinter, &
+         ntotal, nvirt)
 
       implicit none
       integer, intent(in):: maxinter_perp
-      integer, allocatable, intent(inout):: itype(:), ind(:)
-      real(f), allocatable, intent(inout):: p(:), rho(:), x(:, :), vx(:,:)
-      type(interactions), allocatable, intent(inout):: pairs(:)
+      integer, allocatable, intent(inout):: itype(:), ind(:), pairs(:, :)
+      real(f), allocatable, intent(inout):: p(:), rho(:), x(:, :), vx(:,:), w(:), dwdx(:, :)
+      ! type(interactions), allocatable, intent(inout):: pairs(:)
       integer, intent(out):: ntotal, nvirt, maxn, maxinter
       integer:: i, j, k, d, n, ierr
       real(f):: xi, yi, zi
@@ -58,7 +61,8 @@ contains
       call hdf5_attribute_read(gid_r, ntotal)
       call hdf5_attribute_read(gid_v, nvirt)
 
-      call allocatePersistentArrays(ntotal, nvirt, maxn, maxinter_perp, maxinter, pairs, itype, ind, p, rho, x, vx)
+      call allocatePersistentArrays(ntotal, nvirt, maxn, maxinter_perp, maxinter, pairs, w, dwdx, itype, ind, p, rho, &
+         x, vx)
 
       ! reading real particle data from hdf5 file
       global_dims(1) = dim
@@ -82,13 +86,13 @@ contains
    end subroutine read_input_and_allocate
 
    !===============================================================================================================================
-   attributes(global) subroutine vmat_update(maxinter, n_p, nij, pij, vw, itype, rho, vx)
+   attributes(global) subroutine vmat_update(maxinter, n_p, nij, pij, w, vw, itype, rho, vx)
 
       implicit none
       integer, intent(in), value:: maxinter, n_p
-      integer, intent(in):: nij, itype(n_p)
-      real(f), intent(in):: rho(n_p), vx(dim, n_p)
-      type(interactions), intent(in):: pij(maxinter)
+      integer, intent(in):: nij, itype(n_p), pij(2, maxinter)
+      real(f), intent(in):: rho(n_p), vx(dim, n_p), w(maxinter)
+      ! type(interactions), intent(in):: pij(maxinter)
       real(f), intent(inout):: vw(n_p)
       integer:: i, j, k, d
       real(f):: tmp, tmp2
@@ -96,19 +100,19 @@ contains
       k = blockDim%x*(blockIdx%x - 1) + threadIdx%x
 
       if (k <= nij) then
-         i = pij(k)%i
-         j = pij(k)%j
+         i = pij(1, k) !pij(k)%i
+         j = pij(2, k) !pij(k)%j
             if (itype(i) < 0 .and. itype(j) > 0) then
-               tmp = mass*pij(k)%w/rho(j)
+               tmp = mass*w(k)/rho(j)
                tmp2 = atomicadd(vw(i), tmp)
-               tmp2 = atomicadd(rho(i), mass*pij(k)%w)
+               tmp2 = atomicadd(rho(i), mass*w(k))
                do d = 1,dim
                   tmp2 = atomicadd(vx(d, i), vnorm(d, -itype(i))*vx(d,j)*tmp)
                end do
             else if (itype(j) < 0 .and. itype(i) > 0) then
-               tmp = mass*pij(k)%w/rho(i)
+               tmp = mass*w(k)/rho(i)
                tmp2 = atomicadd(vw(j), tmp)
-               tmp2 = atomicadd(rho(j), mass*pij(k)%w)
+               tmp2 = atomicadd(rho(j), mass*w(k))
                do d = 1,dim
                   tmp2 = atomicadd(vx(d, j), vnorm(d, -itype(j))*vx(d,i)*tmp)
                end do
