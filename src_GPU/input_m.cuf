@@ -3,13 +3,13 @@ module input_m
    use datatypes, only: particles, interactions
    use hdf5
    use hdf5_parallel_io_helper_m, only: hdf5_fileopen_read, hdf5_attribute_read
-   use param, only: f, dxo, irho, g, gamma, c, hsml, mass, input_file, inputf
+   use param, only: dim, f, dxo, irho, g, gamma, c, hsml, mass, input_file, inputf
 
-   real(f), parameter:: vnorm(3, 5) = reshape([-1._f, -1._f, -1._f, &
-                                                1._f,  1._f, -1._f, &
-                                               -1._f,  1._f,  1._f, &
-                                                1._f, -1._f,  1._f, &
-                                               -1._f, -1._f,  1._f], [dim, 5])
+   real(f), parameter:: vnorm(dim, 5) = reshape([-1._f, -1._f, -1._f, &
+                                                  1._f,  1._f, -1._f, &
+                                                 -1._f,  1._f,  1._f, &
+                                                  1._f, -1._f,  1._f, &
+                                                 -1._f, -1._f,  1._f], [dim, 5])
 
    public:: read_input_and_allocate
 
@@ -17,8 +17,6 @@ contains
 
    !==============================================================================================================================
    subroutine allocatePersistentArrays(ntotal, nvirt, maxn, maxinter_perp, maxinter, pairs, itype, ind, p, rho, x, vx)
-
-      use param, only: dim
 
       implicit none
       integer, intent(in):: ntotal, nvirt, maxinter_perp
@@ -35,8 +33,6 @@ contains
 
    !==============================================================================================================================
    subroutine read_input_and_allocate(maxinter_perp, itype, ind, p, rho, x, vx, pairs, maxn, maxinter, ntotal, nvirt)
-
-      use param, only: dim
 
       implicit none
       integer, intent(in):: maxinter_perp
@@ -88,8 +84,6 @@ contains
    !===============================================================================================================================
    attributes(global) subroutine vmat_update(maxinter, n_p, nij, pij, vw, itype, rho, vx)
 
-      use param, only: dim
-
       implicit none
       integer, intent(in), value:: maxinter, n_p
       integer, intent(in):: nij, itype(n_p)
@@ -97,7 +91,7 @@ contains
       type(interactions), intent(in):: pij(maxinter)
       real(f), intent(inout):: vw(n_p)
       integer:: i, j, k, d
-      real(f):: tmp, tmp2, tw
+      real(f):: tmp, tmp2
 
       k = blockDim%x*(blockIdx%x - 1) + threadIdx%x
 
@@ -105,18 +99,16 @@ contains
          i = pij(k)%i
          j = pij(k)%j
             if (itype(i) < 0 .and. itype(j) > 0) then
-               tw = kernel(sqrt(sum(pij(k)%dx**2)), hsml)
-               tmp = mass*tw/rho(j)
+               tmp = mass*pij(k)%w/rho(j)
                tmp2 = atomicadd(vw(i), tmp)
-               tmp2 = atomicadd(rho(i), mass*tw)
+               tmp2 = atomicadd(rho(i), mass*pij(k)%w)
                do d = 1,dim
                   tmp2 = atomicadd(vx(d, i), vnorm(d, -itype(i))*vx(d,j)*tmp)
                end do
             else if (itype(j) < 0 .and. itype(i) > 0) then
-               tw = kernel(sqrt(sum(pij(k)%dx**2)), hsml)
-               tmp = mass*tw/rho(i)
+               tmp = mass*pij(k)%w/rho(i)
                tmp2 = atomicadd(vw(j), tmp)
-               tmp2 = atomicadd(rho(j), mass*tw)
+               tmp2 = atomicadd(rho(j), mass*pij(k)%w)
                do d = 1,dim
                   tmp2 = atomicadd(vx(d, j), vnorm(d, -itype(j))*vx(d,i)*tmp)
                end do
@@ -151,61 +143,5 @@ contains
       call hdf5_parallel_read(gid_in, 'v', ldispl, gdims, vx)
 
    end subroutine read_particle_data_parallel
-
-   !==============================================================================================================================
-   attributes(device) pure function kernel(r, thsml) result(tw)
-      ! Contains the kernels
-
-      use param, only: skf, pi, dims => dim
-
-      implicit none
-      real(f), intent(in):: r, thsml
-      real(f):: tw, q, factor
-
-      q = r/thsml
-
-      SELECT CASE (SKF)
-      CASE (1) ! cubic
-         if (dims == 2) factor = 10._f/(7._f*pi*thsml*thsml)
-         if (dims == 3) factor = 1_f/(pi*thsml*thsml*thsml)
-         tw = factor*(0.25_f*MAX(0._f, 2._f - q)**3 - MAX(0._f, 1._f - q)**3)
-         ! tdwdx = -factor*3._f*(0.25_f*MAX(0._f, 2._f - q)**2 - MAX(0._f, 1._f - q)**2)*dx(:)/(r*thsml)
-      CASE (2) ! quartic
-         if (dims == 2) factor = 96_f/(1199_f*pi*thsml*thsml)
-         if (dims == 3) factor = 1_f/(20_f*pi*thsml*thsml*thsml)
-         tw = factor*(MAX(0._f, 2.5_f - q)**4 - 5_f*MAX(0._f, 1.5_f - q)**4 + 10_f*MAX(0._f, 0.5_f - q)**4)
-         ! tdwdx(:) = &
-            ! -factor*4._f*(MAX(0._f, 2.5_f - q)**3 - 5_f*MAX(0._f, 1.5_f - q)**3 + 10_f*MAX(0._f, 0.5_f - q)**3)*dx(:)/(r*thsml)
-      CASE (3) ! quintic
-         if (dims == 2) factor = 7_f/(478_f*pi*thsml*thsml)
-         if (dims == 3) factor = 1_f/(120_f*pi*thsml*thsml*thsml)
-         tw = factor*(MAX(0._f, 3._f - q)**5 - 6._f*MAX(0._f, 2._f - q)**5 + 15._f*MAX(0._f, 1._f - q)**5)
-         ! tdwdx(:) = &
-            ! -factor*5._f*(MAX(0._f, 3._f - q)**4 - 6._f*MAX(0._f, 2._f - q)**4 + 15._f*MAX(0._f, 1._f - q)**4)*dx(:)/(r*thsml)
-      CASE (4) ! Wenland Quintic C2
-         if (dims == 2) factor = 7._f/(64._f*pi*thsml*thsml)
-         if (dims == 3) factor = 21._f/(256._f*pi*thsml*thsml*thsml)
-         tw = factor*MAX(0._f, 2._f - q)**4*(2._f*q + 1._f)
-         ! tdwdx(:) = -factor*10._f*q*MAX(0._f, 2._f - q)**3*dx(:)/(r*thsml)
-      CASE (5) ! Wenland Quintic C4
-         if (dims == 2) factor = 3._f/(1024._f*pi*thsml*thsml)
-         if (dims == 3) factor = 165._f/(65536._f*pi*thsml*thsml*thsml)
-         tw = factor*MAX(0._f, 2._f - q)**6*(35._f*q**2 + 36._f*q + 12._f)
-         ! tdwdx(:) = -factor*56._f*q*MAX(0._f, 2._f - q)**5*(5._f*q + 2._f)*dx(:)/(r*thsml)
-      CASE (6) ! Wenland Quintic C6
-         if (dims == 2) factor = 39._f/(14336._f*pi*thsml*thsml)
-         if (dims == 3) factor = 1365._f/(524288._f*pi*thsml*thsml*thsml)
-         tw = factor*MAX(0._f, 2._f - q)**8*(16._f*q**3 + 25_f*q**2 + 16._f*q + 4._f)
-         ! tdwdx(:) = -factor*22._f*q*(8._f*q**2 + 7._f*q + 2._f)*MAX(0._f, 2._f - q)**7*dx(:)/(r*thsml)
-      CASE (7) ! gaussian
-         factor = 1_f/(thsml**dims*pi**(0.5_f*dims))
-         if (q .ge. 0_f .and. q .le. 3_f) then
-            tw = factor*exp(-q*q)
-            ! tdwdx(:) = tw*2._f*dx(:)/(thsml*thsml)
-         end if
-
-      END SELECT
-
-   end function kernel
 
 end module input_m

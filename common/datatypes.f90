@@ -16,7 +16,7 @@ module datatypes
    !variable to store particle interaction information
    type interactions
       integer:: i, j
-      real(f):: dx(dim)
+      real(f):: w, dwdx(dim)
    end type interactions
 
    ! Data type to store timing variables
