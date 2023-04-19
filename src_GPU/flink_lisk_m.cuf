@@ -203,7 +203,8 @@ contains
             tmp = atomicadd(nij,1) + 1
             pij(tmp)%i = i
             pij(tmp)%j = j
-            call kernel(r, dxiac(:), hsml, pij(tmp)%w, pij(tmp)%dwdx(:))
+            pij(tmp)%dx = dxiac
+            ! call kernel(r, dxiac(:), hsml, pij(tmp)%w, pij(tmp)%dwdx(:))
          end if
       end if
 
