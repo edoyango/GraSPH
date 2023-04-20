@@ -51,7 +51,7 @@ contains
       maxgridx_d = maxgridx
       
       allocate (cellLoc(2,ngridx(1)*ngridx(2)*ngridx(3)))
-      !$cuf kernel do (1) <<<*,*>>>
+      !$cuf kernel do (1) <<<*,1024>>>
       do i = 1,ngridx(1)*ngridx(2)*ngridx(3)
          cellLoc(1,i) = 0
          cellLoc(2,i) = -1
@@ -67,7 +67,7 @@ contains
       !call thrustsortbykey(gridCellHash, parts_d, np)
       call thrustsortbykey(gridCellHash, mapping, n_p)
       
-      !$cuf kernel do <<<*,*>>>
+      !$cuf kernel do <<<*,32>>>
       do i = 1,n_p
          j_d = mapping(i)
          itype_tmp(i) = itype_d(j_d)
@@ -82,7 +82,7 @@ contains
          drho_tmp(i) = drho(j_d)
       end do
       
-      !$cuf kernel do
+      !$cuf kernel do <<<*,32>>>
       do i = 1,n_p
          itype_d(i) = itype_tmp(i)
          ind_d(i) = ind_tmp(i)
