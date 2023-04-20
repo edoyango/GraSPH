@@ -19,7 +19,7 @@ contains
       type(interactions), intent(in):: pij(maxinter)
       real(f), intent(inout):: dvxdti(dim, np), drhodti(np)
       integer:: i, j, k, d, itype_i, itype_j, ind_i, ind_j
-      real(f):: a_coeff, tmp, vcc, p_i, p_j, rho_i, rho_j, vx_i(dim), vx_j(dim), tdwdx(dim), dvx(dim)
+      real(f):: a_coeff, tmp, vcc, p_i, p_j, rho_i, rho_j, tdwdx(dim), dvx(dim)
 
       ! Obtaining thread global index (used to assign particle index)
       k = blockDim%x*(blockIdx%x - 1) + threadIdx%x
@@ -38,11 +38,9 @@ contains
          ind_i = ind(i)
          rho_i = rho(i)
          p_i = p(i)
-         vx_i = vx(:,i)
          ind_j = ind(j)
          rho_j = rho(j)
          p_j = p(j)
-         vx_j = vx(:,j)
 
          !Density approximation or change rate
          call con_density(ki, ind_i, ind_j, dvx, tdwdx, drhodti(i), drhodti(j))
