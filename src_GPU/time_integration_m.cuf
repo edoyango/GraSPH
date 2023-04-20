@@ -32,12 +32,11 @@ contains
       integer, device:: ntotal_d, nvirt_d, niac_d
       integer, allocatable, device:: itype_d(:), ind_d(:)
       real(f), allocatable, device:: p_d(:), rho_d(:), x_d(:, :), vx_d(:, :), v_min(:, :), rho_min(:), dvxdt(:, :), &
-         drho(:), vw(:), xlast(:,:)
+         drho(:), vw(:), xlast(:,:), prho(:)
       type(interactions), allocatable, device:: pairs_d(:)
       real(f):: time
       real:: tmpTime
       type(cudaEvent):: startEvent, stopEvent, startOutputEvent, stopOutputEvent, startTestEvent, stopTestEvent
-      integer, device, allocatable:: gind(:)
 
       ! creating cuda events and recording start event
       istat = cudaEventCreate(startEvent)
@@ -50,7 +49,7 @@ contains
 
       ! Allocating device arrays
       allocate( itype_d(maxn), ind_d(maxn), p_d(maxn), rho_d(maxn), x_d(dim, maxn), vx_d(dim, maxn), &
-         pairs_d(maxinter) )
+         pairs_d(maxinter), prho(maxn))
       
       ! Allocating arrays relevant to solver
       allocate (v_min(dim, maxn), rho_min(maxn), dvxdt(dim, maxn), drho(maxn), vw(maxn))
@@ -102,14 +101,15 @@ contains
                rho_d(i) = rho_d(i)/vw(i)
                vx_d(:,i) = vx_d(:,i)/vw(i)
             end if
-            p_d(i) = rh0*c**2*((rho_d(i)/rh0)**gamma - 1._f)/gamma
+            ! p_d(i) = rh0*c**2*((rho_d(i)/rh0)**gamma - 1._f)/gamma
+            prho(i) = rh0*c**2*((rho_d(i)/rh0)**gamma - 1._f)/(gamma*rho_d(i)*rho_d(i))
             dvxdt(1:dim-1, i) = 0._f
             dvxdt(dim,i) = -g
             drho(i) = 0._f
          end do
 
             ! launching GPU kernel to calculate accelerations and density changes
-            call single_step_kernel <<< niac_d/128 + 1, 128 >>> (ind_d, itype_d, x_d, vx_d, rho_d, p_d, maxinter, maxn, niac_d, pairs_d, dvxdt, drho)
+            call single_step_kernel <<< niac_d/128 + 1, 128 >>> (ind_d, itype_d, x_d, vx_d, rho_d, prho, maxinter, maxn, niac_d, pairs_d, dvxdt, drho)
 
             ! launching GPU kernel to update particles' speed and density
             !$cuf kernel do
