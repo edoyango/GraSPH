@@ -11,7 +11,6 @@ program SPH
 
    implicit none
    integer:: maxn, ntotal, nvirt, print_step, save_step, maxtimestep, maxinter
-   real(f):: scale_k
    integer:: niac
    integer, allocatable:: itype(:), ind(:)
    real(f), allocatable:: p(:), rho(:), x(:,:), vx(:,:)
@@ -22,9 +21,6 @@ program SPH
    !Printing preamble to screen
    call preamble(maxtimestep, print_step, save_step)
 
-   ! setting k parameter for kernel radius (r = kh)
-   scale_k = kernel_k(skf)
-
    !Creat physical and virtual boundary particles
    call read_input_and_allocate(maxinter_perp, itype, ind, p, rho, x, vx, pairs, maxn, maxinter, ntotal, nvirt)
 
@@ -34,7 +30,7 @@ program SPH
    call output(0, save_step, ntotal, nvirt, itype, ind, p, rho, x, vx)
 
    !Entering discretized time-integration loop
-   call time_integration(scale_k, print_step, save_step, maxtimestep, timings, maxinter, maxn, ntotal, nvirt, niac, &
+   call time_integration(print_step, save_step, maxtimestep, timings, maxinter, maxn, ntotal, nvirt, niac, &
    pairs, itype, ind, p, rho, x, vx)
 
    !Printing post-amble to terminal

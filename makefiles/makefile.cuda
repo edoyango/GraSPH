@@ -23,7 +23,7 @@ sph-cuda: $(OBJ)
 
 $(ODIR)/param.cuf.o: \
 $(ODIR)/%.cuf.o: \
-$(CDIR)/%.f90
+$(CDIR)/%.F90
 	$(FC) -c -o $@ $< $(MAKE_FCFLAGS)
 
 $(ODIR)/datatypes.cuf.o: \
@@ -48,13 +48,13 @@ $(CDIR)/%.F90 \
 $(ODIR)/param.cuf.o
 	$(FC) -c -o $@ $< $(MAKE_FCFLAGS)
 
-$(ODIR)/summary_m.cuf.o $(ODIR)/output_m.cuf.o $(ODIR)/single_step_m.cuf.o: \
+$(ODIR)/summary_m.cuf.o $(ODIR)/output_m.cuf.o: \
 $(ODIR)/%.cuf.o: \
 $(SDIR)/%.cuf \
 $(ODIR)/param.cuf.o
 	$(FC) -c -o $@ $< $(MAKE_FCFLAGS)
 
-$(ODIR)/flink_lisk_m.cuf.o: \
+$(ODIR)/single_step_m.cuf.o $(ODIR)/flink_lisk_m.cuf.o: \
 $(ODIR)/%.cuf.o: \
 $(SDIR)/%.CUF \
 $(ODIR)/param.cuf.o
@@ -62,7 +62,7 @@ $(ODIR)/param.cuf.o
 
 $(ODIR)/input_m.cuf.o: \
 $(ODIR)/%.cuf.o: \
-$(SDIR)/%.cuf \
+$(SDIR)/%.CUF \
 $(ODIR)/param.cuf.o \
 $(ODIR)/datatypes.cuf.o \
 $(ODIR)/output_m.cuf.o

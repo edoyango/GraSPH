@@ -1,7 +1,7 @@
 module flink_list_m
 
    use datatypes, only: particles, interactions
-   use param, only: f, hsml, dim
+   use param, only: f, hsml, dim, scale_k
 
    use cudafor
 
@@ -12,13 +12,12 @@ module flink_list_m
 contains
 
    !==============================================================================================================================
-   subroutine flink_list(ind_d, itype_d, x_d, vx_d, rho_d, p_d, drho, dvxdt, scale_k, maxinter, n_p, niac_d, pairs_d)
+   subroutine flink_list(ind_d, itype_d, x_d, vx_d, rho_d, p_d, drho, dvxdt, maxinter, n_p, niac_d, pairs_d)
       ! save as above, but for 3D
       
       use thrust
 
       implicit none
-      real(f), intent(in):: scale_k
       integer, intent(in):: n_p, maxinter
       integer, device, intent(inout):: ind_d(n_p), itype_d(n_p)
       real(f), device, intent(inout):: x_d(dim, n_p), vx_d(dim, n_p), rho_d(n_p), p_d(n_p), drho(n_p), dvxdt(dim, n_p)
@@ -113,7 +112,7 @@ contains
       end do
       ! i = 0
       niac_d = 0
-      call sweep <<< n_p/64 + 1, 64 >>> (x_d, itype_d, maxinter, scale_k, ngridx_d, n_p, gridCellHash, cellLoc, niac_d, pairs_d)
+      call sweep <<< n_p/64 + 1, 64 >>> (x_d, itype_d, maxinter, ngridx_d, n_p, gridCellHash, cellLoc, niac_d, pairs_d)
 
    end subroutine flink_list
 
@@ -137,16 +136,15 @@ contains
    end subroutine map2Grid
    
    !==============================================================================================================================
-   attributes(global) subroutine sweep(x, itype, maxint, sk, ngx, np, gridCellHash, cellLoc, nij, pij)
+   attributes(global) subroutine sweep(x, itype, maxint, ngx, np, gridCellHash, cellLoc, nij, pij)
 
       implicit none
       integer, intent(in), value:: np, maxint
-      real(f), intent(in), value:: sk
       real(f), intent(in):: x(dim, np)
       integer, intent(in):: gridCellHash(np), cellLoc(:,:), ngx(dim), itype(np)
       integer, intent(inout):: nij
       type(interactions), intent(out):: pij(maxint)
-      integer:: i, j, k, d, icell(dim), jcell(dim), hashAdj, niji, tmp
+      integer:: i, j, k, d, icell(dim), jcell(dim), hashAdj, niji, tmp, itypei, hashi
       real(f):: x_i(dim)
       integer, parameter:: sweepinds(3, 13) = reshape((/-1,-1,-1, &
                                                          0,-1,-1, &
@@ -166,15 +164,18 @@ contains
 
       ! Beginning sweep
       if (i <= np) then
-         do j = i+1, cellLoc(2,gridCellHash(i))
-            call check_if_interact(maxint, sk, i, j, itype(i), itype(j), x(:,i), x(:,j), nij, pij(:))
+         x_i = x(:, i)
+         itypei = itype(i)
+         hashi = gridCellHash(i)
+         do j = i+1, cellLoc(2,hashi)
+            call check_if_interact(maxint, i, j, itypei, itype(j), x_i, x(:,j), nij, pij(:))
          end do
-         icell = hash2Cell(gridCellHash(i), ngx)
+         icell = hash2Cell(hashi, ngx)
          do k = 1, 13
             jcell = icell(:) + sweepinds(:,k)
             hashAdj = cells2Hash(jcell, ngx)
             do j = cellLoc(1,hashAdj), cellLoc(2,hashAdj)
-               call check_if_interact(maxint, sk, i, j, itype(i), itype(j), x(:,i), x(:,j), nij, pij(:))
+               call check_if_interact(maxint, i, j, itypei, itype(j), x_i, x(:,j), nij, pij(:))
             end do
          end do
 #ifdef DEBUG
@@ -185,12 +186,12 @@ contains
    end subroutine sweep
 
    !==============================================================================================================================
-   attributes(device) subroutine check_if_interact(maxint, sk, i, j, itypei, itypej, xi, xj, nij, pij)
+   attributes(device) subroutine check_if_interact(maxint, i, j, itypei, itypej, xi, xj, nij, pij)
       ! subroutine to chekc if two particles are interacting and consequently adding to pair list
 
       implicit none
       integer, intent(in):: maxint, i, j, itypei, itypej
-      real(f), intent(in):: sk, xi(dim), xj(dim)
+      real(f), intent(in):: xi(dim), xj(dim)
       integer, intent(inout):: nij
       type(interactions), intent(inout):: pij(maxint)
       integer:: tmp
@@ -200,7 +201,7 @@ contains
       if (itypei > 0 .or. itypej > 0) then
          
          dxiac(:) = xi(:) - xj(:)
-         if (SUM(dxiac*dxiac) < hsml*sk*sk*hsml) then
+         if (SUM(dxiac*dxiac) < hsml*scale_k*scale_k*hsml) then
             tmp = atomicadd(nij,1) + 1
             pij(tmp)%i = i
             pij(tmp)%j = j

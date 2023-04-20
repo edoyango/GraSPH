@@ -158,47 +158,54 @@ contains
 
       q = sqrt(sum(dx*dx))/thsml
 
-      SELECT CASE (SKF)
-      CASE (1) ! cubic
-         if (dims == 2) factor = 10._f/(7._f*pi*thsml*thsml)
-         if (dims == 3) factor = 1_f/(pi*thsml*thsml*thsml)
-         tw = factor*(0.25_f*MAX(0._f, 2._f - q)**3 - MAX(0._f, 1._f - q)**3)
-         ! tdwdx = -factor*3._f*(0.25_f*MAX(0._f, 2._f - q)**2 - MAX(0._f, 1._f - q)**2)*dx(:)/(r*thsml)
-      CASE (2) ! quartic
-         if (dims == 2) factor = 96_f/(1199_f*pi*thsml*thsml)
-         if (dims == 3) factor = 1_f/(20_f*pi*thsml*thsml*thsml)
-         tw = factor*(MAX(0._f, 2.5_f - q)**4 - 5_f*MAX(0._f, 1.5_f - q)**4 + 10_f*MAX(0._f, 0.5_f - q)**4)
-         ! tdwdx(:) = &
-            ! -factor*4._f*(MAX(0._f, 2.5_f - q)**3 - 5_f*MAX(0._f, 1.5_f - q)**3 + 10_f*MAX(0._f, 0.5_f - q)**3)*dx(:)/(r*thsml)
-      CASE (3) ! quintic
-         if (dims == 2) factor = 7_f/(478_f*pi*thsml*thsml)
-         if (dims == 3) factor = 1_f/(120_f*pi*thsml*thsml*thsml)
-         tw = factor*(MAX(0._f, 3._f - q)**5 - 6._f*MAX(0._f, 2._f - q)**5 + 15._f*MAX(0._f, 1._f - q)**5)
-         ! tdwdx(:) = &
-            ! -factor*5._f*(MAX(0._f, 3._f - q)**4 - 6._f*MAX(0._f, 2._f - q)**4 + 15._f*MAX(0._f, 1._f - q)**4)*dx(:)/(r*thsml)
-      CASE (4) ! Wenland Quintic C2
-         if (dims == 2) factor = 7._f/(64._f*pi*thsml*thsml)
-         if (dims == 3) factor = 21._f/(256._f*pi*thsml*thsml*thsml)
-         tw = factor*MAX(0._f, 2._f - q)**4*(2._f*q + 1._f)
-         ! tdwdx(:) = -factor*10._f*q*MAX(0._f, 2._f - q)**3*dx(:)/(r*thsml)
-      CASE (5) ! Wenland Quintic C4
-         if (dims == 2) factor = 3._f/(1024._f*pi*thsml*thsml)
-         if (dims == 3) factor = 165._f/(65536._f*pi*thsml*thsml*thsml)
-         tw = factor*MAX(0._f, 2._f - q)**6*(35._f*q**2 + 36._f*q + 12._f)
-         ! tdwdx(:) = -factor*56._f*q*MAX(0._f, 2._f - q)**5*(5._f*q + 2._f)*dx(:)/(r*thsml)
-      CASE (6) ! Wenland Quintic C6
-         if (dims == 2) factor = 39._f/(14336._f*pi*thsml*thsml)
-         if (dims == 3) factor = 1365._f/(524288._f*pi*thsml*thsml*thsml)
-         tw = factor*MAX(0._f, 2._f - q)**8*(16._f*q**3 + 25_f*q**2 + 16._f*q + 4._f)
-         ! tdwdx(:) = -factor*22._f*q*(8._f*q**2 + 7._f*q + 2._f)*MAX(0._f, 2._f - q)**7*dx(:)/(r*thsml)
-      CASE (7) ! gaussian
-         factor = 1_f/(thsml**dims*pi**(0.5_f*dims))
-         if (q .ge. 0_f .and. q .le. 3_f) then
-            tw = factor*exp(-q*q)
-            ! tdwdx(:) = tw*2._f*dx(:)/(thsml*thsml)
-         end if
-
-      END SELECT
+      #if defined(KERNEL_CUBIC)
+         #ifdef TWOD
+            factor = 10._f/(7._f*pi*thsml*thsml)
+         #else
+            factor = 1._f/(pi*thsml*thsml*thsml)
+         #endif
+            tw = factor*(0.25_f*MAX(0._f, 2._f - q)**3 - MAX(0._f, 1._f - q)**3)
+      #elif defined(KERNEL_QUARTIC)
+         #ifdef TWOD
+            factor = 96._f/(1199._f*pi*thsml*thsml)
+         #else
+            factor = 1._f/(20._f*pi*thsml*thsml*thsml)
+         #endif
+            tw = factor*(MAX(0._f, 2.5_f - q)**4 - 5_f*MAX(0._f, 1.5_f - q)**4 + 10_f*MAX(0._f, 0.5_f - q)**4)
+      #elif defined(KERNEL_QUINTIC)
+         #ifdef TWOD
+            factor = 7._f/(478._f*pi*thsml*thsml)
+         #else
+            factor = 1._f/(120._f*pi*thsml*thsml*thsml)
+         #endif
+            tw = factor*(MAX(0._f, 3._f - q)**5 - 6._f*MAX(0._f, 2._f - q)**5 + 15._f*MAX(0._f, 1._f - q)**5)
+      #elif defined(KERNEL_WQUINTIC_C4)
+         #ifdef TWOD
+            factor = 3._f/(1024._f*pi*thsml*thsml)
+         #else
+            factor = 165._f/(65536._f*pi*thsml*thsml*thsml)
+         #endif
+            tw = factor*MAX(0._f, 2._f - q)**6*(35._f*q**2 + 36._f*q + 12._f)
+      #elif defined(KERNEL_WQUINTIC_C6)
+         #ifdef TWOD
+            factor = 39._f/(14336._f*pi*thsml*thsml)
+         #else
+            factor = 1365._f/(524288._f*pi*thsml*thsml*thsml)
+         #endif
+            tw = factor*MAX(0._f, 2._f - q)**8*(16._f*q**3 + 25_f*q**2 + 16._f*q + 4._f)
+      #elif defined(KERNEL_GAUSSIAN)
+            factor = 1_f/(thsml**dims*pi**(0.5_f*dims))
+            if (q .ge. 0_f .and. q .le. 3_f) then
+               tw = factor*exp(-q*q)
+            end if
+      #else
+         #ifdef TWOD
+            factor = 7._f/(64._f*pi*thsml*thsml)
+         #else
+            factor = 21._f/(256._f*pi*thsml*thsml*thsml)
+         #endif
+            tw = factor*MAX(0._f, 2._f - q)**4*(2._f*q + 1._f)
+      #endif
 
    end function kernelw
 

@@ -17,12 +17,11 @@ module time_integration_m
 contains
 
    !==============================================================================================================================
-   subroutine time_integration(scale_k, print_step, save_step, maxtimestep, timings, maxinter, maxn, ntotal, nvirt, &
+   subroutine time_integration(print_step, save_step, maxtimestep, timings, maxinter, maxn, ntotal, nvirt, &
                                niac, pairs, itype, ind, p, rho, x, vx)
       ! Subroutine responsible for the main time-integration loop
 
       implicit none
-      real(f), intent(in):: scale_k
       integer, intent(in):: print_step, save_step, maxtimestep, maxinter, maxn, ntotal, nvirt
       type(time_tracking), intent(inout):: timings
       integer, intent(inout):: itype(maxn), ind(maxn)
@@ -79,7 +78,7 @@ contains
       do itimestep = 1, maxtimestep
 
          !Interaction parameters, calculating neighboring particles
-         call flink_list(ind_d, itype_d, x_d, vx_d, rho_d, p_d, drho, dvxdt, scale_k, maxinter, maxn, niac_d, pairs_d)
+         call flink_list(ind_d, itype_d, x_d, vx_d, rho_d, p_d, drho, dvxdt, maxinter, maxn, niac_d, pairs_d)
 
          ! Save particles' velocity, density information at start of time-step
          !$cuf kernel do <<<*,512>>>
