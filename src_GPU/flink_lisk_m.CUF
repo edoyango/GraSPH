@@ -144,7 +144,7 @@ contains
       integer, intent(in):: gridCellHash(np), cellLoc(:,:), ngx(dim), itype(np)
       integer, intent(inout):: nij
       type(interactions), intent(out):: pij(maxint)
-      integer:: i, j, k, d, icell(dim), jcell(dim), hashAdj, niji, tmp, itypei, hashi
+      integer:: i, j, k, d, hashAdj, niji, tmp, itypei, hashi
       real(f):: x_i(dim)
       integer, parameter:: sweepinds(3, 13) = reshape((/-1,-1,-1, &
                                                          0,-1,-1, &
@@ -164,23 +164,30 @@ contains
 
       ! Beginning sweep
       if (i <= np) then
+
+         ! storing some data from global memory into core-local memory
          x_i = x(:, i)
          itypei = itype(i)
          hashi = gridCellHash(i)
+
+         ! performing pair search in particle i's cell
          do j = i+1, cellLoc(2,hashi)
             call check_if_interact(maxint, i, j, itypei, itype(j), x_i, x(:,j), nij, pij(:))
          end do
-         icell = hash2Cell(hashi, ngx)
+
+         ! performing pair search in adjacent cells
          do k = 1, 13
-            jcell = icell(:) + sweepinds(:,k)
-            hashAdj = cells2Hash(jcell, ngx)
+            hashAdj = hashi + dhash(sweepinds(:, k), ngx)
             do j = cellLoc(1,hashAdj), cellLoc(2,hashAdj)
                call check_if_interact(maxint, i, j, itypei, itype(j), x_i, x(:,j), nij, pij(:))
             end do
          end do
-#ifdef DEBUG
-         if (nij==maxint) error stop '***ERROR*** Particle '//i//' has exceeded max interactions per particle'
-#endif
+
+         ! debug message activated with -DDEBUG in FCFLAGS
+         #ifdef DEBUG
+            if (nij==maxint) error stop '***ERROR*** Particle '//i//' has exceeded max interactions per particle'
+         #endif
+         
       end if
 
    end subroutine sweep
@@ -289,7 +296,7 @@ contains
 
    end function kernel_k
    
-   !=================================================================================================================================
+   !====================================================================================================================
    attributes(device) pure function cells2Hash(cellCoords, ncells) result(hash)
      
       implicit none
@@ -300,7 +307,7 @@ contains
      
    end function cells2Hash
    
-   !=================================================================================================================================
+   !====================================================================================================================
    attributes(device) pure function hash2Cell(hash, ncells) result(cellCoords)
    
       implicit none
@@ -315,5 +322,15 @@ contains
       cellCoords(1) = mod(modhashnxy,ncells(1)) + 1
      
    end function hash2Cell
+
+   !====================================================================================================================
+   attributes(device) integer pure function dhash(dcells, ncells)
+   
+      implicit none
+      integer, intent(in):: dcells(dim), ncells(dim)
+
+      dhash = ncells(1)*ncells(2)*dcells(3) + ncells(1)*dcells(2) + dcells(1)
+      
+   end function dhash
 
 end module flink_list_m
