@@ -29,7 +29,7 @@ contains
       real(f), intent(inout):: p(maxn), rho(maxn), x(dim,maxn), vx(dim,maxn)
       integer, intent(out):: niac
       type(interactions), intent(out):: pairs(maxinter)
-      integer:: i, j, k, d, n, istat, ki, itimestep
+      integer:: i, j, k, d, n, istat, itimestep
       integer, device:: ntotal_d, nvirt_d, niac_d
       integer, allocatable, device:: itype_d(:), ind_d(:)
       real(f), allocatable, device:: p_d(:), rho_d(:), x_d(:, :), vx_d(:, :), v_min(:, :), rho_min(:), dvxdt(:, :), &
@@ -110,7 +110,7 @@ contains
          end do
 
             ! launching GPU kernel to calculate accelerations and density changes
-            call single_step_kernel <<< niac_d/128 + 1, 128 >>> (ki, ind_d, itype_d, x_d, vx_d, rho_d, p_d, maxinter, maxn, niac_d, pairs_d, dvxdt, drho)
+            call single_step_kernel <<< niac_d/128 + 1, 128 >>> (ind_d, itype_d, x_d, vx_d, rho_d, p_d, maxinter, maxn, niac_d, pairs_d, dvxdt, drho)
 
             ! launching GPU kernel to update particles' speed and density
             ! call RK4_update <<< maxn/512 + 1, 512 >>> (ki, maxn, v_min, rho_min, dvxdt, drho, dvxdt4, drho4, itype_d, ind_d, p_d, rho_d, x_d, vx_d)

@@ -10,10 +10,10 @@ module single_step_m
 contains
 
    !==============================================================================================================================
-   attributes(global) pure subroutine single_step_kernel(ki, ind, itype, x, vx, rho, p, maxinter, np, nij, pij, dvxdti, drhodti)
+   attributes(global) pure subroutine single_step_kernel(ind, itype, x, vx, rho, p, maxinter, np, nij, pij, dvxdti, drhodti)
 
       implicit none
-      integer, intent(in), value:: ki, maxinter, np
+      integer, intent(in), value:: maxinter, np
       integer, intent(in):: nij, ind(np), itype(np)
       real(f), intent(in):: x(dim, np), vx(dim, np), rho(np), p(np)
       type(interactions), intent(in):: pij(maxinter)
@@ -43,11 +43,11 @@ contains
          p_j = p(j)
 
          !Density approximation or change rate
-         call con_density(ki, ind_i, ind_j, dvx, tdwdx, drhodti(i), drhodti(j))
+         call con_density(ind_i, ind_j, dvx, tdwdx, drhodti(i), drhodti(j))
             
          ! calculating coefficients for pressure force and artificial viscosity
-         a_coeff = int_force_coeff(ki, ind_i, ind_j, p_i, p_j, rho_i, rho_j) + &
-                   art_visc_coeff(ki, ind_i, ind_j, rho_i, rho_j, pij(k)%dx, dvx)
+         a_coeff = int_force_coeff(ind_i, ind_j, p_i, p_j, rho_i, rho_j) + &
+                   art_visc_coeff(ind_i, ind_j, rho_i, rho_j, pij(k)%dx, dvx)
                       
          do d = 1, dim
             tmp = atomicadd(dvxdti(d, i), tdwdx(d)*a_coeff)
@@ -85,10 +85,10 @@ contains
    end subroutine ext_force
 
    !=================================================================================
-   attributes(device) pure subroutine con_density(ki, ind_i, ind_j, dvx, dwdx, codrhodti, codrhodtj)
+   attributes(device) pure subroutine con_density(ind_i, ind_j, dvx, dwdx, codrhodti, codrhodtj)
 
       implicit none
-      integer, intent(in):: ki, ind_i, ind_j
+      integer, intent(in):: ind_i, ind_j
       real(f), intent(in):: dvx(dim), dwdx(dim)
       real(f), intent(inout):: codrhodti, codrhodtj
       real(f):: vcc, tmp
@@ -103,12 +103,12 @@ contains
    end subroutine con_density
 
    !=================================================================================
-   attributes(device) pure function art_visc_coeff(ki, ind_i, ind_j, rho_i, rho_j, dx, dvx) result(coeff)
+   attributes(device) pure function art_visc_coeff(ind_i, ind_j, rho_i, rho_j, dx, dvx) result(coeff)
 
       use param, only: alpha, beta, etq, hsml, c
 
       implicit none
-      integer, intent(in):: ki, ind_i, ind_j
+      integer, intent(in):: ind_i, ind_j
       real(f), intent(in):: rho_i, rho_j, dx(dim), dvx(dim)
       real(f):: piv(dim), muv, vr, rr, mrho, coeff
 
@@ -124,10 +124,10 @@ contains
    end function art_visc_coeff
 
    !=================================================================================
-   attributes(device) pure function int_force_coeff(ki, ind_i, ind_j, p_i, p_j, rho_i, rho_j) result(coeff)
+   attributes(device) pure function int_force_coeff(ind_i, ind_j, p_i, p_j, rho_i, rho_j) result(coeff)
 
       implicit none
-      integer, intent(in):: ki, ind_i, ind_j
+      integer, intent(in):: ind_i, ind_j
       real(f), intent(in):: p_i, p_j, rho_i, rho_j
       real(f):: coeff
 
