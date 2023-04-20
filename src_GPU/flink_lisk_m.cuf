@@ -192,19 +192,17 @@ contains
       integer, intent(inout):: nij
       type(interactions), intent(inout):: pij(maxint)
       integer:: tmp
-      real(f):: dxiac(dim), r
+      real(f):: dxiac(dim)
 
       ! only consider interactions when real particles are involved
       if (itypei > 0 .or. itypej > 0) then
          
          dxiac(:) = xi(:) - xj(:)
-         r = SQRT(SUM(dxiac*dxiac))
-         if (r < hsml*sk) then
+         if (SUM(dxiac*dxiac) < hsml*sk*sk*hsml) then
             tmp = atomicadd(nij,1) + 1
             pij(tmp)%i = i
             pij(tmp)%j = j
             pij(tmp)%dx = dxiac
-            ! call kernel(r, dxiac(:), hsml, pij(tmp)%w, pij(tmp)%dwdx(:))
          end if
       end if
 
