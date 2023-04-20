@@ -21,6 +21,11 @@ module flink_list_m
                                                       1,-1, 0, &
                                                      -1, 0, 0/) , (/3, 13/))
 
+   integer, constant:: ngridx_d(dim)
+   real(f), constant:: mingridx_d(dim), maxgridx_d(dim)
+
+   real(f), parameter:: dcell = hsml*scale_k
+
    public:: flink_list, kernel_k
 
 contains
@@ -39,14 +44,11 @@ contains
       type(interactions), device, intent(out):: pairs_d(maxinter)
       integer, allocatable, device:: cellLoc(:,:)
       integer:: i, j, k, d, istat, ngridx(dim)
-      real(f):: mingridx(dim), maxgridx(dim), dcell
-      integer, device:: ngridx_d(dim), gridCellHash(n_p), j_d, mapping(n_p), itype_tmp(n_p), ind_tmp(n_p)
-      real(f), device:: mingridx_d(dim), maxgridx_d(dim), minx, miny, minz, maxx, maxy, maxz, p_tmp(n_p), rho_tmp(n_p), x_tmp(dim,n_p), vx_tmp(dim,n_p), drho_tmp(n_p), dvxdt_tmp(dim, n_p)
+      real(f):: mingridx(dim), maxgridx(dim)
+      integer, device:: gridCellHash(n_p), j_d, mapping(n_p), itype_tmp(n_p), ind_tmp(n_p), icell(dim)
+      real(f), device:: minx, miny, minz, maxx, maxy, maxz, p_tmp(n_p), rho_tmp(n_p), x_tmp(dim,n_p), vx_tmp(dim,n_p), drho_tmp(n_p), dvxdt_tmp(dim, n_p)
       
-      dcell = scale_k*hsml
-      minx = HUGE(1._f); miny = HUGE(1._f); minz = HUGE(1._f)
-      maxx = -HUGE(1._f); maxy = -HUGE(1._f); maxz = -HUGE(1._f)
-      !Determining bounding box extents
+      !Determining bounding box extents NB: reduction variables are automatically initialized appropriately
       !$cuf kernel do <<<*,*>>> reduce(max:maxx,maxy,maxz) reduce(min:minx,miny,minz)
       do i = 1, n_p
          minx = min(minx, x_d(1,i))
@@ -71,7 +73,7 @@ contains
          cellLoc(2,i) = -1
       end do
       
-      call map2Grid<<<n_p/1024 + 1, 1024>>>(x_d, dcell, ngridx_d, gridCellHash, mingridx_d, n_p)
+      call map2Grid<<<n_p/1024 + 1, 1024>>>(x_d, gridCellHash, n_p)
       
       !$cuf kernel do <<<*,1024>>>
       do i = 1,n_p
@@ -124,39 +126,38 @@ contains
       end do
       ! i = 0
       niac_d = 0
-      call sweep <<< n_p/64 + 1, 64 >>> (x_d, itype_d, maxinter, ngridx_d, n_p, gridCellHash, cellLoc, niac_d, pairs_d)
+      call sweep <<< n_p/64 + 1, 64 >>> (x_d, itype_d, maxinter, n_p, gridCellHash, cellLoc, niac_d, pairs_d)
 
    end subroutine flink_list
 
    !=================================================================================================================================
-   attributes(global) subroutine map2Grid(x, dc, ncells, gridCellHash, mingridx, n)
+   attributes(global) subroutine map2Grid(x, gridCellHash, n)
    
       implicit none
-      real(f), value:: dc
-      real(f), intent(in):: mingridx(dim), x(dim, n)
-      integer, intent(in):: ncells(dim)
+      real(f), intent(in):: x(dim, n)
+      ! integer, intent(in):: ncells(dim)
       integer, intent(out):: gridCellHash(:)
-      integer:: d, i, ip, icell(dim)
+      integer:: i, icell(dim)
       integer, value:: n
      
       i = blockDim%x * (blockIdx%x - 1) + threadIdx%x
       if (i <= n) then
-        icell(:) = int((x(:,i) - mingridx(:))/dc) + 1
-        gridCellHash(i) = cells2Hash(icell, ncells)
+        icell(:) = int((x(:,i) - mingridx_d(:))/dcell) + 1
+        gridCellHash(i) = cells2Hash(icell)
       end if
      
    end subroutine map2Grid
    
    !==============================================================================================================================
-   attributes(global) subroutine sweep(x, itype, maxint, ngx, np, gridCellHash, cellLoc, nij, pij)
+   attributes(global) subroutine sweep(x, itype, maxint, np, gridCellHash, cellLoc, nij, pij)
 
       implicit none
       integer, intent(in), value:: np, maxint
       real(f), intent(in):: x(dim, np)
-      integer, intent(in):: gridCellHash(np), cellLoc(:,:), ngx(dim), itype(np)
+      integer, intent(in):: gridCellHash(np), cellLoc(:,:), itype(np)
       integer, intent(inout):: nij
       type(interactions), intent(out):: pij(maxint)
-      integer:: i, j, k, d, hashAdj, niji, tmp, itypei, hashi
+      integer:: i, j, k, hashAdj, tmp, itypei, hashi
       real(f):: x_i(dim)
       
 
@@ -177,7 +178,7 @@ contains
 
          ! performing pair search in adjacent cells
          do k = 1, 13
-            hashAdj = hashi + dhash(sweepinds(:, k), ngx)
+            hashAdj = hashi + dhash(sweepinds(:, k))
             do j = cellLoc(1,hashAdj), cellLoc(2,hashAdj)
                call check_if_interact(maxint, i, j, itypei, itype(j), x_i, x(:,j), nij, pij(:))
             end do
@@ -217,119 +218,41 @@ contains
       end if
 
    end subroutine check_if_interact
-
-   !==============================================================================================================================
-   attributes(device) pure subroutine kernel(r, dx, thsml, tw, tdwdx)
-      ! Contains the kernels
-
-      use param, only: skf, pi, dims => dim
-
-      implicit none
-      real(f), intent(in):: dx(dims), r, thsml
-      real(f), intent(out):: tdwdx(dims), tw
-      real(f):: q, factor
-
-      q = r/thsml
-
-      SELECT CASE (SKF)
-      CASE (1) ! cubic
-         if (dims == 2) factor = 10._f/(7._f*pi*thsml*thsml)
-         if (dims == 3) factor = 1_f/(pi*thsml*thsml*thsml)
-         tw = factor*(0.25_f*MAX(0._f, 2._f - q)**3 - MAX(0._f, 1._f - q)**3)
-         tdwdx = -factor*3._f*(0.25_f*MAX(0._f, 2._f - q)**2 - MAX(0._f, 1._f - q)**2)*dx(:)/(r*thsml)
-      CASE (2) ! quartic
-         if (dims == 2) factor = 96_f/(1199_f*pi*thsml*thsml)
-         if (dims == 3) factor = 1_f/(20_f*pi*thsml*thsml*thsml)
-         tw = factor*(MAX(0._f, 2.5_f - q)**4 - 5_f*MAX(0._f, 1.5_f - q)**4 + 10_f*MAX(0._f, 0.5_f - q)**4)
-         tdwdx(:) = &
-            -factor*4._f*(MAX(0._f, 2.5_f - q)**3 - 5_f*MAX(0._f, 1.5_f - q)**3 + 10_f*MAX(0._f, 0.5_f - q)**3)*dx(:)/(r*thsml)
-      CASE (3) ! quintic
-         if (dims == 2) factor = 7_f/(478_f*pi*thsml*thsml)
-         if (dims == 3) factor = 1_f/(120_f*pi*thsml*thsml*thsml)
-         tw = factor*(MAX(0._f, 3._f - q)**5 - 6._f*MAX(0._f, 2._f - q)**5 + 15._f*MAX(0._f, 1._f - q)**5)
-         tdwdx(:) = &
-            -factor*5._f*(MAX(0._f, 3._f - q)**4 - 6._f*MAX(0._f, 2._f - q)**4 + 15._f*MAX(0._f, 1._f - q)**4)*dx(:)/(r*thsml)
-      CASE (4) ! Wenland Quintic C2
-         if (dims == 2) factor = 7._f/(64._f*pi*thsml*thsml)
-         if (dims == 3) factor = 21._f/(256._f*pi*thsml*thsml*thsml)
-         tw = factor*MAX(0._f, 2._f - q)**4*(2._f*q + 1._f)
-         tdwdx(:) = -factor*10._f*q*MAX(0._f, 2._f - q)**3*dx(:)/(r*thsml)
-      CASE (5) ! Wenland Quintic C4
-         if (dims == 2) factor = 3._f/(1024._f*pi*thsml*thsml)
-         if (dims == 3) factor = 165._f/(65536._f*pi*thsml*thsml*thsml)
-         tw = factor*MAX(0._f, 2._f - q)**6*(35._f*q**2 + 36._f*q + 12._f)
-         tdwdx(:) = -factor*56._f*q*MAX(0._f, 2._f - q)**5*(5._f*q + 2._f)*dx(:)/(r*thsml)
-      CASE (6) ! Wenland Quintic C6
-         if (dims == 2) factor = 39._f/(14336._f*pi*thsml*thsml)
-         if (dims == 3) factor = 1365._f/(524288._f*pi*thsml*thsml*thsml)
-         tw = factor*MAX(0._f, 2._f - q)**8*(16._f*q**3 + 25_f*q**2 + 16._f*q + 4._f)
-         tdwdx(:) = -factor*22._f*q*(8._f*q**2 + 7._f*q + 2._f)*MAX(0._f, 2._f - q)**7*dx(:)/(r*thsml)
-      CASE (7) ! gaussian
-         factor = 1_f/(thsml**dims*pi**(0.5_f*dims))
-         if (q .ge. 0_f .and. q .le. 3_f) then
-            tw = factor*exp(-q*q)
-            tdwdx(:) = tw*2._f*dx(:)/(thsml*thsml)
-         end if
-
-      END SELECT
-
-   end subroutine kernel
-
-   !==============================================================================================================================
-   function kernel_k(skf) result(scale_k)
-      ! setting k parameter for kernel radius (r = kh)
-
-      implicit none
-      integer, intent(in):: skf
-      integer:: scale_k
-
-      select case (skf)
-      case default ! cubic, wenland C2, wenland C4, wenland C6
-         scale_k = 2._f
-      case (2) ! quartic
-         scale_k = 2.5_f
-      case (3) ! quantic
-         scale_k = 3._f
-      case (7)
-         scale_k = huge(1._f)
-      end select
-
-   end function kernel_k
    
    !====================================================================================================================
-   attributes(device) pure function cells2Hash(cellCoords, ncells) result(hash)
+   attributes(device) pure function cells2Hash(cellCoords) result(hash)
      
       implicit none
-      integer, intent(in):: cellCoords(dim), ncells(dim)
+      integer, intent(in):: cellCoords(dim)
       integer:: hash
      
-      hash = ncells(1)*ncells(2)*(cellCoords(3) - 1) + ncells(1)*(cellCoords(2) - 1) + cellCoords(1)
+      hash = ngridx_d(1)*ngridx_d(2)*(cellCoords(3) - 1) + ngridx_d(1)*(cellCoords(2) - 1) + cellCoords(1)
      
    end function cells2Hash
    
    !====================================================================================================================
-   attributes(device) pure function hash2Cell(hash, ncells) result(cellCoords)
+   attributes(device) pure function hash2Cell(hash) result(cellCoords)
    
       implicit none
-      integer, intent(in):: hash, ncells(dim)
+      integer, intent(in):: hash
       integer:: cellCoords(3), nxy, modhashnxy
      
-      nxy = ncells(1)*ncells(2)
+      nxy = ngridx_d(1)*ngridx_d(2)
       modhashnxy = mod(hash-1,nxy)
      
       cellCoords(3) = int((hash-1)/nxy) + 1
-      cellCoords(2) = mod(hash-1,nxy)/ncells(1) + 1
-      cellCoords(1) = mod(modhashnxy,ncells(1)) + 1
+      cellCoords(2) = mod(hash-1,nxy)/ngridx_d(1) + 1
+      cellCoords(1) = mod(modhashnxy,ngridx_d(1)) + 1
      
    end function hash2Cell
 
    !====================================================================================================================
-   attributes(device) integer pure function dhash(dcells, ncells)
+   attributes(device) integer pure function dhash(dcells)
    
       implicit none
-      integer, intent(in):: dcells(dim), ncells(dim)
+      integer, intent(in):: dcells(dim)
 
-      dhash = ncells(1)*ncells(2)*dcells(3) + ncells(1)*dcells(2) + dcells(1)
+      dhash = ngridx_d(1)*ngridx_d(2)*dcells(3) + ngridx_d(1)*dcells(2) + dcells(1)
       
    end function dhash
 
