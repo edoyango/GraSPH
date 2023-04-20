@@ -19,7 +19,7 @@ contains
       type(interactions), intent(in):: pij(maxinter)
       real(f), intent(inout):: dvxdti(dim, np), drhodti(np)
       integer:: i, j, k, d
-      real(f):: a_coeff, tmp, rho_i, rho_j, tdwdx(dim), dvx(dim)
+      real(f):: a_coeff, tmp, rho_i, rho_j, tdwdx(dim), dvx(dim), tmpadwdx
 
       ! Obtaining thread global index (used to assign particle index)
       k = blockDim%x*(blockIdx%x - 1) + threadIdx%x
@@ -44,8 +44,9 @@ contains
                    art_visc_coeff(rho_i, rho_j, pij(k)%dx, dvx)
                       
          do d = 1, dim
-            tmp = atomicadd(dvxdti(d, i), tdwdx(d)*a_coeff)
-            tmp = atomicadd(dvxdti(d, j), -tdwdx(d)*a_coeff)
+            tmpadwdx = tdwdx(d)*a_coeff
+            tmp = atomicadd(dvxdti(d, i), tmpadwdx)
+            tmp = atomicadd(dvxdti(d, j), -tmpadwdx)
          end do
 
       end if
