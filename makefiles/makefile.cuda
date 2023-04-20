@@ -48,9 +48,15 @@ $(CDIR)/%.F90 \
 $(ODIR)/param.cuf.o
 	$(FC) -c -o $@ $< $(MAKE_FCFLAGS)
 
-$(ODIR)/summary_m.cuf.o $(ODIR)/output_m.cuf.o $(ODIR)/single_step_m.cuf.o $(ODIR)/flink_lisk_m.cuf.o: \
+$(ODIR)/summary_m.cuf.o $(ODIR)/output_m.cuf.o $(ODIR)/single_step_m.cuf.o: \
 $(ODIR)/%.cuf.o: \
 $(SDIR)/%.cuf \
+$(ODIR)/param.cuf.o
+	$(FC) -c -o $@ $< $(MAKE_FCFLAGS)
+
+$(ODIR)/flink_lisk_m.cuf.o: \
+$(ODIR)/%.cuf.o: \
+$(SDIR)/%.CUF \
 $(ODIR)/param.cuf.o
 	$(FC) -c -o $@ $< $(MAKE_FCFLAGS)
 
