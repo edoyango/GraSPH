@@ -7,6 +7,20 @@ module flink_list_m
 
    private
 
+   integer, parameter:: sweepinds(3, 13) = reshape((/-1,-1,-1, &
+                                                      0,-1,-1, &
+                                                      1,-1,-1, &
+                                                     -1, 0,-1, &
+                                                      0, 0,-1, &
+                                                      1, 0,-1, &
+                                                     -1, 1,-1, &
+                                                      0, 1,-1, &
+                                                      1, 1,-1, &
+                                                     -1,-1, 0, &
+                                                      0,-1, 0, &
+                                                      1,-1, 0, &
+                                                     -1, 0, 0/) , (/3, 13/))
+
    public:: flink_list, kernel_k
 
 contains
@@ -74,11 +88,9 @@ contains
          ind_tmp(i) = ind_d(j_d)
          p_tmp(i) = p_d(j_d)
          rho_tmp(i) = rho_d(j_d)
-         do d = 1,dim
-           x_tmp(d,i) = x_d(d, j_d)
-           vx_tmp(d,i) = vx_d(d, j_d)
-           dvxdt_tmp(d, i) = dvxdt(d, j_d)
-         end do
+         x_tmp(:,i) = x_d(:, j_d)
+         vx_tmp(:,i) = vx_d(:, j_d)
+         dvxdt_tmp(:, i) = dvxdt(:, j_d)
          drho_tmp(i) = drho(j_d)
       end do
       
@@ -146,19 +158,7 @@ contains
       type(interactions), intent(out):: pij(maxint)
       integer:: i, j, k, d, hashAdj, niji, tmp, itypei, hashi
       real(f):: x_i(dim)
-      integer, parameter:: sweepinds(3, 13) = reshape((/-1,-1,-1, &
-                                                         0,-1,-1, &
-                                                         1,-1,-1, &
-                                                        -1, 0,-1, &
-                                                         0, 0,-1, &
-                                                         1, 0,-1, &
-                                                        -1, 1,-1, &
-                                                         0, 1,-1, &
-                                                         1, 1,-1, &
-                                                        -1,-1, 0, &
-                                                         0,-1, 0, &
-                                                         1,-1, 0, &
-                                                        -1, 0, 0/) , (/3, 13/))
+      
 
       i = blockDim%x*(blockIdx%x - 1) + threadIdx%x
 
