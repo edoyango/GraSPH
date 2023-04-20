@@ -43,7 +43,7 @@ contains
          do d = 1, dim
             tmpadwdx = tdwdx(d)*a_coeff
             tmp = atomicadd(dvxdti(d, i), tmpadwdx)
-            tmp = atomicadd(dvxdti(d, j), -tmpadwdx)
+            tmp = atomicsub(dvxdti(d, j), tmpadwdx)
          end do
 
       end if
@@ -100,14 +100,9 @@ contains
 
       implicit none
       real(f), intent(in):: rho_i, rho_j, dx(dim), dvx(dim)
-      real(f):: piv(dim), muv, vr, rr, mrho, coeff
+      real(f):: muv, mrho, coeff
 
-      ! dx(:) = x_i(:) - x_j(:)
-      vr = DOT_PRODUCT(dvx(:), dx(:))
-      if (vr > 0._f) vr = 0._f !Artificial viscous force only if v_ij * r_ij < 0
-
-      rr = DOT_PRODUCT(dx(:), dx(:))
-      muv = hsml*vr/(rr + hsml*hsml*etq*etq)
+      muv = hsml*min(0._f, sum(dvx(:)*dx(:)))/(sum(dx*dx) + hsml*hsml*etq*etq)
       mrho = 0.5_f*(rho_i + rho_j)
       coeff = -mass*(beta*muv - alpha*c)*muv/mrho
 
