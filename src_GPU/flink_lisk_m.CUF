@@ -177,7 +177,9 @@ contains
                call check_if_interact(maxint, sk, i, j, itype(i), itype(j), x(:,i), x(:,j), nij, pij(:))
             end do
          end do
-         if (nij==maxint) write(*,*) '***ERROR*** Particle ',i,' has exceeded max interactions per particle' !tmp = atomicexch(ierr,1)
+#ifdef DEBUG
+         if (nij==maxint) error stop '***ERROR*** Particle '//i//' has exceeded max interactions per particle'
+#endif
       end if
 
    end subroutine sweep
