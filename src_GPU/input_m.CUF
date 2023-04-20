@@ -21,8 +21,8 @@ contains
       implicit none
       integer, intent(in):: ntotal, nvirt, maxinter_perp
       integer, intent(out):: maxn, maxinter
-      integer, allocatable, intent(inout):: itype(:), ind(:)
-      real(f), allocatable, intent(inout):: p(:), rho(:), x(:,:), vx(:,:)
+      integer, allocatable, pinned, intent(inout):: itype(:), ind(:)
+      real(f), allocatable, pinned, intent(inout):: p(:), rho(:), x(:,:), vx(:,:)
       type(interactions), allocatable, intent(inout):: pairs(:)
 
       maxn = ntotal + nvirt!+int(0.2*ntotal)
@@ -36,8 +36,8 @@ contains
 
       implicit none
       integer, intent(in):: maxinter_perp
-      integer, allocatable, intent(inout):: itype(:), ind(:)
-      real(f), allocatable, intent(inout):: p(:), rho(:), x(:, :), vx(:,:)
+      integer, allocatable, pinned, intent(inout):: itype(:), ind(:)
+      real(f), allocatable, pinned, intent(inout):: p(:), rho(:), x(:, :), vx(:,:)
       type(interactions), allocatable, intent(inout):: pairs(:)
       integer, intent(out):: ntotal, nvirt, maxn, maxinter
       integer:: i, j, k, d, n, ierr

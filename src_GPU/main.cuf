@@ -12,8 +12,8 @@ program SPH
    implicit none
    integer:: maxn, ntotal, nvirt, print_step, save_step, maxtimestep, maxinter
    integer:: niac
-   integer, allocatable:: itype(:), ind(:)
-   real(f), allocatable:: p(:), rho(:), x(:,:), vx(:,:)
+   integer, allocatable, pinned:: itype(:), ind(:)
+   real(f), allocatable, pinned:: p(:), rho(:), x(:,:), vx(:,:)
    type(interactions), allocatable:: pairs(:)
    type(time_tracking):: timings
    integer, parameter:: maxinter_perp = 120
