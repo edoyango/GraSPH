@@ -45,7 +45,6 @@ contains
       istat = cudaEventCreate(stopOutputEvent)
       istat = cudaEventCreate(startTestEvent)
       istat = cudaEventCreate(stopTestEvent)
-      istat = cudaEventRecord(startEvent, 0)
 
       ! Allocating device arrays
       allocate( itype_d(maxn), ind_d(maxn), p_d(maxn), rho_d(maxn), x_d(dim, maxn), vx_d(dim, maxn), &
@@ -71,6 +70,8 @@ contains
          dvxdt(dim,i) = -g
          drho(i) = 0._f
       end do
+
+      istat = cudaEventRecord(startEvent, 0)
 
       ! Time-integration (Leap-Frog)
       time = 0._f
@@ -131,6 +132,12 @@ contains
 
             ! write output data
             if (mod(itimestep, save_step) .eq. 0) then
+
+               ! update pressure for output
+               !$cuf kernel do
+               do i = 1, maxn
+                  p_d(i) =  rh0*c**2*((rho_d(i)/rh0)**gamma - 1._f)/gamma
+               end do
 
                ! transfer particle data from GPU to CPU
                itype = itype_d
