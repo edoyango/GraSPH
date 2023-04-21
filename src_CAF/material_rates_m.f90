@@ -90,15 +90,16 @@ contains
    end subroutine con_density
 
    !=================================================================================
-   pure function art_visc_coeff(p_i, p_j) result(coeff)
+   pure function art_visc_coeff(p_i, p_j, dx) result(coeff)
 
       use param, only: alpha, beta, etq, hsml, c
 
       implicit none
       type(particles), intent(in):: p_i, p_j
-      real(f):: dx(dim), piv(dim), muv, vr, rr, mrho, coeff
+      real(f), intent(in):: dx(dim)
+      real(f):: piv(dim), muv, vr, rr, mrho, coeff
 
-      dx(:) = p_i%x(:) - p_j%x(:)
+      ! dx(:) = p_i%x(:) - p_j%x(:)
       vr = DOT_PRODUCT(p_i%vx(:) - p_j%vx(:), dx(:))
       if (vr > 0_f) vr = 0_f
 

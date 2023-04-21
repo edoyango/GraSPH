@@ -49,7 +49,7 @@ contains
             call con_density(parts(i), parts(j), tdwdx, drhodt(i), drhodt(j))
 
             ! calculating coefficients for pressure force and artificial viscosity
-            a_coeff = int_force_coeff(prho(i), prho(j)) + art_visc_coeff(parts(i), parts(j))
+            a_coeff = int_force_coeff(prho(i), prho(j)) + art_visc_coeff(parts(i), parts(j), pairs(k)%dx)
             dvxdt(:, i) = dvxdt(:, i) + tdwdx(:)*a_coeff
             dvxdt(:, j) = dvxdt(:, j) - tdwdx(:)*a_coeff
 
