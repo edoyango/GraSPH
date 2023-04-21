@@ -119,13 +119,15 @@ contains
    !==============================================================================================================================
    subroutine update_virt_part(ntotal_loc, nhalo_loc, nvirt_loc, parts, niac, pairs, nexti, vw)
 
+      use kernel_m, only: kernel_w
+
       implicit none
       integer, intent(in):: ntotal_loc, nhalo_loc, nvirt_loc, niac, nexti(:)
       type(interactions), intent(in):: pairs(:)
       type(particles), intent(inout):: parts(:)
       real(f), intent(inout):: vw(:)
       integer:: i, j, k, tmptype
-      real(f):: tmp
+      real(f):: tmp, tw
 
       vw(:) = 0._f
 
@@ -145,9 +147,10 @@ contains
                else
                   tmptype = parts(i)%itype
                end if
-               tmp = mass*pairs(k)%w/parts(j)%rho
+               tw = kernel_w(sqrt(sum(pairs(k)%dx*pairs(k)%dx)), hsml)
+               tmp = mass*tw/parts(j)%rho
                vw(i) = vw(i) + tmp
-               parts(i)%rho = parts(i)%rho + mass*pairs(k)%w
+               parts(i)%rho = parts(i)%rho + mass*tw
                select case (tmptype)
                case default
                   parts(i)%vx(:) = parts(i)%vx(:) - parts(j)%vx(:)*tmp
@@ -174,9 +177,10 @@ contains
                else
                   tmptype = parts(j)%itype
                end if
-               tmp = mass*pairs(k)%w/parts(i)%rho
+               tw = kernel_w(sqrt(sum(pairs(k)%dx*pairs(k)%dx)), hsml)
+               tmp = mass*tw/parts(i)%rho
                vw(j) = vw(j) + tmp
-               parts(j)%rho = parts(j)%rho + mass*pairs(k)%w
+               parts(j)%rho = parts(j)%rho + mass*tw
                select case (tmptype)
                case default
                   parts(j)%vx(:) = parts(j)%vx(:) - parts(i)%vx(:)*tmp

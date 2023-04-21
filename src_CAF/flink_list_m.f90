@@ -137,7 +137,7 @@ contains
             niac = niac + 1
             if (niac < maxinter) then
                pairs(niac)%j = j
-               call kernel(r, dxiac, hsml, pairs(niac)%w, pairs(niac)%dwdx(:))
+               pairs(niac)%dx = dxiac
             else
                ierr = 1
             end if
