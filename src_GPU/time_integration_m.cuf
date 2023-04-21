@@ -30,7 +30,7 @@ contains
       type(interactions), intent(out):: pairs(maxinter)
       integer:: i, j, k, d, n, istat, itimestep
       integer, device:: ntotal_d, nvirt_d, niac_d
-      integer, allocatable, device:: itype_d(:), ind_d(:), pairs_d(:, :)
+      integer, allocatable, device:: itype_d(:), ind_d(:)
       real(f), allocatable, device:: p_d(:), rho_d(:), x_d(:, :), vx_d(:, :), v_min(:, :), rho_min(:), dvxdt(:, :), &
          drho(:), vw(:), xlast(:,:), prho(:)
       type(interactions), allocatable, device:: pairs_d(:)
@@ -94,7 +94,7 @@ contains
             end if
          end do
 
-         call vmat_update<<< niac_d/128 + 1, 128>>>(maxinter, maxn, niac_d, pairs_d, w_d, vw, itype_d, rho_d, vx_d)
+         call vmat_update<<< niac_d/128 + 1, 128>>>(maxinter, maxn, niac_d, pairs_d, vw, itype_d, rho_d, vx_d)
 
          !$cuf kernel do <<<*, *>>>
          do i = 1,maxn

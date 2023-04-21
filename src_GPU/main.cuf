@@ -22,7 +22,7 @@ program SPH
    call preamble(maxtimestep, print_step, save_step)
 
    !Creat physical and virtual boundary particles
-   call read_input_and_allocate(maxinter_perp, itype, ind, p, rho, x, vx, pairs, w, dwdx, maxn, maxinter, ntotal, nvirt)
+   call read_input_and_allocate(maxinter_perp, itype, ind, p, rho, x, vx, pairs, maxn, maxinter, ntotal, nvirt)
 
    write (*, '(A24,1x,I9,1x,A19)') 'Total simulation size of', ntotal, 'physical particles.'
    write (*, '(A24,1x,I9,1x,A19)') '                        ', nvirt, 'virtual particles.'

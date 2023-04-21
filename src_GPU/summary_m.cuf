@@ -81,8 +81,7 @@ contains
       implicit none
       integer, intent(in):: itimestep, maxtimestep, ntotal, nvirt, niac, ind(ntotal+nvirt)
       type(time_tracking), intent(in):: timings
-      integer, device, intent(in):: pairs_d(2, niac)
-      ! type(interactions), device, intent(in):: pairs_d(niac)
+      type(interactions), device, intent(in):: pairs_d(niac)
       real(f), intent(in):: time
       integer::  i, k, d
       integer, managed:: ns(ntotal+nvirt), maxp, minp, sumiac, maxiac, miniac, noiac, j
@@ -119,16 +118,15 @@ contains
 
       implicit none
       integer, value, intent(in):: niac, np
-      integer, intent(in):: pij(2, niac)
-      ! type(interactions), intent(in):: pij(niac)
+      type(interactions), intent(in):: pij(niac)
       integer, intent(inout):: ns(np)
       integer:: k,tmp
 
       k = blockDim%x*(blockIdx%x - 1) + threadIdx%x
 
       if (k <= niac) then
-         tmp = atomicadd(ns(pij(1, k)), 1)
-         tmp = atomicadd(ns(pij(2, k)), 1)
+         tmp = atomicadd(ns(pij(k)%i), 1)
+         tmp = atomicadd(ns(pij(k)%j), 1)
       end if
 
    end subroutine countParticleInteractions
