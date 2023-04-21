@@ -16,10 +16,9 @@ module time_integration_m
 contains
 
    subroutine time_integration(maxtimestep, print_step, save_step, thisImage, numImages, maxnloc, maxinter, timings, &
-                               scale_k, ntotal_loc, nvirt_loc, nhalo_loc, ntotal, nvirt, parts, pairs, nexti)
+                               ntotal_loc, nvirt_loc, nhalo_loc, ntotal, nvirt, parts, pairs, nexti)
 
       integer, intent(in):: maxtimestep, print_step, save_step, thisImage, numImages, maxnloc, maxinter, ntotal, nvirt
-      real(f), intent(in):: scale_k
       type(time_tracking), intent(inout):: timings
       integer, intent(inout):: nexti(:)
       integer, codimension[*], intent(inout):: ntotal_loc, nvirt_loc, nhalo_loc
@@ -54,11 +53,11 @@ contains
          end do
 
          ! distributing particles
-         call ORB(itimestep, thisImage, numImages, scale_k, ntotal, ntotal_loc, nvirt, nvirt_loc, nhalo_loc, parts, &
+         call ORB(itimestep, thisImage, numImages, ntotal, ntotal_loc, nvirt, nvirt_loc, nhalo_loc, parts, &
             timings)
 
          ! Finding neighbours within kh
-         call flink_list(maxinter, scale_k, ntotal_loc, nhalo_loc, nvirt_loc, niac, parts, pairs, nexti)
+         call flink_list(maxinter, ntotal_loc, nhalo_loc, nvirt_loc, niac, parts, pairs, nexti)
 
          call update_virt_part(ntotal_loc, nhalo_loc, nvirt_loc, parts, niac, pairs, nexti, vw)
 

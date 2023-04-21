@@ -2,7 +2,7 @@ module ORB_m
 
    use datatypes, only: particles, time_tracking, system_clock_timer
    use ORB_sr_m, only: ORB_sendrecv_diffuse, ORB_sendrecv_halo
-   use param, only: f, dim, hsml
+   use param, only: f, dim, hsml, scale_k
    use param_para, only: neighbour_data, partition_tracking, dcell_ORB, box_ratio_threshold
 
    private
@@ -19,14 +19,13 @@ module ORB_m
 
 contains
 
-   subroutine ORB(itimestep, thisImage, numImages, scale_k, ntotal, ntotal_loc, nvirt, nvirt_loc, nhalo_loc, parts, &
+   subroutine ORB(itimestep, thisImage, numImages, ntotal, ntotal_loc, nvirt, nvirt_loc, nhalo_loc, parts, &
          timings)
 
       use param_para, only: ORBcheck1, ORBcheck2
 
       implicit none
       integer, intent(in):: thisImage, numImages, itimestep, ntotal, nvirt
-      real(f), intent(in):: scale_k
       type(particles), codimension[*], intent(inout):: parts(:)
       type(time_tracking), intent(inout):: timings
       integer, codimension[*], intent(inout):: ntotal_loc, nhalo_loc, nvirt_loc
@@ -115,7 +114,7 @@ contains
             free_face(2*dim) = .true.
             n_process_neighbour = 0
 
-            call ORB_bounds(thisImage, numImages, scale_k, gridind_ini, numImages, 1, imagerange_ini, ntotal, &
+            call ORB_bounds(thisImage, numImages, gridind_ini, numImages, 1, imagerange_ini, ntotal, &
                             dcell, mingridx_ini, maxgridx_ini, free_face)
 
             deallocate (pincell_ORB)
@@ -136,7 +135,7 @@ contains
 
       ! halo particle interaction
       nhalo_loc = 0
-      call ORB_sendrecv_halo(thisImage, bounds_loc, scale_k, n_process_neighbour, neighbours, old_ntv_loc, &
+      call ORB_sendrecv_halo(thisImage, bounds_loc, n_process_neighbour, neighbours, old_ntv_loc, &
                              ntv_loc, nhalo_loc, parts)
 
       ntotal_loc = 0
@@ -246,7 +245,7 @@ contains
    end subroutine particle_grid
 
    !====================================================================================================================
-   recursive subroutine ORB_bounds(thisImage, numImages, scale_k, gridind_in, numImages_in, node_in, imagerange_in, &
+   recursive subroutine ORB_bounds(thisImage, numImages, gridind_in, numImages_in, node_in, imagerange_in, &
                                    ntotal_in, dcell, mingridx_in, maxgridx_in, free_face)
 
       ! Recursive function that performs the 'bisection' part of the ORB algorithm
@@ -259,7 +258,7 @@ contains
       implicit none
       integer, intent(in):: thisImage, numImages, gridind_in(3, 2), numImages_in, node_in, &
                             imagerange_in(2), ntotal_in
-      real(f), intent(in):: mingridx_in(3), maxgridx_in(3), dcell, scale_k
+      real(f), intent(in):: mingridx_in(3), maxgridx_in(3), dcell
       logical, intent(inout):: free_face(6) ! array to track which faces are cuts, and which faces are free
       integer:: i, ii, j, k, d, ngridx_trim(3), A(3), pincol, np_per_node, thisImage_limits(2, 3), otherImage, &
                 n, imagerange_out(2), gridind_out(3, 2), ntotal_out, numImages_out, node_out, imagerange_lo(2), &
@@ -336,7 +335,7 @@ contains
       free_face(3 + cax) = .false. ! "low" processes have cut on "upper" face
       numImages_out = imagerange_out(2) - imagerange_out(1) + 1
       if (numImages_out > 1) then
-         call ORB_bounds(thisImage, numImages, scale_k, gridind_out, numImages_out, node_out, imagerange_out, &
+         call ORB_bounds(thisImage, numImages, gridind_out, numImages_out, node_out, imagerange_out, &
                          ntotal_out, dcell, mingridx_in, maxgridx_in, free_face)
       else if (thisImage==imagerange_out(1)) then
          bounds_loc(1:3) = mingridx_in(:) + (gridind_out(:, 1) - 1)*dcell
@@ -353,7 +352,7 @@ contains
       free_face(cax) = .false. ! "upper" processes have cut on "lower" face
       numImages_out = imagerange_out(2) - imagerange_out(1) + 1
       if (numImages_out > 1) then
-         call ORB_bounds(thisImage, numImages, scale_k, gridind_out, numImages_out, node_out, imagerange_out, &
+         call ORB_bounds(thisImage, numImages, gridind_out, numImages_out, node_out, imagerange_out, &
                          ntotal_out, dcell, mingridx_in, maxgridx_in, free_face)
       else if (thisImage==imagerange_out(1)) then
          bounds_loc(1:3) = mingridx_in(:) + (gridind_out(:, 1) - 1)*dcell

@@ -56,4 +56,14 @@ module param
 
    integer, parameter:: halotype = 100 ! an extra identifier to distinguish halo from real ones
 
+#if defined(KERNEL_QUARTIC)
+   real(f), parameter:: scale_k = 2.5_f
+#elif defined(KERNEL_QUINTIC)
+   real(f), parameter:: scale_k = 3._f
+#elif defined(KERNEL_GAUSSIAN)
+   real(f), parameter:: scale_k = huge(1._f)
+#else
+   real(f), parameter:: scale_k = 2._f
+#endif
+
 end module param

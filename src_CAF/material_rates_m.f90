@@ -101,7 +101,7 @@ contains
 
       ! dx(:) = p_i%x(:) - p_j%x(:)
       vr = DOT_PRODUCT(p_i%vx(:) - p_j%vx(:), dx(:))
-      if (vr > 0_f) vr = 0_f
+      if (vr > 0._f) vr = 0._f
 
       !Artificial viscous force only if v_ij * r_ij < 0
       rr = DOT_PRODUCT(dx(:), dx(:))

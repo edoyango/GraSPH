@@ -3,7 +3,7 @@ module ORB_sr_m
    use datatypes, only: particles, system_clock_timer
    use iso_fortran_env, only: lock_type, event_type
    use param_para, only: neighbour_data
-   use param, only: tf, f, dim, hsml, halotype
+   use param, only: tf, f, dim, hsml, halotype, scale_k
 
    private
    public:: ORB_sendrecv_diffuse, ORB_sendrecv_halo
@@ -196,7 +196,7 @@ contains
    end subroutine ORB_sendrecv_diffuse
 
    !====================================================================================================================
-   subroutine ORB_sendrecv_halo(thisImage, bounds_loc, scale_k, n_process_neighbour, neighbours, old_ntotal_loc, &
+   subroutine ORB_sendrecv_halo(thisImage, bounds_loc, n_process_neighbour, neighbours, old_ntotal_loc, &
                                 ntotal_loc, nhalo_loc, parts)
 
       !subroutine responsible for sending sending halo particle information between processes, given
@@ -206,7 +206,7 @@ contains
       implicit none
       integer, intent(in):: thisImage, n_process_neighbour, old_ntotal_loc
       integer, codimension[*], intent(in):: ntotal_loc
-      real(f), intent(in):: bounds_loc(2*dim), scale_k
+      real(f), intent(in):: bounds_loc(2*dim)
       type(neighbour_data), intent(inout):: neighbours(n_process_neighbour)
       integer, codimension[*], intent(out):: nhalo_loc
       type(particles), codimension[*], intent(inout):: parts(:)

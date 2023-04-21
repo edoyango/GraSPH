@@ -12,7 +12,7 @@ program SPH
    implicit none
    integer:: thisImage, numImages, maxtimestep, print_step, save_step, ntotal, nvirt, maxnloc, maxinter, i
    integer, codimension[*]:: ntotal_loc, nhalo_loc, nvirt_loc
-   real(f):: scale_k, bounds_loc(2*dim)
+   real(f):: bounds_loc(2*dim)
    integer, allocatable:: nexti(:)
    type(particles), allocatable, codimension[:]:: parts(:)
    type(interactions), allocatable:: pairs(:)
@@ -25,9 +25,6 @@ program SPH
    ! Printing preamble to screen
    call preamble(thisImage, numImages, maxtimestep, print_step, save_step)
 
-   ! Retrieving kernel k parameter for use in the program
-   scale_k = kernel_k(skf)
-
    ! Reading input hdf5 file and allocating persistent arrays
    call read_input_and_allocate(thisImage, numImages, ntotal, ntotal_loc, nvirt, nvirt_loc, parts, pairs, nexti, &
       maxnloc, maxinter)
@@ -38,11 +35,11 @@ program SPH
    end if
 
    nhalo_loc = 0
-   call ORB(0, thisImage, numImages, scale_k, ntotal, ntotal_loc, nvirt, nvirt_loc, nhalo_loc, parts, timings)
+   call ORB(0, thisImage, numImages, ntotal, ntotal_loc, nvirt, nvirt_loc, nhalo_loc, parts, timings)
    call output(0, save_step, thisImage, numImages, ntotal_loc, nhalo_loc, nvirt_loc, parts, ntotal)
 
    ! Entering discretized time-integration loop
-   call time_integration(maxtimestep, print_step, save_step, thisImage, numImages, maxnloc, maxinter, timings, scale_k, &
+   call time_integration(maxtimestep, print_step, save_step, thisImage, numImages, maxnloc, maxinter, timings, &
                          ntotal_loc, nvirt_loc, nhalo_loc, ntotal, nvirt, parts, pairs, nexti)
 
    !Printing post-amble to terminal

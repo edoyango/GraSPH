@@ -93,7 +93,7 @@ sph: $(OBJ)
 
 $(ODIR)/param.caf.o: \
 $(ODIR)/%.caf.o: \
-$(CDIR)/%.f90
+$(CDIR)/%.F90
 	$(FC) -c -o $@ $< $(FCFLAGS)
 
 $(ODIR)/hdf5_parallel_io_helper_m.caf.o: \
@@ -110,7 +110,7 @@ $(ODIR)/param.caf.o
 
 $(ODIR)/kernel_m.caf.o: \
 $(ODIR)/%.caf.o: \
-$(SDIR)/%.f90 \
+$(SDIR)/%.F90 \
 $(ODIR)/param.caf.o
 	$(FC) -c -o $@ $< $(FCFLAGS)
 
@@ -152,7 +152,7 @@ $(ODIR)/param.caf.o $(ODIR)/datatypes.caf.o
 
 $(ODIR)/flink_list_m.caf.o: \
 $(ODIR)/%.caf.o: \
-$(SDIR)/%.f90 \
+$(SDIR)/%.F90 \
 $(addprefix $(ODIR)/,param.caf.o datatypes.caf.o kernel_m.caf.o)
 	$(FC) -c -o $@ $< $(FCFLAGS)
 
