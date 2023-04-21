@@ -1,0 +1,189 @@
+module single_step_m
+
+   use datatypes, only: interactions, particles
+   use param, only: dim, f, g, mass, hsml
+   
+   private
+
+   public:: single_step_kernel
+
+contains
+
+   !==============================================================================================================================
+   attributes(global) pure subroutine single_step_kernel(ind, itype, x, vx, rho, prho, maxinter, np, nij, pij, dvxdti, drhodti)
+
+      implicit none
+      integer, intent(in), value:: maxinter, np
+      integer, intent(in):: nij, ind(np), itype(np)
+      real(f), intent(in):: x(dim, np), vx(dim, np), rho(np), prho(np)
+      type(interactions), intent(in):: pij(maxinter)
+      real(f), intent(inout):: dvxdti(dim, np), drhodti(np)
+      integer:: i, j, k, d
+      real(f):: a_coeff, tmp, tdwdx(dim), dvx(dim), tmpadwdx
+
+      ! Obtaining thread global index (used to assign particle index)
+      k = blockDim%x*(blockIdx%x - 1) + threadIdx%x
+
+      ! Beginning loop over
+      if (k <= nij) then
+         
+         i = pij(k)%i
+         j = pij(k)%j
+         tdwdx = kerneldwdx(pij(k)%dx, hsml)
+
+         dvx = vx(:, i) - vx(:, j)
+
+         !Density approximation or change rate
+         call con_density(dvx, tdwdx, drhodti(i), drhodti(j))
+            
+         ! calculating coefficients for pressure force and artificial viscosity
+         a_coeff = int_force_coeff(prho(i), prho(j)) + &
+                   art_visc_coeff(rho(i), rho(j), pij(k)%dx, dvx)
+                      
+         do d = 1, dim
+            tmpadwdx = tdwdx(d)*a_coeff
+            tmp = atomicadd(dvxdti(d, i), tmpadwdx)
+            tmp = atomicsub(dvxdti(d, j), tmpadwdx)
+         end do
+
+      end if
+
+   end subroutine single_step_kernel
+
+   !=================================================================================
+   attributes(device) pure subroutine ext_force(ki, nt, nv, ng, p_i, p_j, dwdx, exdvxdti, exdvxdtj)
+
+      use param, only: p1, p2, rr0, dd
+
+      implicit none
+      integer, intent(in):: ki, nt, nv, ng
+      type(particles), intent(in):: p_i, p_j
+      real(f), intent(in):: dwdx(dim)
+      real(f), intent(inout):: exdvxdti(dim), exdvxdtj(dim)
+      real(f):: dx(dim), rr, fo, tmp
+      integer:: d
+
+      dx(:) = p_i%x(:) - p_j%x(:)
+      rr = SQRT(SUM(dx(:)*dx(:)))
+
+      if (rr .lt. rr0) then
+         fo = ((rr0/rr)**p1 - (rr0/rr)**p2)/rr**2
+         do d = 1, dim
+            tmp = atomicAdd(exdvxdti(d), dd*dx(d)*fo)
+            tmp = atomicAdd(exdvxdtj(d), -dd*dx(d)*fo)
+         end do
+      end if
+
+   end subroutine ext_force
+
+   !=================================================================================
+   attributes(device) pure subroutine con_density(dvx, dwdx, codrhodti, codrhodtj)
+
+      implicit none
+      real(f), intent(in):: dvx(dim), dwdx(dim)
+      real(f), intent(inout):: codrhodti, codrhodtj
+      real(f):: vcc, tmp
+
+      ! dvx(:) = vx_i(:) - vx_j(:)
+
+      vcc = DOT_PRODUCT(dvx(:), dwdx(:))
+
+      tmp = atomicAdd(codrhodti, mass*vcc)
+      tmp = atomicAdd(codrhodtj, mass*vcc)
+
+   end subroutine con_density
+
+   !=================================================================================
+   attributes(device) pure function art_visc_coeff(rho_i, rho_j, dx, dvx) result(coeff)
+
+      use param, only: alpha, beta, etq, hsml, c
+
+      implicit none
+      real(f), intent(in):: rho_i, rho_j, dx(dim), dvx(dim)
+      real(f):: muv, mrho, coeff
+
+      muv = hsml*min(0._f, sum(dvx(:)*dx(:)))/(sum(dx*dx) + hsml*hsml*etq*etq)
+      mrho = 0.5_f*(rho_i + rho_j)
+      coeff = -mass*(beta*muv - alpha*c)*muv/mrho
+
+   end function art_visc_coeff
+
+   !=================================================================================
+   attributes(device) pure function int_force_coeff(prho_i, prho_j) result(coeff)
+
+      implicit none
+      real(f), intent(in):: prho_i, prho_j
+      real(f):: coeff
+
+      coeff = -mass*(prho_i + prho_j)
+
+   end function int_force_coeff
+
+   !==============================================================================================================================
+   attributes(device) pure function kerneldwdx(dx, thsml) result(tdwdx)
+      ! Contains the kernels
+
+      use param, only: skf, pi, dims => dim
+
+      implicit none
+      real(f), intent(in):: dx(dims), thsml
+      real(f):: q, factor, tdwdx(dims), r
+
+      r = sqrt(sum(dx*dx))
+      q = r/thsml
+
+      #if defined(KERNEL_CUBIC)
+         #ifdef TWOD
+            factor = 10._f/(7._f*pi*thsml*thsml)
+         #else
+            factor = 1._f/(pi*thsml*thsml*thsml)
+         #endif
+            tdwdx = -factor*3._f*(0.25_f*MAX(0._f, 2._f - q)**2 - MAX(0._f, 1._f - q)**2)*dx(:)/(r*thsml)
+      #elif defined(KERNEL_QUARTIC)
+         #ifdef TWOD
+            factor = 96._f/(1199._f*pi*thsml*thsml)
+         #else
+            factor = 1._f/(20._f*pi*thsml*thsml*thsml)
+         #endif
+            tdwdx(:) = &
+               -factor*4._f*(MAX(0._f, 2.5_f - q)**3 - 5_f*MAX(0._f, 1.5_f - q)**3 + 10_f*MAX(0._f, 0.5_f - q)**3)*dx(:)/(r*thsml)
+      #elif defined(KERNEL_QUINTIC)
+         #ifdef TWOD
+            factor = 7._f/(478._f*pi*thsml*thsml)
+         #else
+            factor = 1._f/(120._f*pi*thsml*thsml*thsml)
+         #endif
+            tdwdx(:) = &
+               -factor*5._f*(MAX(0._f, 3._f - q)**4 - 6._f*MAX(0._f, 2._f - q)**4 + 15._f*MAX(0._f, 1._f - q)**4)*dx(:)/(r*thsml)
+      #elif defined(KERNEL_WQUINTIC_C4)
+         #ifdef TWOD
+            factor = 3._f/(1024._f*pi*thsml*thsml)
+         #else
+            factor = 165._f/(65536._f*pi*thsml*thsml*thsml)
+         #endif
+         tdwdx(:) = -factor*56._f*q*MAX(0._f, 2._f - q)**5*(5._f*q + 2._f)*dx(:)/(r*thsml)
+      #elif defined(KERNEL_WQUINTIC_C6)
+         #ifdef TWOD
+            factor = 39._f/(14336._f*pi*thsml*thsml)
+         #else
+            factor = 1365._f/(524288._f*pi*thsml*thsml*thsml)
+         #endif
+         tdwdx(:) = -factor*22._f*q*(8._f*q**2 + 7._f*q + 2._f)*MAX(0._f, 2._f - q)**7*dx(:)/(r*thsml)
+      #elif defined(KERNEL_GAUSSIAN)
+         factor = 1_f/(thsml**dims*pi**(0.5_f*dims))
+         if (q .ge. 0_f .and. q .le. 3_f) then
+            tdwdx(:) = factor*exp(-q*q)*2._f*dx(:)/(thsml*thsml)
+         end if
+      #else
+         #ifdef TWOD
+            factor = 7._f/(64._f*pi*thsml*thsml)
+         #else
+            factor = 21._f/(256._f*pi*thsml*thsml*thsml)
+         #endif
+         tdwdx(:) = -factor*10._f*q*MAX(0._f, 2._f - q)**3*dx(:)/(r*thsml)
+      #endif
+
+   end function kerneldwdx
+
+
+end module single_step_m

@@ -22,9 +22,9 @@ contains
       implicit none
       integer, intent(in):: ntotal, nvirt, maxinter_perp
       integer, intent(out):: maxn, maxinter
-      integer, allocatable, intent(inout):: itype(:), ind(:), pairs(:, :)
-      real(f), allocatable, intent(inout):: p(:), rho(:), x(:,:), vx(:,:), w(:), dwdx(:, :)
-      ! type(interactions), allocatable, intent(inout):: pairs(:)
+      integer, allocatable, pinned, intent(inout):: itype(:), ind(:)
+      real(f), allocatable, pinned, intent(inout):: p(:), rho(:), x(:,:), vx(:,:)
+      type(interactions), allocatable, intent(inout):: pairs(:)
 
       maxn = ntotal + nvirt!+int(0.2*ntotal)
       maxinter = maxinter_perp*maxn
@@ -39,9 +39,9 @@ contains
 
       implicit none
       integer, intent(in):: maxinter_perp
-      integer, allocatable, intent(inout):: itype(:), ind(:), pairs(:, :)
-      real(f), allocatable, intent(inout):: p(:), rho(:), x(:, :), vx(:,:), w(:), dwdx(:, :)
-      ! type(interactions), allocatable, intent(inout):: pairs(:)
+      integer, allocatable, pinned, intent(inout):: itype(:), ind(:)
+      real(f), allocatable, pinned, intent(inout):: p(:), rho(:), x(:, :), vx(:,:)
+      type(interactions), allocatable, intent(inout):: pairs(:)
       integer, intent(out):: ntotal, nvirt, maxn, maxinter
       integer:: i, j, k, d, n, ierr
       real(f):: xi, yi, zi
@@ -95,7 +95,7 @@ contains
       ! type(interactions), intent(in):: pij(maxinter)
       real(f), intent(inout):: vw(n_p)
       integer:: i, j, k, d
-      real(f):: tmp, tmp2
+      real(f):: tmp, tmp2, tw
 
       k = blockDim%x*(blockIdx%x - 1) + threadIdx%x
 
@@ -103,16 +103,18 @@ contains
          i = pij(1, k) !pij(k)%i
          j = pij(2, k) !pij(k)%j
             if (itype(i) < 0 .and. itype(j) > 0) then
-               tmp = mass*w(k)/rho(j)
+               tw = kernelw(pij(k)%dx, hsml)
+               tmp = mass*tw/rho(j)
                tmp2 = atomicadd(vw(i), tmp)
-               tmp2 = atomicadd(rho(i), mass*w(k))
+               tmp2 = atomicadd(rho(i), mass*tw)
                do d = 1,dim
                   tmp2 = atomicadd(vx(d, i), vnorm(d, -itype(i))*vx(d,j)*tmp)
                end do
             else if (itype(j) < 0 .and. itype(i) > 0) then
-               tmp = mass*w(k)/rho(i)
+               tw = kernelw(pij(k)%dx, hsml)
+               tmp = mass*tw/rho(i)
                tmp2 = atomicadd(vw(j), tmp)
-               tmp2 = atomicadd(rho(j), mass*w(k))
+               tmp2 = atomicadd(rho(j), mass*tw)
                do d = 1,dim
                   tmp2 = atomicadd(vx(d, j), vnorm(d, -itype(j))*vx(d,i)*tmp)
                end do
@@ -147,5 +149,68 @@ contains
       call hdf5_parallel_read(gid_in, 'v', ldispl, gdims, vx)
 
    end subroutine read_particle_data_parallel
+
+   !==============================================================================================================================
+   attributes(device) pure function kernelw(dx, thsml) result(tw)
+      ! Contains the kernels
+
+      use param, only: skf, pi, dims => dim
+
+      implicit none
+      real(f), intent(in):: dx(dims), thsml
+      real(f):: q, factor, tw
+
+      q = sqrt(sum(dx*dx))/thsml
+
+      #if defined(KERNEL_CUBIC)
+         #ifdef TWOD
+            factor = 10._f/(7._f*pi*thsml*thsml)
+         #else
+            factor = 1._f/(pi*thsml*thsml*thsml)
+         #endif
+            tw = factor*(0.25_f*MAX(0._f, 2._f - q)**3 - MAX(0._f, 1._f - q)**3)
+      #elif defined(KERNEL_QUARTIC)
+         #ifdef TWOD
+            factor = 96._f/(1199._f*pi*thsml*thsml)
+         #else
+            factor = 1._f/(20._f*pi*thsml*thsml*thsml)
+         #endif
+            tw = factor*(MAX(0._f, 2.5_f - q)**4 - 5_f*MAX(0._f, 1.5_f - q)**4 + 10_f*MAX(0._f, 0.5_f - q)**4)
+      #elif defined(KERNEL_QUINTIC)
+         #ifdef TWOD
+            factor = 7._f/(478._f*pi*thsml*thsml)
+         #else
+            factor = 1._f/(120._f*pi*thsml*thsml*thsml)
+         #endif
+            tw = factor*(MAX(0._f, 3._f - q)**5 - 6._f*MAX(0._f, 2._f - q)**5 + 15._f*MAX(0._f, 1._f - q)**5)
+      #elif defined(KERNEL_WQUINTIC_C4)
+         #ifdef TWOD
+            factor = 3._f/(1024._f*pi*thsml*thsml)
+         #else
+            factor = 165._f/(65536._f*pi*thsml*thsml*thsml)
+         #endif
+            tw = factor*MAX(0._f, 2._f - q)**6*(35._f*q**2 + 36._f*q + 12._f)
+      #elif defined(KERNEL_WQUINTIC_C6)
+         #ifdef TWOD
+            factor = 39._f/(14336._f*pi*thsml*thsml)
+         #else
+            factor = 1365._f/(524288._f*pi*thsml*thsml*thsml)
+         #endif
+            tw = factor*MAX(0._f, 2._f - q)**8*(16._f*q**3 + 25_f*q**2 + 16._f*q + 4._f)
+      #elif defined(KERNEL_GAUSSIAN)
+            factor = 1_f/(thsml**dims*pi**(0.5_f*dims))
+            if (q .ge. 0_f .and. q .le. 3_f) then
+               tw = factor*exp(-q*q)
+            end if
+      #else
+         #ifdef TWOD
+            factor = 7._f/(64._f*pi*thsml*thsml)
+         #else
+            factor = 21._f/(256._f*pi*thsml*thsml*thsml)
+         #endif
+            tw = factor*MAX(0._f, 2._f - q)**4*(2._f*q + 1._f)
+      #endif
+
+   end function kernelw
 
 end module input_m

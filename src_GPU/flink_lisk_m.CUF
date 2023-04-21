@@ -1,0 +1,259 @@
+module flink_list_m
+
+   use datatypes, only: particles, interactions
+   use param, only: f, hsml, dim, scale_k
+
+   use cudafor
+
+   private
+
+   integer, parameter:: sweepinds(3, 13) = reshape((/-1,-1,-1, &
+                                                      0,-1,-1, &
+                                                      1,-1,-1, &
+                                                     -1, 0,-1, &
+                                                      0, 0,-1, &
+                                                      1, 0,-1, &
+                                                     -1, 1,-1, &
+                                                      0, 1,-1, &
+                                                      1, 1,-1, &
+                                                     -1,-1, 0, &
+                                                      0,-1, 0, &
+                                                      1,-1, 0, &
+                                                     -1, 0, 0/) , (/3, 13/))
+
+   integer, constant:: ngridx_d(dim)
+   real(f), constant:: mingridx_d(dim), maxgridx_d(dim)
+
+   real(f), parameter:: dcell = hsml*scale_k
+
+   public:: flink_list, kernel_k
+
+contains
+
+   !==============================================================================================================================
+   subroutine flink_list(ind_d, itype_d, x_d, vx_d, rho_d, p_d, drho, dvxdt, maxinter, n_p, niac_d, pairs_d)
+      ! save as above, but for 3D
+      
+      use thrust
+
+      implicit none
+      integer, intent(in):: n_p, maxinter
+      integer, device, intent(inout):: ind_d(n_p), itype_d(n_p)
+      real(f), device, intent(inout):: x_d(dim, n_p), vx_d(dim, n_p), rho_d(n_p), p_d(n_p), drho(n_p), dvxdt(dim, n_p)
+      integer, device, intent(out):: niac_d
+      type(interactions), device, intent(out):: pairs_d(maxinter)
+      integer, allocatable, device:: cellLoc(:,:)
+      integer:: i, j, k, d, istat, ngridx(dim)
+      real(f):: mingridx(dim), maxgridx(dim)
+      integer, device:: gridCellHash(n_p), j_d, mapping(n_p), itype_tmp(n_p), ind_tmp(n_p), icell(dim)
+      real(f), device:: minx, miny, minz, maxx, maxy, maxz, p_tmp(n_p), rho_tmp(n_p), x_tmp(dim,n_p), vx_tmp(dim,n_p), drho_tmp(n_p), dvxdt_tmp(dim, n_p)
+      
+      !Determining bounding box extents NB: reduction variables are automatically initialized appropriately
+      !$cuf kernel do <<<*,*>>> reduce(max:maxx,maxy,maxz) reduce(min:minx,miny,minz)
+      do i = 1, n_p
+         minx = min(minx, x_d(1,i))
+         maxx = max(maxx, x_d(1,i))
+         miny = min(miny, x_d(2,i))
+         maxy = max(maxy, x_d(2,i))
+         minz = min(minz, x_d(3,i))
+         maxz = max(maxz, x_d(3,i))
+      end do
+      mingridx(1) = minx - 2.*dcell; mingridx(2) = miny - 2.*dcell; mingridx(3) = minz - 2.*dcell
+      maxgridx(1) = maxx + 1.*dcell; maxgridx(2) = maxy + 1.*dcell; maxgridx(3) = maxz + 1.*dcell
+      ngridx(:) = int((maxgridx(:) - mingridx(:))/dcell) + 1
+      maxgridx(:) = mingridx(:) + ngridx*dcell
+      ngridx_d(:) = ngridx(:)
+      mingridx_d = mingridx
+      maxgridx_d = maxgridx
+      
+      allocate (cellLoc(2,ngridx(1)*ngridx(2)*ngridx(3)))
+      !$cuf kernel do (1) <<<*,1024>>>
+      do i = 1,ngridx(1)*ngridx(2)*ngridx(3)
+         cellLoc(1,i) = 0
+         cellLoc(2,i) = -1
+      end do
+      
+      call map2Grid<<<n_p/1024 + 1, 1024>>>(x_d, gridCellHash, n_p)
+      
+      !$cuf kernel do <<<*,1024>>>
+      do i = 1,n_p
+         mapping(i) = i
+      end do
+      
+      !call thrustsortbykey(gridCellHash, parts_d, np)
+      call thrustsortbykey(gridCellHash, mapping, n_p)
+      
+      !$cuf kernel do <<<*,32>>>
+      do i = 1,n_p
+         j_d = mapping(i)
+         itype_tmp(i) = itype_d(j_d)
+         ind_tmp(i) = ind_d(j_d)
+         p_tmp(i) = p_d(j_d)
+         rho_tmp(i) = rho_d(j_d)
+         x_tmp(:,i) = x_d(:, j_d)
+         vx_tmp(:,i) = vx_d(:, j_d)
+         dvxdt_tmp(:, i) = dvxdt(:, j_d)
+         drho_tmp(i) = drho(j_d)
+      end do
+      
+      !$cuf kernel do <<<*,32>>>
+      do i = 1,n_p
+         itype_d(i) = itype_tmp(i)
+         ind_d(i) = ind_tmp(i)
+         p_d(i) = p_tmp(i)
+         rho_d(i) = rho_tmp(i)
+         x_d(:,i) = x_tmp(:,i)
+         vx_d(:,i) = vx_tmp(:,i)
+         dvxdt(:, i) = dvxdt_tmp(:, i)
+         drho(i) = drho_tmp(i)
+      end do
+      
+      !$cuf kernel do <<<*,1024>>>
+      do i = 1, n_p
+      
+         if (i == 1) then
+           cellLoc(1,gridCellHash(i)) = 1
+         elseif (gridCellHash(i-1) /= gridCellHash(i)) then
+           cellLoc(1,gridCellHash(i)) = i
+         end if
+        
+         if (i == n_p) then
+           cellLoc(2,gridCellHash(i)) = n_p
+         elseif (gridCellHash(i+1) /= gridCellHash(i)) then
+           cellLoc(2,gridCellHash(i)) = i
+         end if
+        
+      end do
+      ! i = 0
+      niac_d = 0
+      call sweep <<< n_p/64 + 1, 64 >>> (x_d, itype_d, maxinter, n_p, gridCellHash, cellLoc, niac_d, pairs_d)
+
+   end subroutine flink_list
+
+   !=================================================================================================================================
+   attributes(global) subroutine map2Grid(x, gridCellHash, n)
+   
+      implicit none
+      real(f), intent(in):: x(dim, n)
+      ! integer, intent(in):: ncells(dim)
+      integer, intent(out):: gridCellHash(:)
+      integer:: i, icell(dim)
+      integer, value:: n
+     
+      i = blockDim%x * (blockIdx%x - 1) + threadIdx%x
+      if (i <= n) then
+        icell(:) = int((x(:,i) - mingridx_d(:))/dcell) + 1
+        gridCellHash(i) = cells2Hash(icell)
+      end if
+     
+   end subroutine map2Grid
+   
+   !==============================================================================================================================
+   attributes(global) subroutine sweep(x, itype, maxint, np, gridCellHash, cellLoc, nij, pij)
+
+      implicit none
+      integer, intent(in), value:: np, maxint
+      real(f), intent(in):: x(dim, np)
+      integer, intent(in):: gridCellHash(np), cellLoc(:,:), itype(np)
+      integer, intent(inout):: nij
+      type(interactions), intent(out):: pij(maxint)
+      integer:: i, j, k, hashAdj, tmp, itypei, hashi
+      real(f):: x_i(dim)
+      
+
+      i = blockDim%x*(blockIdx%x - 1) + threadIdx%x
+
+      ! Beginning sweep
+      if (i <= np) then
+
+         ! storing some data from global memory into core-local memory
+         x_i = x(:, i)
+         itypei = itype(i)
+         hashi = gridCellHash(i)
+
+         ! performing pair search in particle i's cell
+         do j = i+1, cellLoc(2,hashi)
+            call check_if_interact(maxint, i, j, itypei, itype(j), x_i, x(:,j), nij, pij(:))
+         end do
+
+         ! performing pair search in adjacent cells
+         do k = 1, 13
+            hashAdj = hashi + dhash(sweepinds(:, k))
+            do j = cellLoc(1,hashAdj), cellLoc(2,hashAdj)
+               call check_if_interact(maxint, i, j, itypei, itype(j), x_i, x(:,j), nij, pij(:))
+            end do
+         end do
+
+         ! debug message activated with -DDEBUG in FCFLAGS
+         #ifdef DEBUG
+            if (nij==maxint) error stop '***ERROR*** Particle '//i//' has exceeded max interactions per particle'
+         #endif
+         
+      end if
+
+   end subroutine sweep
+
+   !==============================================================================================================================
+   attributes(device) subroutine check_if_interact(maxint, i, j, itypei, itypej, xi, xj, nij, pij)
+      ! subroutine to chekc if two particles are interacting and consequently adding to pair list
+
+      implicit none
+      integer, intent(in):: maxint, i, j, itypei, itypej
+      real(f), intent(in):: xi(dim), xj(dim)
+      integer, intent(inout):: nij
+      type(interactions), intent(inout):: pij(maxint)
+      integer:: tmp
+      real(f):: dxiac(dim)
+
+      ! only consider interactions when real particles are involved
+      if (itypei > 0 .or. itypej > 0) then
+         
+         dxiac(:) = xi(:) - xj(:)
+         if (SUM(dxiac*dxiac) < hsml*scale_k*scale_k*hsml) then
+            tmp = atomicadd(nij,1) + 1
+            pij(tmp)%i = i
+            pij(tmp)%j = j
+            pij(tmp)%dx = dxiac
+         end if
+      end if
+
+   end subroutine check_if_interact
+   
+   !====================================================================================================================
+   attributes(device) pure function cells2Hash(cellCoords) result(hash)
+     
+      implicit none
+      integer, intent(in):: cellCoords(dim)
+      integer:: hash
+     
+      hash = ngridx_d(1)*ngridx_d(2)*(cellCoords(3) - 1) + ngridx_d(1)*(cellCoords(2) - 1) + cellCoords(1)
+     
+   end function cells2Hash
+   
+   !====================================================================================================================
+   attributes(device) pure function hash2Cell(hash) result(cellCoords)
+   
+      implicit none
+      integer, intent(in):: hash
+      integer:: cellCoords(3), nxy, modhashnxy
+     
+      nxy = ngridx_d(1)*ngridx_d(2)
+      modhashnxy = mod(hash-1,nxy)
+     
+      cellCoords(3) = int((hash-1)/nxy) + 1
+      cellCoords(2) = mod(hash-1,nxy)/ngridx_d(1) + 1
+      cellCoords(1) = mod(modhashnxy,ngridx_d(1)) + 1
+     
+   end function hash2Cell
+
+   !====================================================================================================================
+   attributes(device) integer pure function dhash(dcells)
+   
+      implicit none
+      integer, intent(in):: dcells(dim)
+
+      dhash = ngridx_d(1)*ngridx_d(2)*dcells(3) + ngridx_d(1)*dcells(2) + dcells(1)
+      
+   end function dhash
+
+end module flink_list_m
