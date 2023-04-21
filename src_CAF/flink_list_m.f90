@@ -21,6 +21,7 @@ contains
       type(particles), intent(in):: parts(:)
       integer, intent(out):: niac, nexti(:)
       type(interactions), intent(out):: pairs(:)
+      type(particles):: p_i
       integer, parameter:: maxpcell = 125
       integer:: ngridx(3), jth, i, j, k, d, icell, jcell, kcell, xi, yi, zi, ierr = 0
       real(f):: mingridx(3), maxgridx(3), dcell
@@ -81,11 +82,13 @@ contains
          jcell = gridind(2, i)
          kcell = gridind(3, i)
 
+         p_i = parts(i)
+
          ! finding pairs within cell icell,jcell
          do j = 1, pincell(icell, jcell, kcell)
             jth = cells(j, icell, jcell, kcell)
             if (jth > i) then
-               call check_if_interact(maxinter, scale_k, i, jth, parts(i), parts(jth), niac, pairs, ierr)
+               call check_if_interact(maxinter, scale_k, i, jth, p_i, parts(jth), niac, pairs, ierr)
             end if
          end do
 
@@ -96,7 +99,7 @@ contains
             zi = kcell + sweep(3, k)
             do j = 1, pincell(xi, yi, zi)
                jth = cells(j, xi, yi, zi)
-               call check_if_interact(maxinter, scale_k, i, jth, parts(i), parts(jth), niac, pairs, ierr)
+               call check_if_interact(maxinter, scale_k, i, jth, p_i, parts(jth), niac, pairs, ierr)
             end do
          end do
 
@@ -132,8 +135,8 @@ contains
       ! if (.not.((p_i%itype<0 .and. p_j%itype<0) .or. (p_i%itype>halotype .and. p_j%itype>halotype))) then
       if (p_i%itype>0 .or. p_j%itype>0) then
          dxiac(:) = p_i%x(:) - p_j%x(:)
-         r = SQRT(SUM(dxiac*dxiac))
-         if (r < hsml*scale_k) then
+         ! r = SQRT(SUM(dxiac*dxiac))
+         if (SUM(dxiac*dxiac) < hsml*hsml*scale_k*scale_k) then
             niac = niac + 1
             if (niac < maxinter) then
                pairs(niac)%j = j
