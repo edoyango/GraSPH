@@ -5,14 +5,15 @@
 
 module param
 
+   use iso_fortran_env, only: real32, real64
+
    public ! assume everything defined in this module is accessible
 
    ! double or single precision (change f and tf to match)
    ! tf is precision for timing, f is for everything else
    ! (CUDA's timing subroutines only accept single precision floats)
    ! (Reduction of MPI process' times are hard-coding double precision)
-   integer, parameter:: df = kind(1.d0), sf = kind(1.)
-   integer, parameter:: f = df, tf = df
+   integer, parameter:: f = real64, tf = real64
 
    ! constants: pi, g (gravity)
    real(f), parameter:: pi = 3.14159265358979323846_f, g = 9.81_f
