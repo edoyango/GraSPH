@@ -6,6 +6,7 @@ module time_integration_m
    use cudafor
 
    use input_m, only: vmat_update, update_ghost_part, generate_ghost_part
+   use iso_fortran_env, only: int8
    use flink_list_m, only: flink_list
    use output_m, only: output
    use summary_m, only: print_update
@@ -30,7 +31,8 @@ contains
       type(interactions), intent(out):: pairs(maxinter)
       integer:: i, j, k, d, n, istat, itimestep
       integer, device:: ntotal_d, nvirt_d, niac_d
-      integer, allocatable, device:: itype_d(:), ind_d(:)
+      integer(int8), allocatable, device:: itype_d(:)
+      integer, allocatable, device:: ind_d(:)
       real(f), allocatable, device:: p_d(:), rho_d(:), x_d(:, :), vx_d(:, :), v_min(:, :), rho_min(:), dvxdt(:, :), &
          drho(:), vw(:), xlast(:,:), prho(:)
       type(interactions), allocatable, device:: pairs_d(:)

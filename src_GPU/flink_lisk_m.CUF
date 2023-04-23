@@ -1,6 +1,7 @@
 module flink_list_m
 
    use datatypes, only: particles, interactions
+   use iso_fortran_env, only: int8
    use param, only: f, hsml, dim, scale_k
 
    use cudafor
@@ -38,7 +39,8 @@ contains
 
       implicit none
       integer, intent(in):: n_p, maxinter
-      integer, device, intent(inout):: ind_d(n_p), itype_d(n_p)
+      integer, device, intent(inout):: ind_d(n_p)
+      integer(int8), device, intent(inout):: itype_d(n_p)
       real(f), device, intent(inout):: x_d(dim, n_p), vx_d(dim, n_p), rho_d(n_p), p_d(n_p), drho(n_p), dvxdt(dim, n_p)
       integer, device, intent(out):: niac_d
       type(interactions), device, intent(out):: pairs_d(maxinter)
@@ -154,10 +156,12 @@ contains
       implicit none
       integer, intent(in), value:: np, maxint
       real(f), intent(in):: x(dim, np)
-      integer, intent(in):: gridCellHash(np), cellLoc(:,:), itype(np)
+      integer, intent(in):: gridCellHash(np), cellLoc(:,:)
+      integer(int8), intent(in):: itype(:)
       integer, intent(inout):: nij
       type(interactions), intent(out):: pij(maxint)
-      integer:: i, j, k, hashAdj, tmp, itypei, hashi
+      integer:: i, j, k, hashAdj, tmp, hashi
+      integer(int8):: itypei
       real(f):: x_i(dim)
       
 
@@ -198,7 +202,8 @@ contains
       ! subroutine to chekc if two particles are interacting and consequently adding to pair list
 
       implicit none
-      integer, intent(in):: maxint, i, j, itypei, itypej
+      integer, intent(in):: maxint, i, j
+      integer(int8), intent(in):: itypei, itypej
       real(f), intent(in):: xi(dim), xj(dim)
       integer, intent(inout):: nij
       type(interactions), intent(inout):: pij(maxint)
@@ -206,7 +211,7 @@ contains
       real(f):: dxiac(dim)
 
       ! only consider interactions when real particles are involved
-      if (itypei > 0 .or. itypej > 0) then
+      if (itypei > 0_int8 .or. itypej > 0_int8) then
          
          dxiac(:) = xi(:) - xj(:)
          if (SUM(dxiac*dxiac) < hsml*scale_k*scale_k*hsml) then

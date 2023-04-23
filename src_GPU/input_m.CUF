@@ -3,6 +3,7 @@ module input_m
    use datatypes, only: particles, interactions
    use hdf5
    use hdf5_parallel_io_helper_m, only: hdf5_fileopen_read, hdf5_attribute_read
+   use iso_fortran_env, only: int8
    use param, only: dim, f, dxo, irho, g, gamma, c, hsml, mass, input_file, inputf
 
    real(f), parameter:: vnorm(dim, 5) = reshape([-1._f, -1._f, -1._f, &
@@ -86,7 +87,8 @@ contains
 
       implicit none
       integer, intent(in), value:: maxinter, n_p
-      integer, intent(in):: nij, itype(n_p)
+      integer, intent(in):: nij
+      integer(int8), intent(in):: itype(n_p)
       real(f), intent(in):: rho(n_p), vx(dim, n_p)
       type(interactions), intent(in):: pij(maxinter)
       real(f), intent(inout):: vw(n_p)
@@ -98,7 +100,7 @@ contains
       if (k <= nij) then
          i = pij(k)%i
          j = pij(k)%j
-            if (itype(i) < 0 .and. itype(j) > 0) then
+            if (itype(i) < 0_int8 .and. itype(j) > 0_int8) then
                tw = kernelw(pij(k)%dx, hsml)
                tmp = mass*tw/rho(j)
                tmp2 = atomicadd(vw(i), tmp)
@@ -106,7 +108,7 @@ contains
                do d = 1,dim
                   tmp2 = atomicadd(vx(d, i), vnorm(d, -itype(i))*vx(d,j)*tmp)
                end do
-            else if (itype(j) < 0 .and. itype(i) > 0) then
+            else if (itype(j) < 0_int8 .and. itype(i) > 0_int8) then
                tw = kernelw(pij(k)%dx, hsml)
                tmp = mass*tw/rho(i)
                tmp2 = atomicadd(vw(j), tmp)

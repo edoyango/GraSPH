@@ -1,6 +1,7 @@
 module single_step_m
 
    use datatypes, only: interactions, particles
+   use iso_fortran_env, only: int8
    use param, only: dim, f, g, mass, hsml
    
    private
@@ -14,7 +15,8 @@ contains
 
       implicit none
       integer, intent(in), value:: maxinter, np
-      integer, intent(in):: nij, ind(np), itype(np)
+      integer, intent(in):: nij, ind(np)
+      integer(int8), intent(in):: itype(np)
       real(f), intent(in):: x(dim, np), vx(dim, np), rho(np), prho(np)
       type(interactions), intent(in):: pij(maxinter)
       real(f), intent(inout):: dvxdti(dim, np), drhodti(np)
