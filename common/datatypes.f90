@@ -8,9 +8,15 @@ module datatypes
 
    !variable to store particle data
    type particles
-      integer:: itype, indloc, indglob
-      real(f):: rho, rho_min, p
-      real(f):: x(dim), vx(dim), v_min(dim)
+      ! integer:: itype, indloc, indglob
+      ! real(f):: rho, rho_min, p
+      ! real(f):: x(dim), vx(dim), v_min(dim)
+      integer:: ntotal, nvirt, ntotal_loc, nvirt_loc, nhalo_loc, maxn
+      integer, allocatable:: itype(:), indloc(:), indglob(:)
+      real(f), allocatable:: rho(:), rho_min(:), p(:)
+      real(f), allocatable:: x(:, :), vx(:, :), v_min(:, :)
+   contains
+      procedure:: allocate_particles, nsum
    end type particles
 
    !variable to store particle interaction information
@@ -50,5 +56,25 @@ contains
       t = dble(c)/dble(cr)
 
    end function system_clock_timer
+
+   subroutine allocate_particles(self)
+
+      implicit none
+      class(particles), intent(inout):: self
+
+      allocate(self%itype(self%maxn), self%indloc(self%maxn), self%indglob(self%maxn))
+      allocate(self%rho(self%maxn), self%rho_min(self%maxn), self%p(self%maxn))
+      allocate(self%x(dim, self%maxn), self%vx(dim, self%maxn), self%v_min(dim, self%maxn))
+
+   end subroutine allocate_particles
+
+   integer function nsum(self)
+
+      implicit none
+      class(particles), intent(in):: self
+
+      nsum = self%ntotal_loc + self%nhalo_loc + self%nvirt_loc
+      
+   end function nsum
 
 end module datatypes
