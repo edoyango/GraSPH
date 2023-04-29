@@ -31,11 +31,13 @@ contains
       integer, allocatable:: removal_list(:)
       type(lock_type), codimension[*], save:: lock
       type(event_type), codimension[*], save:: neighbourEvent(2)
+      logical, allocatable:: mask(:)
 
       ! Initialization
       diffuse = .true.
       entrydepth = 0
-      searchrange(:) = [1, ntotal_loc]
+      searchrange(1) = 1
+      searchrange(2) = ntotal_loc
       xmin_loc(:) = bounds_loc(1:dim)
       xmax_loc(:) = bounds_loc(dim + 1:2*dim)
 
@@ -45,30 +47,23 @@ contains
          ! At node 0, searchrange(1:2) = [1,ntotal_loc)
          allocate (removal_list(searchrange(2) - searchrange(1) + 2))
          nphys_send_all = 0
-         do i = searchrange(1), searchrange(2)
-            xi(:) = parts(i)%x(:)
-            if (any(xi(:) < xmin_loc(:)) .or. any(xi(:) >= xmax_loc(:))) then
-               nphys_send_all = nphys_send_all + 1
-               removal_list(nphys_send_all) = i
-            end if
-         end do
-         removal_list(nphys_send_all + 1) = 0 ! This is needed due to a quirk in the loop below
 
          ! If there are any particles that do not belong to the host process,
          ! begin searching for neighbouring processes to send the particle to.
          ! If particle is not contained with subdomain boundaries, send the particle to nearest process neighbouring current host.
          do i = 1, n_process_neighbour
             neighbours(i)%nphys_send = 0
-            allocate (neighbours(i)%PhysPackSend(nphys_send_all))
+            allocate (neighbours(i)%PhysPackSend(ntotal_loc))
          end do
 
          tmptime = -system_clock_timer()
 
          ndiffuse = 0
-         if (nphys_send_all > 0) then
-            loop_through_parts: do j = 1, nphys_send_all
-               i = removal_list(j)
-               xi(:) = parts(i)%x(:)
+         loop_through_parts: do i = searchrange(1), searchrange(2)
+            xi(:) = parts(i)%x(:)
+            if (any(xi(:) < xmin_loc(:)) .or. any(xi(:) >= xmax_loc(:))) then
+               nphys_send_all = nphys_send_all + 1
+               removal_list(nphys_send_all) = i
                do n = 1, n_process_neighbour
                   xmin_rem(:) = neighbours(n)%bounds(1:dim)
                   xmax_rem(:) = neighbours(n)%bounds(dim + 1:2*dim)
@@ -91,7 +86,6 @@ contains
                                    neighbours(n)%bounds(d) - parts(i)%x(d), &
                                    parts(i)%x(d) - neighbours(n)%bounds(dim + d))**2
                   end do
-                  dr = sqrt(dr)
                   if (dr < dr_min) then
                      diff_dest = n
                      dr_min = dr
@@ -100,10 +94,11 @@ contains
 
                neighbours(diff_dest)%nphys_send = neighbours(diff_dest)%nphys_send + 1
                neighbours(diff_dest)%PhysPackSend(neighbours(diff_dest)%nphys_send) = parts(i)
+            end if
 
-            end do loop_through_parts
+         end do loop_through_parts
 
-         end if
+         removal_list(nphys_send_all+1) = 0
 
          ! Shifting information to remove sent particles
          n = 0
@@ -172,7 +167,8 @@ contains
 
                entrydepth = entrydepth + 1
 
-               searchrange(:) = [old_ntotal_loc + 1, ntotal_loc]
+               searchrange(1) = old_ntotal_loc + 1
+               searchrange(2) = ntotal_loc
 
             end if
          else
@@ -234,7 +230,8 @@ contains
 
       ! halo particle send location determination
       ! first loop loops over currently held particles
-      searchrange(:) = [1, old_ntotal_loc]
+      searchrange(1) = 1
+      searchrange(2) = old_ntotal_loc
       tmptime = -system_clock_timer()
       ! begin search
       xmin_loc = bounds_loc(1:dim) + 2._f*scale_k*hsml
@@ -264,7 +261,8 @@ contains
          end do
          event wait (neighbourEvent(1), until_count=n_process_neighbour)
 
-         searchrange(:) = [old_ntotal_loc + 1, ntotal_loc]
+         searchrange(1) = old_ntotal_loc + 1
+         searchrange(2) = ntotal_loc
 
       end do
 

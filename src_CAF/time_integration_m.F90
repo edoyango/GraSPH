@@ -45,8 +45,10 @@ contains
          ! save properties at start of step, update properties to mid-step.
          do i = 1, ntotal_loc+nvirt_loc
             if (parts(i)%itype==1) then
-               parts(i)%v_min(:) = parts(i)%vx(:)
-               parts(i)%vx(:) = parts(i)%vx(:) + 0.5_f*dt*dvxdt(:, i)
+               do d = 1, dim
+                  parts(i)%v_min(d) = parts(i)%vx(d)
+                  parts(i)%vx(d) = parts(i)%vx(d) + 0.5_f*dt*dvxdt(d, i)
+               end do
                parts(i)%rho_min = parts(i)%rho
                parts(i)%rho = parts(i)%rho + 0.5_f*dt*drhodt(i)
             end if
@@ -73,8 +75,10 @@ contains
          do i = 1, ntotal_loc+nvirt_loc
             if (parts(i)%itype==1) then
                parts(i)%rho = parts(i)%rho_min + dt*drhodt(i)
-               parts(i)%vx(:) = parts(i)%v_min(:) + dt*dvxdt(:, i)
-               parts(i)%x(:) = parts(i)%x(:) + dt*parts(i)%vx(:)
+               do d = 1, dim
+                  parts(i)%vx(d) = parts(i)%v_min(d) + dt*dvxdt(d, i)
+                  parts(i)%x(d) = parts(i)%x(d) + dt*parts(i)%vx(d)
+               end do
             end if
          end do
 
