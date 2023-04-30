@@ -94,6 +94,7 @@ datatypes.caf.o \
 hdf5_parallel_io_helper_m.caf.o \
 output_m.caf.o \
 param_para.caf.o \
+ORB_m.caf.o \
 summary_m.caf.o \
 input_m.caf.o \
 main.caf.o \
@@ -137,11 +138,11 @@ $(addprefix $(ODIR)/,param.caf.o datatypes.caf.o hdf5_parallel_io_helper_m.caf.o
 #$(addprefix $(ODIR)/,param.caf.o datatypes.caf.o param_para.caf.o)
 #	$(FC) -c -o $@ $< $(FCFLAGS)
 
-#$(ODIR)/ORB_m.caf.o: \
-#$(ODIR)/%.caf.o: \
-#$(SDIR)/%.F90 \
-#$(addprefix $(ODIR)/,param.caf.o datatypes.caf.o param_para.caf.o ORB_sr_m.caf.o)
-#	$(FC) -c -o $@ $< $(FCFLAGS)
+$(ODIR)/ORB_m.caf.o: \
+$(ODIR)/%.caf.o: \
+$(SDIR)/%.F90 \
+$(addprefix $(ODIR)/,param.caf.o datatypes.caf.o param_para.caf.o)
+	$(FC) -c -o $@ $< $(FCFLAGS)
 
 $(ODIR)/summary_m.caf.o $(ODIR)/param_para.caf.o: \
 $(ODIR)/%.caf.o: \

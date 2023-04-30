@@ -2,7 +2,7 @@ program SPH
 
    use datatypes, only: particles, interactions, time_tracking
    use input_m, only: read_input_and_allocate
-   ! use ORB_m, only: partition_track, ORB
+   use ORB_m, only: partition_track, ORB
 #ifdef PARALLEL
    use mpi_f08
 #endif
@@ -41,7 +41,7 @@ program SPH
    end if
 
    parts%nhalo_loc = 0
-   ! call ORB(0, my_rank, num_ranks, parts, timings)
+   call ORB(0, my_rank, num_ranks, parts, timings)
    call output(0, save_step, my_rank, num_ranks, parts)
 
    ! Entering discretized time-integration loop

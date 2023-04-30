@@ -31,7 +31,7 @@ module param_para
 
    ! type to hold all variables related to data transfer between neighbouring processes
    type, public:: neighbour_data
-      integer:: image, nphys_send, nhalo_send, physdispl(2), halodispl(2)
+      integer:: rank, nphys_send, nhalo_send, physdispl(2), halodispl(2)
       real(f):: bounds(2*dim)
       integer, allocatable:: halo_pindex(:)
       type(particles), allocatable:: PhysPackSend(:), HaloPackSend(:)
