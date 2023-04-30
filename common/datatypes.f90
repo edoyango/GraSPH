@@ -16,7 +16,7 @@ module datatypes
       real(f), allocatable:: rho(:), rho_min(:), p(:)
       real(f), allocatable:: x(:, :), vx(:, :), v_min(:, :)
    contains
-      procedure:: allocate_particles, nsum
+      procedure:: allocate_particles, deallocate_particles, nsum
    end type particles
 
    !variable to store particle interaction information
@@ -67,6 +67,17 @@ contains
       allocate(self%x(dim, self%maxn), self%vx(dim, self%maxn), self%v_min(dim, self%maxn))
 
    end subroutine allocate_particles
+
+   subroutine deallocate_particles(self)
+
+      implicit none
+      class(particles), intent(inout):: self
+
+      deallocate(self%itype, self%indloc, self%indglob)
+      deallocate(self%rho, self%rho_min, self%p)
+      deallocate(self%x, self%vx, self%v_min)
+
+   end subroutine deallocate_particles
 
    integer function nsum(self)
 

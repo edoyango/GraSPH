@@ -4,7 +4,7 @@ module ORB_m
 #ifdef PARALLEL
    use mpi_f08
 #endif
-   ! use ORB_sr_m, only: ORB_sendrecv_diffuse, ORB_sendrecv_halo
+   use ORB_sr_m, only: ORB_sendrecv_diffuse, ORB_sendrecv_halo
    use param, only: f, dim, hsml, scale_k
    use param_para, only: neighbour_data, partition_tracking, dcell_ORB, box_ratio_threshold
 
@@ -129,21 +129,21 @@ contains
       timings%t_dist = timings%t_dist - system_clock_timer() ! commence timing of particle distribution
 
       ! physical particle distribution
-      ! ntv_loc = ntotal_loc + nvirt_loc
-      ! call ORB_sendrecv_diffuse(itimestep, my_rank, my_bounds, repartition_mode, n_process_neighbour, neighbours, &
-      !                           old_ntv_loc, ntv_loc, parts)
+      ntv_loc = parts%ntotal_loc + parts%nvirt_loc
+      call ORB_sendrecv_diffuse(itimestep, my_rank, my_bounds, repartition_mode, n_process_neighbour, neighbours, &
+                                old_ntv_loc, ntv_loc, parts)
 
       ! ! halo particle interaction
       ! nhalo_loc = 0
       ! call ORB_sendrecv_halo(my_rank, my_bounds, n_process_neighbour, neighbours, old_ntv_loc, &
       !                        ntv_loc, nhalo_loc, parts)
 
-      ! ntotal_loc = 0
-      ! nvirt_loc = 0
-      ! do i = 1, ntv_loc
-      !    if (parts(i)%itype>0) ntotal_loc = ntotal_loc + 1
-      !    if (parts(i)%itype<0) nvirt_loc = nvirt_loc + 1
-      ! end do
+      parts%ntotal_loc = 0
+      parts%nvirt_loc = 0
+      do i = 1, ntv_loc
+         if (parts%itype(i)>0) parts%ntotal_loc = parts%ntotal_loc + 1
+         if (parts%itype(i)<0) parts%nvirt_loc = parts%nvirt_loc + 1
+      end do
 
       ! update virtual particles
       ! call generate_virt_part(my_rank, num_ranks, ntotal, ntotal_loc, nvirt, nvirt_loc, parts)
