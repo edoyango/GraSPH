@@ -246,8 +246,7 @@ contains
    end subroutine ORB_sendrecv_diffuse
 
    !====================================================================================================================
-   subroutine ORB_sendrecv_halo(my_rank, my_bounds, n_process_neighbour, neighbours, old_ntotal_loc, &
-                                ntotal_loc, nhalo_loc, parts)
+   subroutine ORB_sendrecv_halo(my_rank, my_bounds, n_process_neighbour, neighbours, old_ntotal_loc, ntotal_loc, parts)
 
       !subroutine responsible for sending sending halo particle information between processes, given
       !predetermined subdomain boundaires.
@@ -256,97 +255,113 @@ contains
 #ifdef PARALLEL
 
       implicit none
-      integer, intent(in):: my_rank, n_process_neighbour, old_ntotal_loc
-      integer, intent(in):: ntotal_loc
+      integer, intent(in):: my_rank, n_process_neighbour, old_ntotal_loc, ntotal_loc
       real(f), intent(in):: my_bounds(2*dim)
       type(neighbour_data), intent(inout):: neighbours(n_process_neighbour)
-      integer, intent(out):: nhalo_loc
       type(particles), intent(inout):: parts
-      integer:: i, j, k, d, n, searchrange(2), neighbourImageIDs(n_process_neighbour), displ0, displ1
+      integer:: i, j, k, d, n, searchrange(2), displ, ierr, &
+         request(2*5*n_process_neighbour), status(MPI_STATUS_SIZE, 2*5*n_process_neighbour)
       real(f):: xmin_loc(dim), xmax_loc(dim), xi(dim), tmptime
 
-!       ! initialization
-!       nhalo_loc = 0
+      ! initialization
+      parts%nhalo_loc = 0
 
-!       do i = 1, n_process_neighbour
-!          neighbours(i)%nhalo_send = 0
-!          if (allocated(neighbours(i)%halo_pindex)) then
-!             if (ntotal_loc > size(neighbours(i)%halo_pindex)) deallocate (neighbours(i)%halo_pindex) 
-!          end if
-!          if (.not. allocated(neighbours(i)%halo_pindex)) allocate (neighbours(i)%halo_pindex(ntotal_loc))
-!          if (allocated(neighbours(i)%HaloPackSend)) then
-!             if (ntotal_loc > size(neighbours(i)%HaloPackSend)) deallocate (neighbours(i)%HaloPackSend)
-!          end if
-!          if (.not. allocated(neighbours(i)%HaloPackSend)) allocate (neighbours(i)%HaloPackSend(ntotal_loc))
-!       end do
+      do i = 1, n_process_neighbour
+         neighbours(i)%nhalo_send = 0
+         allocate( neighbours(i)%halo_pindex(ntotal_loc))
+         neighbours(i)%HaloPackSend%maxn = ntotal_loc
+         call neighbours(i)%HaloPackSend%allocate_particles()
+      end do
 
-!       neighbourImageIDs(:) = neighbours(1:n_process_neighbour)%image
+      ! halo particle send location determination
+      ! first loop loops over currently held particles
+      searchrange(1) = 1
+      searchrange(2) = old_ntotal_loc
+      tmptime = -system_clock_timer()
+      ! begin search
+      xmin_loc = my_bounds(1:dim) + 2._f*scale_k*hsml
+      xmax_loc = my_bounds(dim + 1:2*dim) - 2._f*scale_k*hsml
+      do k = 1, 1
+         !do i = searchrange(1), searchrange(2)
+         do i = 1, ntotal_loc
+            xi(:) = parts%x(:, i)
+            if (any([xi(:) <= xmin_loc(:), xi(:) >= xmax_loc(:)])) then
+               do j = 1, n_process_neighbour
+                  if (all([xi(:) >= neighbours(j)%bounds(1:dim) - 2._f*scale_k*hsml, &
+                           xi(:) <= neighbours(j)%bounds(dim + 1:2*dim) + 2._f*scale_k*hsml])) then
+                     neighbours(j)%nhalo_send = neighbours(j)%nhalo_send + 1
+                     neighbours(j)%halo_pindex(neighbours(j)%nhalo_send) = i
+                     ! neighbours(j)%HaloPackSend(neighbours(j)%nhalo_send) = parts(i)
+                     ! neighbours(j)%HaloPackSend(neighbours(j)%nhalo_send)%itype = &
+                        ! neighbours(j)%HaloPackSend(neighbours(j)%nhalo_send)%itype + sign(halotype, parts(i)%itype)
+                     neighbours(j)%HaloPackSend%itype(neighbours(j)%nhalo_send) = parts%itype(i) + &
+                        sign(halotype, parts%itype(i))
+                     neighbours(j)%HaloPackSend%indglob(neighbours(j)%nhalo_send) = parts%indglob(i)
+                     neighbours(j)%HaloPackSend%rho(neighbours(j)%nhalo_send) = parts%rho(i)
+                     neighbours(j)%HaloPackSend%x(:, neighbours(j)%nhalo_send) = parts%x(:, i)
+                     neighbours(j)%HaloPackSend%vx(:, neighbours(j)%nhalo_send) = parts%vx(:, i)
+                     
+                  end if
+               end do
+            end if
+         end do
 
-!       ! halo particle send location determination
-!       ! first loop loops over currently held particles
-!       searchrange(1) = 1
-!       searchrange(2) = old_ntotal_loc
-!       tmptime = -system_clock_timer()
-!       ! begin search
-!       xmin_loc = my_bounds(1:dim) + 2._f*scale_k*hsml
-!       xmax_loc = my_bounds(dim + 1:2*dim) - 2._f*scale_k*hsml
-!       do k = 1, 1
-!          !do i = searchrange(1), searchrange(2)
-!          do i = 1, ntotal_loc
-!             xi(:) = parts(i)%x(:)
-!             if (any([xi(:) <= xmin_loc(:), xi(:) >= xmax_loc(:)])) then
-!                do j = 1, n_process_neighbour
-!                   if (all([xi(:) >= neighbours(j)%bounds(1:dim) - 2._f*scale_k*hsml, &
-!                            xi(:) <= neighbours(j)%bounds(dim + 1:2*dim) + 2._f*scale_k*hsml])) then
-!                      neighbours(j)%nhalo_send = neighbours(j)%nhalo_send + 1
-!                      neighbours(j)%halo_pindex(neighbours(j)%nhalo_send) = i
-!                      neighbours(j)%HaloPackSend(neighbours(j)%nhalo_send) = parts(i)
-!                      neighbours(j)%HaloPackSend(neighbours(j)%nhalo_send)%itype = &
-!                         neighbours(j)%HaloPackSend(neighbours(j)%nhalo_send)%itype + sign(halotype, parts(i)%itype)
-!                   end if
-!                end do
-!             end if
-!          end do
+      end do
 
-!          ! waiting for physicla particles to complete exchange if needed
-!          ! sync all !images(neighbourImageIDs)
-!          do n = 1, n_process_neighbour
-!             event post (neighbourEvent(1)[neighbours(n)%image])
-!          end do
-!          event wait (neighbourEvent(1), until_count=n_process_neighbour)
+      do n = 1, n_process_neighbour
+         call MPI_Irecv(neighbours(n)%nhalo_recv, 1, MPI_INTEGER, neighbours(n)%rank, 0, MPI_COMM_WORLD, &
+            request(2*n-1), ierr)
+         call MPI_Isend(neighbours(n)%nhalo_send, 1, MPI_INTEGER, neighbours(n)%rank, 0, MPI_COMM_WORLD, &
+            request(2*n), ierr)
+      end do
 
-!          searchrange(1) = old_ntotal_loc + 1
-!          searchrange(2) = ntotal_loc
+      call MPI_Waitall(2*n_process_neighbour, request, status, ierr)
 
-!       end do
+      displ = ntotal_loc
+      do n = 1, n_process_neighbour
+         if (neighbours(n)%nhalo_recv > 0) then
+            call MPI_Irecv(parts%itype(displ+1), neighbours(n)%nhalo_recv, &
+               MPI_INTEGER, neighbours(n)%rank, 0, MPI_COMM_WORLD, request(2*5*(n-1)+1), ierr)
+            call MPI_Irecv(parts%indglob(displ+1), neighbours(n)%nhalo_recv, &
+               MPI_INTEGER, neighbours(n)%rank, 1, MPI_COMM_WORLD, request(2*5*(n-1)+2), ierr)
+            call MPI_Irecv(parts%rho(displ+1), neighbours(n)%nhalo_recv, &
+               MPI_DOUBLE_PRECISION, neighbours(n)%rank, 2, MPI_COMM_WORLD, request(2*5*(n-1)+3), ierr)
+            call MPI_Irecv(parts%x(1, displ+1), dim*neighbours(n)%nhalo_recv, &
+               MPI_DOUBLE_PRECISION, neighbours(n)%rank, 3, MPI_COMM_WORLD, request(2*5*(n-1)+4), ierr)
+            call MPI_Irecv(parts%vx(1, displ+1), dim*neighbours(n)%nhalo_recv, &
+               MPI_DOUBLE_PRECISION, neighbours(n)%rank, 4, MPI_COMM_WORLD, request(2*5*(n-1)+5), ierr)
 
-!       ! each process places particles destined for another image, into that image's particle array
-!       do i = 1, n_process_neighbour
-!          if (neighbours(i)%nhalo_send > 0) then
+            displ = displ + neighbours(n)%nhalo_recv
+         else
+            request(2*5*(n-1)+1:2*5*(n-1)+5) = MPI_REQUEST_NULL
+         end if
 
-!             ! lock neighbour image, so this image can update ntotal_loc value
-!             lock(lock[neighbours(i)%image])
-!             neighbours(i)%halodispl(1) = nhalo_loc[neighbours(i)%image] + 1
-!             neighbours(i)%halodispl(2) = neighbours(i)%halodispl(1) + neighbours(i)%nhalo_send - 1
-!             nhalo_loc[neighbours(i)%image] = neighbours(i)%halodispl(2)
-!             unlock(lock[neighbours(i)%image])
-!             neighbours(i)%halodispl(:) = neighbours(i)%halodispl(:) + ntotal_loc[neighbours(i)%image]
-!          end if
-!       end do
+         if (neighbours(n)%nhalo_send > 0) then
+            call MPI_Isend(neighbours(n)%HaloPackSend%itype(1), neighbours(n)%nhalo_send, MPI_INTEGER, &
+               neighbours(n)%rank, 0, MPI_COMM_WORLD, request(2*5*(n-1)+6), ierr)
+            call MPI_Isend(neighbours(n)%HaloPackSend%indglob(1), neighbours(n)%nhalo_send, MPI_INTEGER, &
+               neighbours(n)%rank, 1, MPI_COMM_WORLD, request(2*5*(n-1)+7), ierr)
+            call MPI_Isend(neighbours(n)%HaloPackSend%rho(1), neighbours(n)%nhalo_send, MPI_DOUBLE_PRECISION, &
+               neighbours(n)%rank, 2, MPI_COMM_WORLD, request(2*5*(n-1)+8), ierr)
+            call MPI_Isend(neighbours(n)%HaloPackSend%x(1, 1), dim*neighbours(n)%nhalo_send, MPI_DOUBLE_PRECISION, &
+               neighbours(n)%rank, 3, MPI_COMM_WORLD, request(2*5*(n-1)+9), ierr)
+            call MPI_Isend(neighbours(n)%HaloPackSend%vx(1, 1), dim*neighbours(n)%nhalo_send, MPI_DOUBLE_PRECISION, &
+               neighbours(n)%rank, 4, MPI_COMM_WORLD, request(2*5*(n-1)+10), ierr)
+         else
+            request(2*5*(n-1)+6:2*5*(n-1)+10) = MPI_REQUEST_NULL
+         end if
+      end do
 
-!       do i = 1, n_process_neighbour
-!          if (neighbours(i)%nhalo_send > 0) then
-!             parts(neighbours(i)%halodispl(1):neighbours(i)%halodispl(2)) [neighbours(i)%image] = &
-!                neighbours(i)%HaloPackSend(1:neighbours(i)%nhalo_send)
-!          end if
-!       end do
+      parts%nhalo_loc = displ - ntotal_loc
 
-!       do n = 1, n_process_neighbour
-!          event post (neighbourEvent(2)[neighbours(n)%image])
-!       end do
-!       event wait (neighbourEvent(2), until_count=n_process_neighbour)
+      call MPI_Waitall(2*5*n_process_neighbour, request, status, ierr)
 
-!       tmptime = tmptime + system_clock_timer()
+      do n = 1, n_process_neighbour
+         deallocate(neighbours(n)%halo_pindex)
+         call neighbours(n)%HaloPackSend%deallocate_particles
+      end do
+
+      tmptime = tmptime + system_clock_timer()
 
 #endif
 

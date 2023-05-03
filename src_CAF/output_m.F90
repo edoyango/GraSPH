@@ -102,7 +102,7 @@ contains
       end if
 
       if (sum(nhalo_glob)/=0) then
-         mask = parts%itype(1:parts%nsum()) < -halotype .and. parts%itype(1:parts%nsum()) > halotype
+         mask = parts%itype(1:parts%nsum()) < -halotype .or. parts%itype(1:parts%nsum()) > halotype
          call write_particle_data(my_rank, halo_group_id, global_dims, displ, parts, mask, parts%nhalo_loc)
       end if
 

@@ -133,9 +133,8 @@ contains
                                 old_ntv_loc, ntv_loc, parts)
 
       ! ! halo particle interaction
-      ! nhalo_loc = 0
-      ! call ORB_sendrecv_halo(my_rank, my_bounds, n_process_neighbour, neighbours, old_ntv_loc, &
-      !                        ntv_loc, nhalo_loc, parts)
+      parts%nhalo_loc = 0
+      call ORB_sendrecv_halo(my_rank, my_bounds, n_process_neighbour, neighbours, old_ntv_loc, ntv_loc, parts)
 
       parts%ntotal_loc = 0
       parts%nvirt_loc = 0
@@ -365,12 +364,14 @@ contains
             ierr)
 
          do rem_rank = 0, num_ranks - 1
-            rem_bounds(:) = all_bounds(:, rem_rank+1)
-            if (.not. (any(my_bounds(1:3) - 0.5_f*scale_k*hsml > rem_bounds(4:6) + 0.5_f*scale_k*hsml) .or. &
-                       any(my_bounds(4:6) + 0.5_f*scale_k*hsml < rem_bounds(1:3) - 0.5_f*scale_k*hsml))) then
-               n_process_neighbour = n_process_neighbour + 1
-               neighbours(n_process_neighbour)%rank = rem_rank
-               neighbours(n_process_neighbour)%bounds(:) = rem_bounds(:)
+            if (rem_rank /= my_rank) then
+               rem_bounds(:) = all_bounds(:, rem_rank+1)
+               if (.not. (any(my_bounds(1:3) - 0.5_f*scale_k*hsml > rem_bounds(4:6) + 0.5_f*scale_k*hsml) .or. &
+                          any(my_bounds(4:6) + 0.5_f*scale_k*hsml < rem_bounds(1:3) - 0.5_f*scale_k*hsml))) then
+                  n_process_neighbour = n_process_neighbour + 1
+                  neighbours(n_process_neighbour)%rank = rem_rank
+                  neighbours(n_process_neighbour)%bounds(:) = rem_bounds(:)
+               end if
             end if
          end do
 
