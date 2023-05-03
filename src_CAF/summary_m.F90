@@ -74,7 +74,7 @@ contains
    end subroutine preamble
 
    !====================================================================================================================
-   subroutine print_summary(thisImage, num_ranks, timings, partition_track)
+   subroutine print_summary(my_rank, num_ranks, timings, partition_track)
 
       ! Obtains and prints final MPI summary data e.g. number of partitions, cut axes reorientations, and average
       ! wall-times (broken down)
@@ -82,7 +82,7 @@ contains
       use param_para, only: partition_tracking
 
       implicit none
-      integer, intent(in):: thisImage, num_ranks
+      integer, intent(in):: my_rank, num_ranks
       type(time_tracking), intent(in):: timings
       type(partition_tracking), intent(in):: partition_track
       real(tf):: t_wall_avg, t_ORB_avg, t_dist_avg, t_output_avg
@@ -105,7 +105,7 @@ contains
       t_output_avg = timings%t_output
 #endif
 
-      if (thisImage == 1) then
+      if (my_rank == 0) then
 
          call time_print
          t_wall_avg = t_wall_avg/num_ranks

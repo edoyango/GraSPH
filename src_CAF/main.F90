@@ -49,7 +49,7 @@ program SPH
                          parts, pairs, nexti)
 
    !Printing post-amble to terminal
-   ! call print_summary(my_rank, num_ranks, timings, partition_track)
+   call print_summary(my_rank, num_ranks, timings, partition_track)
 
 #ifdef PARALLEL
    call MPI_Finalize(ierr)
