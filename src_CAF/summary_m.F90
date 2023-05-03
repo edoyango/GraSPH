@@ -8,7 +8,7 @@ module summary_m
    use param, only: f, tf
 
    private
-   public:: preamble, print_summary!, print_loadbalance
+   public:: preamble, print_summary, print_loadbalance
 
 contains
 
@@ -161,60 +161,61 @@ contains
    end subroutine print_summary
 
    !==================================================================================================================================
-!    subroutine print_loadbalance(thisImage, num_ranks, wtime, ntotal_loc, nhalo_loc, nvirt_loc, niac, itimestep, &
-!                                 time, maxtimestep)
-!       ! Prints load balance statistics. Called occasionally as determined by print_step
+   subroutine print_loadbalance(my_rank, num_ranks, wtime, ntotal_loc, nhalo_loc, nvirt_loc, niac, itimestep, &
+                                time, maxtimestep)
+      ! Prints load balance statistics. Called occasionally as determined by print_step
 
-!       implicit none
-!       integer, intent(in):: thisImage, num_ranks, ntotal_loc, nhalo_loc, nvirt_loc, niac, itimestep, maxtimestep
-!       real(tf), intent(in):: wtime
-!       real(f), intent(in):: time
-!       integer:: i, min_n(4), max_n(4), mean_n(4), stdev_n(4)
-!       integer, allocatable:: n_glob(:, :)
+      implicit none
+      integer, intent(in):: my_rank, num_ranks, ntotal_loc, nhalo_loc, nvirt_loc, niac, itimestep, maxtimestep
+      real(tf), intent(in):: wtime
+      real(f), intent(in):: time
+      integer:: i, min_n(4), max_n(4), mean_n(4), stdev_n(4), ierr
+      integer:: n_glob(4, num_ranks)
 
-!       allocate (n_glob(num_ranks, 4) [*])
+      n_glob(1, my_rank + 1) = ntotal_loc
+      n_glob(2, my_rank + 1) = nhalo_loc
+      n_glob(3, my_rank + 1) = nvirt_loc
+      n_glob(4, my_rank + 1) = niac
 
-!       n_glob(thisImage, 1) [1] = ntotal_loc
-!       n_glob(thisImage, 2) [1] = nhalo_loc
-!       n_glob(thisImage, 3) [1] = nvirt_loc
-!       n_glob(thisImage, 4) [1] = niac
+      if (my_rank==0) then
+         call MPI_Gather(n_glob, 4, MPI_INTEGER, n_glob, 4, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+      else
+         call MPI_Gather(n_glob(:, my_rank+1), 4, MPI_INTEGER, n_glob, 4, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+      end if
 
-!       event post(putevents[1])
+      if (my_rank == 0) then
 
-!       if (thisImage == 1) then
-!          event wait(putevents, until_count=num_ranks)
+         !calculating summary statistics for load balance
+         do i = 1, 4
+            min_n(i) = MINVAL(n_glob(i, :))
+            max_n(i) = MAXVAL(n_glob(i, :))
+            mean_n(i) = SUM(n_glob(i, :))/num_ranks
+         end do
 
-!          !calculating summary statistics for load balance
-!          do i = 1, 4
-!             min_n(i) = MINVAL(n_glob(:, i))
-!             max_n(i) = MAXVAL(n_glob(:, i))
-!             mean_n(i) = SUM(n_glob(:, i))/num_ranks
-!          end do
+         stdev_n(:) = 0._f
+         do i = 1, num_ranks
+            stdev_n(:) = stdev_n(:) + (n_glob(:, i) - mean_n(:))**2
+         end do
+         stdev_n(:) = int(SQRT(ABS(real(stdev_n(:), kind=f))/num_ranks))
 
-!          stdev_n(:) = 0._f
-!          do i = 1, num_ranks
-!             stdev_n(:) = stdev_n(:) + (n_glob(i, :) - mean_n(:))**2
-!          end do
-!          stdev_n(:) = int(SQRT(ABS(real(stdev_n(:), kind=f))/num_ranks))
+         write (*, '(A)') '_______________________________________________________________________________'
+         write (*, '(A,I7,A,I7,9x,A,F14.7)') '  current time step = ', itimestep, '/', maxtimestep, &
+            'current time (s) = ', time
+         write (*, '(A,F14.7)') '                                                  Walltime (s) = ', wtime
+         write (*, '(A)') '_______________________________________________________________________________'
+         write (*, 9999) 'ntotal_loc statistics: mean = ', mean_n(1), ' stdev = ', stdev_n(1)
+         write (*, 9999) '                       min  = ', min_n(1), ' max   = ', max_n(1)
+         write (*, 9999) ' nhalo_loc statistics: mean = ', mean_n(2), ' stdev = ', stdev_n(2)
+         write (*, 9999) '                       min  = ', min_n(2), ' max   = ', max_n(2)
+         write (*, 9999) ' nvirt_loc statistics: mean = ', mean_n(3), ' stdev = ', stdev_n(3)
+         write (*, 9999) '                       min  = ', min_n(3), ' max   = ', max_n(3)
+         write (*, 9999) '      niac statistics: mean = ', mean_n(4), ' stdev = ', stdev_n(4)
+         write (*, 9999) '                       min  = ', min_n(4), ' max   = ', max_n(4)
 
-!          write (*, '(A)') '_______________________________________________________________________________'
-!          write (*, '(A,I7,A,I7,9x,A,F14.7)') '  current time step = ', itimestep, '/', maxtimestep, &
-!             'current time (s) = ', time
-!          write (*, '(A,F14.7)') '                                                  Walltime (s) = ', wtime
-!          write (*, '(A)') '_______________________________________________________________________________'
-!          write (*, 9999) 'ntotal_loc statistics: mean = ', mean_n(1), ' stdev = ', stdev_n(1)
-!          write (*, 9999) '                       min  = ', min_n(1), ' max   = ', max_n(1)
-!          write (*, 9999) ' nhalo_loc statistics: mean = ', mean_n(2), ' stdev = ', stdev_n(2)
-!          write (*, 9999) '                       min  = ', min_n(2), ' max   = ', max_n(2)
-!          write (*, 9999) ' nvirt_loc statistics: mean = ', mean_n(3), ' stdev = ', stdev_n(3)
-!          write (*, 9999) '                       min  = ', min_n(3), ' max   = ', max_n(3)
-!          write (*, 9999) '      niac statistics: mean = ', mean_n(4), ' stdev = ', stdev_n(4)
-!          write (*, 9999) '                       min  = ', min_n(4), ' max   = ', max_n(4)
+9999     format(A, I10, A, I10)
 
-! 9999     format(A, I10, A, I10)
+      end if
 
-!       end if
-
-!    end subroutine print_loadbalance
+   end subroutine print_loadbalance
 
 end module summary_m

@@ -1,12 +1,12 @@
 module time_integration_m
 
    use datatypes, only: particles, interactions, time_tracking, system_clock_timer
-   use flink_list_m, only: flink_list
-   use input_m, only: update_virt_part
+   ! use flink_list_m, only: flink_list
+   ! use input_m, only: update_virt_part
    use ORB_m, only: ORB, neighbours, n_process_neighbour
 !    use ORB_sr_m, only: ORB_sendrecv_haloupdate
    use param, only: f, tf, dim, dt, rh0, c, gamma, g
-   use single_step_m, only: single_step
+   ! use single_step_m, only: single_step
    use summary_m, only: print_loadbalance
    use output_m, only: output
 
@@ -15,21 +15,20 @@ module time_integration_m
 
 contains
 
-   subroutine time_integration(maxtimestep, print_step, save_step, thisImage, numImages, maxnloc, maxinter, timings, &
-                               ntotal_loc, nvirt_loc, nhalo_loc, ntotal, nvirt, parts, pairs, nexti)
+   subroutine time_integration(maxtimestep, print_step, save_step, my_rank, num_ranks, maxinter, timings, parts, &
+                               pairs, nexti)
 
-      integer, intent(in):: maxtimestep, print_step, save_step, thisImage, numImages, maxnloc, maxinter, ntotal, nvirt
+      integer, intent(in):: maxtimestep, print_step, save_step, my_rank, num_ranks, maxinter
       type(time_tracking), intent(inout):: timings
       integer, intent(inout):: nexti(:)
-      integer, codimension[*], intent(inout):: ntotal_loc, nvirt_loc, nhalo_loc
-      type(particles), codimension[*], intent(inout):: parts(maxnloc)
+      type(particles), intent(inout):: parts
       type(interactions), intent(inout):: pairs(maxinter)
       integer:: i, j, k, d, n, itimestep, niac
       real(f):: time
       real(tf):: tmptime
       real(f), allocatable:: dvxdt(:, :), drhodt(:), vw(:)
 
-      allocate (dvxdt(dim, maxnloc), drhodt(maxnloc), vw(maxnloc))
+      allocate (dvxdt(dim, parts%maxn), drhodt(parts%maxn), vw(parts%maxn))
 
       ! initializing
       time = 0._f
@@ -43,41 +42,40 @@ contains
       do itimestep = 1, maxtimestep
 
          ! save properties at start of step, update properties to mid-step.
-         do i = 1, ntotal_loc+nvirt_loc
-            if (parts(i)%itype==1) then
+         do i = 1, parts%ntotal_loc+parts%nvirt_loc
+            if (parts%itype(i)==1) then
                do d = 1, dim
-                  parts(i)%v_min(d) = parts(i)%vx(d)
-                  parts(i)%vx(d) = parts(i)%vx(d) + 0.5_f*dt*dvxdt(d, i)
+                  parts%v_min(d, i) = parts%vx(d, i)
+                  parts%vx(d, i) = parts%vx(d, i) + 0.5_f*dt*dvxdt(d, i)
                end do
-               parts(i)%rho_min = parts(i)%rho
-               parts(i)%rho = parts(i)%rho + 0.5_f*dt*drhodt(i)
+               parts%rho_min(i) = parts%rho(i)
+               parts%rho(i) = parts%rho(i) + 0.5_f*dt*drhodt(i)
             end if
          end do
 
          ! distributing particles
-         call ORB(itimestep, thisImage, numImages, ntotal, ntotal_loc, nvirt, nvirt_loc, nhalo_loc, parts, &
-            timings)
+         call ORB(itimestep, my_rank, num_ranks, parts, timings)
 
          ! Finding neighbours within kh
-         call flink_list(maxinter, ntotal_loc, nhalo_loc, nvirt_loc, niac, parts, pairs, nexti)
+         ! call flink_list(maxinter, ntotal_loc, nhalo_loc, nvirt_loc, niac, parts, pairs, nexti)
 
-         call update_virt_part(ntotal_loc, nhalo_loc, nvirt_loc, parts, niac, pairs, nexti, vw)
+         ! call update_virt_part(ntotal_loc, nhalo_loc, nvirt_loc, parts, niac, pairs, nexti, vw)
 
          ! update pressure of newly updated real and halo particles
-         do i = 1, ntotal_loc + nhalo_loc + nvirt_loc
-            parts(i)%p = rh0*c**2*((parts(i)%rho/rh0)**gamma - 1._f)/gamma
+         do i = 1, parts%ntotal_loc + parts%nhalo_loc + parts%nvirt_loc
+            parts%p(i) = rh0*c**2*((parts%rho(i)/rh0)**gamma - 1._f)/gamma
          end do
 
          ! calculating forces
-         call single_step(ntotal_loc, nhalo_loc, nvirt_loc, parts, niac, pairs, dvxdt, drhodt, nexti)
+         ! call single_step(ntotal_loc, nhalo_loc, nvirt_loc, parts, niac, pairs, dvxdt, drhodt, nexti)
 
          ! updating positions and velocity to full timestep
-         do i = 1, ntotal_loc+nvirt_loc
-            if (parts(i)%itype==1) then
-               parts(i)%rho = parts(i)%rho_min + dt*drhodt(i)
+         do i = 1, parts%ntotal_loc+parts%nvirt_loc
+            if (parts%itype(i)==1) then
+               parts%rho(i) = parts%rho_min(i) + dt*drhodt(i)
                do d = 1, dim
-                  parts(i)%vx(d) = parts(i)%v_min(d) + dt*dvxdt(d, i)
-                  parts(i)%x(d) = parts(i)%x(d) + dt*parts(i)%vx(d)
+                  parts%vx(d, i) = parts%v_min(d, i) + dt*dvxdt(d, i)
+                  parts%x(d, i) = parts%x(d, i) + dt*parts%vx(d, i)
                end do
             end if
          end do
@@ -88,17 +86,13 @@ contains
 
          ! write output data
          if (mod(itimestep, save_step) .eq. 0) then
-! #ifdef PARALLEL
-            call output(itimestep, save_step, thisImage, numImages, ntotal_loc, nhalo_loc, nvirt_loc, parts, ntotal)
-! #else
-!             call output_serial(itimestep, save_step, ntotal, nvirt, parts)
-! #endif
+            call output(itimestep, save_step, my_rank, num_ranks, parts)
          end if
 
          if (mod(itimestep, print_step) .eq. 0) then
             tmptime = timings%t_wall + system_clock_timer()
-            call print_loadbalance(thisImage, numImages, tmptime, ntotal_loc, nhalo_loc, nvirt_loc, niac, itimestep, &
-                                   time, maxtimestep)
+            call print_loadbalance(my_rank, num_ranks, tmptime, parts%ntotal_loc, parts%nhalo_loc, parts%nvirt_loc, &
+               niac, itimestep, time, maxtimestep)
          end if
 
          timings%t_output = timings%t_output + system_clock_timer()

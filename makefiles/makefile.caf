@@ -98,6 +98,7 @@ ORB_sr_m.caf.o \
 ORB_m.caf.o \
 summary_m.caf.o \
 input_m.caf.o \
+time_integration_m.caf.o \
 main.caf.o \
 )
 
@@ -175,11 +176,11 @@ $(ODIR)/param.caf.o $(ODIR)/datatypes.caf.o
 #$(addprefix $(ODIR)/,param.caf.o datatypes.caf.o material_rates_m.caf.o)
 #	$(FC) -c -o $@ $< $(FCFLAGS)
 
-#$(ODIR)/time_integration_m.caf.o: \
-#$(ODIR)/%.caf.o: \
-#$(SDIR)/%.F90 \
-#$(addprefix $(ODIR)/,param.caf.o datatypes.caf.o input_m.caf.o ORB_m.caf.o ORB_sr_m.caf.o output_m.caf.o summary_m.caf.o input_m.caf.o single_step_m.caf.o)
-#	$(FC) -c -o $@ $< $(FCFLAGS)
+$(ODIR)/time_integration_m.caf.o: \
+$(ODIR)/%.caf.o: \
+$(SDIR)/%.F90 \
+#$(addprefix $(ODIR)/,param.caf.o datatypes.caf.o input_m.caf.o ORB_m.caf.o ORB_sr_m.caf.o output_m.caf.o summary_m.caf.o single_step_m.caf.o)
+	$(FC) -c -o $@ $< $(FCFLAGS)
 
 $(ODIR)/main.caf.o: \
 $(ODIR)/%.caf.o: \

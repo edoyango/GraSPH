@@ -62,8 +62,6 @@ contains
 
          tmptime = -system_clock_timer()
 
-         write(*, *) my_rank, ntotal_loc
-
          ndiffuse = 0
          loop_through_parts: do i = searchrange(1), searchrange(2)
             xi(:) = parts%x(:, i)
