@@ -370,7 +370,6 @@ contains
                n_process_neighbour = n_process_neighbour + 1
                neighbours(n_process_neighbour)%rank = rem_rank
                neighbours(n_process_neighbour)%bounds(:) = rem_bounds(:)
-               write(*, *) my_rank, rem_rank, rem_bounds
             end if
          end do
 
@@ -419,8 +418,8 @@ contains
 
       ! call co_min(gridind_new(:, 1))
       ! call co_max(gridind_new(:, 2))
-      call MPI_Iallreduce(MPI_IN_PLACE, gridind_new(:, 1), 3, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, request(1))
-      call MPI_Iallreduce(MPI_IN_PLACE, gridind_new(:, 2), 3, MPI_INTEGER, MPI_MIN, MPI_COMM_WORLD, request(2))
+      call MPI_Iallreduce(MPI_IN_PLACE, gridind_new(:, 1), 3, MPI_INTEGER, MPI_MIN, MPI_COMM_WORLD, request(1))
+      call MPI_Iallreduce(MPI_IN_PLACE, gridind_new(:, 2), 3, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, request(2))
 
       call MPI_Waitall(2, request, status)
 
