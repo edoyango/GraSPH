@@ -4,7 +4,7 @@ program SPH
    use input_m, only: read_input_and_allocate
    use ORB_m, only: partition_track, ORB
 #ifdef PARALLEL
-   use mpi_f08
+   use mpi
 #endif
    use param, only: f, skf, dim
    use summary_m, only: preamble, print_summary
@@ -12,7 +12,7 @@ program SPH
    use output_m, only: output
 
    implicit none
-   integer:: my_rank, num_ranks, maxtimestep, print_step, save_step, maxinter, i
+   integer:: my_rank, num_ranks, maxtimestep, print_step, save_step, maxinter, i, ierr
    real(f):: bounds_loc(2*dim)
    integer, allocatable:: nexti(:)
    type(particles):: parts
@@ -21,9 +21,9 @@ program SPH
 
    ! Initializing MPI and obtaining this process' rank and number of MPI ranks participating
 #ifdef PARALLEL
-   call MPI_Init()
-   call MPI_Comm_size(MPI_COMM_WORLD, num_ranks)
-   call MPI_Comm_rank(MPI_COMM_WORLD, my_rank)
+   call MPI_Init(ierr)
+   call MPI_Comm_size(MPI_COMM_WORLD, num_ranks, ierr)
+   call MPI_Comm_rank(MPI_COMM_WORLD, my_rank, ierr)
 #else
    num_ranks = 1
    my_rank = 0
@@ -52,7 +52,7 @@ program SPH
    ! call print_summary(my_rank, num_ranks, timings, partition_track)
 
 #ifdef PARALLEL
-   call MPI_Finalize()
+   call MPI_Finalize(ierr)
 #endif
 
 end program SPH

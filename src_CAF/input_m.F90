@@ -5,7 +5,7 @@ module input_m
    use param, only: dim, irho, dxo, f, hsml, mass, halotype, input_file
    use hdf5_parallel_io_helper_m, only: hdf5_attribute_read, hdf5_fileopen_read, hdf5_parallel_read
 #ifdef PARALLEL
-   use mpi_f08
+   use mpi
 #endif
 
    public:: read_input_and_allocate!, update_virt_part

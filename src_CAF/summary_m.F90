@@ -2,7 +2,9 @@ module summary_m
 
    use iso_fortran_env, only: output_unit, error_unit, event_type
    use datatypes, only: time_tracking
-   use mpi_f08
+#ifdef PARALLEL
+   use mpi
+#endif
    use param, only: f, tf
 
    private
@@ -84,15 +86,18 @@ contains
       type(time_tracking), intent(in):: timings
       type(partition_tracking), intent(in):: partition_track
       real(tf):: t_wall_avg, t_ORB_avg, t_dist_avg, t_output_avg
-      type(MPI_Request):: request(4)
-      type(MPI_Status):: status(4)
+      integer:: ierr, request(4), status(MPI_STATUS_SIZE, 4)
 
 #ifdef PARALLEL
-      call MPI_Ireduce(timings%t_wall, t_wall_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, request(1))
-      call MPI_Ireduce(timings%t_ORB, t_ORB_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, request(2))
-      call MPI_Ireduce(timings%t_dist, t_dist_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, request(3))
-      call MPI_Ireduce(timings%t_output, t_output_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, request(4))
-      call MPI_Waitall(4, request, status)
+      call MPI_Ireduce(timings%t_wall, t_wall_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, request(1), &
+         ierr)
+      call MPI_Ireduce(timings%t_ORB, t_ORB_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, request(2), &
+         ierr)
+      call MPI_Ireduce(timings%t_dist, t_dist_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, request(3), &
+         ierr)
+      call MPI_Ireduce(timings%t_output, t_output_avg, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, &
+         request(4), ierr)
+      call MPI_Waitall(4, request, status, ierr)
 #else
       t_wall_avg = timings%t_wall
       t_ORB_avg = timings%t_ORB

@@ -2,7 +2,7 @@ module ORB_m
 
    use datatypes, only: particles, time_tracking, system_clock_timer
 #ifdef PARALLEL
-   use mpi_f08
+   use mpi
 #endif
    use ORB_sr_m, only: ORB_sendrecv_diffuse, ORB_sendrecv_halo
    use param, only: f, dim, hsml, scale_k
@@ -31,8 +31,7 @@ contains
       type(particles), intent(inout):: parts
       type(time_tracking), intent(inout):: timings
       integer:: tree_layers, maxnode, stepsSincePrevious, ngridx(3), i, j, k, d, imageRange_ini(2), gridind_ini(3, 2), &
-                old_ntv_loc, ngridx_real(3)
-      integer:: ntv_loc
+                old_ntv_loc, ngridx_real(3), ntv_loc, ierr
       real(f):: mingridx_ini(3), maxgridx_ini(3), current_to_previous(dim, dim), box_ratio_current(dim, dim)
       logical:: free_face(2*dim)
 
@@ -64,7 +63,7 @@ contains
             repartition_mode = 3
          end if
 
-         call MPI_Allreduce(MPI_IN_PLACE, repartition_mode, 1, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD)
+         call MPI_Allreduce(MPI_IN_PLACE, repartition_mode, 1, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, ierr)
 
          if (repartition_mode > 1) then
 
@@ -163,9 +162,8 @@ contains
       integer, intent(out):: ngridx(3), ngridx_real(3)
       real(f), intent(out):: mingridx(3), maxgridx(3)
       real(f):: minx(3), maxx(3), minx_real(3), maxx_real(3), mingridx_real(3), maxgridx_real(3)
-      integer:: i, j, k, d, cellrange(3), icell(3), n_nonzerocells, n, rem_rank, cellmins_loc(3), cellmaxs_loc(3)
-      type(MPI_Request):: request(4)
-      type(MPI_Status):: status(4)
+      integer:: i, j, k, d, cellrange(3), icell(3), n_nonzerocells, n, rem_rank, cellmins_loc(3), cellmaxs_loc(3), &
+         request(4), status(MPI_STATUS_SIZE, 4), ierr
 
       n = parts%ntotal_loc+parts%nvirt_loc
 
@@ -197,11 +195,13 @@ contains
       maxgridx(:) = maxx(:)
       mingridx_real(:) = minx_real(:)
       maxgridx_real(:) = maxx_real(:)
-      call MPI_Iallreduce(MPI_IN_PLACE, maxgridx, dim, MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_WORLD, request(1))
-      call MPI_Iallreduce(MPI_IN_PLACE, mingridx, dim, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_WORLD, request(2))
-      call MPI_Iallreduce(MPI_IN_PLACE, maxgridx_real, dim, MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_WORLD, request(3))
-      call MPI_Iallreduce(MPI_IN_PLACE, mingridx_real, dim, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_WORLD, request(4))
-      call MPI_Waitall(4, request, status)
+      call MPI_Iallreduce(MPI_IN_PLACE, maxgridx, dim, MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_WORLD, request(1), ierr)
+      call MPI_Iallreduce(MPI_IN_PLACE, mingridx, dim, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_WORLD, request(2), ierr)
+      call MPI_Iallreduce(MPI_IN_PLACE, maxgridx_real, dim, MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_WORLD, request(3), &
+         ierr)
+      call MPI_Iallreduce(MPI_IN_PLACE, mingridx_real, dim, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_WORLD, request(4), &
+         ierr)
+      call MPI_Waitall(4, request, status, ierr)
 
       ! Number of grid cells and adjusting max extent in each direction ------------------------------------------------
       mingridx(:) = mingridx(:) - 0.5_f*dcell
@@ -219,8 +219,8 @@ contains
       cellmaxs_loc(:) = int((maxx(:) - mingridx(:))/dcell) + 1
       cellrange(:) = cellmaxs_loc(:) - cellmins_loc(:) + 1
 
-      call MPI_Iallgather(cellmins_loc, 3, MPI_INTEGER, cellmins, 3, MPI_INTEGER, MPI_COMM_WORLD, request(1))
-      call MPI_Iallgather(cellmaxs_loc, 3, MPI_INTEGER, cellmaxs, 3, MPI_INTEGER, MPI_COMM_WORLD, request(2))
+      call MPI_Iallgather(cellmins_loc, 3, MPI_INTEGER, cellmins, 3, MPI_INTEGER, MPI_COMM_WORLD, request(1), ierr)
+      call MPI_Iallgather(cellmaxs_loc, 3, MPI_INTEGER, cellmaxs, 3, MPI_INTEGER, MPI_COMM_WORLD, request(2), ierr)
 
       ! Creating list of non-zero grid cells ---------------------------------------------------------------------------
       allocate (pincell_ORB(cellrange(1), cellrange(2), cellrange(3)))
@@ -239,7 +239,7 @@ contains
       end do
 
       ! Ensuring all MPI processes leave with correct view of cellmins/maxs
-      call MPI_Waitall(2, request, status)
+      call MPI_Waitall(2, request, status, ierr)
 
    end subroutine particle_grid
 
@@ -260,7 +260,7 @@ contains
       logical, intent(inout):: free_face(6) ! array to track which faces are cuts, and which faces are free
       integer:: i, ii, j, k, d, ngridx_trim(3), A(3), pincol, np_per_node, my_limits(2, 3), rem_rank, &
                 n, procrange_out(2), gridind_out(3, 2), ntotal_out, num_ranks_out, node_out, procrange_lo(2), &
-                procrange_hi(2)
+                procrange_hi(2), ierr
       integer:: cax, cut_loc, n_p
       integer, allocatable:: gridsums_loc(:)
       real(f):: rem_bounds(6), all_bounds(6, num_ranks_in)
@@ -298,7 +298,7 @@ contains
 
       ! call co_sum(gridsums_loc)
       call MPI_Allreduce(MPI_IN_PLACE, gridsums_loc, gridind_in(cax,2)-gridind_in(cax,1)+1, MPI_INTEGER, MPI_SUM, &
-         MPI_COMM_WORLD)
+         MPI_COMM_WORLD, ierr)
 
       !cut location ----------------------------------------------------------------------------------------------------
       cut_loc = gridind_in(cax, 1) - 1
@@ -361,7 +361,8 @@ contains
 
       if (node_in==1) then
 
-         call MPI_Allgather(my_bounds, 6, MPI_DOUBLE_PRECISION, all_bounds, 6, MPI_DOUBLE_PRECISION, MPI_COMM_WORLD)
+         call MPI_Allgather(my_bounds, 6, MPI_DOUBLE_PRECISION, all_bounds, 6, MPI_DOUBLE_PRECISION, MPI_COMM_WORLD, &
+            ierr)
 
          do rem_rank = 0, num_ranks - 1
             rem_bounds(:) = all_bounds(:, rem_rank+1)
@@ -384,9 +385,7 @@ contains
       implicit none
       integer, intent(in):: my_rank, num_ranks, gridind_in(3, 2)
       integer, intent(out):: ngridx_trim(3)
-      integer:: i, j, k, n, gridind_new(3, 2)
-      type(MPI_Request):: request(2)
-      type(MPI_Status):: status(2)
+      integer:: i, j, k, n, gridind_new(3, 2), request(2), status(MPI_STATUS_SIZE, 2), ierr
 
       !Trimming input grid ------------------------------------------------------------------------------------------------------
       !reducing x-length of grid
@@ -418,10 +417,10 @@ contains
 
       ! call co_min(gridind_new(:, 1))
       ! call co_max(gridind_new(:, 2))
-      call MPI_Iallreduce(MPI_IN_PLACE, gridind_new(:, 1), 3, MPI_INTEGER, MPI_MIN, MPI_COMM_WORLD, request(1))
-      call MPI_Iallreduce(MPI_IN_PLACE, gridind_new(:, 2), 3, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, request(2))
+      call MPI_Iallreduce(MPI_IN_PLACE, gridind_new(:, 1), 3, MPI_INTEGER, MPI_MIN, MPI_COMM_WORLD, request(1), ierr)
+      call MPI_Iallreduce(MPI_IN_PLACE, gridind_new(:, 2), 3, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, request(2), ierr)
 
-      call MPI_Waitall(2, request, status)
+      call MPI_Waitall(2, request, status, ierr)
 
       ngridx_trim(:) = gridind_new(:, 2) - gridind_new(:, 1) + 1
 
