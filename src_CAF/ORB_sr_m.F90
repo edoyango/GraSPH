@@ -157,20 +157,20 @@ contains
             if (neighbours(n)%nphys_recv > 0) then
                call MPI_Irecv(parts%itype(displ+1), neighbours(n)%nphys_recv, MPI_INTEGER, neighbours(n)%rank, 0, &
                   MPI_COMM_WORLD, request(2*8*(n-1)+1), ierr)
-               call MPI_Irecv(parts%indglob(displ+1), neighbours(n)%nphys_recv, MPI_INTEGER, neighbours(n)%rank, 0, &
+               call MPI_Irecv(parts%indglob(displ+1), neighbours(n)%nphys_recv, MPI_INTEGER, neighbours(n)%rank, 1, &
                   MPI_COMM_WORLD, request(2*8*(n-1)+2), ierr)
                call MPI_Irecv(parts%rho(displ+1), neighbours(n)%nphys_recv, MPI_DOUBLE_PRECISION, neighbours(n)%rank, &
-                  0, MPI_COMM_WORLD, request(2*8*(n-1)+3), ierr)
+                  2, MPI_COMM_WORLD, request(2*8*(n-1)+3), ierr)
                call MPI_Irecv(parts%rho_min(displ+1), neighbours(n)%nphys_recv, MPI_DOUBLE_PRECISION, &
-                  neighbours(n)%rank, 0, MPI_COMM_WORLD, request(2*8*(n-1)+4), ierr)
+                  neighbours(n)%rank, 3, MPI_COMM_WORLD, request(2*8*(n-1)+4), ierr)
                call MPI_Irecv(parts%p(displ+1), neighbours(n)%nphys_recv, MPI_DOUBLE_PRECISION, neighbours(n)%rank, &
-                  0, MPI_COMM_WORLD, request(2*8*(n-1)+5), ierr)
+                  4, MPI_COMM_WORLD, request(2*8*(n-1)+5), ierr)
                call MPI_Irecv(parts%x(1, displ+1), dim*neighbours(n)%nphys_recv, MPI_DOUBLE_PRECISION, &
-                  neighbours(n)%rank, 0, MPI_COMM_WORLD, request(2*8*(n-1)+6), ierr)
+                  neighbours(n)%rank, 5, MPI_COMM_WORLD, request(2*8*(n-1)+6), ierr)
                call MPI_Irecv(parts%vx(1, displ+1), dim*neighbours(n)%nphys_recv, MPI_DOUBLE_PRECISION, &
-                  neighbours(n)%rank, 0, MPI_COMM_WORLD, request(2*8*(n-1)+7), ierr)
+                  neighbours(n)%rank, 6, MPI_COMM_WORLD, request(2*8*(n-1)+7), ierr)
                call MPI_Irecv(parts%v_min(1, displ+1), dim*neighbours(n)%nphys_recv, MPI_DOUBLE_PRECISION, &
-                  neighbours(n)%rank, 0, MPI_COMM_WORLD, request(2*8*(n-1)+8), ierr)
+                  neighbours(n)%rank, 7, MPI_COMM_WORLD, request(2*8*(n-1)+8), ierr)
                displ = displ + neighbours(n)%nphys_recv
             else
                request(2*8*(n-1)+1:2*8*(n-1)+8) = MPI_REQUEST_NULL
@@ -180,19 +180,19 @@ contains
                call MPI_Isend(neighbours(n)%PhysPackSend%itype(1), neighbours(n)%nphys_send, MPI_INTEGER, &
                   neighbours(n)%rank, 0, MPI_COMM_WORLD, request(2*8*(n-1)+9), ierr)
                call MPI_Isend(neighbours(n)%PhysPackSend%indglob(1), neighbours(n)%nphys_send, MPI_INTEGER, &
-                  neighbours(n)%rank, 0, MPI_COMM_WORLD, request(2*8*(n-1)+10), ierr)
+                  neighbours(n)%rank, 1, MPI_COMM_WORLD, request(2*8*(n-1)+10), ierr)
                call MPI_Isend(neighbours(n)%PhysPackSend%rho(1), neighbours(n)%nphys_send, MPI_DOUBLE_PRECISION, &
-                  neighbours(n)%rank, 0, MPI_COMM_WORLD, request(2*8*(n-1)+11), ierr)
+                  neighbours(n)%rank, 2, MPI_COMM_WORLD, request(2*8*(n-1)+11), ierr)
                call MPI_Isend(neighbours(n)%PhysPackSend%rho_min(1), neighbours(n)%nphys_send, MPI_DOUBLE_PRECISION, &
-                  neighbours(n)%rank, 0, MPI_COMM_WORLD, request(2*8*(n-1)+12), ierr)
+                  neighbours(n)%rank, 3, MPI_COMM_WORLD, request(2*8*(n-1)+12), ierr)
                call MPI_Isend(neighbours(n)%PhysPackSend%p(1), neighbours(n)%nphys_send, MPI_DOUBLE_PRECISION, &
-                  neighbours(n)%rank, 0, MPI_COMM_WORLD, request(2*8*(n-1)+13), ierr)
+                  neighbours(n)%rank, 4, MPI_COMM_WORLD, request(2*8*(n-1)+13), ierr)
                call MPI_Isend(neighbours(n)%PhysPackSend%x(1, 1), dim*neighbours(n)%nphys_send, MPI_DOUBLE_PRECISION, &
-                  neighbours(n)%rank, 0, MPI_COMM_WORLD, request(2*8*(n-1)+14), ierr)
+                  neighbours(n)%rank, 5, MPI_COMM_WORLD, request(2*8*(n-1)+14), ierr)
                call MPI_Isend(neighbours(n)%PhysPackSend%vx(1, 1), dim*neighbours(n)%nphys_send, MPI_DOUBLE_PRECISION, &
-                  neighbours(n)%rank, 0, MPI_COMM_WORLD, request(2*8*(n-1)+15), ierr)
+                  neighbours(n)%rank, 6, MPI_COMM_WORLD, request(2*8*(n-1)+15), ierr)
                call MPI_Isend(neighbours(n)%PhysPackSend%v_min(1, 1), dim*neighbours(n)%nphys_send, &
-                  MPI_DOUBLE_PRECISION, neighbours(n)%rank, 0, MPI_COMM_WORLD, request(2*8*(n-1)+16), ierr)
+                  MPI_DOUBLE_PRECISION, neighbours(n)%rank, 7, MPI_COMM_WORLD, request(2*8*(n-1)+16), ierr)
             else
                request(2*8*(n-1)+9:2*8*n) = MPI_REQUEST_NULL
             end if
@@ -205,7 +205,7 @@ contains
          ! Perform if necessary
          if (repartition_mode >= 2) then
 
-            if (my_rank == 1) write (*, '(6x, A)') 'Checking whether diffusion is needed...'
+            if (my_rank == 0) write (*, '(6x, A)') 'Checking whether diffusion is needed...'
 
             ! call co_sum(ndiffuse)
             call MPI_Allreduce(MPI_IN_PLACE, ndiffuse, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
@@ -285,7 +285,7 @@ contains
          !do i = searchrange(1), searchrange(2)
          do i = 1, ntotal_loc
             xi(:) = parts%x(:, i)
-            if (any([xi(:) <= xmin_loc(:), xi(:) >= xmax_loc(:)])) then
+            if (any(xi(:) <= xmin_loc(:) .or. xi(:) >= xmax_loc(:))) then
                do j = 1, n_process_neighbour
                   if (all([xi(:) >= neighbours(j)%bounds(1:dim) - 2._f*scale_k*hsml, &
                            xi(:) <= neighbours(j)%bounds(dim + 1:2*dim) + 2._f*scale_k*hsml])) then

@@ -6,7 +6,7 @@ module time_integration_m
    use ORB_m, only: ORB, neighbours, n_process_neighbour
 !    use ORB_sr_m, only: ORB_sendrecv_haloupdate
    use param, only: f, tf, dim, dt, rh0, c, gamma, g
-   ! use single_step_m, only: single_step
+   use single_step_m, only: single_step
    use summary_m, only: print_loadbalance
    use output_m, only: output
 

@@ -70,27 +70,10 @@ else ifeq ($(compiler), intel)
 	endif
 endif
 
-#OBJ=$(addprefix $(ODIR)/,\
-#param.caf.o \
-#datatypes.caf.o \
-#kernel_m.caf.o \
-#hdf5_parallel_io_helper_m.caf.o \
-#output_m.caf.o \
-#param_para.caf.o \
-#ORB_sr_m.caf.o \
-#ORB_m.caf.o \
-#summary_m.caf.o \
-#input_m.caf.o \
-#flink_list_m.caf.o \
-#material_rates_m.caf.o \
-#single_step_m.caf.o \
-#time_integration_m.caf.o \
-#main.caf.o \
-#)
-
 OBJ=$(addprefix $(ODIR)/,\
 param.caf.o \
 datatypes.caf.o \
+kernel_m.caf.o \
 hdf5_parallel_io_helper_m.caf.o \
 output_m.caf.o \
 param_para.caf.o \
@@ -99,6 +82,8 @@ ORB_m.caf.o \
 summary_m.caf.o \
 input_m.caf.o \
 flink_list_m.caf.o \
+material_rates_m.caf.o \
+single_step_m.caf.o \
 time_integration_m.caf.o \
 main.caf.o \
 )
@@ -159,11 +144,11 @@ $(SDIR)/%.F90 \
 $(ODIR)/param.caf.o $(ODIR)/datatypes.caf.o
 	$(FC) -c -o $@ $< $(FCFLAGS)
 
-#$(ODIR)/material_rates_m.caf.o: \
-#$(ODIR)/%.caf.o: \
-#$(SDIR)/%.f90 \
-#$(ODIR)/param.caf.o $(ODIR)/datatypes.caf.o
-#	$(FC) -c -o $@ $< $(FCFLAGS)
+$(ODIR)/material_rates_m.caf.o: \
+$(ODIR)/%.caf.o: \
+$(SDIR)/%.f90 \
+$(ODIR)/param.caf.o $(ODIR)/datatypes.caf.o
+	$(FC) -c -o $@ $< $(FCFLAGS)
 
 $(ODIR)/flink_list_m.caf.o: \
 $(ODIR)/%.caf.o: \
@@ -171,11 +156,11 @@ $(SDIR)/%.F90 \
 $(addprefix $(ODIR)/,param.caf.o datatypes.caf.o kernel_m.caf.o)
 	$(FC) -c -o $@ $< $(FCFLAGS)
 
-#$(ODIR)/single_step_m.caf.o: \
-#$(ODIR)/%.caf.o: \
-#$(SDIR)/%.f90 \
-#$(addprefix $(ODIR)/,param.caf.o datatypes.caf.o material_rates_m.caf.o)
-#	$(FC) -c -o $@ $< $(FCFLAGS)
+$(ODIR)/single_step_m.caf.o: \
+$(ODIR)/%.caf.o: \
+$(SDIR)/%.f90 \
+$(addprefix $(ODIR)/,param.caf.o datatypes.caf.o material_rates_m.caf.o)
+	$(FC) -c -o $@ $< $(FCFLAGS)
 
 $(ODIR)/time_integration_m.caf.o: \
 $(ODIR)/%.caf.o: \
