@@ -84,7 +84,7 @@ contains
          do j = 1, pincell(icell, jcell, kcell)
             jth = cells(j, icell, jcell, kcell)
             if (jth > i) then
-               call check_if_interact(maxinter, i, jth, itypetmp, xtmp, parts%itype(i), parts%x(:, jth), niac, pairs)
+               call check_if_interact(maxinter, i, jth, itypetmp, xtmp, parts%itype(jth), parts%x(:, jth), niac, pairs)
             end if
          end do
 
