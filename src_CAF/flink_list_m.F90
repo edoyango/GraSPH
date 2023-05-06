@@ -9,18 +9,18 @@ module flink_list_m
 contains
 
    !==============================================================================================================================
-   subroutine flink_list(maxinter, ntotal_loc, nhalo_loc, nvirt_loc, niac, parts, pairs, nexti)
+   subroutine flink_list(maxinter, niac, parts, pairs, nexti)
       ! save as above, but for 3D
 
       implicit none
-      integer, intent(in):: maxinter, ntotal_loc, nhalo_loc, nvirt_loc
-      type(particles), intent(in):: parts(:)
+      integer, intent(in):: maxinter
+      type(particles), intent(in):: parts
       integer, intent(out):: niac, nexti(:)
       type(interactions), intent(out):: pairs(:)
       type(particles):: p_i
       integer, parameter:: maxpcell = 125
-      integer:: ngridx(3), jth, i, j, k, d, icell, jcell, kcell, xi, yi, zi, ierr = 0
-      real(f):: mingridx(3), maxgridx(3), dcell
+      integer:: ngridx(3), jth, i, j, k, d, icell, jcell, kcell, xi, yi, zi, itypetmp
+      real(f):: mingridx(3), maxgridx(3), dcell, xtmp(dim)
       integer, allocatable:: pincell(:, :, :), gridind(:, :), cells(:, :, :, :)
       integer, parameter:: sweep(3, 13) = reshape((/-1, -1, -1, &
                                                     -1, -1, 0, &
@@ -37,12 +37,12 @@ contains
                                                     0, 0, -1/), (/3, 13/))
 
       !Determining bounding box extents
-      mingridx(:) = parts(1)%x(:)
-      maxgridx(:) = parts(1)%x(:)
-      do i = 2, ntotal_loc + nhalo_loc + nvirt_loc
+      mingridx(:) = parts%x(:, 1)
+      maxgridx(:) = parts%x(:, 1)
+      do i = 2, parts%nsum()
          do d = 1, dim
-            mingridx(d) = MIN(mingridx(d), parts(i)%x(d))
-            maxgridx(d) = MAX(maxgridx(d), parts(i)%x(d))
+            mingridx(d) = MIN(mingridx(d), parts%x(d, i))
+            maxgridx(d) = MAX(maxgridx(d), parts%x(d, i))
          end do
       end do
 
@@ -54,13 +54,13 @@ contains
       maxgridx(:) = mingridx(:) + ngridx(:)*dcell
 
       allocate (pincell(ngridx(1), ngridx(2), ngridx(3)), &
-                gridind(dim, ntotal_loc + nhalo_loc + nvirt_loc), &
+                gridind(dim, parts%nsum()), &
                 cells(maxpcell, ngridx(1), ngridx(2), ngridx(3)))
 
       pincell(:, :, :) = 0
 
-      do i = 1, ntotal_loc + nhalo_loc + nvirt_loc
-         gridind(:, i) = int((parts(i)%x(:) - mingridx(:))/dcell) + 1
+      do i = 1, parts%nsum()
+         gridind(:, i) = int((parts%x(:, i) - mingridx(:))/dcell) + 1
          icell = gridind(1, i)
          jcell = gridind(2, i)
          kcell = gridind(3, i)
@@ -69,22 +69,22 @@ contains
       end do
 
       niac = 0
-      ierr = 0
       nexti(1) = 1
-      do i = 1, ntotal_loc + nhalo_loc + nvirt_loc
+      do i = 1, parts%nsum()
 
          ! Retrieving particle i's grid cell indices
          icell = gridind(1, i)
          jcell = gridind(2, i)
          kcell = gridind(3, i)
 
-         p_i = parts(i)
+         xtmp(:) = parts%x(:, i)
+         itypetmp = parts%itype(i)
 
          ! finding pairs within cell icell,jcell
          do j = 1, pincell(icell, jcell, kcell)
             jth = cells(j, icell, jcell, kcell)
             if (jth > i) then
-               call check_if_interact(maxinter, i, jth, p_i, parts(jth), niac, pairs, ierr)
+               call check_if_interact(maxinter, i, jth, itypetmp, xtmp, parts%itype(i), parts%x(:, jth), niac, pairs)
             end if
          end do
 
@@ -95,7 +95,7 @@ contains
             zi = kcell + sweep(3, k)
             do j = 1, pincell(xi, yi, zi)
                jth = cells(j, xi, yi, zi)
-               call check_if_interact(maxinter, i, jth, p_i, parts(jth), niac, pairs, ierr)
+               call check_if_interact(maxinter, i, jth, itypetmp, xtmp, parts%itype(jth), parts%x(:, jth), niac, pairs)
             end do
          end do
 
@@ -103,24 +103,17 @@ contains
 
       end do
 
-#ifdef DEBUG
-      if (ierr == 1) then
-         error stop ' >>> Error <<< : Too many interactions'
-      end if
-#endif
-
    end subroutine flink_list
 
    !==============================================================================================================================
-   pure subroutine check_if_interact(maxinter, i, j, p_i, p_j, niac, pairs, ierr)
+   pure subroutine check_if_interact(maxinter, i, j, itype_i, x_i, itype_j, x_j, niac, pairs)
       ! subroutine to chekc if two particles are interacting and consequently adding to pair list
 
       implicit none
-      integer, intent(in):: maxinter, i, j
-      type(particles), intent(in):: p_i, p_j
+      integer, intent(in):: maxinter, i, j, itype_i, itype_j
+      real(f), intent(in):: x_i(dim), x_j(dim)
       integer, intent(inout):: niac
       type(interactions), intent(inout):: pairs(:)
-      integer, intent(inout):: ierr
       real(f):: dxiac(dim), r
 
       ! only consider interactions between:
@@ -129,8 +122,8 @@ contains
       ! real-halo
       ! halo-virtual - for deterimining boundary
       ! if (.not.((p_i%itype<0 .and. p_j%itype<0) .or. (p_i%itype>halotype .and. p_j%itype>halotype))) then
-      if (p_i%itype>0 .or. p_j%itype>0) then
-         dxiac(:) = p_i%x(:) - p_j%x(:)
+      if (itype_i>0 .or. itype_j>0) then
+         dxiac(:) = x_i(:) - x_j(:)
          ! r = SQRT(SUM(dxiac*dxiac))
          if (SUM(dxiac*dxiac) < hsml*hsml*scale_k*scale_k) then
             niac = niac + 1
@@ -141,7 +134,7 @@ contains
                pairs(niac)%dx = dxiac
 #ifdef DEBUG
             else
-               ierr = 1
+               error stop "Too many interactions!"
             end if
 #endif
          end if

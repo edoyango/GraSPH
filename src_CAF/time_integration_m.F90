@@ -1,7 +1,7 @@
 module time_integration_m
 
    use datatypes, only: particles, interactions, time_tracking, system_clock_timer
-   ! use flink_list_m, only: flink_list
+   use flink_list_m, only: flink_list
    ! use input_m, only: update_virt_part
    use ORB_m, only: ORB, neighbours, n_process_neighbour
 !    use ORB_sr_m, only: ORB_sendrecv_haloupdate
@@ -57,7 +57,7 @@ contains
          call ORB(itimestep, my_rank, num_ranks, parts, timings)
 
          ! Finding neighbours within kh
-         ! call flink_list(maxinter, ntotal_loc, nhalo_loc, nvirt_loc, niac, parts, pairs, nexti)
+         call flink_list(maxinter, niac, parts, pairs, nexti)
 
          ! call update_virt_part(ntotal_loc, nhalo_loc, nvirt_loc, parts, niac, pairs, nexti, vw)
 

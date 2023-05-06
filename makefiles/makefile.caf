@@ -98,6 +98,7 @@ ORB_sr_m.caf.o \
 ORB_m.caf.o \
 summary_m.caf.o \
 input_m.caf.o \
+flink_list_m.caf.o \
 time_integration_m.caf.o \
 main.caf.o \
 )
@@ -164,11 +165,11 @@ $(ODIR)/param.caf.o $(ODIR)/datatypes.caf.o
 #$(ODIR)/param.caf.o $(ODIR)/datatypes.caf.o
 #	$(FC) -c -o $@ $< $(FCFLAGS)
 
-#$(ODIR)/flink_list_m.caf.o: \
-#$(ODIR)/%.caf.o: \
-#$(SDIR)/%.F90 \
-#$(addprefix $(ODIR)/,param.caf.o datatypes.caf.o kernel_m.caf.o)
-#	$(FC) -c -o $@ $< $(FCFLAGS)
+$(ODIR)/flink_list_m.caf.o: \
+$(ODIR)/%.caf.o: \
+$(SDIR)/%.F90 \
+$(addprefix $(ODIR)/,param.caf.o datatypes.caf.o kernel_m.caf.o)
+	$(FC) -c -o $@ $< $(FCFLAGS)
 
 #$(ODIR)/single_step_m.caf.o: \
 #$(ODIR)/%.caf.o: \
