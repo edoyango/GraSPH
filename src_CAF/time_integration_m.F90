@@ -67,7 +67,7 @@ contains
          end do
 
          ! calculating forces
-         ! call single_step(ntotal_loc, nhalo_loc, nvirt_loc, parts, niac, pairs, dvxdt, drhodt, nexti)
+         call single_step(parts, niac, pairs, dvxdt, drhodt, nexti)
 
          ! updating positions and velocity to full timestep
          do i = 1, parts%ntotal_loc+parts%nvirt_loc
