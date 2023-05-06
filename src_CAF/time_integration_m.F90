@@ -2,7 +2,7 @@ module time_integration_m
 
    use datatypes, only: particles, interactions, time_tracking, system_clock_timer
    use flink_list_m, only: flink_list
-   ! use input_m, only: update_virt_part
+   use input_m, only: update_virt_part
    use ORB_m, only: ORB, neighbours, n_process_neighbour
 !    use ORB_sr_m, only: ORB_sendrecv_haloupdate
    use param, only: f, tf, dim, dt, rh0, c, gamma, g
@@ -59,7 +59,7 @@ contains
          ! Finding neighbours within kh
          call flink_list(maxinter, niac, parts, pairs, nexti)
 
-         ! call update_virt_part(ntotal_loc, nhalo_loc, nvirt_loc, parts, niac, pairs, nexti, vw)
+         call update_virt_part(parts, niac, pairs, nexti, vw)
 
          ! update pressure of newly updated real and halo particles
          do i = 1, parts%ntotal_loc + parts%nhalo_loc + parts%nvirt_loc

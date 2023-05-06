@@ -109,107 +109,106 @@ contains
    end subroutine read_input_and_allocate
 
    !==============================================================================================================================
-   ! subroutine update_virt_part(parts, niac, pairs, nexti, vw)
+   subroutine update_virt_part(parts, niac, pairs, nexti, vw)
 
-   !    use kernel_m, only: kernel_w
+      use kernel_m, only: kernel_w
 
-   !    implicit none
-   !    integer, intent(in):: niac, nexti(:)
-   !    type(interactions), intent(in):: pairs(:)
-   !    type(particles), intent(inout):: parts
-   !    real(f), intent(inout):: vw(:)
-   !    integer:: i, j, k, tmptype
-   !    real(f):: tmp, tw
+      implicit none
+      integer, intent(in):: niac, nexti(:)
+      type(interactions), intent(in):: pairs(:)
+      type(particles), intent(inout):: parts
+      real(f), intent(inout):: vw(:)
+      integer:: i, j, k, tmptype
+      real(f):: tmp, tw
 
-   !    vw(:) = 0._f
+      do i = 1, parts%nsum()
+         if (parts%itype(i)<0) then
+            parts%rho(i) = 0._f
+            parts%vx(:,i) = 0._f
+            vw(i) = 0._f
+         end if
+      end do
 
-   !    do i = 1, parts%nsum()
-   !       if (parts%itype(i)<0) then
-   !          parts%rho(i) = 0._f
-   !          parts%vx(:,i) = 0._f
-   !       end if
-   !    end do
+      do i = 1, parts%nsum()
+         do k = nexti(i), nexti(i + 1) - 1
+            j = pairs(k)%j
+            if ( parts%itype(i) < 0 .and. parts%itype(j) > 0) then
+               if (parts%itype(i) < -halotype) then
+                  tmptype = parts%itype(i) + halotype
+               else
+                  tmptype = parts%itype(i)
+               end if
+               tw = kernel_w(sqrt(sum(pairs(k)%dx*pairs(k)%dx)), hsml)
+               tmp = mass*tw/parts%rho(j)
+               vw(i) = vw(i) + tmp
+               parts%rho(i) = parts%rho(i) + mass*tw
+               select case (tmptype)
+               case default
+                  parts%vx(:, i) = parts%vx(:, i) - parts%vx(:, j)*tmp
+               case (-2)
+                  parts%vx(1, i) = parts%vx(1, i) + parts%vx(1, j)*tmp
+                  parts%vx(2, i) = parts%vx(2, i) + parts%vx(2, j)*tmp
+                  parts%vx(3, i) = parts%vx(3, i) - parts%vx(3, j)*tmp
+               case (-3)
+                  parts%vx(1, i) = parts%vx(1, i) - parts%vx(1, j)*tmp
+                  parts%vx(2, i) = parts%vx(2, i) + parts%vx(2, j)*tmp
+                  parts%vx(3, i) = parts%vx(3, i) + parts%vx(3, j)*tmp
+               case (-4)
+                  parts%vx(1, i) = parts%vx(1, i) + parts%vx(1, j)*tmp
+                  parts%vx(2, i) = parts%vx(2, i) - parts%vx(2, j)*tmp
+                  parts%vx(3, i) = parts%vx(3, i) + parts%vx(3, j)*tmp
+               case (-5)
+                  parts%vx(1, i) = parts%vx(1, i) - parts%vx(1, j)*tmp
+                  parts%vx(2, i) = parts%vx(2, i) - parts%vx(2, j)*tmp
+                  parts%vx(3, i) = parts%vx(3, i) + parts%vx(3, j)*tmp
+               end select
+            else if (parts%itype(j) < 0 .and. parts%itype(i) > 0) then
+               if (parts%itype(j) < -halotype) then
+                  tmptype = parts%itype(j) + halotype
+               else
+                  tmptype = parts%itype(j)
+               end if
+               tw = kernel_w(sqrt(sum(pairs(k)%dx*pairs(k)%dx)), hsml)
+               tmp = mass*tw/parts%rho(i)
+               vw(j) = vw(j) + tmp
+               parts%rho(j) = parts%rho(j) + mass*tw
+               select case (tmptype)
+               case default
+                  parts%vx(:, j) = parts%vx(:, j) - parts%vx(:, i)*tmp
+               case (-2)
+                  parts%vx(1, j) = parts%vx(1, j) + parts%vx(1, i)*tmp
+                  parts%vx(2, j) = parts%vx(2, j) + parts%vx(2, i)*tmp
+                  parts%vx(3, j) = parts%vx(3, j) - parts%vx(3, i)*tmp
+               case (-3)
+                  parts%vx(1, j) = parts%vx(1, j) - parts%vx(1, i)*tmp
+                  parts%vx(2, j) = parts%vx(2, j) + parts%vx(2, i)*tmp
+                  parts%vx(3, j) = parts%vx(3, j) + parts%vx(3, i)*tmp
+               case (-4)
+                  parts%vx(1, j) = parts%vx(1, j) + parts%vx(1, i)*tmp
+                  parts%vx(2, j) = parts%vx(2, j) - parts%vx(2, i)*tmp
+                  parts%vx(3, j) = parts%vx(3, j) + parts%vx(3, i)*tmp
+               case (-5)
+                  parts%vx(1, j) = parts%vx(1, j) - parts%vx(1, i)*tmp
+                  parts%vx(2, j) = parts%vx(2, j) - parts%vx(2, i)*tmp
+                  parts%vx(3, j) = parts%vx(3, j) + parts%vx(3, i)*tmp
+               end select
+            end if
+         end do
+      end do
 
-   !    do i = 1, parts%nsum()
-   !       do k = nexti(i), nexti(i + 1) - 1
-   !          j = pairs(k)%j
-   !          if ( parts%itype(i) < 0 .and. parts%itype(j) > 0) then
-   !             if (parts%itype(i) < -halotype) then
-   !                tmptype = parts%itype(i) + halotype
-   !             else
-   !                tmptype = parts%itype(i)
-   !             end if
-   !             tw = kernel_w(sqrt(sum(pairs(k)%dx*pairs(k)%dx)), hsml)
-   !             tmp = mass*tw/parts%rho(j)
-   !             vw(i) = vw(i) + tmp
-   !             parts%rho(i) = parts%rho(i) + mass*tw
-   !             select case (tmptype)
-   !             case default
-   !                parts%vx(:, i) = parts%vx(:, i) - parts%vx(:, j)*tmp
-   !             case (-2)
-   !                parts%vx(1, i) = parts%vx(1, i) + parts%vx(1, j)*tmp
-   !                parts%vx(2, i) = parts%vx(2, i) + parts%vx(2, j)*tmp
-   !                parts%vx(3, i) = parts%vx(3, i) - parts%vx(3, j)*tmp
-   !             case (-3)
-   !                parts%vx(1, i) = parts%vx(1, i) - parts%vx(1, j)*tmp
-   !                parts%vx(2, i) = parts%vx(2, i) + parts%vx(2, j)*tmp
-   !                parts%vx(3, i) = parts%vx(3, i) + parts%vx(3, j)*tmp
-   !             case (-4)
-   !                parts%vx(1, i) = parts%vx(1, i) + parts%vx(1, j)*tmp
-   !                parts%vx(2, i) = parts%vx(2, i) - parts%vx(2, j)*tmp
-   !                parts%vx(3, i) = parts%vx(3, i) + parts%vx(3, j)*tmp
-   !             case (-5)
-   !                parts%vx(1, i) = parts%vx(1, i) - parts%vx(1, j)*tmp
-   !                parts%vx(2, i) = parts%vx(2, i) - parts%vx(2, j)*tmp
-   !                parts%vx(3, i) = parts%vx(3, i) + parts%vx(3, j)*tmp
-   !             end select
-   !          else if (parts%itype(j) < 0 .and. parts%itype(i) > 0) then
-   !             if (parts%itype(j) < -halotype) then
-   !                tmptype = parts%itype(j) + halotype
-   !             else
-   !                tmptype = parts%itype(j)
-   !             end if
-   !             tw = kernel_w(sqrt(sum(pairs(k)%dx*pairs(k)%dx)), hsml)
-   !             tmp = mass*tw/parts%rho(i)
-   !             vw(j) = vw(j) + tmp
-   !             parts%rho(j) = parts%rho(j) + mass*tw
-   !             select case (tmptype)
-   !             case default
-   !                parts%vx(:, j) = parts%vx(:, j) - parts%vx(:, i)*tmp
-   !             case (-2)
-   !                parts%vx(1, j) = parts%vx(1, j) + parts%vx(1, i)*tmp
-   !                parts%vx(2, j) = parts%vx(2, j) + parts%vx(2, i)*tmp
-   !                parts%vx(3, j) = parts%vx(3, j) - parts%vx(3, i)*tmp
-   !             case (-3)
-   !                parts%vx(1, j) = parts%vx(1, j) - parts%vx(1, i)*tmp
-   !                parts%vx(2, j) = parts%vx(2, j) + parts%vx(2, i)*tmp
-   !                parts%vx(3, j) = parts%vx(3, j) + parts%vx(3, i)*tmp
-   !             case (-4)
-   !                parts%vx(1, j) = parts%vx(1, j) + parts%vx(1, i)*tmp
-   !                parts%vx(2, j) = parts%vx(2, j) - parts%vx(2, i)*tmp
-   !                parts%vx(3, j) = parts%vx(3, j) + parts%vx(3, i)*tmp
-   !             case (-5)
-   !                parts%vx(1, j) = parts%vx(1, j) - parts%vx(1, i)*tmp
-   !                parts%vx(2, j) = parts%vx(2, j) - parts%vx(2, i)*tmp
-   !                parts%vx(3, j) = parts%vx(3, j) + parts%vx(3, i)*tmp
-   !             end select
-   !          end if
-   !       end do
-   !    end do
+      do i = 1, parts%nsum()
+         if (parts%itype(i)<0) then
+            if (vw(i) > 0._f) then
+               parts%rho(i) = parts%rho(i)/vw(i)
+               parts%vx(:, i) = parts%vx(:, i)/vw(i)
+            else
+               parts%rho(i) = irho
+               parts%vx(:, i) = 0._f
+            end if
+         end if
+      end do
 
-   !    do i = 1, parts%nsum()
-   !       if (parts%itype(i)<0) then
-   !          if (vw(i) > 0._f) then
-   !             parts%rho = parts%rho(i)/vw(i)
-   !             parts%vx(:, i) = parts%vx(:, i)/vw(i)
-   !          else
-   !             parts%rho = irho
-   !             parts%vx(:, i) = 0._f
-   !          end if
-   !       end if
-   !    end do
-
-   ! end subroutine update_virt_part
+   end subroutine update_virt_part
 
    !====================================================================================================================
    subroutine read_particle_data_parallel(my_rank, gid_in, gdims, ldispl, parts, istart, iend)
