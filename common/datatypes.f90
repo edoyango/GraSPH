@@ -79,7 +79,7 @@ contains
 
    end subroutine deallocate_particles
 
-   integer function nsum(self)
+   pure integer function nsum(self)
 
       implicit none
       class(particles), intent(in):: self
