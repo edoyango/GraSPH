@@ -131,6 +131,7 @@ contains
             ! current cell
             icell = grid_idx(1, i)
             jcell = grid_idx(2, i)
+            ! special sweep because of j>i check
             do pic = 1, n_in_cell(icell, jcell)
                 j = p_in_cell(pic, icell, jcell)
                 if (j > i) then
@@ -144,27 +145,13 @@ contains
             enddo
             ! right cell
             icell = icell + 1
-            do pic = 1, n_in_cell(icell, jcell)
-                j = p_in_cell(pic, icell, jcell)
-                dx(:) = x(:, i) - x(:, j)
-                if (sum(dx*dx) < cutoff*cutoff) then
-                    pairs%npairs_total = pairs%npairs_total + 1
-                    pairs%rhs(pairs%npairs_total) = j
-                    call kernel%values(dx, pairs%w(pairs%npairs_total), pairs%dwdx(:, pairs%npairs_total))
-                endif
-            enddo
+            call sweep_cell(i, cutoff, 2, n, x, n_in_cell(icell, jcell), &
+                            p_in_cell(:, icell, jcell), kernel, pairs)
             ! top row
             jcell = jcell + 1
             do icell = grid_idx(1, i) - 1, grid_idx(1, i) + 1
-                do pic = 1, n_in_cell(icell, jcell)
-                    j = p_in_cell(pic, icell, jcell)
-                    dx(:) = x(:, i) - x(:, j)
-                    if (sum(dx*dx) < cutoff*cutoff) then
-                        pairs%npairs_total = pairs%npairs_total + 1
-                        pairs%rhs(pairs%npairs_total) = j
-                        call kernel%values(dx, pairs%w(pairs%npairs_total), pairs%dwdx(:, pairs%npairs_total))
-                    endif
-                enddo
+                call sweep_cell(i, cutoff, 2, n, x, n_in_cell(icell, jcell), &
+                                p_in_cell(:, icell, jcell), kernel, pairs)
             enddo
             pairs%offsets(i+1) = pairs%npairs_total
         enddo
@@ -203,6 +190,7 @@ contains
             icell = grid_idx(1, i)
             jcell = grid_idx(2, i)
             kcell = grid_idx(3, i)
+            ! special sweep because of j>i check
             do pic = 1, n_in_cell(icell, jcell, kcell)
                 j = p_in_cell(pic, icell, jcell, kcell)
                 if (j > i) then
@@ -216,41 +204,20 @@ contains
             enddo
             ! right cell
             icell = icell + 1
-            do pic = 1, n_in_cell(icell, jcell, kcell)
-                j = p_in_cell(pic, icell, jcell, kcell)
-                dx(:) = x(:, i) - x(:, j)
-                if (sum(dx*dx) < cutoff*cutoff) then
-                    pairs%npairs_total = pairs%npairs_total + 1
-                    pairs%rhs(pairs%npairs_total) = j
-                    call kernel%values(dx, pairs%w(pairs%npairs_total), pairs%dwdx(:, pairs%npairs_total))
-                endif
-            enddo
+            call sweep_cell(i, cutoff, 3, n, x, n_in_cell(icell, jcell, kcell), &
+                            p_in_cell(:, icell, jcell, kcell), kernel, pairs)
             ! north-middle layer
             jcell = jcell + 1
             do icell = grid_idx(1, i) - 1, grid_idx(1, i) + 1
-                do pic = 1, n_in_cell(icell, jcell, kcell)
-                    j = p_in_cell(pic, icell, jcell, kcell)
-                    dx(:) = x(:, i) - x(:, j)
-                    if (sum(dx*dx) < cutoff*cutoff) then
-                        pairs%npairs_total = pairs%npairs_total + 1
-                        pairs%rhs(pairs%npairs_total) = j
-                        call kernel%values(dx, pairs%w(pairs%npairs_total), pairs%dwdx(:, pairs%npairs_total))
-                    endif
-                enddo
+                call sweep_cell(i, cutoff, 3, n, x, n_in_cell(icell, jcell, kcell), &
+                                p_in_cell(:, icell, jcell, kcell), kernel, pairs)
             enddo
             ! top layer
             kcell = kcell + 1
             do jcell = grid_idx(2, i) - 1, grid_idx(2, i) + 1
                 do icell = grid_idx(1, i) - 1, grid_idx(1, i) + 1
-                    do pic = 1, n_in_cell(icell, jcell, kcell)
-                        j = p_in_cell(pic, icell, jcell, kcell)
-                        dx(:) = x(:, i) - x(:, j)
-                        if (sum(dx*dx) < cutoff*cutoff) then
-                            pairs%npairs_total = pairs%npairs_total + 1
-                            pairs%rhs(pairs%npairs_total) = j
-                            call kernel%values(dx, pairs%w(pairs%npairs_total), pairs%dwdx(:, pairs%npairs_total))
-                        endif
-                    enddo
+                    call sweep_cell(i, cutoff, 3, n, x, n_in_cell(icell, jcell, kcell), &
+                                    p_in_cell(:, icell, jcell, kcell), kernel, pairs)
                 enddo
             enddo
             pairs%offsets(i+1) = pairs%npairs_total
@@ -259,5 +226,26 @@ contains
         deallocate(n_in_cell, p_in_cell)
 
     end subroutine grid_sweep_3d
+
+    pure subroutine sweep_cell(i, cutoff, ndims, n, x, n_in_cell, p_in_cell, kernel, pairs)
+
+        integer, intent(in):: i, ndims, n, n_in_cell, p_in_cell(n_in_cell)
+        real(fp), intent(in):: cutoff, x(ndims, n)
+        class(grasph_base_kernel), intent(in):: kernel
+        type(particle_pairs), intent(inout):: pairs
+        integer:: j, pic
+        real(fp):: dx(ndims)
+
+        do pic = 1, n_in_cell
+            j = p_in_cell(pic)
+            dx(:) = x(:, i) - x(:, j)
+            if (sum(dx*dx) < cutoff*cutoff) then
+                pairs%npairs_total = pairs%npairs_total + 1
+                pairs%rhs(pairs%npairs_total) = j
+                call kernel%values(dx, pairs%w(pairs%npairs_total), pairs%dwdx(:, pairs%npairs_total))
+            endif
+        enddo
+
+    end subroutine sweep_cell
 
 end module grasph_pairs
