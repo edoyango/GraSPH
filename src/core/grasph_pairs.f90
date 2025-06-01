@@ -64,6 +64,7 @@ contains
                 if (sum(dx(:)**2) < cutoff*cutoff) then
                     pairs%npairs_total = pairs%npairs_total + 1
                     pairs%rhs(pairs%npairs_total) = j
+                    call kernel%values(dx, pairs%w(pairs%npairs_total), pairs%dwdx(:, pairs%npairs_total))
                 endif
             enddo
             pairs%offsets(i+1) = pairs%npairs_total
@@ -137,6 +138,7 @@ contains
                     if (sum(dx*dx) < cutoff*cutoff) then
                         pairs%npairs_total = pairs%npairs_total + 1
                         pairs%rhs(pairs%npairs_total) = j
+                        call kernel%values(dx, pairs%w(pairs%npairs_total), pairs%dwdx(:, pairs%npairs_total))
                     endif
                 endif
             enddo
@@ -148,6 +150,7 @@ contains
                 if (sum(dx*dx) < cutoff*cutoff) then
                     pairs%npairs_total = pairs%npairs_total + 1
                     pairs%rhs(pairs%npairs_total) = j
+                    call kernel%values(dx, pairs%w(pairs%npairs_total), pairs%dwdx(:, pairs%npairs_total))
                 endif
             enddo
             ! top row
@@ -159,6 +162,7 @@ contains
                     if (sum(dx*dx) < cutoff*cutoff) then
                         pairs%npairs_total = pairs%npairs_total + 1
                         pairs%rhs(pairs%npairs_total) = j
+                        call kernel%values(dx, pairs%w(pairs%npairs_total), pairs%dwdx(:, pairs%npairs_total))
                     endif
                 enddo
             enddo
@@ -206,6 +210,7 @@ contains
                     if (sum(dx*dx) < cutoff*cutoff) then
                         pairs%npairs_total = pairs%npairs_total + 1
                         pairs%rhs(pairs%npairs_total) = j
+                        call kernel%values(dx, pairs%w(pairs%npairs_total), pairs%dwdx(:, pairs%npairs_total))
                     endif
                 endif
             enddo
@@ -217,6 +222,7 @@ contains
                 if (sum(dx*dx) < cutoff*cutoff) then
                     pairs%npairs_total = pairs%npairs_total + 1
                     pairs%rhs(pairs%npairs_total) = j
+                    call kernel%values(dx, pairs%w(pairs%npairs_total), pairs%dwdx(:, pairs%npairs_total))
                 endif
             enddo
             ! north-middle layer
@@ -228,6 +234,7 @@ contains
                     if (sum(dx*dx) < cutoff*cutoff) then
                         pairs%npairs_total = pairs%npairs_total + 1
                         pairs%rhs(pairs%npairs_total) = j
+                        call kernel%values(dx, pairs%w(pairs%npairs_total), pairs%dwdx(:, pairs%npairs_total))
                     endif
                 enddo
             enddo
@@ -241,6 +248,7 @@ contains
                         if (sum(dx*dx) < cutoff*cutoff) then
                             pairs%npairs_total = pairs%npairs_total + 1
                             pairs%rhs(pairs%npairs_total) = j
+                            call kernel%values(dx, pairs%w(pairs%npairs_total), pairs%dwdx(:, pairs%npairs_total))
                         endif
                     enddo
                 enddo
