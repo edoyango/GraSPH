@@ -27,6 +27,10 @@ module grasph_pairs
         end subroutine find_pairs_fixed_h
     end interface
 
+    interface dsearch
+        module procedure dsearch_self, dsearch_other
+    end interface dsearch
+
     public:: particle_pairs, dsearch, cell_list_search, find_pairs_fixed_h
 
 contains
@@ -50,7 +54,7 @@ contains
 
     end subroutine particle_pairs_init
 
-    pure subroutine dsearch(x, cutoff, kernel, pairs) 
+    pure subroutine dsearch_self(x, cutoff, kernel, pairs) 
 
         type(particle_pairs), intent(inout):: pairs
         real(fp), intent(in):: x(pairs%ndims, pairs%n), cutoff
@@ -72,7 +76,32 @@ contains
             pairs%offsets(i+1) = pairs%npairs_total
         enddo
         pairs%offsets(pairs%n+1) = pairs%npairs_total
-    end subroutine dsearch
+    end subroutine dsearch_self
+
+    pure subroutine dsearch_other(x_lhs, x_rhs, n_rhs, cutoff, kernel, pairs) 
+
+        integer, intent(in):: n_rhs
+        type(particle_pairs), intent(inout):: pairs
+        real(fp), intent(in):: x_lhs(pairs%ndims, pairs%n), x_rhs(pairs%ndims, n_rhs), cutoff
+        class(grasph_base_kernel), intent(in):: kernel
+        integer:: i, j
+        real(fp):: dx(pairs%ndims)
+
+        pairs%npairs_total = 0
+
+        do i = 1, pairs%n
+            do j = 1, n_rhs
+                dx(:) = x_lhs(:, i) - x_rhs(:, j)
+                if (sum(dx(:)**2) < cutoff*cutoff) then
+                    pairs%npairs_total = pairs%npairs_total + 1
+                    pairs%rhs(pairs%npairs_total) = j
+                    call kernel%values(dx, pairs%w(pairs%npairs_total), pairs%dwdx(:, pairs%npairs_total))
+                endif
+            enddo
+            pairs%offsets(i+1) = pairs%npairs_total
+        enddo
+        pairs%offsets(pairs%n+1) = pairs%npairs_total
+    end subroutine dsearch_other
 
     pure subroutine cell_list_search(x, cutoff, kernel, pairs)
 
