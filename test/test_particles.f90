@@ -1,0 +1,123 @@
+module test_particles
+
+    use grasph_constants, only: fp
+    use grasph_kernels, only: grasph_cubic_bspline_kernel
+    use grasph_pairs, only: particle_pairs
+    use grasph_particles, only: wc_particles => weakly_compressible_particles
+    use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
+
+    implicit none
+
+    private
+    public:: tests
+
+    ! data for testing
+    real(fp), parameter:: dx = 0.25_fp
+
+contains
+
+    type(test_list) function tests()
+
+        tests = test_list([ &
+            test("test_particles_init", test_particles_init), &
+            test("test_find_self_pairs", test_find_self_pairs) &
+        ])
+
+    end function tests
+
+    subroutine test_particles_init()
+
+        type(wc_particles):: ps
+
+        call ps%init(16, 2, 1)
+
+        ! check member values set correctly
+        call check(ps%initialized, "Particle initilization logical not set to .true.")
+        call check(is_equal(ps%ndims, 2), "Particle ndims not set correctly")
+        call check(is_equal(ps%size, 16), "Particle size not set correctly")
+
+        ! check arrays are allocated and sized correctly
+        call check(allocated(ps%x), "Particle x not allocated")
+        call check(is_equal(size(ps%x, 1), 2), "Particle x dim 1 incorrect")
+        call check(is_equal(size(ps%x, 2), 16), "Particle x dim 2 incorrect")
+        call check(allocated(ps%v), "Particle v not allocated")
+        call check(is_equal(size(ps%v, 1), 2), "Particle v dim 1 incorrect")
+        call check(is_equal(size(ps%v, 2), 16), "Particle v dim 2 incorrect")
+        call check(allocated(ps%rho), "Particle rho not allocated")
+        call check(is_equal(size(ps%rho), 16), "Particle rho size incorrect")
+        call check(allocated(ps%mass), "Particle mass not allocated")
+        call check(is_equal(size(ps%mass), 16), "Particle mass size incorrect")
+        call check(ps%pairs%initialized, "Particle pairs isn't initialized properly")
+        call check(is_equal(ps%pairs%npairs_per_particle, 1), "Particle pairs per particle is incorrect")
+
+        ! check extended type array(s)
+        call check(allocated(ps%p), "Particle p not allocated")
+        call check(is_equal(size(ps%p), 16), "Particle p size incorrect")
+
+        ! 3d
+        call ps%init(27, 3, 2)
+
+        ! check member values set correctly
+        call check(ps%initialized, "Particle initilization logical not set to .true.")
+        call check(is_equal(ps%ndims, 3), "Particle ndims not set correctly")
+        call check(is_equal(ps%size, 27), "Particle size not set correctly")
+
+        ! check arrays are allocated and sized correctly
+        call check(allocated(ps%x), "Particle x not allocated")
+        call check(is_equal(size(ps%x, 1), 3), "Particle x dim 1 incorrect")
+        call check(is_equal(size(ps%x, 2), 27), "Particle x dim 2 incorrect")
+        call check(allocated(ps%v), "Particle v not allocated")
+        call check(is_equal(size(ps%v, 1), 3), "Particle v dim 1 incorrect")
+        call check(is_equal(size(ps%v, 2), 27), "Particle v dim 2 incorrect")
+        call check(allocated(ps%rho), "Particle rho not allocated")
+        call check(is_equal(size(ps%rho), 27), "Particle rho size incorrect")
+        call check(allocated(ps%mass), "Particle mass not allocated")
+        call check(is_equal(size(ps%mass), 27), "Particle mass size incorrect")
+        call check(ps%pairs%initialized, "Particle pairs isn't initialized properly")
+        call check(is_equal(ps%pairs%npairs_per_particle, 2), "Particle pairs per particle is incorrect")
+
+        ! check extended type array(s)
+        call check(allocated(ps%p), "Particle p not allocated")
+        call check(is_equal(size(ps%p), 27), "Particle p size incorrect")
+        
+    end subroutine test_particles_init
+
+    subroutine test_find_self_pairs()
+
+        type(wc_particles):: ps
+        type(grasph_cubic_bspline_kernel):: kernel
+        type(particle_pairs):: correct_pairs
+        integer:: i, j, k, ii
+
+        call ps%init(27, 3, 27)
+
+        do concurrent (i=0:2, j=0:2, k=0:2)
+            ii = i*9+j*3+k+1
+            ps%x(1, ii) = (i+0.5_fp)*dx
+            ps%x(2, ii) = (j+0.5_fp)*dx
+            ps%x(3, ii) = (k+0.5_fp)*dx
+        enddo
+
+        call kernel%init(3, 0.9_fp*dx)
+
+        call ps%find_pairs(kernel)
+
+        ! basic check as correctness checks are in test_pair_finding
+        call check( &
+            is_equal(ps%pairs%npairs_total, 158), &
+            "Particles pair finding got wrong number of pairs" &
+        )
+
+    end subroutine test_find_self_pairs
+
+end module test_particles
+
+program run_tests
+
+    use test_particles, only: tests
+    use fortuno_serial, only: execute => execute_serial_cmd_app
+    implicit none
+
+    call execute(tests())
+
+end program run_tests
