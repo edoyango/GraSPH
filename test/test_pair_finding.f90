@@ -147,22 +147,22 @@ contains
         call pairs%init(16, 15, 2)
 
         ! 2d - cutoff selected for all particles to be paired with eachother
-        call dsearch(x2d, 2, 16, sqrt(2._fp), kernel, 15, pairs)
+        call dsearch(x2d, sqrt(2._fp), kernel, pairs)
         call check_pairs(pairs, x2d, pairs2d_1, 120, "brute-force (2d - all pairs)", kernel)
 
         ! 2d -cutoff selected so pairs are adjacent (incl. diagonal) on grid
-        call dsearch(x2d, 2, 16, dx*1.8_fp, kernel, 8, pairs)
+        call dsearch(x2d, dx*1.8_fp, kernel, pairs)
         call check_pairs(pairs, x2d, pairs2d_2, 42, "brute-force (2d - adj pairs)", kernel)
 
         call kernel%init(3, 1._fp)
         call pairs%init(27, 26, 3)
 
         ! 3d - cutoff selected for all particles to be paired with eachother
-        call dsearch(x3d, 3, 27, sqrt(3._fp), kernel, 26, pairs)
+        call dsearch(x3d, sqrt(3._fp), kernel, pairs)
         call check_pairs(pairs, x3d, pairs3d_1, 351, "brute-force (3d - all pairs)", kernel)
 
         ! 3d - cutoff selected so pairs are adjacent (incl. diagonal) on grid
-        call dsearch(x3d, 3, 27, dx*1.8_fp, kernel, 8, pairs)
+        call dsearch(x3d, dx*1.8_fp, kernel, pairs)
         call check_pairs(pairs, x3d, pairs3d_2, 158, "brute-force (3d - adj pairs)", kernel)
 
     end subroutine test_dsearch
@@ -176,22 +176,22 @@ contains
         call pairs%init(16, 16, 2)
 
         ! 2d - cutoff selected for all particles to be paired with eachother
-        call cell_list_search(x2d, 2, 16, sqrt(2._fp), kernel, 16, pairs)
+        call cell_list_search(x2d, sqrt(2._fp), kernel, pairs)
         call check_pairs(pairs, x2d, pairs2d_1, 120, "cell-lists (2d - all pairs)", kernel)
 
         ! 2d -cutoff selected so pairs are adjacent (incl. diagonal) on grid
-        call cell_list_search(x2d, 2, 16, dx*1.8_fp, kernel, 8, pairs)
+        call cell_list_search(x2d, dx*1.8_fp, kernel, pairs)
         call check_pairs(pairs, x2d, pairs2d_2, 42, "cell-lists (3d - adj pairs)", kernel)
 
         call kernel%init(3, 1._fp)
         call pairs%init(27, 27, 3)
 
         ! 3d - cutoff selected for all particles to be paired with eachother
-        call cell_list_search(x3d, 3, 27, sqrt(3._fp), kernel, 27, pairs)
+        call cell_list_search(x3d, sqrt(3._fp), kernel, pairs)
         call check_pairs(pairs, x3d, pairs3d_1, 351, "cell-lists (3d - all pairs)", kernel)
 
         ! 3d - cutoff selected so pairs are adjacent (incl. diagonal) on grid
-        call cell_list_search(x3d, 3, 27, dx*1.8_fp, kernel, 8, pairs)
+        call cell_list_search(x3d, dx*1.8_fp, kernel, pairs)
         call check_pairs(pairs, x3d, pairs3d_2, 158, "cell-lists (3d - adj pairs)", kernel)
 
     end subroutine test_cell_list

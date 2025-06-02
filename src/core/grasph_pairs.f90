@@ -8,7 +8,7 @@ module grasph_pairs
     private
 
     type particle_pairs
-        integer:: n = 0, npairs_per_particle = 0, npairs_total = 0
+        integer:: n = 0, npairs_per_particle = 0, npairs_total = 0, ndims = 0
         integer, allocatable:: rhs(:), offsets(:)
         real(fp), allocatable:: w(:), dwdx(:, :)
         logical:: initialized = .false.
@@ -36,6 +36,7 @@ contains
         class(particle_pairs), intent(inout):: self
         integer, intent(in):: n, npairs_per_particle, ndims
 
+        self%ndims = ndims
         self%n = n
         self%npairs_per_particle = npairs_per_particle
         self%npairs_total = 0
@@ -49,19 +50,18 @@ contains
 
     end subroutine particle_pairs_init
 
-    pure subroutine dsearch(x, ndims, n, cutoff, kernel, npairs_per_particle, pairs) 
+    pure subroutine dsearch(x, cutoff, kernel, pairs) 
 
         type(particle_pairs), intent(inout):: pairs
-        integer, intent(in):: ndims, n, npairs_per_particle
-        real(fp), intent(in):: x(ndims, n), cutoff
+        real(fp), intent(in):: x(pairs%ndims, pairs%n), cutoff
         class(grasph_base_kernel), intent(in):: kernel
         integer:: i, j
-        real(fp):: dx(ndims)
+        real(fp):: dx(pairs%ndims)
 
         pairs%npairs_total = 0
 
-        do i = 1, n-1
-            do j = i+1, n
+        do i = 1, pairs%n-1
+            do j = i+1, pairs%n
                 dx(:) = x(:, i) - x(:, j)
                 if (sum(dx(:)**2) < cutoff*cutoff) then
                     pairs%npairs_total = pairs%npairs_total + 1
@@ -71,17 +71,16 @@ contains
             enddo
             pairs%offsets(i+1) = pairs%npairs_total
         enddo
-        pairs%offsets(n+1) = pairs%npairs_total
+        pairs%offsets(pairs%n+1) = pairs%npairs_total
     end subroutine dsearch
 
-    pure subroutine cell_list_search(x, ndims, n, cutoff, kernel, npairs_per_particle, pairs)
+    pure subroutine cell_list_search(x, cutoff, kernel, pairs)
 
         type(particle_pairs), intent(inout):: pairs
-        integer, intent(in):: ndims, n, npairs_per_particle
-        real(fp), intent(in):: x(ndims, n), cutoff
+        real(fp), intent(in):: x(pairs%ndims, pairs%n), cutoff
         class(grasph_base_kernel), intent(in):: kernel
-        real(fp):: minextents(ndims), maxextents(ndims), dcell
-        integer:: i, ngridx(ndims), grid_idx(ndims, n) ! might need to be allocatable in the future...
+        real(fp):: minextents(pairs%ndims), maxextents(pairs%ndims), dcell
+        integer:: i, ngridx(pairs%ndims), grid_idx(pairs%ndims, pairs%n) ! might need to be allocatable in the future...
 
         ! define grid
         dcell = cutoff ! not functionally meaningful, but helpful conceptually
@@ -90,39 +89,38 @@ contains
         ngridx(:) = int((maxextents(:)-minextents(:))/dcell) + 1
         ! technically, maxextents should be adjusted, but it isn't used from herin
 
-        do i = 1, n
+        do i = 1, pairs%n
             grid_idx(:, i) = int((x(:, i) - minextents(:))/dcell) + 1
         enddo
 
         pairs%npairs_total = 0
 
-        select case (ndims)
+        select case (pairs%ndims)
         case(2)
-            call grid_sweep_2d(n, cutoff, npairs_per_particle, kernel, ngridx, grid_idx, x, pairs)
+            call grid_sweep_2d(cutoff, kernel, ngridx, grid_idx, x, pairs)
         case(3)
-            call grid_sweep_3d(n, cutoff, npairs_per_particle, kernel, ngridx, grid_idx, x, pairs)
+            call grid_sweep_3d(cutoff, kernel, ngridx, grid_idx, x, pairs)
         case default
             error stop "cell_list_search: only 2d and 3d cases are supported!"
         end select
     
     end subroutine cell_list_search
 
-    pure subroutine grid_sweep_2d(n, cutoff, npairs_per_particle, kernel, ngridx, grid_idx, x, pairs)
+    pure subroutine grid_sweep_2d(cutoff, kernel, ngridx, grid_idx, x, pairs)
 
-        integer, intent(in):: n, npairs_per_particle
-        real(fp), intent(in):: cutoff, x(2, n)
-        class(grasph_base_kernel), intent(in):: kernel
-        integer, intent(in):: ngridx(2), grid_idx(2, n)
         type(particle_pairs), intent(inout):: pairs
+        real(fp), intent(in):: cutoff, x(2, pairs%n)
+        class(grasph_base_kernel), intent(in):: kernel
+        integer, intent(in):: ngridx(2), grid_idx(2, pairs%n)
         integer:: i, j, icell, jcell, jj, pic
         real(fp):: dx(2)
         integer, allocatable:: n_in_cell(:, :), p_in_cell(:, :, :)
 
         allocate(n_in_cell(ngridx(1), ngridx(2)), source=0)
-        allocate(p_in_cell(npairs_per_particle, ngridx(1), ngridx(2)))
+        allocate(p_in_cell(pairs%npairs_per_particle, ngridx(1), ngridx(2)))
 
         ! populate grid
-        do i = 1, n
+        do i = 1, pairs%n
             icell = grid_idx(1, i)
             jcell = grid_idx(2, i)
             n_in_cell(icell, jcell) = n_in_cell(icell, jcell) + 1
@@ -130,7 +128,7 @@ contains
         enddo
 
         ! sweep
-        do i = 1, n
+        do i = 1, pairs%n
             ! current cell
             icell = grid_idx(1, i)
             jcell = grid_idx(2, i)
@@ -148,12 +146,12 @@ contains
             enddo
             ! right cell
             icell = icell + 1
-            call sweep_cell(i, cutoff, 2, n, x, n_in_cell(icell, jcell), &
+            call sweep_cell(i, cutoff, 2, pairs%n, x, n_in_cell(icell, jcell), &
                             p_in_cell(:, icell, jcell), kernel, pairs)
             ! top row
             jcell = jcell + 1
             do icell = grid_idx(1, i) - 1, grid_idx(1, i) + 1
-                call sweep_cell(i, cutoff, 2, n, x, n_in_cell(icell, jcell), &
+                call sweep_cell(i, cutoff, 2, pairs%n, x, n_in_cell(icell, jcell), &
                                 p_in_cell(:, icell, jcell), kernel, pairs)
             enddo
             pairs%offsets(i+1) = pairs%npairs_total
@@ -163,23 +161,22 @@ contains
 
     end subroutine grid_sweep_2d
 
-    pure subroutine grid_sweep_3d(n, cutoff, npairs_per_particle, kernel, ngridx, grid_idx, x, pairs)
+    pure subroutine grid_sweep_3d(cutoff, kernel, ngridx, grid_idx, x, pairs)
 
-        integer, intent(in):: n, npairs_per_particle
-        real(fp), intent(in):: cutoff, x(3, n)
-        class(grasph_base_kernel), intent(in):: kernel
-        integer, intent(in):: ngridx(3), grid_idx(3, n)
         type(particle_pairs), intent(inout):: pairs
+        real(fp), intent(in):: cutoff, x(3, pairs%n)
+        class(grasph_base_kernel), intent(in):: kernel
+        integer, intent(in):: ngridx(3), grid_idx(3, pairs%n)
         integer:: i, j, icell, jcell, kcell, jj, pic
         real(fp):: dx(3)
         integer, allocatable:: n_in_cell(:, :, :), p_in_cell(:, :, :, :)
 
         allocate(n_in_cell(ngridx(1), ngridx(2), ngridx(3)), source=0)
-        allocate(p_in_cell(npairs_per_particle, ngridx(1), ngridx(2), ngridx(3)))
+        allocate(p_in_cell(pairs%npairs_per_particle, ngridx(1), ngridx(2), ngridx(3)))
 
         ! populate grid
         n_in_cell(:, :, :) = 0
-        do i = 1, n
+        do i = 1, pairs%n
             icell = grid_idx(1, i)
             jcell = grid_idx(2, i)
             kcell = grid_idx(3, i)
@@ -188,7 +185,7 @@ contains
         enddo
 
         ! sweep
-        do i = 1, n
+        do i = 1, pairs%n
             ! current cell
             icell = grid_idx(1, i)
             jcell = grid_idx(2, i)
@@ -207,19 +204,19 @@ contains
             enddo
             ! right cell
             icell = icell + 1
-            call sweep_cell(i, cutoff, 3, n, x, n_in_cell(icell, jcell, kcell), &
+            call sweep_cell(i, cutoff, 3, pairs%n, x, n_in_cell(icell, jcell, kcell), &
                             p_in_cell(:, icell, jcell, kcell), kernel, pairs)
             ! north-middle layer
             jcell = jcell + 1
             do icell = grid_idx(1, i) - 1, grid_idx(1, i) + 1
-                call sweep_cell(i, cutoff, 3, n, x, n_in_cell(icell, jcell, kcell), &
+                call sweep_cell(i, cutoff, 3, pairs%n, x, n_in_cell(icell, jcell, kcell), &
                                 p_in_cell(:, icell, jcell, kcell), kernel, pairs)
             enddo
             ! top layer
             kcell = kcell + 1
             do jcell = grid_idx(2, i) - 1, grid_idx(2, i) + 1
                 do icell = grid_idx(1, i) - 1, grid_idx(1, i) + 1
-                    call sweep_cell(i, cutoff, 3, n, x, n_in_cell(icell, jcell, kcell), &
+                    call sweep_cell(i, cutoff, 3, pairs%n, x, n_in_cell(icell, jcell, kcell), &
                                     p_in_cell(:, icell, jcell, kcell), kernel, pairs)
                 enddo
             enddo
