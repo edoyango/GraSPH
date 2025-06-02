@@ -25,7 +25,8 @@ contains
         tests = test_list([ &
             test("test_dsearch", test_dsearch), &
             test("test_dsearch_other", test_dsearch_other), &
-            test("test_cell_list", test_cell_list) &
+            test("test_cell_list", test_cell_list), &
+            test("test_cell_list_other", test_cell_list_other) &
         ])
 
     end function tests
@@ -258,6 +259,24 @@ contains
         call check_pairs(pairs, x3d, x3d, pairs3d_2, 158, "cell-lists (3d - adj pairs)", kernel)
 
     end subroutine test_cell_list
+
+    subroutine test_cell_list_other()
+
+        type(particle_pairs):: pairs
+        type(grasph_cubic_bspline_kernel):: kernel
+        call kernel%init(2, 1._fp)
+        call pairs%init(16, 4, 2)
+
+        call cell_list_search(x2d, x2d_other, 25, sqrt(0.6_fp)*dx, kernel, pairs)
+        call check_pairs(pairs, x2d, x2d_other, pairs2d_other, 64, "cell-lists (2d - 2sets)", kernel)
+
+        call kernel%init(3, 1._fp)
+        call pairs%init(27, 8, 3)
+
+        call cell_list_search(x3d, x3d_other, 64, dx, kernel, pairs)
+        call check_pairs(pairs, x3d, x3d_other, pairs3d_other, 216, "cell-lists (3d - 2sets)", kernel)
+
+    end subroutine test_cell_list_other
 
 end module test_pair_finding
 
