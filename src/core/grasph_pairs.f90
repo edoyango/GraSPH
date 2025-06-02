@@ -18,12 +18,13 @@ module grasph_pairs
 
     ! abstract interface provided to be used in function pointers
     abstract interface
-        type(particle_pairs) pure function find_pairs_fixed_h(x, ndims, n, cutoff, kernel, npairs_per_particle)
+        pure subroutine find_pairs_fixed_h(x, ndims, n, cutoff, kernel, npairs_per_particle, pairs)
             import:: fp, grasph_base_kernel, particle_pairs
+            type(particle_pairs), intent(inout):: pairs
             integer, intent(in):: ndims, n, npairs_per_particle
             real(fp), intent(in):: x(ndims, n), cutoff
             class(grasph_base_kernel), intent(in):: kernel
-        end function find_pairs_fixed_h
+        end subroutine find_pairs_fixed_h
     end interface
 
     public:: particle_pairs, dsearch, cell_list_search, find_pairs_fixed_h
@@ -48,15 +49,16 @@ contains
 
     end subroutine particle_pairs_init
 
-    type(particle_pairs) pure function dsearch(x, ndims, n, cutoff, kernel, npairs_per_particle) result(pairs)
+    pure subroutine dsearch(x, ndims, n, cutoff, kernel, npairs_per_particle, pairs) 
 
+        type(particle_pairs), intent(inout):: pairs
         integer, intent(in):: ndims, n, npairs_per_particle
         real(fp), intent(in):: x(ndims, n), cutoff
         class(grasph_base_kernel), intent(in):: kernel
         integer:: i, j
         real(fp):: dx(ndims)
 
-        call pairs%init(n, npairs_per_particle, ndims)
+        pairs%npairs_total = 0
 
         do i = 1, n-1
             do j = i+1, n
@@ -70,10 +72,11 @@ contains
             pairs%offsets(i+1) = pairs%npairs_total
         enddo
         pairs%offsets(n+1) = pairs%npairs_total
-    end function dsearch
+    end subroutine dsearch
 
-    type(particle_pairs) pure function cell_list_search(x, ndims, n, cutoff, kernel, npairs_per_particle) result(pairs)
+    pure subroutine cell_list_search(x, ndims, n, cutoff, kernel, npairs_per_particle, pairs)
 
+        type(particle_pairs), intent(inout):: pairs
         integer, intent(in):: ndims, n, npairs_per_particle
         real(fp), intent(in):: x(ndims, n), cutoff
         class(grasph_base_kernel), intent(in):: kernel
@@ -91,7 +94,7 @@ contains
             grid_idx(:, i) = int((x(:, i) - minextents(:))/dcell) + 1
         enddo
 
-        call pairs%init(n, npairs_per_particle, ndims)
+        pairs%npairs_total = 0
 
         select case (ndims)
         case(2)
@@ -102,7 +105,7 @@ contains
             error stop "cell_list_search: only 2d and 3d cases are supported!"
         end select
     
-    end function cell_list_search
+    end subroutine cell_list_search
 
     pure subroutine grid_sweep_2d(n, cutoff, npairs_per_particle, kernel, ngridx, grid_idx, x, pairs)
 
