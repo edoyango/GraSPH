@@ -36,43 +36,31 @@ contains
         integer:: i, j, k, ii, n
 
         ! particles on grid such that x, y ∈ (0, 1)
-        do i = 0, 3
-            do j = 0, 3
-                ii = i*4+j+1
-                x2d(1, ii) = (i+0.5_fp)*dx
-                x2d(2, ii) = (j+0.5_fp)*dx
-            enddo
+        do concurrent (i=0:3, j=0:3)
+            ii = i*4+j+1
+            x2d(1, ii) = (i+0.5_fp)*dx
+            x2d(2, ii) = (j+0.5_fp)*dx
         enddo
 
         ! "                         " x, y ∈ [0, 1]
-        do i = 0, 4
-            do j = 0, 4
-                ii = i*5+j+1
-                x2d_other(1, ii) = i*dx
-                x2d_other(2, ii) = j*dx
-            enddo
+        do concurrent (i=0:4, j=0:4)
+            ii = i*5+j+1
+            x2d_other(1, ii) = i*dx
+            x2d_other(2, ii) = j*dx
         enddo
 
-        do i = 0, 2
-            do j = 0, 2
-                do k = 0, 2
-                    ii = i*9+j*3+k+1
-                    x3d(1, ii) = (i+0.5_fp)*dx
-                    x3d(2, ii) = (j+0.5_fp)*dx
-                    x3d(3, ii) = (k+0.5_fp)*dx
-                enddo
-            enddo
+        do concurrent (i=0:2, j=0:2, k=0:2)
+            ii = i*9+j*3+k+1
+            x3d(1, ii) = (i+0.5_fp)*dx
+            x3d(2, ii) = (j+0.5_fp)*dx
+            x3d(3, ii) = (k+0.5_fp)*dx
         enddo
 
-        do i = 0, 3
-            do j = 0, 3
-                do k = 0, 3
-                    ii = i*16+j*4+k+1
-                    x3d_other(1, ii) = i*dx
-                    x3d_other(2, ii) = j*dx
-                    x3d_other(3, ii) = k*dx
-                enddo
-            enddo
+        do concurrent (i=0:3, j=0:3, k=0:3)
+            ii = i*16+j*4+k+1
+            x3d_other(1, ii) = i*dx
+            x3d_other(2, ii) = j*dx
+            x3d_other(3, ii) = k*dx
         enddo
 
         n = 0
