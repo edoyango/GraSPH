@@ -8,7 +8,7 @@ module grasph_kernels
 
     type, abstract:: grasph_base_kernel
         integer:: d = 0
-        real(fp):: alpha = 0._fp, h = 0._fp ! constant smoothing length (for now)
+        real(fp):: alpha = 0._fp, h = 0._fp, cutoff = 0._fp ! constant smoothing length (for now)
         logical:: initialized = .false.
     contains
         procedure(kernel_init_interface), deferred:: init
@@ -54,6 +54,7 @@ contains
         real(fp), intent(in):: h
         self%d = d
         self%h = h
+        self%cutoff = 2._fp*h
         if (d == 2) then
             self%alpha = 10._fp/(7._fp*pi*h*h)
         elseif (d == 3) then
