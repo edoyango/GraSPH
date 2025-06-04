@@ -3,7 +3,7 @@ module test_particles
     use grasph_constants, only: fp
     use grasph_kernels, only: grasph_cubic_bspline_kernel
     use grasph_pairs, only: particle_pairs
-    use grasph_particles, only: wc_particles => weakly_compressible_particles
+    use grasph_particles, only: wc_particles => weakly_compressible_particles, base_particles
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
     implicit none
@@ -20,7 +20,8 @@ contains
 
         tests = test_list([ &
             test("test_particles_init", test_particles_init), &
-            test("test_find_self_pairs", test_find_self_pairs) &
+            test("test_find_self_pairs", test_find_self_pairs), &
+            test("test_linear_eos_wc_particles", test_linear_eos_wc_particles) &
         ])
 
     end function tests
@@ -29,7 +30,7 @@ contains
 
         type(wc_particles):: ps
 
-        call ps%init(16, 2, 1)
+        call ps%init(16, 2, 1, 0._fp)
 
         ! check member values set correctly
         call check(ps%initialized, "Particle initilization logical not set to .true.")
@@ -55,7 +56,7 @@ contains
         call check(is_equal(size(ps%p), 16), "Particle p size incorrect")
 
         ! 3d
-        call ps%init(27, 3, 2)
+        call ps%init(27, 3, 2, 0._fp)
 
         ! check member values set correctly
         call check(ps%initialized, "Particle initilization logical not set to .true.")
@@ -89,7 +90,7 @@ contains
         type(particle_pairs):: correct_pairs
         integer:: i, j, k, ii
 
-        call ps%init(27, 3, 27)
+        call ps%init(27, 3, 27, 0._fp)
 
         do concurrent (i=0:2, j=0:2, k=0:2)
             ii = i*9+j*3+k+1
@@ -109,6 +110,49 @@ contains
         )
 
     end subroutine test_find_self_pairs
+
+    subroutine state_update_test1(self, dt)
+        class(base_particles), intent(inout):: self
+        real(fp), intent(in):: dt
+        integer:: i
+        do i = 1, self%size
+            self%rho(i) = self%rho(i)*2._fp
+        enddo
+    end subroutine state_update_test1
+
+    subroutine state_update_test2(self, dt)
+        class(wc_particles), intent(inout):: self
+        real(fp), intent(in):: dt
+        integer:: i
+        do i = 1, self%size
+            self%rho(i) = self%rho(i)*2._fp
+        enddo
+    end subroutine state_update_test2
+
+    subroutine test_linear_eos_wc_particles()
+
+        type(wc_particles):: ps1
+        integer:: i
+        character:: ic
+        
+        call ps1%init(5, 2, 0, 1._fp)
+
+        do i= 1, 5
+            ps1%rho(i) = real(i, kind=fp)
+            ps1%c(i) = 2._fp
+        enddo
+
+        call ps1%state_update()
+
+        do i = 1, 5
+            write(ic, "(I1)") i
+            call check( &
+                is_close(ps1%p(i), 4._fp*real(i-1, kind=fp)), &
+                "State update function not applied correctly to particle " // ic &
+            )
+        enddo
+
+    end subroutine test_linear_eos_wc_particles
 
 end module test_particles
 
