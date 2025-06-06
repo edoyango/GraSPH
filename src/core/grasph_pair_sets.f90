@@ -9,7 +9,7 @@ module grasph_pair_sets
 
     private
 
-    type:: interacting_particle_set
+    type, abstract:: interacting_particle_set
         class(base_particles), pointer:: lhs_particles => null(), rhs_particles => null()
         type(particle_pairs):: pairs
         logical:: is_pair_set = .false.
@@ -17,8 +17,17 @@ module grasph_pair_sets
         procedure:: find_pairs => particle_set_find_pairs
         generic:: base_init => particle_pair_set_base_init, particle_single_set_base_init
         procedure:: particle_pair_set_base_init, particle_single_set_base_init
-        procedure:: sweep_callback => base_sweep_callback
+        procedure:: sweep
+        procedure(pair_update_interface), deferred:: pair_update
     end type interacting_particle_set
+
+    interface
+        subroutine pair_update_interface(self, i, j)
+            import:: interacting_particle_set
+            class(interacting_particle_set), intent(inout):: self
+            integer, intent(in):: i, j
+        end subroutine pair_update_interface
+    end interface
 
     public:: interacting_particle_set
 
@@ -71,17 +80,17 @@ contains
         endif
     end subroutine particle_set_find_pairs
 
-    subroutine base_pre_sweep_callback(self, dt)
+    subroutine sweep(self)
         class(interacting_particle_set), intent(inout):: self
-        real(fp), intent(in), optional:: dt
-        if (associated(self%lhs_particles)) call self%lhs_particles%state_update()
-        if (associated(self%rhs_particles)) call self%rhs_particles%state_update()
-    end subroutine base_pre_sweep_callback
-
-    subroutine base_sweep_callback(self, dt)
-        class(interacting_particle_set), intent(inout):: self
-        real(fp), intent(in), optional:: dt
-        ! do nothing
-    end subroutine base_sweep_callback
+        integer:: i, jj, j
+        if (self%pairs%initialized) then
+            do i = 1, self%pairs%n
+                do jj = self%pairs%offsets(i)+1, self%pairs%offsets(i+1)
+                    j = self%pairs%rhs(jj)
+                    call self%pair_update(i, j)
+                enddo
+            enddo
+        endif
+    end subroutine sweep
 
 end module grasph_pair_sets

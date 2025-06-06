@@ -18,14 +18,9 @@ module test_time_step
     type, extends(interacting_particle_set):: example_real_virt_set
         class(wc_particles), pointer:: lhs_wcp => null(), rhs_wcp => null()
     contains
-        procedure:: sweep_callback => test_sweep_callback
+        procedure:: pair_update => example_real_virt_update1
         procedure:: init => example_real_virt_set_init
     end type example_real_virt_set
-
-    type, extends(example_real_virt_set):: example_real_virt_set2
-    contains
-        procedure:: sweep_callback => test_sweep_callback2
-    end type example_real_virt_set2
 
 contains
 
@@ -46,61 +41,23 @@ contains
         self%rhs_wcp => rhs
     end subroutine example_real_virt_set_init
 
-    subroutine test_sweep_callback(self, dt)
+    subroutine example_real_virt_update1(self, i, j)
         class(example_real_virt_set), intent(inout):: self
-        real(fp), intent(in), optional:: dt
-        integer:: i, j
-        do i = 1, self%lhs_wcp%size
-            do j = 1, self%rhs_particles%size
-                self%lhs_wcp%p(i) = self%lhs_wcp%p(i) + self%rhs_wcp%p(j)
-            enddo
-        enddo
-    end subroutine test_sweep_callback
-
-    subroutine test_sweep_callback2(self, dt)
-        class(example_real_virt_set2), intent(inout):: self
-        real(fp), intent(in), optional:: dt
-        integer:: i, jj, j
-        do i = 1, self%pairs%n
-            do jj = self%pairs%offsets(i)+1, self%pairs%offsets(i+1)
-                j = self%pairs%rhs(jj)
-                self%lhs_wcp%p(i) = self%lhs_wcp%p(i) + self%rhs_wcp%p(j)
-            enddo
-        enddo
-    end subroutine test_sweep_callback2
+        integer, intent(in):: i, j
+        self%lhs_wcp%p(i) = self%lhs_wcp%p(i) + self%rhs_wcp%p(j)
+    end subroutine example_real_virt_update1
 
     subroutine test_set_pair_setup()
 
         type(example_real_virt_set):: real_virt_set
-        type(example_real_virt_set2):: real_virt_set2
         type(wc_particles), target:: realp, virtp
         type(grasph_cubic_bspline_kernel):: kernel
         integer:: ii, j, i
         character:: ic
         integer, parameter:: nd = 2, nxr = 2, nr = nxr**nd, nxv = 3, nv = nxv**nd
 
-        call realp%init(nr, 2, 4, 1._fp)
+        call realp%init(nr, 2, nv, 1._fp)
         call virtp%init(nv, 2, 0, 1._fp)
-        do i = 1, nr
-            realp%p(i) = real(i, kind=fp)
-        enddo
-        do i = 1, nv
-            virtp%p(i) = real(i, kind=fp)
-        enddo
-
-        ! manual init
-        call real_virt_set%init(realp, virtp, nv)
-        call real_virt_set%sweep_callback()
-
-        do i = 1, 4
-            write(ic, "(I1)") i
-            call check( &
-                is_close(realp%p(i), real(i+(nv*(nv+1)/2), kind=fp)), &
-                "Incorrect updated pressure of particle " // ic // " using simple sweep" &
-            )
-        enddo
-
-        call real_virt_set2%init(realp, virtp, 8)
         do i = 0, nxr-1
             do j = 0, nxr-1
                 ii = i*nxr + j + 1
@@ -114,31 +71,44 @@ contains
                 ii = i*nxv + j + 1
                 virtp%x(1, ii) = i*dx
                 virtp%x(2, ii) = j*dx
+                virtp%p(ii) = real(ii, kind=fp)
             enddo
         enddo
-        call real_virt_set2%find_pairs(0.75_fp*dx, kernel)
+
+        ! manual init
+        call real_virt_set%init(realp, virtp, nv)
+        call real_virt_set%find_pairs(1._fp, kernel)
+        call real_virt_set%sweep()
+
+        do i = 1, 4
+            write(ic, "(I1)") i
+            call check( &
+                is_close(realp%p(i), real(i+(nv*(nv+1)/2), kind=fp)), &
+                "Incorrect updated pressure of particle " // ic // " using simple sweep" &
+            )
+        enddo
+
+        ! reset pressures for next test
+        realp%p(:) = [(real(i, kind=fp), i = 1, nr)]
+        virtp%p(:) = [(real(i, kind=fp), i = 1, nv)]
+
+        call real_virt_set%find_pairs(0.75_fp*dx, kernel)
+        call real_virt_set%sweep()
 
         call check( &
-            is_equal(real_virt_set2%pairs%npairs_total, 16), &
-            "Incorrect pairs calculated between real and virtual particles" &
-        )
-
-        call real_virt_set2%sweep_callback()
-
-        call check( &
-            is_close(real_virt_set2%lhs_wcp%p(1), 13._fp), &
+            is_close(real_virt_set%lhs_wcp%p(1), 13._fp), &
             "Incorrect pressure calculated for particle 1 during second sweep" &
         )
         call check( &
-            is_close(real_virt_set2%lhs_wcp%p(2), 18._fp), &
+            is_close(real_virt_set%lhs_wcp%p(2), 18._fp), &
             "Incorrect pressure calculated for particle 2 during second sweep" &
         )
         call check( &
-            is_close(real_virt_set2%lhs_wcp%p(3), 27._fp), &
+            is_close(real_virt_set%lhs_wcp%p(3), 27._fp), &
             "Incorrect pressure calculated for particle 3 during second sweep" &
         )
         call check( &
-            is_close(real_virt_set2%lhs_wcp%p(4), 32._fp), &
+            is_close(real_virt_set%lhs_wcp%p(4), 32._fp), &
             "Incorrect pressure calculated for particle 4 during second sweep" &
         )
         
