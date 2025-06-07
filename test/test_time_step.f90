@@ -1,10 +1,10 @@
 module test_time_step
 
     use grasph_constants, only: fp
-    use grasph_kernels, only: grasph_cubic_bspline_kernel
-    use grasph_pairs, only: particle_pairs
+    use grasph_kernels, only: grasph_base_kernel, grasph_cubic_bspline_kernel
+    use grasph_pairs, only: particle_pairs, cell_list_search
     use grasph_particles, only: wc_particles => weakly_compressible_particles
-    use grasph_pair_sets, only: interacting_particle_set
+    use grasph_pair_sets, only: particle_interactions_base
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
     implicit none
@@ -15,14 +15,43 @@ module test_time_step
     ! data for testing
     real(fp), parameter:: dx = 0.25_fp
 
-    type, extends(interacting_particle_set):: example_real_virt_set
+    type, extends(particle_interactions_base):: example_real_virt_set
         class(wc_particles), pointer:: lhs_wcp => null(), rhs_wcp => null()
     contains
-        procedure:: pair_update => example_real_virt_update1
+        procedure:: find_pairs => example_real_virt_find_pairs
         procedure:: init => example_real_virt_set_init
+        procedure:: sweep => example_real_virt_sweep
     end type example_real_virt_set
 
 contains
+
+    subroutine example_real_virt_find_pairs(self, cutoff, kernel)
+        class(example_real_virt_set), intent(inout):: self
+        real(fp), intent(in):: cutoff
+        class(grasph_base_kernel), intent(in):: kernel
+        call cell_list_search(self%lhs_wcp%x, self%rhs_wcp%x, self%rhs_wcp%size, cutoff, kernel, self%pairs)
+    end subroutine example_real_virt_find_pairs
+
+    subroutine example_real_virt_set_init(self, lhs_wcp, rhs_wcp, npairs_per_particle)
+        class(example_real_virt_set), intent(inout):: self
+        class(wc_particles), target, intent(in):: lhs_wcp, rhs_wcp
+        integer, intent(in):: npairs_per_particle
+        self%lhs_wcp => lhs_wcp
+        self%rhs_wcp => rhs_wcp
+        call self%pairs%init(lhs_wcp%size, npairs_per_particle, lhs_wcp%ndims)
+        self%initialized = .true.
+    end subroutine example_real_virt_set_init
+
+    subroutine example_real_virt_sweep(self)
+        class(example_real_virt_set), intent(inout):: self
+        integer:: i, jj, j
+        do i = 1, self%pairs%n
+            do jj = self%pairs%offsets(i)+1, self%pairs%offsets(i+1)
+                j = self%pairs%rhs(jj)
+                self%lhs_wcp%p(i) = self%lhs_wcp%p(i) + self%rhs_wcp%p(j)
+            enddo
+        enddo
+    end subroutine example_real_virt_sweep
 
     type(test_list) function tests()
 
@@ -31,21 +60,6 @@ contains
         ])
 
     end function tests
-
-    subroutine example_real_virt_set_init(self, lhs, rhs, npairs_per_particle)
-        class(example_real_virt_set), intent(inout):: self
-        class(wc_particles), intent(in), target:: lhs, rhs
-        integer, intent(in):: npairs_per_particle
-        call self%base_init(lhs, rhs, npairs_per_particle)
-        self%lhs_wcp => lhs
-        self%rhs_wcp => rhs
-    end subroutine example_real_virt_set_init
-
-    subroutine example_real_virt_update1(self, i, j)
-        class(example_real_virt_set), intent(inout):: self
-        integer, intent(in):: i, j
-        self%lhs_wcp%p(i) = self%lhs_wcp%p(i) + self%rhs_wcp%p(j)
-    end subroutine example_real_virt_update1
 
     subroutine test_set_pair_setup()
 
