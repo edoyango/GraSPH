@@ -20,7 +20,6 @@ contains
 
         tests = test_list([ &
             test("test_particles_init", test_particles_init), &
-            test("test_find_self_pairs", test_find_self_pairs), &
             test("test_linear_eos_wc_particles", test_linear_eos_wc_particles) &
         ])
 
@@ -30,7 +29,7 @@ contains
 
         type(wc_particles):: ps
 
-        call ps%init(16, 2, 1, 0._fp)
+        call ps%init(16, 2, 0._fp)
 
         ! check member values set correctly
         call check(ps%initialized, "Particle initilization logical not set to .true.")
@@ -48,15 +47,13 @@ contains
         call check(is_equal(size(ps%rho), 16), "Particle rho size incorrect")
         call check(allocated(ps%mass), "Particle mass not allocated")
         call check(is_equal(size(ps%mass), 16), "Particle mass size incorrect")
-        call check(ps%pairs%initialized, "Particle pairs isn't initialized properly")
-        call check(is_equal(ps%pairs%npairs_per_particle, 1), "Particle pairs per particle is incorrect")
 
         ! check extended type array(s)
         call check(allocated(ps%p), "Particle p not allocated")
         call check(is_equal(size(ps%p), 16), "Particle p size incorrect")
 
         ! 3d
-        call ps%init(27, 3, 2, 0._fp)
+        call ps%init(27, 3, 0._fp)
 
         ! check member values set correctly
         call check(ps%initialized, "Particle initilization logical not set to .true.")
@@ -74,42 +71,12 @@ contains
         call check(is_equal(size(ps%rho), 27), "Particle rho size incorrect")
         call check(allocated(ps%mass), "Particle mass not allocated")
         call check(is_equal(size(ps%mass), 27), "Particle mass size incorrect")
-        call check(ps%pairs%initialized, "Particle pairs isn't initialized properly")
-        call check(is_equal(ps%pairs%npairs_per_particle, 2), "Particle pairs per particle is incorrect")
 
         ! check extended type array(s)
         call check(allocated(ps%p), "Particle p not allocated")
         call check(is_equal(size(ps%p), 27), "Particle p size incorrect")
         
     end subroutine test_particles_init
-
-    subroutine test_find_self_pairs()
-
-        type(wc_particles):: ps
-        type(grasph_cubic_bspline_kernel):: kernel
-        type(particle_pairs):: correct_pairs
-        integer:: i, j, k, ii
-
-        call ps%init(27, 3, 27, 0._fp)
-
-        do concurrent (i=0:2, j=0:2, k=0:2)
-            ii = i*9+j*3+k+1
-            ps%x(1, ii) = (i+0.5_fp)*dx
-            ps%x(2, ii) = (j+0.5_fp)*dx
-            ps%x(3, ii) = (k+0.5_fp)*dx
-        enddo
-
-        call kernel%init(3, 0.9_fp*dx)
-
-        call ps%find_pairs(kernel)
-
-        ! basic check as correctness checks are in test_pair_finding
-        call check( &
-            is_equal(ps%pairs%npairs_total, 158), &
-            "Particles pair finding got wrong number of pairs" &
-        )
-
-    end subroutine test_find_self_pairs
 
     subroutine state_update_test1(self, dt)
         class(base_particles), intent(inout):: self
@@ -135,7 +102,7 @@ contains
         integer:: i
         character:: ic
         
-        call ps1%init(5, 2, 0, 1._fp)
+        call ps1%init(5, 2, 1._fp)
 
         do i= 1, 5
             ps1%rho(i) = real(i, kind=fp)

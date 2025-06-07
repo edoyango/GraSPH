@@ -1,4 +1,4 @@
-module test_time_step
+module test_interactions
 
     use grasph_constants, only: fp
     use grasph_kernels, only: grasph_base_kernel, grasph_cubic_bspline_kernel
@@ -23,7 +23,23 @@ module test_time_step
         procedure:: sweep => example_real_virt_sweep
     end type example_real_virt_set
 
+    type, extends(particle_interactions_base):: example_self_set
+        class(wc_particles), pointer:: wcp => null()
+    contains
+        procedure:: find_pairs => example_self_find_pairs
+        procedure:: init => example_self_set_init
+    end type example_self_set
+
 contains
+
+    type(test_list) function tests()
+
+        tests = test_list([ &
+            test("test_set_pair_setup", test_set_pair_setup), &
+            test("test_find_self_pairs", test_find_self_pairs) &
+        ])
+
+    end function tests
 
     subroutine example_real_virt_find_pairs(self, cutoff, kernel)
         class(example_real_virt_set), intent(inout):: self
@@ -53,13 +69,21 @@ contains
         enddo
     end subroutine example_real_virt_sweep
 
-    type(test_list) function tests()
+    subroutine example_self_set_init(self, wcp, npairs_per_particle)
+        class(example_self_set), intent(inout):: self
+        class(wc_particles), target, intent(in):: wcp
+        integer, intent(in):: npairs_per_particle
+        self%wcp => wcp
+        call self%pairs%init(wcp%size, npairs_per_particle, wcp%ndims)
+        self%initialized = .true.
+    end subroutine example_self_set_init
 
-        tests = test_list([ &
-            test("test_set_pair_setup", test_set_pair_setup) &
-        ])
-
-    end function tests
+    subroutine example_self_find_pairs(self, cutoff, kernel)
+        class(example_self_set), intent(inout):: self
+        real(fp), intent(in):: cutoff
+        class(grasph_base_kernel), intent(in):: kernel
+        call cell_list_search(self%wcp%x, cutoff, kernel, self%pairs)
+    end subroutine example_self_find_pairs
 
     subroutine test_set_pair_setup()
 
@@ -70,23 +94,19 @@ contains
         character:: ic
         integer, parameter:: nd = 2, nxr = 2, nr = nxr**nd, nxv = 3, nv = nxv**nd
 
-        call realp%init(nr, 2, nv, 1._fp)
-        call virtp%init(nv, 2, 0, 1._fp)
-        do i = 0, nxr-1
-            do j = 0, nxr-1
-                ii = i*nxr + j + 1
-                realp%x(1, ii) = (i+0.5_fp)*dx
-                realp%x(2, ii) = (j+0.5_fp)*dx
-                realp%p(ii) = real(ii, kind=fp)
-            enddo
+        call realp%init(nr, 2, 1._fp)
+        call virtp%init(nv, 2, 1._fp)
+        do concurrent (i=0:nxr-1, j=0:nxr-1)
+            ii = i*nxr + j + 1
+            realp%x(1, ii) = (i+0.5_fp)*dx
+            realp%x(2, ii) = (j+0.5_fp)*dx
+            realp%p(ii) = real(ii, kind=fp)
         enddo
-        do i = 0, nxv-1
-            do j = 0, nxv-1
-                ii = i*nxv + j + 1
-                virtp%x(1, ii) = i*dx
-                virtp%x(2, ii) = j*dx
-                virtp%p(ii) = real(ii, kind=fp)
-            enddo
+        do concurrent (i=0:nxv-1, j=0:nxv-1)
+            ii = i*nxv + j + 1
+            virtp%x(1, ii) = i*dx
+            virtp%x(2, ii) = j*dx
+            virtp%p(ii) = real(ii, kind=fp)
         enddo
 
         ! manual init
@@ -128,11 +148,42 @@ contains
         
     end subroutine test_set_pair_setup
 
-end module test_time_step
+    subroutine test_find_self_pairs()
+
+        type(wc_particles):: ps
+        type(grasph_cubic_bspline_kernel):: kernel
+        type(example_self_set):: ps_set
+        integer:: i, j, k, ii
+
+        call ps%init(27, 3, 0._fp)
+
+        do concurrent (i=0:2, j=0:2, k=0:2)
+            ii = i*9+j*3+k+1
+            ps%x(1, ii) = (i+0.5_fp)*dx
+            ps%x(2, ii) = (j+0.5_fp)*dx
+            ps%x(3, ii) = (k+0.5_fp)*dx
+            ps%p(ii) = real(ii, kind=fp)
+        enddo
+
+        call kernel%init(3, 0.9_fp*dx)
+        
+        call ps_set%init(ps, 27)
+
+        call ps_set%find_pairs(kernel%cutoff, kernel)
+
+        ! basic check as correctness checks are in test_pair_finding
+        call check( &
+            is_equal(ps_set%pairs%npairs_total, 158), &
+            "Particles pair finding got wrong number of pairs" &
+        )
+
+    end subroutine test_find_self_pairs
+
+end module test_interactions
 
 program run_tests
 
-    use test_time_step, only: tests
+    use test_interactions, only: tests
     use fortuno_serial, only: execute => execute_serial_cmd_app
     implicit none
 
