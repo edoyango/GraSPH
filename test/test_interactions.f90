@@ -3,7 +3,7 @@ module test_interactions
     use grasph_constants, only: fp
     use grasph_kernels, only: grasph_base_kernel, grasph_cubic_bspline_kernel
     use grasph_pairs, only: particle_pairs, cell_list_search
-    use grasph_particles, only: wc_particles => weakly_compressible_particles
+    use grasph_particles, only: base_particles, wc_particles => weakly_compressible_particles
     use grasph_pair_sets, only: particle_interactions_base
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
@@ -18,7 +18,6 @@ module test_interactions
     type, extends(particle_interactions_base):: example_real_virt_set
         class(wc_particles), pointer:: lhs_wcp => null(), rhs_wcp => null()
     contains
-        procedure:: find_pairs => example_real_virt_find_pairs
         procedure:: init => example_real_virt_set_init
         procedure:: sweep => example_real_virt_sweep
     end type example_real_virt_set
@@ -26,7 +25,6 @@ module test_interactions
     type, extends(particle_interactions_base):: example_self_set
         class(wc_particles), pointer:: wcp => null()
     contains
-        procedure:: find_pairs => example_self_find_pairs
         procedure:: init => example_self_set_init
     end type example_self_set
 
@@ -41,21 +39,26 @@ contains
 
     end function tests
 
-    subroutine example_real_virt_find_pairs(self, cutoff, kernel)
-        class(example_real_virt_set), intent(inout):: self
-        real(fp), intent(in):: cutoff
-        class(grasph_base_kernel), intent(in):: kernel
-        call cell_list_search(self%lhs_wcp%x, self%rhs_wcp%x, self%rhs_wcp%size, cutoff, kernel, self%pairs)
-    end subroutine example_real_virt_find_pairs
-
-    subroutine example_real_virt_set_init(self, lhs_wcp, rhs_wcp, npairs_per_particle)
-        class(example_real_virt_set), intent(inout):: self
-        class(wc_particles), target, intent(in):: lhs_wcp, rhs_wcp
+    subroutine example_real_virt_set_init(self, npairs_per_particle, ps_lhs, ps_rhs)
+        class(example_real_virt_set), intent(out):: self
+        class(base_particles), target, intent(in):: ps_lhs ! base_particles needed to ensure matching interface with overriden init
+        class(base_particles), target, intent(in), optional:: ps_rhs
         integer, intent(in):: npairs_per_particle
-        self%lhs_wcp => lhs_wcp
-        self%rhs_wcp => rhs_wcp
-        call self%pairs%init(lhs_wcp%size, npairs_per_particle, lhs_wcp%ndims)
-        self%initialized = .true.
+        ! base_init first as it wipes out self (intent(out))
+        call self%base_init(npairs_per_particle, ps_lhs, ps_rhs)
+        ! select type to make sure pointer and input align
+        select type (ps => ps_lhs)
+        class is (wc_particles)
+            self%lhs_wcp => ps
+        class default
+            error stop "Invalid class for ps_lhs"
+        end select
+        select type (ps => ps_rhs)
+        class is (wc_particles)
+            self%rhs_wcp => ps
+        class default
+            error stop "Invalid class for ps_lhs"
+        end select
     end subroutine example_real_virt_set_init
 
     subroutine example_real_virt_sweep(self)
@@ -69,21 +72,17 @@ contains
         enddo
     end subroutine example_real_virt_sweep
 
-    subroutine example_self_set_init(self, wcp, npairs_per_particle)
-        class(example_self_set), intent(inout):: self
-        class(wc_particles), target, intent(in):: wcp
+    subroutine example_self_set_init(self, npairs_per_particle, ps_lhs, ps_rhs)
+        class(example_self_set), intent(out):: self
+        class(base_particles), target, intent(in):: ps_lhs
+        class(base_particles), target, optional, intent(in):: ps_rhs
         integer, intent(in):: npairs_per_particle
-        self%wcp => wcp
-        call self%pairs%init(wcp%size, npairs_per_particle, wcp%ndims)
-        self%initialized = .true.
+        call self%base_init(npairs_per_particle, ps_lhs)
+        select type (ps => ps_lhs)
+        class is (wc_particles)
+            self%wcp => ps
+        end select
     end subroutine example_self_set_init
-
-    subroutine example_self_find_pairs(self, cutoff, kernel)
-        class(example_self_set), intent(inout):: self
-        real(fp), intent(in):: cutoff
-        class(grasph_base_kernel), intent(in):: kernel
-        call cell_list_search(self%wcp%x, cutoff, kernel, self%pairs)
-    end subroutine example_self_find_pairs
 
     subroutine test_set_pair_setup()
 
@@ -110,7 +109,7 @@ contains
         enddo
 
         ! manual init
-        call real_virt_set%init(realp, virtp, nv)
+        call real_virt_set%init(nv, realp, virtp)
         call real_virt_set%find_pairs(1._fp, kernel)
         call real_virt_set%sweep()
 
@@ -167,7 +166,7 @@ contains
 
         call kernel%init(3, 0.9_fp*dx)
         
-        call ps_set%init(ps, 27)
+        call ps_set%init(27, ps)
 
         call ps_set%find_pairs(kernel%cutoff, kernel)
 
