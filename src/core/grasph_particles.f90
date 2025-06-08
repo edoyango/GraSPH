@@ -1,6 +1,6 @@
 module grasph_particles
 
-    use grasph_constants, only: fp, ndims
+    use grasph_constants, only: fp
     use grasph_pairs, only: particle_pairs, cell_list_search
     use grasph_kernels, only: grasph_base_kernel
 
@@ -8,10 +8,10 @@ module grasph_particles
     private
 
     ! declaring both strcture (to be used in an array) and structure of arrays for testing
-    type, abstract:: base_particle
-        integer:: id, type
-        real(fp):: x(ndims), v(ndims), rho, mass
-    end type base_particle
+    ! type, abstract:: base_particle
+    !     integer:: id, type
+    !     real(fp):: x(ndims), v(ndims), rho, mass
+    ! end type base_particle
 
     type:: base_particles
         integer, allocatable:: id(:), type(:)
@@ -39,7 +39,7 @@ module grasph_particles
         procedure:: init => wcp_init, state_update => linear_eos, dump => wcp_dump, read => wcp_read
     end type weakly_compressible_particles
 
-    public:: base_particle, base_particles, weakly_compressible_particles, particles_container
+    public:: base_particles, weakly_compressible_particles, particles_container
 
 contains
     pure subroutine base_init(self, n, d, name)
@@ -48,8 +48,8 @@ contains
         character(*), intent(in):: name
         if (self%initialized) call self%base_clear()
         allocate (self%id(n), self%type(n))
-        allocate (self%x(d, n), self%v(d, n), self%rho(n), self%mass(n), self%c(n))
-        allocate (self%dvxdt(d, n), self%drhodt(n), self%v0(d, n), self%rho0(n))
+        allocate (self%x(d, n), self%v(d, n), self%rho(n), self%mass(n), self%c(n), source=0._fp)
+        allocate (self%dvxdt(d, n), self%drhodt(n), self%v0(d, n), self%rho0(n), source=0._fp)
         self%initialized = .true.
         self%size = n
         self%ndims = d
@@ -75,7 +75,7 @@ contains
     subroutine base_timestep_start(self)
         class(base_particles), intent(inout):: self
         self%v0(:, :) = self%v(:, :)
-        self%rho0(:) = self%rho0(:)
+        self%rho0(:) = self%rho(:)
     end subroutine base_timestep_start
 
     subroutine base_midtimestep_update(self, dt)
@@ -110,7 +110,7 @@ contains
         filename = path // "/" // prefix // "grasph_particles_" // ic // ".h5"
         this_group = "/" // trim(self%name) // "/" // group
 
-        call h5f%open(filename, action="w", comp_lvl = comp_level)
+        call h5f%open(filename, action="a", comp_lvl = comp_level)
         call h5f%write("/" // trim(self%name) // "/n", self%size)
         call h5f%write("/" // trim(self%name) // "/ndims", self%ndims)
         call h5f%write(trim(this_group) // "id", self%id)

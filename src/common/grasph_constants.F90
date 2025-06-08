@@ -14,6 +14,4 @@ module grasph_constants
 
     real(fp), parameter:: pi = 4._fp*atan(1._fp)
 
-    integer, parameter:: ndims = 3
-
 end module grasph_constants

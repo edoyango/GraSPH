@@ -1,6 +1,6 @@
 module grasph_pair_sets
 
-    use grasph_constants, only: fp, ndims
+    use grasph_constants, only: fp
     use grasph_particles, only: base_particles
     use grasph_pairs, only: particle_pairs, cell_list_search
     use grasph_kernels, only: grasph_base_kernel
