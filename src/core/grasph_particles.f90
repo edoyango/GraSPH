@@ -35,7 +35,7 @@ module grasph_particles
         real(fp), allocatable:: p(:)
         real(fp):: rho_ref
     contains
-        procedure:: init => wcp_init, state_update => linear_eos
+        procedure:: init => wcp_init, state_update => linear_eos, dump => wcp_dump, read => wcp_read
     end type weakly_compressible_particles
 
     public:: base_particle, base_particles, weakly_compressible_particles, particles_container
@@ -175,4 +175,46 @@ contains
             self%p(i) = self%c(i)**2*(self%rho(i) - self%rho_ref)
         enddo
     end subroutine linear_eos
+
+    subroutine wcp_dump(self, itimestep, path, prefix, comp_level)
+        use h5fortran, only: hdf5_file
+        class(weakly_compressible_particles), intent(in):: self
+        integer, intent(in):: itimestep
+        character(*), intent(in):: path, prefix
+        integer, intent(in), optional:: comp_level
+        character(*), parameter:: group = "/weakly_compressible"
+        character(200):: filename
+        integer:: ierr
+        type(hdf5_file):: h5f
+        character(10):: ic
+
+        write(ic, "(I10.10)") itimestep
+        filename = path // "/" // prefix // "grasph_particles_" // ic // ".h5"
+
+        call base_dump(self, itimestep, path, prefix, comp_level)
+        call h5f%open(filename, action="a")
+        call h5f%write(group // "/p", self%p)
+        call h5f%close()
+
+    end subroutine wcp_dump
+
+    subroutine wcp_read(self, itimestep, path, prefix)
+        use h5fortran, only: hdf5_file
+        class(weakly_compressible_particles), intent(out):: self
+        integer, intent(in):: itimestep
+        character(*), intent(in):: path, prefix
+        character(*), parameter:: group = "/weakly_compressible"
+        character(200):: filename
+        integer:: ierr, d, n
+        type(hdf5_file):: h5f
+        character(10):: ic
+        call base_read(self, itimestep, path, prefix)
+        
+        write(ic, "(I10.10)") itimestep
+        filename = path // "/" // prefix // "grasph_particles_" // ic // ".h5"
+
+        call h5f%open(filename, action="r")
+        call h5f%read(group // "/p", self%p)
+        call h5f%close()
+    end subroutine wcp_read
 end module grasph_particles
