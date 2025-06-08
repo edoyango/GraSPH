@@ -93,8 +93,8 @@ contains
         character:: ic
         integer, parameter:: nd = 2, nxr = 2, nr = nxr**nd, nxv = 3, nv = nxv**nd
 
-        call realp%init(nr, 2, 1._fp)
-        call virtp%init(nv, 2, 1._fp)
+        call realp%init(nr, 2, "test", 1._fp)
+        call virtp%init(nv, 2, "test", 1._fp)
         do concurrent (i=0:nxr-1, j=0:nxr-1)
             ii = i*nxr + j + 1
             realp%x(1, ii) = (i+0.5_fp)*dx
@@ -154,7 +154,7 @@ contains
         type(example_self_set):: ps_set
         integer:: i, j, k, ii
 
-        call ps%init(27, 3, 0._fp)
+        call ps%init(27, 3, "test", 0._fp)
 
         do concurrent (i=0:2, j=0:2, k=0:2)
             ii = i*9+j*3+k+1

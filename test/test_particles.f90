@@ -29,7 +29,10 @@ contains
 
         type(wc_particles):: ps
 
-        call ps%init(16, 2, 0._fp)
+        call ps%init(16, 2, "test", 0._fp)
+
+        ! check name assigned correctly
+        call check(ps%name == "test", "Particle set name not initialized to 'test'")
 
         ! check member values set correctly
         call check(ps%initialized, "Particle initilization logical not set to .true.")
@@ -53,7 +56,7 @@ contains
         call check(is_equal(size(ps%p), 16), "Particle p size incorrect")
 
         ! 3d
-        call ps%init(27, 3, 0._fp)
+        call ps%init(27, 3, "test", 0._fp)
 
         ! check member values set correctly
         call check(ps%initialized, "Particle initilization logical not set to .true.")
@@ -102,7 +105,7 @@ contains
         integer:: i
         character:: ic
         
-        call ps1%init(5, 2, 1._fp)
+        call ps1%init(5, 2, "test", 1._fp)
 
         do i= 1, 5
             ps1%rho(i) = real(i, kind=fp)

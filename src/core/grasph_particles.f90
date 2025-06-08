@@ -19,6 +19,7 @@ module grasph_particles
         real(fp), allocatable:: dvxdt(:, :), drhodt(:), v0(:, :), rho0(:) ! time-integration related data
         logical:: initialized = .false.
         integer:: ndims = 0, size = 0
+        character(100):: name ! used in naming groups in output hdf5 file
     contains
         procedure:: base_init, base_clear
         procedure:: state_update => base_state_update
@@ -41,9 +42,10 @@ module grasph_particles
     public:: base_particle, base_particles, weakly_compressible_particles, particles_container
 
 contains
-    pure subroutine base_init(self, n, d)
+    pure subroutine base_init(self, n, d, name)
         class(base_particles), intent(inout):: self
         integer, intent(in):: n, d
+        character(*), intent(in):: name
         if (self%initialized) call self%base_clear()
         allocate (self%id(n), self%type(n))
         allocate (self%x(d, n), self%v(d, n), self%rho(n), self%mass(n), self%c(n))
@@ -51,6 +53,7 @@ contains
         self%initialized = .true.
         self%size = n
         self%ndims = d
+        self%name = name
     end subroutine base_init
 
     pure subroutine base_clear(self)
@@ -97,73 +100,76 @@ contains
         integer, intent(in):: itimestep
         character(*), intent(in):: path, prefix
         integer, intent(in), optional:: comp_level
-        character(*), parameter:: group = "/base"
-        character(200):: filename
+        character(*), parameter:: group = "base/"
+        character(200):: filename, this_group
         integer:: ierr
         type(hdf5_file):: h5f
         character(10):: ic
 
         write(ic, "(I10.10)") itimestep
         filename = path // "/" // prefix // "grasph_particles_" // ic // ".h5"
+        this_group = "/" // trim(self%name) // "/" // group
 
         call h5f%open(filename, action="w", comp_lvl = comp_level)
-        call h5f%write("/n", self%size)
-        call h5f%write("/ndims", self%ndims)
-        call h5f%write(group // "/id", self%id)
-        call h5f%write(group // "/type", self%type)
-        call h5f%write(group // "/x", self%x)
-        call h5f%write(group // "/v", self%v)
-        call h5f%write(group // "/rho", self%rho)
-        call h5f%write(group // "/mass", self%mass)
-        call h5f%write(group // "/c", self%c)
-        call h5f%write(group // "/dvxdt", self%dvxdt)
-        call h5f%write(group // "/drhodt", self%drhodt)
-        call h5f%write(group // "/v0", self%v0)
-        call h5f%write(group // "/rho0", self%rho0)
+        call h5f%write("/" // trim(self%name) // "/n", self%size)
+        call h5f%write("/" // trim(self%name) // "/ndims", self%ndims)
+        call h5f%write(trim(this_group) // "id", self%id)
+        call h5f%write(trim(this_group) // "type", self%type)
+        call h5f%write(trim(this_group) // "x", self%x)
+        call h5f%write(trim(this_group) // "v", self%v)
+        call h5f%write(trim(this_group) // "rho", self%rho)
+        call h5f%write(trim(this_group) // "mass", self%mass)
+        call h5f%write(trim(this_group) // "c", self%c)
+        call h5f%write(trim(this_group) // "dvxdt", self%dvxdt)
+        call h5f%write(trim(this_group) // "drhodt", self%drhodt)
+        call h5f%write(trim(this_group) // "v0", self%v0)
+        call h5f%write(trim(this_group) // "rho0", self%rho0)
         call h5f%close()
 
     end subroutine base_dump
 
-    subroutine base_read(self, itimestep, path, prefix)
+    subroutine base_read(self, itimestep, path, prefix, name)
         use h5fortran, only: hdf5_file
         class(base_particles), intent(out):: self
         integer, intent(in):: itimestep
-        character(*), intent(in):: path, prefix
-        character(*), parameter:: group = "/base"
-        character(200):: filename
+        character(*), intent(in):: path, prefix, name
+        character(*), parameter:: group = "base/"
+        character(200):: filename, this_group
         integer:: ierr, d, n
         type(hdf5_file):: h5f
         character(10):: ic
 
         write(ic, "(I10.10)") itimestep
         filename = path // "/" // prefix // "grasph_particles_" // ic // ".h5"
+        this_group = "/" // trim(name) // "/" // group
 
         call h5f%open(filename, action="r")
-        call h5f%read("/n", n)
-        call h5f%read("/ndims", d)
-        call self%base_init(n, d)
-        call h5f%read(group // "/id", self%id)
-        call h5f%read(group // "/type", self%type)
-        call h5f%read(group // "/x", self%x)
-        call h5f%read(group // "/v", self%v)
-        call h5f%read(group // "/rho", self%rho)
-        call h5f%read(group // "/mass", self%mass)
-        call h5f%read(group // "/c", self%c)
-        call h5f%read(group // "/dvxdt", self%dvxdt)
-        call h5f%read(group // "/drhodt", self%drhodt)
-        call h5f%read(group // "/v0", self%v0)
-        call h5f%read(group // "/rho0", self%rho0)
+        call h5f%read("/" // trim(name) // "/n", n)
+        call h5f%read("/" // trim(name) // "/ndims", d)
+        call self%base_init(n, d, name)
+        call h5f%read(trim(this_group) // "id", self%id)
+        call h5f%read(trim(this_group) // "type", self%type)
+        call h5f%read(trim(this_group) // "x", self%x)
+        call h5f%read(trim(this_group) // "v", self%v)
+        call h5f%read(trim(this_group) // "rho", self%rho)
+        call h5f%read(trim(this_group) // "mass", self%mass)
+        call h5f%read(trim(this_group) // "c", self%c)
+        call h5f%read(trim(this_group) // "dvxdt", self%dvxdt)
+        call h5f%read(trim(this_group) // "drhodt", self%drhodt)
+        call h5f%read(trim(this_group) // "v0", self%v0)
+        call h5f%read(trim(this_group) // "rho0", self%rho0)
         call h5f%close()
 
     end subroutine base_read
 
-    subroutine wcp_init(self, n, d, rho_ref)
+    subroutine wcp_init(self, n, d, name, rho_ref)
         class(weakly_compressible_particles), intent(inout):: self
         integer, intent(in):: n, d
         real(fp), intent(in):: rho_ref
+        character(*), intent(in):: name
         self%rho_ref = rho_ref
         if (self%initialized) deallocate (self%p)
-        call self%base_init(n, d)
+        call self%base_init(n, d, name)
         allocate (self%p(n))
     end subroutine wcp_init
 
@@ -182,39 +188,43 @@ contains
         integer, intent(in):: itimestep
         character(*), intent(in):: path, prefix
         integer, intent(in), optional:: comp_level
-        character(*), parameter:: group = "/weakly_compressible"
-        character(200):: filename
+        character(*), parameter:: group = "weakly_compressible/"
+        character(200):: filename, this_group
         integer:: ierr
         type(hdf5_file):: h5f
         character(10):: ic
 
         write(ic, "(I10.10)") itimestep
         filename = path // "/" // prefix // "grasph_particles_" // ic // ".h5"
+        this_group = "/" // trim(self%name) // "/" // group
 
         call base_dump(self, itimestep, path, prefix, comp_level)
         call h5f%open(filename, action="a")
-        call h5f%write(group // "/p", self%p)
+        call h5f%write(trim(this_group) // "p", self%p)
         call h5f%close()
 
     end subroutine wcp_dump
 
-    subroutine wcp_read(self, itimestep, path, prefix)
+    subroutine wcp_read(self, itimestep, path, prefix, name)
         use h5fortran, only: hdf5_file
         class(weakly_compressible_particles), intent(out):: self
         integer, intent(in):: itimestep
-        character(*), intent(in):: path, prefix
-        character(*), parameter:: group = "/weakly_compressible"
-        character(200):: filename
+        character(*), intent(in):: path, prefix, name
+        character(*), parameter:: group = "weakly_compressible/"
+        character(200):: filename, this_group
         integer:: ierr, d, n
         type(hdf5_file):: h5f
         character(10):: ic
-        call base_read(self, itimestep, path, prefix)
+        call base_read(self, itimestep, path, prefix, name)
         
         write(ic, "(I10.10)") itimestep
         filename = path // "/" // prefix // "grasph_particles_" // ic // ".h5"
+        this_group = "/" // trim(name) // "/" // group
+
+        allocate(self%p(self%size))
 
         call h5f%open(filename, action="r")
-        call h5f%read(group // "/p", self%p)
+        call h5f%read(trim(this_group) // "p", self%p)
         call h5f%close()
     end subroutine wcp_read
 end module grasph_particles

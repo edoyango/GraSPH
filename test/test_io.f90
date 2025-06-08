@@ -14,7 +14,8 @@ contains
     type(test_list) function tests()
 
         tests = test_list([ &
-            test("test_base_dump", test_base_dump) &
+            test("test_base_dump", test_base_dump), &
+            test("test_wcp_dump", test_wcp_dump) &
         ])
 
     end function tests
@@ -26,7 +27,7 @@ contains
         character(2):: ic
         character:: dc
 
-        call ps%base_init(10, 3)
+        call ps%base_init(10, 3, "test_base_particles")
 
         ps%x(:, :) = reshape([(real(i, kind=fp), i=1, 30)], shape(ps%x))
         ps%v(:, :) = reshape([(real(i, kind=fp), i=31, 60)], shape(ps%v))
@@ -42,7 +43,7 @@ contains
 
         call ps%dump(1, "/tmp", "test-", 4)
 
-        call ps2%read(1, "/tmp", "test-")
+        call ps2%read(1, "/tmp", "test-", "test_base_particles")
 
         do i = 1, 10
             write(ic, "(I2)") i
@@ -71,7 +72,7 @@ contains
         character(2):: ic
         character:: dc
 
-        call ps%base_init(10, 3)
+        call ps%init(10, 3, "test_wcp_particles", 1000._fp)
 
         ps%x(:, :) = reshape([(real(i, kind=fp), i=1, 30)], shape(ps%x))
         ps%v(:, :) = reshape([(real(i, kind=fp), i=31, 60)], shape(ps%v))
@@ -88,7 +89,7 @@ contains
 
         call ps%dump(1, "/tmp", "test-", 4)
 
-        call ps2%read(1, "/tmp", "test-")
+        call ps2%read(1, "/tmp", "test-", "test_wcp_particles")
 
         do i = 1, 10
             write(ic, "(I2)") i
