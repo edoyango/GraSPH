@@ -9,12 +9,16 @@ auto-executables = true
 auto-tests = true
 auto-examples = true
 module-naming = false
+external-modules = "hdf5"
+link = ["hdf5", "hdf5_fortran"]
 [install]
 library = false
 [fortran]
 implicit-typing = false
 implicit-external = false
 source-form = "free"
+[dependencies]
+h5fortran = { git = "https://github.com/geospace-code/h5fortran", tag = "v4.10.6" }
 [dev-dependencies]
 fortuno = { git = "https://github.com/fortuno-repos/fortuno-fpm-serial.git" }
 

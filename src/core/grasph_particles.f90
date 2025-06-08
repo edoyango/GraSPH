@@ -13,7 +13,7 @@ module grasph_particles
         real(fp):: x(ndims), v(ndims), rho, mass
     end type base_particle
 
-    type, abstract:: base_particles
+    type:: base_particles
         integer, allocatable:: id(:), type(:)
         real(fp), allocatable:: x(:, :), v(:, :), rho(:), mass(:), c(:)
         real(fp), allocatable:: dvxdt(:, :), drhodt(:), v0(:, :), rho0(:) ! time-integration related data
@@ -22,8 +22,14 @@ module grasph_particles
     contains
         procedure:: base_init, base_clear
         procedure:: state_update => base_state_update
-        procedure:: mid_timestep_update => base_midtimestep_update, full_timestep_update => base_fulltimestep_update
+        procedure:: start_timestep => base_timestep_start, mid_timestep_update => base_midtimestep_update, &
+                    full_timestep_update => base_fulltimestep_update
+        procedure:: dump => base_dump, read => base_read
     end type base_particles
+
+    type:: particles_container
+        class(base_particles), allocatable:: p
+    end type particles_container
 
     type, extends(base_particles):: weakly_compressible_particles
         real(fp), allocatable:: p(:)
@@ -32,7 +38,7 @@ module grasph_particles
         procedure:: init => wcp_init, state_update => linear_eos
     end type weakly_compressible_particles
 
-    public:: base_particle, base_particles, weakly_compressible_particles
+    public:: base_particle, base_particles, weakly_compressible_particles, particles_container
 
 contains
     pure subroutine base_init(self, n, d)
@@ -84,6 +90,72 @@ contains
         self%rho(:) = self%rho0(:) + dt*self%drhodt(:)
         if (update_position) self%x(:, :) = self%x(:, :) + dt*self%v(:, :)
     end subroutine base_fulltimestep_update
+
+    subroutine base_dump(self, itimestep, path, prefix, comp_level)
+        use h5fortran, only: hdf5_file
+        class(base_particles), intent(in):: self
+        integer, intent(in):: itimestep
+        character(*), intent(in):: path, prefix
+        integer, intent(in), optional:: comp_level
+        character(*), parameter:: group = "/base"
+        character(200):: filename
+        integer:: ierr
+        type(hdf5_file):: h5f
+        character(10):: ic
+
+        write(ic, "(I10.10)") itimestep
+        filename = path // "/" // prefix // "grasph_particles_" // ic // ".h5"
+
+        call h5f%open(filename, action="w", comp_lvl = comp_level)
+        call h5f%write("/n", self%size)
+        call h5f%write("/ndims", self%ndims)
+        call h5f%write(group // "/id", self%id)
+        call h5f%write(group // "/type", self%type)
+        call h5f%write(group // "/x", self%x)
+        call h5f%write(group // "/v", self%v)
+        call h5f%write(group // "/rho", self%rho)
+        call h5f%write(group // "/mass", self%mass)
+        call h5f%write(group // "/c", self%c)
+        call h5f%write(group // "/dvxdt", self%dvxdt)
+        call h5f%write(group // "/drhodt", self%drhodt)
+        call h5f%write(group // "/v0", self%v0)
+        call h5f%write(group // "/rho0", self%rho0)
+        call h5f%close()
+
+    end subroutine base_dump
+
+    subroutine base_read(self, itimestep, path, prefix)
+        use h5fortran, only: hdf5_file
+        class(base_particles), intent(out):: self
+        integer, intent(in):: itimestep
+        character(*), intent(in):: path, prefix
+        character(*), parameter:: group = "/base"
+        character(200):: filename
+        integer:: ierr, d, n
+        type(hdf5_file):: h5f
+        character(10):: ic
+
+        write(ic, "(I10.10)") itimestep
+        filename = path // "/" // prefix // "grasph_particles_" // ic // ".h5"
+
+        call h5f%open(filename, action="r")
+        call h5f%read("/n", n)
+        call h5f%read("/ndims", d)
+        call self%base_init(n, d)
+        call h5f%read(group // "/id", self%id)
+        call h5f%read(group // "/type", self%type)
+        call h5f%read(group // "/x", self%x)
+        call h5f%read(group // "/v", self%v)
+        call h5f%read(group // "/rho", self%rho)
+        call h5f%read(group // "/mass", self%mass)
+        call h5f%read(group // "/c", self%c)
+        call h5f%read(group // "/dvxdt", self%dvxdt)
+        call h5f%read(group // "/drhodt", self%drhodt)
+        call h5f%read(group // "/v0", self%v0)
+        call h5f%read(group // "/rho0", self%rho0)
+        call h5f%close()
+
+    end subroutine base_read
 
     subroutine wcp_init(self, n, d, rho_ref)
         class(weakly_compressible_particles), intent(inout):: self
