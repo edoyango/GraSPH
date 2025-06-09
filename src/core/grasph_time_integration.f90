@@ -4,7 +4,7 @@ module grasph_time_integration
     use grasph_particles, only: particles_container
     use grasph_pair_sets, only: particle_interactions_container
     use grasph_kernels, only: grasph_base_kernel
-    use grasph_misc, only: print_summary
+    use grasph_misc, only: print_summary, system_timer
     
     implicit none
     private
@@ -25,9 +25,12 @@ contains
         integer, intent(in):: output_comp_level
         integer:: nparticle_sets, nparticle_interactions, itimestep, i
         real(fp):: dt
+        type(system_timer):: timer
 
         nparticle_sets = size(particles)
         nparticle_interactions = size(particle_interactions)
+
+        call timer%start()
 
         do itimestep = 1, maxtimestep
 
@@ -76,7 +79,7 @@ contains
 
             ! print data to screen
             if (mod(itimestep, print_step) == 0) then
-                call print_summary(itimestep, "Leap-Frog", particles)
+                call print_summary(itimestep, "Leap-Frog", particles, timer)
             endif
 
         enddo
