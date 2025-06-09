@@ -108,7 +108,14 @@ module grasph_particles
         procedure:: read => wcp_read
     end type weakly_compressible_particles
 
-    public:: base_particles, weakly_compressible_particles, particles_container
+    !> @brief particle type which adds pressure, determined from density with a Tait EOS
+    type, extends(weakly_compressible_particles):: weakly_compressible_particles_tait
+    contains
+        !> @brief Tait equation of state which overrides the do-nothing base state-update subroutine.
+        procedure:: state_update => tait_eos
+    end type weakly_compressible_particles_tait
+
+    public:: base_particles, weakly_compressible_particles, weakly_compressible_particles_tait, particles_container
 
 contains
     !> @brief Initializes base_particles' internal arrays.
@@ -395,4 +402,19 @@ contains
         call h5f%read(trim(this_group)//"p", self%p)
         call h5f%close()
     end subroutine wcp_read
+
+    !> @brief The Tait state equation to update stress using the particles' speed of sound (c),
+    !>        density (rho), and reference density (rho_ref). Overrides base_particles' state_update
+    !>        subroutine.
+    !> @param self The particles' pressure to be updated.
+    !> @param dt The input time-increment (unused - included to match the overriden method).
+    subroutine tait_eos(self, dt)
+        class(weakly_compressible_particles_tait), intent(inout):: self
+        real(fp), intent(in), optional:: dt
+        integer:: i
+        integer, parameter:: gamma = 7
+        do i = 1, self%size
+            self%p(i) = self%rho_ref*self%c(i)*self%c(i)/real(gamma, kind=fp)*((self%rho(i)/self%rho_ref)**gamma - 1._fp)
+        end do
+    end subroutine tait_eos
 end module grasph_particles
