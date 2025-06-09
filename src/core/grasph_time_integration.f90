@@ -4,6 +4,7 @@ module grasph_time_integration
     use grasph_particles, only: particles_container
     use grasph_pair_sets, only: particle_interactions_container
     use grasph_kernels, only: grasph_base_kernel
+    use grasph_misc, only: print_summary
     
     implicit none
     private
@@ -75,8 +76,7 @@ contains
 
             ! print data to screen
             if (mod(itimestep, print_step) == 0) then
-                write(*, "(A)")       "------------------------- GraSPH Output -------------------------"
-                write(*, "(A,I13,A)") "                         ", itimestep, "                         "
+                call print_summary(itimestep, "Leap-Frog", particles)
             endif
 
         enddo

@@ -26,6 +26,7 @@ module grasph_particles
         procedure:: start_timestep => base_timestep_start, mid_timestep_update => base_midtimestep_update, &
                     full_timestep_update => base_fulltimestep_update
         procedure:: dump => base_dump, read => base_read
+        procedure:: generate_summary => base_generate_summary
     end type base_particles
 
     type:: particles_container
@@ -161,6 +162,49 @@ contains
         call h5f%close()
 
     end subroutine base_read
+
+    subroutine base_generate_summary(self, out_str)
+
+        class(base_particles), intent(in):: self
+        character(len=:), allocatable, intent(out):: out_str
+        real(fp):: val
+        integer:: offset, d, i
+        integer, parameter:: line_length = 60, nlines = 5
+        character(*), parameter:: format_str = "(4x, A, f12.5, A, I10)"
+
+        allocate(character(nlines*line_length)::out_str)
+        offset = 0
+
+        ! save max accel
+        i = maxloc(sum(self%dvxdt(:, :)**2, dim=1), dim=1)
+        val = sqrt(sum(self%dvxdt(:, i)**2))
+        write(out_str(offset+1:offset+line_length), format_str) "  max(|dvdt|) of ", val, " at particle ", i
+        offset = offset + line_length
+        write(out_str(offset:offset), "(A1)") new_line("a")
+
+        ! save max vel
+        i = maxloc(sum(self%v(:, :)**2, dim=1), dim=1)
+        val = sqrt(sum(self%v(:, i)**2))
+        write(out_str(offset+1:offset+line_length), format_str) "     max(|v|) of ", val, " at particle ", i
+        offset = offset + line_length
+        write(out_str(offset:offset), "(A1)") new_line("a")
+
+        ! save min rho
+        i = minloc(self%rho, dim=1)
+        write(out_str(offset+1:offset+line_length), format_str) "     min(rho) of ", self%rho(i), " at particle ", i
+        offset = offset + line_length
+        write(out_str(offset:offset), "(A1)") new_line("a")
+
+        ! save max rho
+        i = maxloc(self%rho, dim=1)
+        write(out_str(offset+1:offset+line_length), format_str) "     max(rho) of ", self%rho(i), " at particle ", i
+        offset = offset + line_length
+        write(out_str(offset:offset), "(A1)") new_line("a")
+        i = maxloc(abs(self%drhodt), dim=1)
+        write(out_str(offset+1:offset+line_length), format_str) "max(|drhodt|) of ", self%drhodt(i), " at particle ", i
+        
+
+    end subroutine base_generate_summary
 
     subroutine wcp_init(self, n, d, name, rho_ref)
         class(weakly_compressible_particles), intent(inout):: self
