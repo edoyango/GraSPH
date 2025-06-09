@@ -1,3 +1,7 @@
+!> @file grasph_pair_interactions.f90
+!> @brief Module containing subroutines describing common particle interactions.
+!> @author Edward Yang
+!> @date 2025-06-09
 module grasph_pair_interactions
 
     use grasph_constants, only: fp
@@ -6,8 +10,27 @@ module grasph_pair_interactions
 
 contains
 
+    !> @brief Artificial viscosity as described in http://dx.doi.org/10.1006/jcph.1994.1034
+    !> @param ndims The number of dimensions of the problems - used to size input and tmp arrays.
+    !> @param xi The LHS particle's position.
+    !> @param xj The RHS "                 ".
+    !> @param vi The LHS particle's velocity.
+    !> @param vj The RHS "                 ".
+    !> @param rhoi The LHS particle's density.
+    !> @param rhoj The RHS "                ".
+    !> @param hsmli The LHS particle's smoothing length.
+    !> @param hsmlj The RHS "                         ".
+    !> @param ci The LHS particle's local speed of sound.
+    !> @param cj The RHS particle's "                  ".
+    !> @param massi The LHS particle's mass.
+    !> @param massj The RHS "             ".
+    !> @param dvxdti The LHS particle's acceleration.
+    !> @param dvxdtj The RHS "                     ".
+    !> @param dwdx The kernel gradient, relative to the LHS particle.
+    !> @param alpha The viscous damping coefficient.
+    !> @param beta Another damping coefficient.
     pure subroutine artificial_viscosity_monaghan1994(ndims, xi, xj, vi, vj, rhoi, rhoj, hsmli, hsmlj, ci, &
-        cj, massi, massj, dvxdti, dvxdtj, dwdx, alpha, beta)
+                                                      cj, massi, massj, dvxdti, dvxdtj, dwdx, alpha, beta)
 
         integer, intent(in):: ndims
         real(fp), intent(in):: xi(ndims), xj(ndims), vi(ndims), vj(ndims), rhoi, rhoj, hsmli, hsmlj, &
@@ -32,6 +55,15 @@ contains
 
     end subroutine artificial_viscosity_monaghan1994
 
+    !> @brief Continuity density as described in http://dx.doi.org/10.1006/jcph.1994.1034
+    !> @param ndims The number of dimensions of the problems - used to size input and tmp arrays.
+    !> @param vi The LHS particle's velocity.
+    !> @param vj The RHS "                 ".
+    !> @param massi The LHS particle's mass.
+    !> @param massj The RHS "             ".
+    !> @param drhodti The LHS particle's density rate of change.
+    !> @param drhodtj The RHS "                               ".
+    !> @param dwdx The kernel gradient, relative to the LHS particle.
     pure subroutine continuity_density(ndims, vi, vj, massi, massj, drhodti, drhodtj, dwdx)
 
         integer, intent(in):: ndims
@@ -39,13 +71,24 @@ contains
         real(fp), intent(inout):: drhodti, drhodtj
         real(fp):: vcc
 
-        vcc = dot_product(vi(:)-vj(:), dwdx(:))
+        vcc = dot_product(vi(:) - vj(:), dwdx(:))
 
         drhodti = drhodti + massj*vcc
         drhodtj = drhodtj + massi*vcc
 
     end subroutine continuity_density
 
+    !> @brief Isotropic pressure force as described in http://dx.doi.org/10.1006/jcph.1994.1034
+    !> @param ndims The number of dimensions of the problems - used to size input and tmp arrays.
+    !> @param pi The LHS particle's pressure.
+    !> @param pj The RHS "                 ".
+    !> @param rhoi The LHS particle's density.
+    !> @param rhoj The RHS "                ".
+    !> @param massi The LHS particle's mass.
+    !> @param massj The RHS "             ".
+    !> @param dvxdti The LHS particle's acceleration.
+    !> @param dvxdtj The RHS "                     ".
+    !> @param dwdx The kernel gradient, relative to the LHS particle.
     pure subroutine isotropic_pressure_force(ndims, pi, pj, rhoi, rhoj, massi, massj, dvxdti, dvxdtj, dwdx)
 
         integer, intent(in):: ndims
@@ -59,6 +102,15 @@ contains
 
     end subroutine isotropic_pressure_force
 
+    !> @brief repulsive used for boundary particles as described in http://dx.doi.org/10.1006/jcph.1994.1034.
+    !>        Unlike other interactions, this assumes the "real" particles are always on the LHS and the RHS
+    !>        particles aren't evolved using the governing equations.
+    !> @param ndims The number of dimensions of the problems - used to size input and tmp arrays.
+    !> @param cutoff The cut-off distance to apply the repulsive force.
+    !> @param ci The LHS particle's local speed of sound.
+    !> @param xi The LHS particle's position.
+    !> @param xj The RHS "                 ".
+    !> @param dvxdti The LHS particle's acceleration.
     pure subroutine repulsive_force(ndims, cutoff, ci, xi, xj, dvxdti)
         integer, intent(in):: ndims
         real(fp), intent(in):: cutoff, ci, xi(ndims), xj(ndims)
@@ -71,8 +123,7 @@ contains
         if (r < cutoff) then
             f = ((cutoff/r)**p1 - (cutoff/r)**p2)/(r*r)
             dvxdti(:) = dvxdti(:) + 0.01_fp*ci*ci*f*dx(:)
-        endif
+        end if
     end subroutine repulsive_force
-
 
 end module grasph_pair_interactions

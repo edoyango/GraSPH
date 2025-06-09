@@ -1,3 +1,7 @@
+!> @file grasph_time_integration.f90
+!> @brief Module containing useful generic time-integration schemes to be used in an SPH simulation.
+!> @author Edward Yang
+!> @date 2025-06-09
 module grasph_time_integration
 
     use grasph_constants, only: fp
@@ -5,7 +9,7 @@ module grasph_time_integration
     use grasph_pair_sets, only: particle_interactions_container
     use grasph_kernels, only: grasph_base_kernel
     use grasph_misc, only: print_summary, system_timer
-    
+
     implicit none
     private
 
@@ -13,6 +17,17 @@ module grasph_time_integration
 
 contains
 
+    !> @brief Leap-Frog time-integration (e.g. https://en.wikipedia.org/wiki/Leapfrog_integration).
+    !> @param maxtimestep The maximum number of time-steps to run the time-integration for.
+    !> @param print_step The interval number of time-steps to update the terminal with run information.
+    !> @param save_step The interval number of time-steps to save data to disk using particles' inbuilt dump method.
+    !> @param particles The list of particles who's state is being updated over time.
+    !> @param particle_interactions The list of particle_pair_set objects which describe particles' relationship with one another.
+    !> @param CFL The Courant-Freidrichs-Lewy coefficient for time-stepping.
+    !> @param kernel The kernel to use.
+    !> @param output_path The directory to store saved data.
+    !> @param output_prefix The filename prefix to use in the output files.
+    !> @param output_comp_level The level of GZIP compression to use when writing the output HDF5 files.
     subroutine leap_frog_time_integration(maxtimestep, print_step, save_step, particles, particle_interactions, CFL, kernel, &
                                           output_path, output_prefix, output_comp_level)
 
@@ -38,51 +53,51 @@ contains
             dt = huge(1._fp)
             do i = 1, nparticle_sets
                 dt = min(dt, CFL*kernel%h/maxval(particles(i)%p%c(:)))
-            enddo
+            end do
 
             ! find pairs between provided particle interaction sets
             do i = 1, nparticle_interactions
                 call particle_interactions(i)%pi%find_pairs(kernel%cutoff, kernel)
-            enddo
+            end do
 
             ! save data at start of timestep for each particles
             do i = 1, nparticle_sets
                 call particles(i)%p%start_timestep()
-            enddo
+            end do
 
             ! update particles to mid-timestep
             do i = 1, nparticle_sets
                 call particles(i)%p%mid_timestep_update(0.5_fp*dt)
                 call particles(i)%p%state_update(0.5_fp*dt)
-            enddo
+            end do
 
             ! perform pre-sweep prologue e.g. to update boundary particles' state
             do i = 1, nparticle_interactions
                 call particle_interactions(i)%pi%sweep_prologue()
-            enddo
+            end do
             ! perform actual sweep i.e., calculate acceleration, density change etc.
             do i = 1, nparticle_interactions
                 call particle_interactions(i)%pi%sweep
-            enddo
+            end do
 
             ! update states to full-timestep
             do i = 1, nparticle_sets
                 call particles(i)%p%full_timestep_update(dt, update_position=.true.)
-            enddo
+            end do
 
             ! write data
             if (mod(itimestep, save_step) == 0) then
                 do i = 1, nparticle_sets
                     call particles(i)%p%dump(itimestep, output_path, output_prefix, output_comp_level)
-                enddo
-            endif
+                end do
+            end if
 
             ! print data to screen
             if (mod(itimestep, print_step) == 0) then
                 call print_summary(itimestep, "Leap-Frog", particles, timer)
-            endif
+            end if
 
-        enddo
+        end do
 
     end subroutine leap_frog_time_integration
 

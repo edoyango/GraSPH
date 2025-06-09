@@ -19,32 +19,93 @@ module grasph_particles
 
     !> @brief The core particles derived type
     type:: base_particles
-        integer, allocatable:: id(:), type(:)
-        real(fp), allocatable:: x(:, :), v(:, :), rho(:), mass(:), c(:)
-        real(fp), allocatable:: dvxdt(:, :), drhodt(:), v0(:, :), rho0(:) ! time-integration related data
-        logical:: initialized = .false., to_print_summary = .true.
-        integer:: ndims = 0, size = 0
-        character(100):: name ! used in naming groups in output hdf5 file
+        !> @brief The id of the particles.
+        integer, allocatable:: id(:)
+        !> @brief The type of the particles.
+        integer, allocatable:: type(:)
+        !> @brief The particles' position.
+        real(fp), allocatable:: x(:, :)
+        !> @brief The particles' velocity.
+        real(fp), allocatable:: v(:, :)
+        !> @brief The particles' density.
+        real(fp), allocatable:: rho(:)
+        !> @brief The particles' mass.
+        real(fp), allocatable:: mass(:)
+        !> @brief The particles' local speed of sound.
+        real(fp), allocatable:: c(:)
+        !> @brief The particles' acceleration
+        real(fp), allocatable:: dvxdt(:, :)
+        !> @brief The particles' density rate-of-change.
+        real(fp), allocatable:: drhodt(:)
+        !> @brief The particles' velocity at the start of a time-step.
+        real(fp), allocatable:: v0(:, :)
+        !> @brief The particles' density at the start of a time-step
+        real(fp), allocatable:: rho0(:)
+        !> @brief Whether the particles have been initialized.
+        logical:: initialized = .false.
+        !> @brief Whether to print information when generate_summary is called.
+        logical:: to_print_summary = .true.
+        !> @brief Number of spatial dimensions
+        integer:: ndims = 0
+        !> @brief Number of particles.
+        integer:: size = 0
+        !> @brief Name used in naming groups in output hdf5 file
+        character(100):: name
     contains
-        procedure:: base_init, base_clear
+        !> @brief The initializer for the base class. Intended to be called in extended types' initializer method.
+        procedure:: base_init
+        !> @brief A manual destructor to clean up.
+        procedure:: base_clear
+        !> @brief A method intended to be overriden when extended particles' state needs to be updated during time-integration.
+        !>        Is called after any time-evolution has occurred, but before any sweeps are supposed to happen.
+        !>        Does nothing in the base_particles instance.
         procedure:: state_update => base_state_update
-        procedure:: start_timestep => base_timestep_start, mid_timestep_update => base_midtimestep_update, &
-                    full_timestep_update => base_fulltimestep_update
-        procedure:: dump => base_dump, read => base_read
+        !> @brief A method intended to be overriden when extended particles' data (except position) needs to be saved at the
+        !>        beginning of a time-step in time-integration. Is called at the start of any time-step.
+        !>        Stores velocity and density in the base_particles instance
+        procedure:: start_timestep => base_timestep_start
+        !> @brief A method intended to be overriden when extended particles' have time-evolving data.
+        !>        Is called when any intermediate time-evolution needs to occur e.g. in Leap-Frog or RK >1 time-integration schemes.
+        !>        Updates velocity and density in the base_particles instance.
+        procedure:: mid_timestep_update => base_midtimestep_update
+        !> @brief A method intended to be overriden when extended particles' have time-evolving data.
+        !>        Is called when the time-evolving data stored using the start_timestep method needs to be updated.
+        !>        E.g. to update data to the next full time-step. Updates velocity, density, and (optionally) position in
+        !>        base_particles.
+        procedure:: full_timestep_update => base_fulltimestep_update
+        !> @brief A method intended to be overriden when extended particles' have extra data that needs to be saved in the output
+        !>        files. Different derived types should store their data in different groups
+        !>        e.g. /\<name>/base_particles/..., and /\<name>/derived_particles/....
+        procedure:: dump => base_dump
+        !> @brief A method intended to be overriden when extended particles' have extra data that needs to be read from the output
+        !>        files.
+        procedure:: read => base_read
+        !> @brief A method that can be overriden to generate a string with particles' summary data to print during time-integration.
         procedure:: generate_summary => base_generate_summary
     end type base_particles
 
     !> @brief particles container class for setting up simulation
     type:: particles_container
+        !> @brief The polymorphic container to be allocated to base_particles or its derivatives.
         class(base_particles), allocatable:: p
     end type particles_container
 
     !> @brief particle type which adds pressure, determined from density with a linear EOS
     type, extends(base_particles):: weakly_compressible_particles
+        !> @brief Particles' isotropic pressure.
         real(fp), allocatable:: p(:)
+        !> @brief Reference density to be used to calculate pressure in the linear EOS.
         real(fp):: rho_ref
     contains
-        procedure:: init => wcp_init, state_update => linear_eos, dump => wcp_dump, read => wcp_read
+        !> @brief Custom intializer to initialize pressure and reference density.
+        !>        Also calls base_init to initialize base data.
+        procedure:: init => wcp_init
+        !> @brief Linear equation of state which overrides the do-nothing base state-update subroutine.
+        procedure:: state_update => linear_eos
+        !> @brief Overrides base output dump to include pressure data.
+        procedure:: dump => wcp_dump
+        !> @brief Overrides base input read to include pressure data.
+        procedure:: read => wcp_read
     end type weakly_compressible_particles
 
     public:: base_particles, weakly_compressible_particles, particles_container
@@ -118,9 +179,9 @@ contains
 
     !> @brief Writes base particle data to HDF5 file.
     !> @param self The particles to write.
-    !> @param itimestep The timestep to use to encode in the filename.
+    !> @param itimestep The timestep to add to the filename.
     !> @param path The output directory.
-    !> @param prefix The prefix to give to the output filenames.
+    !> @param prefix_in The prefix to give to the output filenames.
     !> @param comp_level The level of gzip compression to use.
     subroutine base_dump(self, itimestep, path, prefix_in, comp_level)
         use h5fortran, only: hdf5_file
@@ -139,26 +200,26 @@ contains
             filename_prefix = prefix_in
         else
             filename_prefix = "grasph_particles"
-        endif
+        end if
 
-        write(ic, "(I10.10)") itimestep
-        file_path = path // "/" // trim(filename_prefix) // "_" // ic // ".h5"
-        this_group = "/" // trim(self%name) // "/" // group
+        write (ic, "(I10.10)") itimestep
+        file_path = path//"/"//trim(filename_prefix)//"_"//ic//".h5"
+        this_group = "/"//trim(self%name)//"/"//group
 
-        call h5f%open(file_path, action="a", comp_lvl = comp_level)
-        call h5f%write("/" // trim(self%name) // "/n", self%size)
-        call h5f%write("/" // trim(self%name) // "/ndims", self%ndims)
-        call h5f%write(trim(this_group) // "id", self%id)
-        call h5f%write(trim(this_group) // "type", self%type)
-        call h5f%write(trim(this_group) // "x", self%x)
-        call h5f%write(trim(this_group) // "v", self%v)
-        call h5f%write(trim(this_group) // "rho", self%rho)
-        call h5f%write(trim(this_group) // "mass", self%mass)
-        call h5f%write(trim(this_group) // "c", self%c)
-        call h5f%write(trim(this_group) // "dvxdt", self%dvxdt)
-        call h5f%write(trim(this_group) // "drhodt", self%drhodt)
-        call h5f%write(trim(this_group) // "v0", self%v0)
-        call h5f%write(trim(this_group) // "rho0", self%rho0)
+        call h5f%open(file_path, action="a", comp_lvl=comp_level)
+        call h5f%write("/"//trim(self%name)//"/n", self%size)
+        call h5f%write("/"//trim(self%name)//"/ndims", self%ndims)
+        call h5f%write(trim(this_group)//"id", self%id)
+        call h5f%write(trim(this_group)//"type", self%type)
+        call h5f%write(trim(this_group)//"x", self%x)
+        call h5f%write(trim(this_group)//"v", self%v)
+        call h5f%write(trim(this_group)//"rho", self%rho)
+        call h5f%write(trim(this_group)//"mass", self%mass)
+        call h5f%write(trim(this_group)//"c", self%c)
+        call h5f%write(trim(this_group)//"dvxdt", self%dvxdt)
+        call h5f%write(trim(this_group)//"drhodt", self%drhodt)
+        call h5f%write(trim(this_group)//"v0", self%v0)
+        call h5f%write(trim(this_group)//"rho0", self%rho0)
         call h5f%close()
 
     end subroutine base_dump
@@ -176,27 +237,30 @@ contains
         integer:: d, n
         type(hdf5_file):: h5f
 
-        this_group = "/" // trim(name) // "/" // group
+        this_group = "/"//trim(name)//"/"//group
 
         call h5f%open(file_path, action="r")
-        call h5f%read("/" // trim(name) // "/n", n)
-        call h5f%read("/" // trim(name) // "/ndims", d)
+        call h5f%read("/"//trim(name)//"/n", n)
+        call h5f%read("/"//trim(name)//"/ndims", d)
         call self%base_init(n, d, name)
-        call h5f%read(trim(this_group) // "id", self%id)
-        call h5f%read(trim(this_group) // "type", self%type)
-        call h5f%read(trim(this_group) // "x", self%x)
-        call h5f%read(trim(this_group) // "v", self%v)
-        call h5f%read(trim(this_group) // "rho", self%rho)
-        call h5f%read(trim(this_group) // "mass", self%mass)
-        call h5f%read(trim(this_group) // "c", self%c)
-        call h5f%read(trim(this_group) // "dvxdt", self%dvxdt)
-        call h5f%read(trim(this_group) // "drhodt", self%drhodt)
-        call h5f%read(trim(this_group) // "v0", self%v0)
-        call h5f%read(trim(this_group) // "rho0", self%rho0)
+        call h5f%read(trim(this_group)//"id", self%id)
+        call h5f%read(trim(this_group)//"type", self%type)
+        call h5f%read(trim(this_group)//"x", self%x)
+        call h5f%read(trim(this_group)//"v", self%v)
+        call h5f%read(trim(this_group)//"rho", self%rho)
+        call h5f%read(trim(this_group)//"mass", self%mass)
+        call h5f%read(trim(this_group)//"c", self%c)
+        call h5f%read(trim(this_group)//"dvxdt", self%dvxdt)
+        call h5f%read(trim(this_group)//"drhodt", self%drhodt)
+        call h5f%read(trim(this_group)//"v0", self%v0)
+        call h5f%read(trim(this_group)//"rho0", self%rho0)
         call h5f%close()
 
     end subroutine base_read
 
+    !> @brief Controls particles' summary stats.
+    !> @param self The particles to print the stats of.
+    !> @param out_str The string which contains the summary stats and any formatting.
     subroutine base_generate_summary(self, out_str)
 
         class(base_particles), intent(in):: self
@@ -206,40 +270,46 @@ contains
         integer, parameter:: line_length = 60, nlines = 5
         character(*), parameter:: format_str = "(4x, A, f12.5, A, I10)"
 
-        allocate(character(nlines*line_length)::out_str)
+        allocate (character(nlines*line_length)::out_str)
         offset = 0
 
         ! save max accel
         i = maxloc(sum(self%dvxdt(:, :)**2, dim=1), dim=1)
         val = sqrt(sum(self%dvxdt(:, i)**2))
-        write(out_str(offset+1:offset+line_length), format_str) "  max(|dvdt|) of ", val, " at particle ", i
+        write (out_str(offset + 1:offset + line_length), format_str) "  max(|dvdt|) of ", val, " at particle ", i
         offset = offset + line_length
-        write(out_str(offset:offset), "(A1)") new_line("a")
+        write (out_str(offset:offset), "(A1)") new_line("a")
 
         ! save max vel
         i = maxloc(sum(self%v(:, :)**2, dim=1), dim=1)
         val = sqrt(sum(self%v(:, i)**2))
-        write(out_str(offset+1:offset+line_length), format_str) "     max(|v|) of ", val, " at particle ", i
+        write (out_str(offset + 1:offset + line_length), format_str) "     max(|v|) of ", val, " at particle ", i
         offset = offset + line_length
-        write(out_str(offset:offset), "(A1)") new_line("a")
+        write (out_str(offset:offset), "(A1)") new_line("a")
 
         ! save min rho
         i = minloc(self%rho, dim=1)
-        write(out_str(offset+1:offset+line_length), format_str) "     min(rho) of ", self%rho(i), " at particle ", i
+        write (out_str(offset + 1:offset + line_length), format_str) "     min(rho) of ", self%rho(i), " at particle ", i
         offset = offset + line_length
-        write(out_str(offset:offset), "(A1)") new_line("a")
+        write (out_str(offset:offset), "(A1)") new_line("a")
 
         ! save max rho
         i = maxloc(self%rho, dim=1)
-        write(out_str(offset+1:offset+line_length), format_str) "     max(rho) of ", self%rho(i), " at particle ", i
+        write (out_str(offset + 1:offset + line_length), format_str) "     max(rho) of ", self%rho(i), " at particle ", i
         offset = offset + line_length
-        write(out_str(offset:offset), "(A1)") new_line("a")
+        write (out_str(offset:offset), "(A1)") new_line("a")
         i = maxloc(abs(self%drhodt), dim=1)
-        write(out_str(offset+1:offset+line_length), format_str) "max(|drhodt|) of ", self%drhodt(i), " at particle ", i
-        
+        write (out_str(offset + 1:offset + line_length), format_str) "max(|drhodt|) of ", self%drhodt(i), " at particle ", i
 
     end subroutine base_generate_summary
 
+    !> @brief Custom init function for weakly-compressible particles. Will also initialize base
+    !>        particles' data.
+    !> @param self The weakly-compressible particles to initialize.
+    !> @param n Number of particles to allocate space for.
+    !> @param d Spatial dimensions of the particles.
+    !> @param name A label to give the particles. Used to label output/terminal information.
+    !> @param rho_ref Reference density used in the linear EOS.
     subroutine wcp_init(self, n, d, name, rho_ref)
         class(weakly_compressible_particles), intent(inout):: self
         integer, intent(in):: n, d
@@ -251,15 +321,27 @@ contains
         allocate (self%p(n))
     end subroutine wcp_init
 
+    !> @brief The linear state equation to update stress using the particles' speed of sound (c),
+    !>        density (rho), and reference density (rho_ref). Overrides base_particles' state_update
+    !>        subroutine.
+    !> @param self The particles' pressure to be updated.
+    !> @param dt The input time-increment (unused - included to match the overriden method).
     subroutine linear_eos(self, dt)
         class(weakly_compressible_particles), intent(inout):: self
         real(fp), intent(in), optional:: dt
         integer:: i
         do i = 1, self%size
             self%p(i) = self%c(i)**2*(self%rho(i) - self%rho_ref)
-        enddo
+        end do
     end subroutine linear_eos
 
+    !> @brief Custom output subroutine to include relevant weakly-compressible data. Overrides
+    !>        base particles' dump method.
+    !> @param self The weakly-compressible particles to write.
+    !> @param itimestep The timestep to add to the filename.
+    !> @param path The output directory.
+    !> @param prefix_in The prefix to give to the output filenames.
+    !> @param comp_level The level of gzip compression to use.
     subroutine wcp_dump(self, itimestep, path, prefix_in, comp_level)
         use h5fortran, only: hdf5_file
         class(weakly_compressible_particles), intent(in):: self
@@ -277,19 +359,23 @@ contains
             filename_prefix = prefix_in
         else
             filename_prefix = "grasph_particles"
-        endif
+        end if
 
-        write(ic, "(I10.10)") itimestep
-        file_path = path // "/" // trim(filename_prefix) // "_" // ic // ".h5"
-        this_group = "/" // trim(self%name) // "/" // group
+        write (ic, "(I10.10)") itimestep
+        file_path = path//"/"//trim(filename_prefix)//"_"//ic//".h5"
+        this_group = "/"//trim(self%name)//"/"//group
 
         call base_dump(self, itimestep, path, prefix_in, comp_level)
         call h5f%open(file_path, action="a")
-        call h5f%write(trim(this_group) // "p", self%p)
+        call h5f%write(trim(this_group)//"p", self%p)
         call h5f%close()
 
     end subroutine wcp_dump
 
+    !> @brief Reads weakly-compressible particle data from HDF5 file.
+    !> @param self The weakly-compressible particles to read data into.
+    !> @param file_path The path to the file to read.
+    !> @param name The name to of particles to read and assign to the read particles.
     subroutine wcp_read(self, file_path, name)
         use h5fortran, only: hdf5_file
         class(weakly_compressible_particles), intent(out):: self
@@ -300,13 +386,13 @@ contains
         type(hdf5_file):: h5f
         character(10):: ic
         call base_read(self, file_path, name)
-        
-        this_group = "/" // trim(name) // "/" // group
 
-        allocate(self%p(self%size))
+        this_group = "/"//trim(name)//"/"//group
+
+        allocate (self%p(self%size))
 
         call h5f%open(file_path, action="r")
-        call h5f%read(trim(this_group) // "p", self%p)
+        call h5f%read(trim(this_group)//"p", self%p)
         call h5f%close()
     end subroutine wcp_read
 end module grasph_particles
