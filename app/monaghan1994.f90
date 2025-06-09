@@ -146,6 +146,7 @@ program main
   ! use base_init since we're using the base type
   ! only need to initialize metadata and position as only position is used to calculate repulsive force
   call ps(2)%p%base_init(n=464, d=2, name="boundary")
+  ps(2)%p%to_print_summary = .false.
   k = 0
   ! bottom layer and corners
   do i = -1, nbx
@@ -195,7 +196,7 @@ program main
   ! init kernel
   call kernel%init(2, 1.2_fp*dx)
 
-  call leap_frog_time_integration(50000, 1000, 1000, ps, pic, 0.1_fp, kernel, "/home/edwardy/test", "", 4)
+  call leap_frog_time_integration(100000, 1000, 1000, ps, pic, 0.1_fp, kernel, "/home/edwardy/test", "", 4)
 
 
 end program main

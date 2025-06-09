@@ -17,7 +17,7 @@ module grasph_particles
         integer, allocatable:: id(:), type(:)
         real(fp), allocatable:: x(:, :), v(:, :), rho(:), mass(:), c(:)
         real(fp), allocatable:: dvxdt(:, :), drhodt(:), v0(:, :), rho0(:) ! time-integration related data
-        logical:: initialized = .false.
+        logical:: initialized = .false., to_print_summary = .true.
         integer:: ndims = 0, size = 0
         character(100):: name ! used in naming groups in output hdf5 file
     contains

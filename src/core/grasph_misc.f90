@@ -29,8 +29,12 @@ contains
         write(*, "(A, I13)") time_integration_scheme // " time-intregration, time-step: ", itimestep
         do i = 1, size(particles)
             write(*, "(A)") "  Summary data for: " // trim(particles(i)%p%name)
-            call particles(i)%p%generate_summary(psummary)
-            write(*, "(A)") psummary
+            if (particles(i)%p%to_print_summary) then
+                call particles(i)%p%generate_summary(psummary)
+                write(*, "(A)") psummary
+            else
+                write(*, "(A)") "    skipped"
+            endif
         enddo
         if (present(timer)) then
             write(*, "(A, f12.5)") "Elapsed wall time: ", timer%stop()
