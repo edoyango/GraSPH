@@ -1,3 +1,7 @@
+!> @file grasph_particles.f90
+!> @brief Module containing core particles derived types and methods
+!> @author Edward Yang
+!> @date 2025-06-09
 module grasph_particles
 
     use grasph_constants, only: fp
@@ -13,6 +17,7 @@ module grasph_particles
     !     real(fp):: x(ndims), v(ndims), rho, mass
     ! end type base_particle
 
+    !> @brief The core particles derived type
     type:: base_particles
         integer, allocatable:: id(:), type(:)
         real(fp), allocatable:: x(:, :), v(:, :), rho(:), mass(:), c(:)
@@ -29,10 +34,12 @@ module grasph_particles
         procedure:: generate_summary => base_generate_summary
     end type base_particles
 
+    !> @brief particles container class for setting up simulation
     type:: particles_container
         class(base_particles), allocatable:: p
     end type particles_container
 
+    !> @brief particle type which adds pressure, determined from density with a linear EOS
     type, extends(base_particles):: weakly_compressible_particles
         real(fp), allocatable:: p(:)
         real(fp):: rho_ref
@@ -43,7 +50,12 @@ module grasph_particles
     public:: base_particles, weakly_compressible_particles, particles_container
 
 contains
-    pure subroutine base_init(self, n, d, name)
+    !> @brief Initializes base_particles' internal arrays.
+    !> @param self The particles to initialize.
+    !> @param n The number of particles.
+    !> @param d The dimension of the problem (1-3).
+    !> @param name A label to give the particles. Used to label output/terminal information.
+    subroutine base_init(self, n, d, name)
         class(base_particles), intent(inout):: self
         integer, intent(in):: n, d
         character(*), intent(in):: name
@@ -57,28 +69,33 @@ contains
         self%name = name
     end subroutine base_init
 
-    pure subroutine base_clear(self)
-        class(base_particles), intent(inout):: self
-        if (self%initialized) then
-            deallocate (self%id, self%type, self%x, self%v, self%rho, self%mass, self%c)
-            deallocate (self%dvxdt, self%drhodt, self%v0, self%rho0)
-        endif
-        self%initialized = .false.
-        self%size = 0
+    !> @brief Deallocates internal arrays of self and sets state to uninitialized
+    !> @param self The particles to clear
+    subroutine base_clear(self)
+        class(base_particles), intent(out):: self
     end subroutine base_clear
 
+    !> @brief A do-nothing placeholder subroutine used in time-integration. Extend this with particles' internal state update code e.g. updating pressure, stress.
+    !> @param self Particles whose state is to be updated.
+    !> @param dt A time-increment which may be used to update particles' state.
     subroutine base_state_update(self, dt)
         class(base_particles), intent(inout):: self
         real(fp), intent(in), optional:: dt
         ! do nothing e.g. when using static repulsive boundaries that have no state
     end subroutine base_state_update
 
+    !> @brief Subroutine to perform setup at start of every time-step.
+    !> @param self Particles to setup.
     subroutine base_timestep_start(self)
         class(base_particles), intent(inout):: self
+        ! save current velocity/density
         self%v0(:, :) = self%v(:, :)
         self%rho0(:) = self%rho(:)
     end subroutine base_timestep_start
 
+    !> @brief Subroutine to update time-evolving variables.
+    !> @param self Particles to evolve.
+    !> @param dt Time increment.
     subroutine base_midtimestep_update(self, dt)
         class(base_particles), intent(inout):: self
         real(fp), intent(in):: dt
@@ -86,6 +103,10 @@ contains
         self%rho(:) = self%rho(:) + dt*self%drhodt(:)
     end subroutine base_midtimestep_update
 
+    !> @brief Subroutine to update time-evolving variables using start-of-timestep data.
+    !> @param self Particles to evolve.
+    !> @param dt Time increment.
+    !> @param update_position Whether to update position
     subroutine base_fulltimestep_update(self, dt, update_position)
         class(base_particles), intent(inout):: self
         real(fp), intent(in):: dt
@@ -95,6 +116,12 @@ contains
         if (update_position) self%x(:, :) = self%x(:, :) + dt*self%v(:, :)
     end subroutine base_fulltimestep_update
 
+    !> @brief Writes base particle data to HDF5 file.
+    !> @param self The particles to write.
+    !> @param itimestep The timestep to use to encode in the filename.
+    !> @param path The output directory.
+    !> @param prefix The prefix to give to the output filenames.
+    !> @param comp_level The level of gzip compression to use.
     subroutine base_dump(self, itimestep, path, prefix, comp_level)
         use h5fortran, only: hdf5_file
         class(base_particles), intent(in):: self
@@ -129,22 +156,22 @@ contains
 
     end subroutine base_dump
 
-    subroutine base_read(self, itimestep, path, prefix, name)
+    !> @brief Reads base particle data from HDF5 file.
+    !> @param self The particles to read data into.
+    !> @param file_path The path to the file to read.
+    !> @param name The name to of particles to read and assign to the read particles.
+    subroutine base_read(self, file_path, name)
         use h5fortran, only: hdf5_file
         class(base_particles), intent(out):: self
-        integer, intent(in):: itimestep
-        character(*), intent(in):: path, prefix, name
+        character(*), intent(in):: name, file_path
         character(*), parameter:: group = "base/"
-        character(200):: filename, this_group
-        integer:: ierr, d, n
+        character(200):: this_group
+        integer:: d, n
         type(hdf5_file):: h5f
-        character(10):: ic
 
-        write(ic, "(I10.10)") itimestep
-        filename = path // "/" // prefix // "grasph_particles_" // ic // ".h5"
         this_group = "/" // trim(name) // "/" // group
 
-        call h5f%open(filename, action="r")
+        call h5f%open(file_path, action="r")
         call h5f%read("/" // trim(name) // "/n", n)
         call h5f%read("/" // trim(name) // "/ndims", d)
         call self%base_init(n, d, name)
@@ -249,25 +276,22 @@ contains
 
     end subroutine wcp_dump
 
-    subroutine wcp_read(self, itimestep, path, prefix, name)
+    subroutine wcp_read(self, file_path, name)
         use h5fortran, only: hdf5_file
         class(weakly_compressible_particles), intent(out):: self
-        integer, intent(in):: itimestep
-        character(*), intent(in):: path, prefix, name
+        character(*), intent(in):: file_path, name
         character(*), parameter:: group = "weakly_compressible/"
         character(200):: filename, this_group
         integer:: ierr, d, n
         type(hdf5_file):: h5f
         character(10):: ic
-        call base_read(self, itimestep, path, prefix, name)
+        call base_read(self, file_path, name)
         
-        write(ic, "(I10.10)") itimestep
-        filename = path // "/" // prefix // "grasph_particles_" // ic // ".h5"
         this_group = "/" // trim(name) // "/" // group
 
         allocate(self%p(self%size))
 
-        call h5f%open(filename, action="r")
+        call h5f%open(file_path, action="r")
         call h5f%read(trim(this_group) // "p", self%p)
         call h5f%close()
     end subroutine wcp_read

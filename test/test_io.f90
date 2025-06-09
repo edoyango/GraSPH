@@ -43,7 +43,7 @@ contains
 
         call ps%dump(1, "/tmp", "test-", 4)
 
-        call ps2%read(1, "/tmp", "test-", "test_base_particles")
+        call ps2%read("/tmp/test-grasph_particles_0000000001.h5", "test_base_particles")
 
         do i = 1, 10
             write(ic, "(I2)") i
@@ -89,7 +89,7 @@ contains
 
         call ps%dump(1, "/tmp", "test-", 4)
 
-        call ps2%read(1, "/tmp", "test-", "test_wcp_particles")
+        call ps2%read("/tmp/test-grasph_particles_0000000001.h5", "test_wcp_particles")
 
         do i = 1, 10
             write(ic, "(I2)") i
