@@ -41,9 +41,9 @@ contains
         ps%id(:) = [(i, i=171, 180)]
         ps%type(:) = [(i, i=181, 190)]
 
-        call ps%dump(1, "/tmp", "test-", 4)
+        call ps%dump(1, "/tmp")
 
-        call ps2%read("/tmp/test-grasph_particles_0000000001.h5", "test_base_particles")
+        call ps2%read("/tmp/grasph_particles_0000000001.h5", "test_base_particles")
 
         do i = 1, 10
             write(ic, "(I2)") i
@@ -87,7 +87,7 @@ contains
         ps%type(:) = [(i, i=181, 190)]
         ps%p(:) = [(i, i=191, 200)]
 
-        call ps%dump(1, "/tmp", "test-", 4)
+        call ps%dump(1, "/tmp", "test-grasph_particles", 4)
 
         call ps2%read("/tmp/test-grasph_particles_0000000001.h5", "test_wcp_particles")
 

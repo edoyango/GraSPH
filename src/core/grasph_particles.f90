@@ -122,23 +122,30 @@ contains
     !> @param path The output directory.
     !> @param prefix The prefix to give to the output filenames.
     !> @param comp_level The level of gzip compression to use.
-    subroutine base_dump(self, itimestep, path, prefix, comp_level)
+    subroutine base_dump(self, itimestep, path, prefix_in, comp_level)
         use h5fortran, only: hdf5_file
         class(base_particles), intent(in):: self
         integer, intent(in):: itimestep
-        character(*), intent(in):: path, prefix
+        character(*), intent(in):: path
+        character(*), intent(in), optional:: prefix_in
         integer, intent(in), optional:: comp_level
         character(*), parameter:: group = "base/"
-        character(200):: filename, this_group
+        character(200):: filename_prefix, file_path, this_group
         integer:: ierr
         type(hdf5_file):: h5f
         character(10):: ic
 
+        if (present(prefix_in)) then
+            filename_prefix = prefix_in
+        else
+            filename_prefix = "grasph_particles"
+        endif
+
         write(ic, "(I10.10)") itimestep
-        filename = path // "/" // prefix // "grasph_particles_" // ic // ".h5"
+        file_path = path // "/" // trim(filename_prefix) // "_" // ic // ".h5"
         this_group = "/" // trim(self%name) // "/" // group
 
-        call h5f%open(filename, action="a", comp_lvl = comp_level)
+        call h5f%open(file_path, action="a", comp_lvl = comp_level)
         call h5f%write("/" // trim(self%name) // "/n", self%size)
         call h5f%write("/" // trim(self%name) // "/ndims", self%ndims)
         call h5f%write(trim(this_group) // "id", self%id)
@@ -253,24 +260,31 @@ contains
         enddo
     end subroutine linear_eos
 
-    subroutine wcp_dump(self, itimestep, path, prefix, comp_level)
+    subroutine wcp_dump(self, itimestep, path, prefix_in, comp_level)
         use h5fortran, only: hdf5_file
         class(weakly_compressible_particles), intent(in):: self
         integer, intent(in):: itimestep
-        character(*), intent(in):: path, prefix
+        character(*), intent(in):: path
+        character(*), intent(in), optional:: prefix_in
         integer, intent(in), optional:: comp_level
         character(*), parameter:: group = "weakly_compressible/"
-        character(200):: filename, this_group
+        character(200):: filename_prefix, file_path, this_group
         integer:: ierr
         type(hdf5_file):: h5f
         character(10):: ic
 
+        if (present(prefix_in)) then
+            filename_prefix = prefix_in
+        else
+            filename_prefix = "grasph_particles"
+        endif
+
         write(ic, "(I10.10)") itimestep
-        filename = path // "/" // prefix // "grasph_particles_" // ic // ".h5"
+        file_path = path // "/" // trim(filename_prefix) // "_" // ic // ".h5"
         this_group = "/" // trim(self%name) // "/" // group
 
-        call base_dump(self, itimestep, path, prefix, comp_level)
-        call h5f%open(filename, action="a")
+        call base_dump(self, itimestep, path, prefix_in, comp_level)
+        call h5f%open(file_path, action="a")
         call h5f%write(trim(this_group) // "p", self%p)
         call h5f%close()
 
