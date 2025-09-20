@@ -68,13 +68,18 @@ contains
             ! update particles to mid-timestep
             do i = 1, nparticle_sets
                 call particles(i)%p%mid_timestep_update(0.5_fp*dt)
-                call particles(i)%p%state_update(0.5_fp*dt)
             end do
 
             ! perform pre-sweep prologue e.g. to update boundary particles' state
             do i = 1, nparticle_interactions
                 call particle_interactions(i)%pi%sweep_prologue()
             end do
+
+            ! Update particle state e.g. pressure/stress
+            do i = 1, nparticle_sets
+                call particles(i)%p%state_update(0.5_fp*dt)
+            end do
+
             ! perform actual sweep i.e., calculate acceleration, density change etc.
             do i = 1, nparticle_interactions
                 call particle_interactions(i)%pi%sweep
