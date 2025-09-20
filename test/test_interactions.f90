@@ -36,7 +36,7 @@ contains
 
     subroutine example_real_virt_sweep(self)
         class(example_real_virt_set), intent(inout):: self
-        integer:: i, jj, j
+        integer:: i, j, k
         class(wc_particles), pointer:: ps_real, ps_virt
 
         ! assign pointers to ps_lhs/rhs for access to p
@@ -55,11 +55,10 @@ contains
         end select
 
         ! perform sweep
-        do i = 1, self%pairs%n
-            do jj = self%pairs%offsets(i) + 1, self%pairs%offsets(i + 1)
-                j = self%pairs%rhs(jj)
-                ps_real%p(i) = ps_real%p(i) + ps_virt%p(j)
-            end do
+        do k = 1, self%pairs%npairs_total
+            i = self%pairs%pair_ij(1, k)
+            j = self%pairs%pair_ij(2, k)
+            ps_real%p(i) = ps_real%p(i) + ps_virt%p(j)
         end do
 
     end subroutine example_real_virt_sweep

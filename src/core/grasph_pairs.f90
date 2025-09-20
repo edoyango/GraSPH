@@ -21,12 +21,8 @@ module grasph_pairs
         integer:: npairs_total = 0
         !> @brief Number of spatial dimensions.
         integer:: ndims = 0
-        !> @brief The RHS particle index for a given pair.
-        integer, allocatable:: rhs(:)
-        !> @brief The pair index offset for a given LHS particle.
-        !>        E.g. offsets(1) is the starting index of rhs that store corresponding RHS particles.
-        integer, allocatable:: offsets(:)
-        !> @brief The kernel value calculated for the given pair.
+        !> @brief ij particle pair indices.
+        integer, allocatable:: pair_ij(:, :)
         real(fp), allocatable:: w(:)
         !> @brief The kernel gradients calculated for the given pair.
         real(fp), allocatable:: dwdx(:, :)
@@ -82,9 +78,8 @@ contains
         self%npairs_per_particle = npairs_per_particle
         self%npairs_total = 0
 
-        if (self%initialized) deallocate (self%rhs, self%offsets, self%w, self%dwdx)
-        allocate (self%rhs(n*npairs_per_particle))
-        allocate (self%offsets(n + 1), source=0)
+        if (self%initialized) deallocate (self%pair_ij, self%w, self%dwdx)
+        allocate (self%pair_ij(2, n*npairs_per_particle))
         allocate (self%w(n*npairs_per_particle), self%dwdx(ndims, n*npairs_per_particle))
 
         self%initialized = .true.
@@ -112,13 +107,12 @@ contains
                 dx(:) = x(:, i) - x(:, j)
                 if (sum(dx(:)**2) < cutoff*cutoff) then
                     pairs%npairs_total = pairs%npairs_total + 1
-                    pairs%rhs(pairs%npairs_total) = j
+                    pairs%pair_ij(1, pairs%npairs_total) = i
+                    pairs%pair_ij(2, pairs%npairs_total) = j
                     call kernel%values(dx, pairs%w(pairs%npairs_total), pairs%dwdx(:, pairs%npairs_total))
                 end if
             end do
-            pairs%offsets(i + 1) = pairs%npairs_total
         end do
-        pairs%offsets(pairs%n + 1) = pairs%npairs_total
     end subroutine dsearch_self
 
     !> @brief The direct-search fixed-radius neighbour search algorithm. Finds pairs between two
@@ -146,13 +140,12 @@ contains
                 dx(:) = x_lhs(:, i) - x_rhs(:, j)
                 if (sum(dx(:)**2) < cutoff*cutoff) then
                     pairs%npairs_total = pairs%npairs_total + 1
-                    pairs%rhs(pairs%npairs_total) = j
+                    pairs%pair_ij(1, pairs%npairs_total) = i
+                    pairs%pair_ij(2, pairs%npairs_total) = j
                     call kernel%values(dx, pairs%w(pairs%npairs_total), pairs%dwdx(:, pairs%npairs_total))
                 end if
             end do
-            pairs%offsets(i + 1) = pairs%npairs_total
         end do
-        pairs%offsets(pairs%n + 1) = pairs%npairs_total
     end subroutine dsearch_other
 
     !> @brief The cell-lists fixed-radius neighbour search algorithm. Finds pairs within a single
@@ -234,7 +227,8 @@ contains
                     dx(:) = x(:, i) - x(:, j)
                     if (sum(dx*dx) < cutoff*cutoff) then
                         pairs%npairs_total = pairs%npairs_total + 1
-                        pairs%rhs(pairs%npairs_total) = j
+                        pairs%pair_ij(1, pairs%npairs_total) = i
+                        pairs%pair_ij(2, pairs%npairs_total) = j
                         call kernel%values(dx, pairs%w(pairs%npairs_total), pairs%dwdx(:, pairs%npairs_total))
                     end if
                 end if
@@ -242,14 +236,13 @@ contains
             ! right cell
             icell = icell + 1
             call sweep_cell(cutoff, 2, x(:, i), pairs%n, x, n_in_cell(icell, jcell), &
-                            p_in_cell(:, icell, jcell), kernel, pairs)
+                            p_in_cell(:, icell, jcell), kernel, pairs, i)
             ! top row
             jcell = jcell + 1
             do icell = grid_idx(1, i) - 1, grid_idx(1, i) + 1
                 call sweep_cell(cutoff, 2, x(:, i), pairs%n, x, n_in_cell(icell, jcell), &
-                                p_in_cell(:, icell, jcell), kernel, pairs)
+                                p_in_cell(:, icell, jcell), kernel, pairs, i)
             end do
-            pairs%offsets(i + 1) = pairs%npairs_total
         end do
 
         deallocate (n_in_cell, p_in_cell)
@@ -300,7 +293,8 @@ contains
                     dx(:) = x(:, i) - x(:, j)
                     if (sum(dx*dx) < cutoff*cutoff) then
                         pairs%npairs_total = pairs%npairs_total + 1
-                        pairs%rhs(pairs%npairs_total) = j
+                        pairs%pair_ij(1, pairs%npairs_total) = i
+                        pairs%pair_ij(2, pairs%npairs_total) = j
                         call kernel%values(dx, pairs%w(pairs%npairs_total), pairs%dwdx(:, pairs%npairs_total))
                     end if
                 end if
@@ -308,22 +302,21 @@ contains
             ! right cell
             icell = icell + 1
             call sweep_cell(cutoff, 3, x(:, i), pairs%n, x, n_in_cell(icell, jcell, kcell), &
-                            p_in_cell(:, icell, jcell, kcell), kernel, pairs)
+                            p_in_cell(:, icell, jcell, kcell), kernel, pairs, i)
             ! north-middle layer
             jcell = jcell + 1
             do icell = grid_idx(1, i) - 1, grid_idx(1, i) + 1
                 call sweep_cell(cutoff, 3, x(:, i), pairs%n, x, n_in_cell(icell, jcell, kcell), &
-                                p_in_cell(:, icell, jcell, kcell), kernel, pairs)
+                                p_in_cell(:, icell, jcell, kcell), kernel, pairs, i)
             end do
             ! top layer
             kcell = kcell + 1
             do jcell = grid_idx(2, i) - 1, grid_idx(2, i) + 1
                 do icell = grid_idx(1, i) - 1, grid_idx(1, i) + 1
                     call sweep_cell(cutoff, 3, x(:, i), pairs%n, x, n_in_cell(icell, jcell, kcell), &
-                                    p_in_cell(:, icell, jcell, kcell), kernel, pairs)
+                                    p_in_cell(:, icell, jcell, kcell), kernel, pairs, i)
                 end do
             end do
-            pairs%offsets(i + 1) = pairs%npairs_total
         end do
 
         deallocate (n_in_cell, p_in_cell)
@@ -411,10 +404,9 @@ contains
             do jcell = this_cell(2) - 1, this_cell(2) + 1
                 do icell = this_cell(1) - 1, this_cell(1) + 1
                     call sweep_cell(cutoff, 2, x_lhs(:, i), n_rhs, x_rhs, n_in_cell(icell, jcell), &
-                                    p_in_cell(:, icell, jcell), kernel, pairs)
+                                    p_in_cell(:, icell, jcell), kernel, pairs, i)
                 end do
             end do
-            pairs%offsets(i + 1) = pairs%npairs_total
         end do
 
         deallocate (n_in_cell, p_in_cell)
@@ -463,11 +455,10 @@ contains
                 do jcell = this_cell(2) - 1, this_cell(2) + 1
                     do icell = this_cell(1) - 1, this_cell(1) + 1
                         call sweep_cell(cutoff, 3, x_lhs(:, i), n_rhs, x_rhs, n_in_cell(icell, jcell, kcell), &
-                                        p_in_cell(:, icell, jcell, kcell), kernel, pairs)
+                                        p_in_cell(:, icell, jcell, kcell), kernel, pairs, i)
                     end do
                 end do
             end do
-            pairs%offsets(i + 1) = pairs%npairs_total
         end do
 
         deallocate (n_in_cell, p_in_cell)
@@ -484,12 +475,14 @@ contains
     !> @param p_in_cell The array of particle indices in the given cell.
     !> @param kernel The SPH kernel to calculate values and gradient values with.
     !> @param pairs The particle_pairs instance to populate with the search.
-    pure subroutine sweep_cell(cutoff, ndims, xi, n, x_rhs, n_in_cell, p_in_cell, kernel, pairs)
+    !> @param i the LHS particle index.
+    pure subroutine sweep_cell(cutoff, ndims, xi, n, x_rhs, n_in_cell, p_in_cell, kernel, pairs, i)
 
         integer, intent(in):: ndims, n, n_in_cell, p_in_cell(n_in_cell)
         real(fp), intent(in):: cutoff, xi(ndims), x_rhs(ndims, n)
         class(grasph_base_kernel), intent(in):: kernel
         type(particle_pairs), intent(inout):: pairs
+        integer, intent(in):: i
         integer:: j, pic
         real(fp):: dx(ndims)
 
@@ -498,7 +491,8 @@ contains
             dx(:) = xi(:) - x_rhs(:, j)
             if (sum(dx*dx) < cutoff*cutoff) then
                 pairs%npairs_total = pairs%npairs_total + 1
-                pairs%rhs(pairs%npairs_total) = j
+                pairs%pair_ij(1, pairs%npairs_total) = i
+                pairs%pair_ij(2, pairs%npairs_total) = j
                 call kernel%values(dx, pairs%w(pairs%npairs_total), pairs%dwdx(:, pairs%npairs_total))
             end if
         end do

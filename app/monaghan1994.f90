@@ -27,7 +27,7 @@ contains
 
     subroutine fluid_sweep(self)
         class(fluid_self_interaction), intent(inout):: self
-        integer:: i, jj, j
+        integer:: i, j, k
         class(wcp), pointer:: ps_fluid
 
         select type (ps => self%ps_lhs)
@@ -43,33 +43,31 @@ contains
             ps_fluid%drhodt(i) = 0._fp
         end do
 
-        do i = 1, self%pairs%n
-            do jj = self%pairs%offsets(i) + 1, self%pairs%offsets(i + 1)
-                j = self%pairs%rhs(jj)
-                call artificial_viscosity_monaghan1994( &
-                    2, ps_fluid%x(:, i), ps_fluid%x(:, j), ps_fluid%v(:, i), ps_fluid%v(:, j), ps_fluid%rho(i), ps_fluid%rho(j), &
-                    1.2_fp*dx, 1.2_fp*dx, ps_fluid%c(i), ps_fluid%c(j), ps_fluid%mass(i), &
-                    ps_fluid%mass(j), ps_fluid%dvxdt(:, i), ps_fluid%dvxdt(:, j), self%pairs%dwdx(:, jj), &
-                    0.1_fp, 0.1_fp)
-                call isotropic_pressure_force(2, ps_fluid%p(i), ps_fluid%p(j), ps_fluid%rho(i), ps_fluid%rho(j), &
-                                              ps_fluid%mass(i), ps_fluid%mass(j), ps_fluid%dvxdt(:, i), &
-                                              ps_fluid%dvxdt(:, j), self%pairs%dwdx(:, jj))
-                call continuity_density(2, ps_fluid%v(:, i), ps_fluid%v(:, j), ps_fluid%mass(i), ps_fluid%mass(j), &
-                                        ps_fluid%drhodt(i), ps_fluid%drhodt(j), self%pairs%dwdx(:, jj))
-            end do
+        do k = 1, self%pairs%npairs_total
+            i = self%pairs%pair_ij(1, k)
+            j = self%pairs%pair_ij(2, k)
+            call artificial_viscosity_monaghan1994( &
+                2, ps_fluid%x(:, i), ps_fluid%x(:, j), ps_fluid%v(:, i), ps_fluid%v(:, j), ps_fluid%rho(i), ps_fluid%rho(j), &
+                1.2_fp*dx, 1.2_fp*dx, ps_fluid%c(i), ps_fluid%c(j), ps_fluid%mass(i), &
+                ps_fluid%mass(j), ps_fluid%dvxdt(:, i), ps_fluid%dvxdt(:, j), self%pairs%dwdx(:, k), &
+                0.1_fp, 0.1_fp)
+            call isotropic_pressure_force(2, ps_fluid%p(i), ps_fluid%p(j), ps_fluid%rho(i), ps_fluid%rho(j), &
+                                          ps_fluid%mass(i), ps_fluid%mass(j), ps_fluid%dvxdt(:, i), &
+                                          ps_fluid%dvxdt(:, j), self%pairs%dwdx(:, k))
+            call continuity_density(2, ps_fluid%v(:, i), ps_fluid%v(:, j), ps_fluid%mass(i), ps_fluid%mass(j), &
+                                    ps_fluid%drhodt(i), ps_fluid%drhodt(j), self%pairs%dwdx(:, k))
         end do
 
     end subroutine fluid_sweep
 
     subroutine fluid_boundary_sweep(self)
         class(fluid_boundary_interaction), intent(inout):: self
-        integer:: i, jj, j
+        integer:: i, j, k
 
-        do i = 1, self%pairs%n
-            do jj = self%pairs%offsets(i) + 1, self%pairs%offsets(i + 1)
-                j = self%pairs%rhs(jj)
-                call repulsive_force(2, dx, self%ps_lhs%c(i), self%ps_lhs%x(:, i), self%ps_rhs%x(:, j), self%ps_lhs%dvxdt(:, i))
-            end do
+        do k = 1, self%pairs%npairs_total
+            i = self%pairs%pair_ij(1, k)
+            j = self%pairs%pair_ij(2, k)
+            call repulsive_force(2, dx, self%ps_lhs%c(i), self%ps_lhs%x(:, i), self%ps_rhs%x(:, j), self%ps_lhs%dvxdt(:, i))
         end do
 
     end subroutine fluid_boundary_sweep

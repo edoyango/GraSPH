@@ -23,11 +23,11 @@ contains
         call test_setup()
 
         tests = test_list([ &
-            test("test_dsearch", test_dsearch), &
-            test("test_dsearch_other", test_dsearch_other), &
-            test("test_cell_list", test_cell_list), &
-            test("test_cell_list_other", test_cell_list_other) &
-        ])
+                          test("test_dsearch", test_dsearch), &
+                          test("test_dsearch_other", test_dsearch_other), &
+                          test("test_cell_list", test_cell_list), &
+                          test("test_cell_list_other", test_cell_list_other) &
+                          ])
 
     end function tests
 
@@ -36,72 +36,72 @@ contains
         integer:: i, j, k, ii, n
 
         ! particles on grid such that x, y ∈ (0, 1)
-        do concurrent (i=0:3, j=0:3)
-            ii = i*4+j+1
-            x2d(1, ii) = (i+0.5_fp)*dx
-            x2d(2, ii) = (j+0.5_fp)*dx
-        enddo
+        do concurrent(i=0:3, j=0:3)
+            ii = i*4 + j + 1
+            x2d(1, ii) = (i + 0.5_fp)*dx
+            x2d(2, ii) = (j + 0.5_fp)*dx
+        end do
 
         ! "                         " x, y ∈ [0, 1]
-        do concurrent (i=0:4, j=0:4)
-            ii = i*5+j+1
+        do concurrent(i=0:4, j=0:4)
+            ii = i*5 + j + 1
             x2d_other(1, ii) = i*dx
             x2d_other(2, ii) = j*dx
-        enddo
+        end do
 
-        do concurrent (i=0:2, j=0:2, k=0:2)
-            ii = i*9+j*3+k+1
-            x3d(1, ii) = (i+0.5_fp)*dx
-            x3d(2, ii) = (j+0.5_fp)*dx
-            x3d(3, ii) = (k+0.5_fp)*dx
-        enddo
+        do concurrent(i=0:2, j=0:2, k=0:2)
+            ii = i*9 + j*3 + k + 1
+            x3d(1, ii) = (i + 0.5_fp)*dx
+            x3d(2, ii) = (j + 0.5_fp)*dx
+            x3d(3, ii) = (k + 0.5_fp)*dx
+        end do
 
-        do concurrent (i=0:3, j=0:3, k=0:3)
-            ii = i*16+j*4+k+1
+        do concurrent(i=0:3, j=0:3, k=0:3)
+            ii = i*16 + j*4 + k + 1
             x3d_other(1, ii) = i*dx
             x3d_other(2, ii) = j*dx
             x3d_other(3, ii) = k*dx
-        enddo
+        end do
 
         n = 0
         do i = 1, 15
-            do j = i+1, 16
+            do j = i + 1, 16
                 n = n + 1
                 pairs2d_1(1, n) = i
                 pairs2d_1(2, n) = j
-            enddo
-        enddo
+            end do
+        end do
 
         n = 0
         do i = 1, 15
-            do j = i+1, 16
+            do j = i + 1, 16
                 if (sum((x2d(:, i) - x2d(:, j))**2) < (dx*1.8_fp)**2) then
                     n = n + 1
                     pairs2d_2(1, n) = i
                     pairs2d_2(2, n) = j
-                endif
-            enddo
-        enddo
+                end if
+            end do
+        end do
 
         n = 0
         do i = 1, 26
-            do j = i+1, 27
+            do j = i + 1, 27
                 n = n + 1
                 pairs3d_1(1, n) = i
                 pairs3d_1(2, n) = j
-            enddo
-        enddo
+            end do
+        end do
 
         n = 0
         do i = 1, 26
-            do j = i+1, 27
+            do j = i + 1, 27
                 if (sum((x3d(:, i) - x3d(:, j))**2) < (dx*1.8_fp)**2) then
                     n = n + 1
                     pairs3d_2(1, n) = i
                     pairs3d_2(2, n) = j
-                endif
-            enddo
-        enddo
+                end if
+            end do
+        end do
 
         ! calculate pairs for finding pairs between two sets of particles
         n = 0
@@ -111,9 +111,9 @@ contains
                     n = n + 1
                     pairs2d_other(1, n) = i
                     pairs2d_other(2, n) = j
-                endif
-            enddo
-        enddo
+                end if
+            end do
+        end do
 
         n = 0
         do i = 1, 27
@@ -122,9 +122,9 @@ contains
                     n = n + 1
                     pairs3d_other(1, n) = i
                     pairs3d_other(2, n) = j
-                endif
-            enddo
-        enddo
+                end if
+            end do
+        end do
 
     end subroutine test_setup
 
@@ -135,40 +135,35 @@ contains
         integer, intent(in):: ncorrect_pairs, correct_pairs(2, ncorrect_pairs)
         character(*), intent(in):: case_string
         type(grasph_cubic_bspline_kernel), intent(in):: kernel
-        integer:: n, i, j, jj, ii
+        integer:: n, i, j, k, jj, ii
         character(3):: c, ic, jc
         real(fp):: w, dwdx(kernel%d)
 
         call check( &
             is_equal(pairs%npairs_total, ncorrect_pairs), &
             "Not all pairs found!" &
-        )
+            )
 
         n = 0
-        do i = 1, pairs%n
-            i_rhs_sweep: do jj = pairs%offsets(i)+1, pairs%offsets(i+1)
-                j = pairs%rhs(jj)
-                n = n + 1
-                write(c, "(I3)") n
-                write(ic, "(I3)") i
-                write(jc, "(I3)") j
-                do ii = 1, ncorrect_pairs
-                    if ((correct_pairs(1, ii) == i .and. correct_pairs(2, ii) == j) .or. &
-                        (correct_pairs(1, ii) == j .and. correct_pairs(2, ii) == i)) then
-                        ! just to make sure the check index is updated properly
-                        call check(.true., "")
-                        ! checking the kernel values in pairs have been updated properly
-                        call kernel%values(x_lhs(:, i) - x_rhs(:, j), w, dwdx)
-                        call check( &
-                            is_close(w, pairs%w(jj)), &
-                            "Case: " // case_string // ". Incorrectly updated w value: " // ic // ", j :" // jc &
+        sweep_pairs_to_check: do k = 1, pairs%npairs_total
+            i = pairs%pair_ij(1, k)
+            j = pairs%pair_ij(2, k)
+            do ii = 1, ncorrect_pairs
+                if ((correct_pairs(1, ii) == i .and. correct_pairs(2, ii) == j) .or. &
+                    (correct_pairs(1, ii) == j .and. correct_pairs(2, ii) == i)) then
+                    ! just to make sure the check index is updated properly
+                    call check(.true., "")
+                    ! checking the kernel values in pairs have been updated properly
+                    call kernel%values(x_lhs(:, i) - x_rhs(:, j), w, dwdx)
+                    call check( &
+                        is_close(w, pairs%w(k)), &
+                        "Case: "//case_string//". Incorrectly updated w value: "//ic//", j :"//jc &
                         )
-                        cycle i_rhs_sweep
-                    endif
-                enddo
-                call check(.false., "Case: " // case_string // ". Couldn't find pair - i: " // ic // ", j: " // jc)
-            enddo i_rhs_sweep
-        enddo
+                    cycle sweep_pairs_to_check
+                end if
+            end do
+            call check(.false., "Case: "//case_string//". Couldn't find pair - i: "//ic//", j: "//jc)
+        end do sweep_pairs_to_check
 
     end subroutine check_pairs
 
@@ -218,7 +213,7 @@ contains
         call check_pairs(pairs, x3d, x3d_other, pairs3d_other, 216, "brute-force (3d - 2sets)", kernel)
 
     end subroutine test_dsearch_other
-    
+
     subroutine test_cell_list()
 
         type(particle_pairs):: pairs
