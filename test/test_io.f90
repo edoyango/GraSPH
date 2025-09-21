@@ -1,7 +1,8 @@
 module test_io
 
     use grasph_constants, only: fp
-    use grasph_particles, only: base_particles, wcp => weakly_compressible_particles
+    use grasph_particles, only: base_particles
+    use weakly_compressible_particles, only: wcp => linear_eos_particles
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
     implicit none
@@ -14,9 +15,9 @@ contains
     type(test_list) function tests()
 
         tests = test_list([ &
-            test("test_base_dump", test_base_dump), &
-            test("test_wcp_dump", test_wcp_dump) &
-        ])
+                          test("test_base_dump", test_base_dump), &
+                          test("test_wcp_dump", test_wcp_dump) &
+                          ])
 
     end function tests
 
@@ -46,22 +47,22 @@ contains
         call ps2%read("/tmp/grasph_particles_0000000001.h5", "test_base_particles")
 
         do i = 1, 10
-            write(ic, "(I2)") i
+            write (ic, "(I2)") i
             do d = 1, 3
-                write(dc, "(I1)") d
-                call check(is_close(ps%x(d, i), ps2%x(d, i)), "Incorrect x for dim " // dc // ", particle " // ic)
-                call check(is_close(ps%v(d, i), ps2%v(d, i)), "Incorrect v for dim " // dc // ", particle " // ic)
-                call check(is_close(ps%v0(d, i), ps2%v0(d, i)), "Incorrect v0 for dim " // dc // ", particle " // ic)
-                call check(is_close(ps%dvxdt(d, i), ps2%dvxdt(d, i)), "Incorrect dvxdt for dim " // dc // ", particle " // ic)
-            enddo
-            call check(is_equal(ps%id(i), ps2%id(i)), "Incorrect id for particle " // ic)
-            call check(is_equal(ps%type(i), ps2%type(i)), "Incorrect type for particle " // ic)
-            call check(is_close(ps%rho(i), ps2%rho(i)), "Incorrect rho for particle " // ic)
-            call check(is_close(ps%rho0(i), ps2%rho0(i)), "Incorrect rho0 for particle " // ic)
-            call check(is_close(ps%mass(i), ps2%mass(i)), "Incorrect mass for particle " // ic)
-            call check(is_close(ps%c(i), ps2%c(i)), "Incorrect c for particle " // ic)
-            call check(is_close(ps%drhodt(i), ps2%drhodt(i)), "Incorrect drhodt for particle " // ic)
-        enddo
+                write (dc, "(I1)") d
+                call check(is_close(ps%x(d, i), ps2%x(d, i)), "Incorrect x for dim "//dc//", particle "//ic)
+                call check(is_close(ps%v(d, i), ps2%v(d, i)), "Incorrect v for dim "//dc//", particle "//ic)
+                call check(is_close(ps%v0(d, i), ps2%v0(d, i)), "Incorrect v0 for dim "//dc//", particle "//ic)
+                call check(is_close(ps%dvxdt(d, i), ps2%dvxdt(d, i)), "Incorrect dvxdt for dim "//dc//", particle "//ic)
+            end do
+            call check(is_equal(ps%id(i), ps2%id(i)), "Incorrect id for particle "//ic)
+            call check(is_equal(ps%type(i), ps2%type(i)), "Incorrect type for particle "//ic)
+            call check(is_close(ps%rho(i), ps2%rho(i)), "Incorrect rho for particle "//ic)
+            call check(is_close(ps%rho0(i), ps2%rho0(i)), "Incorrect rho0 for particle "//ic)
+            call check(is_close(ps%mass(i), ps2%mass(i)), "Incorrect mass for particle "//ic)
+            call check(is_close(ps%c(i), ps2%c(i)), "Incorrect c for particle "//ic)
+            call check(is_close(ps%drhodt(i), ps2%drhodt(i)), "Incorrect drhodt for particle "//ic)
+        end do
 
     end subroutine test_base_dump
 
@@ -92,23 +93,23 @@ contains
         call ps2%read("/tmp/test-grasph_particles_0000000001.h5", "test_wcp_particles")
 
         do i = 1, 10
-            write(ic, "(I2)") i
+            write (ic, "(I2)") i
             do d = 1, 3
-                write(dc, "(I1)") d
-                call check(is_close(ps%x(d, i), ps2%x(d, i)), "Incorrect x for dim " // dc // ", particle " // ic)
-                call check(is_close(ps%v(d, i), ps2%v(d, i)), "Incorrect v for dim " // dc // ", particle " // ic)
-                call check(is_close(ps%v0(d, i), ps2%v0(d, i)), "Incorrect v0 for dim " // dc // ", particle " // ic)
-                call check(is_close(ps%dvxdt(d, i), ps2%dvxdt(d, i)), "Incorrect dvxdt for dim " // dc // ", particle " // ic)
-            enddo
-            call check(is_equal(ps%id(i), ps2%id(i)), "Incorrect id for particle " // ic)
-            call check(is_equal(ps%type(i), ps2%type(i)), "Incorrect type for particle " // ic)
-            call check(is_close(ps%rho(i), ps2%rho(i)), "Incorrect rho for particle " // ic)
-            call check(is_close(ps%rho0(i), ps2%rho0(i)), "Incorrect rho0 for particle " // ic)
-            call check(is_close(ps%mass(i), ps2%mass(i)), "Incorrect mass for particle " // ic)
-            call check(is_close(ps%c(i), ps2%c(i)), "Incorrect c for particle " // ic)
-            call check(is_close(ps%drhodt(i), ps2%drhodt(i)), "Incorrect drhodt for particle " // ic)
-            call check(is_close(ps%p(i), ps2%p(i)), "Incorrect p for particle " // ic)
-        enddo
+                write (dc, "(I1)") d
+                call check(is_close(ps%x(d, i), ps2%x(d, i)), "Incorrect x for dim "//dc//", particle "//ic)
+                call check(is_close(ps%v(d, i), ps2%v(d, i)), "Incorrect v for dim "//dc//", particle "//ic)
+                call check(is_close(ps%v0(d, i), ps2%v0(d, i)), "Incorrect v0 for dim "//dc//", particle "//ic)
+                call check(is_close(ps%dvxdt(d, i), ps2%dvxdt(d, i)), "Incorrect dvxdt for dim "//dc//", particle "//ic)
+            end do
+            call check(is_equal(ps%id(i), ps2%id(i)), "Incorrect id for particle "//ic)
+            call check(is_equal(ps%type(i), ps2%type(i)), "Incorrect type for particle "//ic)
+            call check(is_close(ps%rho(i), ps2%rho(i)), "Incorrect rho for particle "//ic)
+            call check(is_close(ps%rho0(i), ps2%rho0(i)), "Incorrect rho0 for particle "//ic)
+            call check(is_close(ps%mass(i), ps2%mass(i)), "Incorrect mass for particle "//ic)
+            call check(is_close(ps%c(i), ps2%c(i)), "Incorrect c for particle "//ic)
+            call check(is_close(ps%drhodt(i), ps2%drhodt(i)), "Incorrect drhodt for particle "//ic)
+            call check(is_close(ps%p(i), ps2%p(i)), "Incorrect p for particle "//ic)
+        end do
 
     end subroutine test_wcp_dump
 

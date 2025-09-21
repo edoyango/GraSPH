@@ -1,7 +1,8 @@
 module grasph_monaghan1994
 
     use grasph_constants, only: fp
-    use grasph_particles, only: base_particles, wcp => weakly_compressible_particles
+    use grasph_particles, only: base_particles
+    use weakly_compressible_particles, only: wcp => linear_eos_particles
     use grasph_pair_sets, only: particle_interactions_base
     use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force, &
                                         repulsive_force
@@ -78,7 +79,8 @@ program main
 
     use grasph_monaghan1994
 
-    use grasph_particles, only: particles_container, bp => base_particles, wcp => weakly_compressible_particles
+    use grasph_particles, only: particles_container, bp => base_particles
+    use weakly_compressible_particles, only: wcp => linear_eos_particles
     use grasph_pair_sets, only: particle_interactions_container
     use grasph_time_integration, only: leap_frog_time_integration
     use grasph_kernels, only: grasph_cubic_bspline_kernel
