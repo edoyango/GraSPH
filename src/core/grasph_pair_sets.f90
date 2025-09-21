@@ -38,6 +38,8 @@ module grasph_pair_sets
         !> @brief A placeholder subroutine intended to calculate time-evolving data's rate-of-change.
         !>        E.g. acceleration. Does nothing in base type and is intended to be overridden when necessary.
         procedure:: sweep => donothing_sweep
+        !> @brief A placeholder subroutine intended to perform any particle shifting via position or velocity adjustments.
+        procedure:: shift => donothing_shift
         !> @brief If is_pair_set is .true., calculates pairs within ps_lhs, else pairs between ps_lhs and ps_rhs.
         !>        Shouldn't need to be overridden.
         procedure:: find_pairs => particle_interactions_base_find_pairs
@@ -64,6 +66,13 @@ contains
     subroutine donothing_sweep(self)
         class(particle_interactions_base), intent(inout):: self
     end subroutine donothing_sweep
+
+    !> @brief A do-nothing placeholder subroutine. Intended to be overriden when a position/velocity adjustment is implemented.
+    !>        AKA for particle shifting.
+    subroutine donothing_shift(self, dt)
+        class(particle_interactions_base), intent(inout):: self
+        real(fp), intent(in):: dt
+    end
 
     !> @brief The subroutine to find pairs of particles contained in particle_interactions.
     !>        Adapts to whether the particle_interactions instance is a pair set or not.

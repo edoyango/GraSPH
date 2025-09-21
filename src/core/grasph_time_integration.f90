@@ -90,6 +90,11 @@ contains
                 call particles(i)%p%full_timestep_update(dt, update_position=.true.)
             end do
 
+            ! perform shifting
+            do i = 1, nparticle_interactions
+                call particle_interactions(i)%pi%shift(dt)
+            end do
+
             ! write data
             if (mod(itimestep, save_step) == 0) then
                 do i = 1, nparticle_sets

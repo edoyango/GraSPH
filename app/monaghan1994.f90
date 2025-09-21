@@ -1,3 +1,10 @@
+!> @file monaghan1994.f90
+!> @brief Module and program containing setup code to replicate the classic dambreak experiment from
+!>        Monaghan (1994) (https://doi.org/10.1006/jcph.1994.1034). The only known difference is that the Leap-Frog time-integration
+!>        is used here instead of the predictor-corrector scheme used in the paper.
+!> @author Edward Yang
+!> @date 2025/9/22
+
 module grasph_monaghan1994
 
     use grasph_constants, only: fp
@@ -5,17 +12,29 @@ module grasph_monaghan1994
     use weakly_compressible_particles, only: wcp => tait_eos_particles
     use grasph_pair_sets, only: particle_interactions_base
     use weakly_compressible_interactions, only: fluid_self_interaction, fluid_fluid_interaction
-    use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, repulsive_force
+    use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, repulsive_force
 
     implicit none
     ! parameters to describe geometry
-    real(fp), parameter:: dx = 0.5_fp, g = -9.81_fp
-    integer, parameter:: nfx = 25._fp/dx, nfy = 25._fp/dx, nbx = 75._fp/dx, nby = 40._fp/dx
+    real(fp), parameter:: dx = 0.5_fp, g = -9.81_fp, rho0 = 1000._fp
+    ! no. of particles in x, y direction in initial geometry of fluid
+    integer, parameter:: nfx = 25._fp/dx, nfy = 25._fp/dx
+    ! no. of particles in x, y direction for boundary
+    integer, parameter:: nbx = 75._fp/dx, nby = 40._fp/dx
+
+    ! special interaction for monaghan 1994 which includes XSPH shifting
+    type, extends(fluid_self_interaction):: fluid_self_interaction_XSPH
+        real(fp):: xsph_epsilon = 0.5_fp
+    contains
+        procedure:: shift => xsph_shift_self
+    end type fluid_self_interaction_XSPH
 
     ! define how fluid particles interact with boundary
     type, extends(fluid_fluid_interaction):: fluid_boundary_interaction
+        real(fp):: xsph_epsilon = 0.5_fp
     contains
         procedure:: sweep => fluid_boundary_sweep
+        procedure:: shift => xsph_shift_left
     end type fluid_boundary_interaction
 
 contains
@@ -28,16 +47,57 @@ contains
         do k = 1, self%pairs%npairs_total
             i = self%pairs%pair_ij(1, k)
             j = self%pairs%pair_ij(2, k)
+            ! update both fluid and boundary particles' density.
+            call continuity_density(2, self%ps_lhs%v(:, i), self%ps_rhs%v(:, j), self%ps_lhs%mass(i), self%ps_rhs%mass(j), &
+                                    self%ps_lhs%drhodt(i), self%ps_rhs%drhodt(j), self%pairs%dwdx(:, k))
+            ! apply boundary force with eqn 4.1.
             call repulsive_force(2, dx, self%ps_lhs%c(i), self%ps_lhs%x(:, i), self%ps_rhs%x(:, j), self%ps_lhs%dvxdt(:, i))
+            ! boundary particles included in artificial viscosity calculation (start of pg 402), but velocities of boundary
+            ! particles aren't updated.
             call artificial_viscosity_monaghan1994(2, self%ps_lhs%x(:, i), self%ps_rhs%x(:, j), self%ps_lhs%v(:, i), &
                                                    self%ps_rhs%v(:, j), self%ps_lhs%rho(i), self%ps_rhs%rho(j), self%h, &
                                                    self%h, self%ps_lhs%c(i), self%ps_rhs%c(j), self%ps_lhs%mass(i), &
                                                    self%ps_rhs%mass(j), self%ps_lhs%dvxdt(:, i), dummy_dvxdt(:), &
                                                    self%pairs%dwdx(:, k), self%artvisc_alpha, self%artvisc_beta &
-                                                  )
+                                                   )
         end do
 
     end subroutine fluid_boundary_sweep
+
+    subroutine xsph_shift_self(self, dt)
+        class(fluid_self_interaction_XSPH), intent(inout):: self
+        real(fp), intent(in):: dt
+        integer:: i, j, k
+        real:: dv(2), mrho
+
+        ! apply XSPH particle shifting to fluid particles (eqn 2.6).
+        do k = 1, self%pairs%npairs_total
+            i = self%pairs%pair_ij(1, k)
+            j = self%pairs%pair_ij(2, k)
+            mrho = 0.5_fp*(self%ps_lhs%rho(i) + self%ps_lhs%rho(j))
+            dv(:) = self%xsph_epsilon*(self%ps_lhs%v(:, j) - self%ps_lhs%v(:, i))/mrho*self%pairs%w(k)
+            self%ps_lhs%x(:, i) = self%ps_lhs%x(:, i) + self%ps_lhs%mass(j)*dv(:)*dt
+            self%ps_lhs%x(:, j) = self%ps_lhs%x(:, j) - self%ps_lhs%mass(i)*dv(:)*dt
+        end do
+
+    end subroutine xsph_shift_self
+
+    subroutine xsph_shift_left(self, dt)
+        class(fluid_boundary_interaction), intent(inout):: self
+        real(fp), intent(in):: dt
+        integer:: i, j, k
+        real:: dv(2), mrho
+
+        ! calculate boundary particles' contribution to XSPH shifting (eqn 2.6).
+        do k = 1, self%pairs%npairs_total
+            i = self%pairs%pair_ij(1, k)
+            j = self%pairs%pair_ij(2, k)
+            mrho = 0.5_fp*(self%ps_lhs%rho(i) + self%ps_rhs%rho(j))
+            dv(:) = self%xsph_epsilon*(self%ps_rhs%v(:, j) - self%ps_lhs%v(:, i))/mrho*self%pairs%w(k)
+            self%ps_lhs%x(:, i) = self%ps_lhs%x(:, i) + self%ps_lhs%mass(j)*dv(:)*dt
+        end do
+
+    end subroutine xsph_shift_left
 
 end module grasph_monaghan1994
 
@@ -56,15 +116,16 @@ program main
     type(particle_interactions_container):: pic(2)
     type(grasph_cubic_bspline_kernel):: kernel, kernel2
     integer:: i, j, k
+    real(fp):: analytical_pressure
 
     ! declare particles - fluid and boundary (repulsive force)
     allocate (wcp::ps(1)%p)
     allocate (bp::ps(2)%p)
 
     ! describe interacting particles - fluid with themselves, and fluid with the boundary
-    allocate (fluid_self_interaction::pic(1)%pi)
+    allocate (fluid_self_interaction_XSPH::pic(1)%pi)
     select type (pi => pic(1)%pi)
-    class is (fluid_self_interaction)
+    class is (fluid_self_interaction_XSPH)
         pi%g = g
         pi%h = 1.2_fp*dx
         pi%artvisc_alpha = 0.01_fp
@@ -82,7 +143,7 @@ program main
     ! init fluid particles
     select type (ps => ps(1)%p) ! specialise for weakly compressible particles
     class is (wcp)
-        call ps%init(n=2500, d=2, name="fluid", rho_ref=1000._fp)
+        call ps%init(n=2500, d=2, name="fluid", rho_ref=rho0)
     end select
     do i = 0, nfx - 1
         do j = 0, nfy - 1
@@ -91,9 +152,11 @@ program main
             ps(1)%p%type = 1 ! not sure if type is needed anymore
             ps(1)%p%x(1, k) = (i + 0.5_fp)*dx
             ps(1)%p%x(2, k) = (j + 0.5_fp)*dx
-            ps(1)%p%rho(k) = 1000._fp
-            ps(1)%p%mass(k) = 1000._fp*dx*dx
-            ps(1)%p%c(k) = 10._fp*sqrt(2._fp*abs(g)*25._fp) ! 10*max_speed
+            ps(1)%p%c(k) = 10._fp*sqrt(2._fp*abs(g)*25._fp) ! 10*sqrt(2gH) eqn 3.3
+            ! initialize density of fluid particles using hydrostatic pressure condition (eqn 5.1)
+            analytical_pressure = (25._fp - ps(1)%p%x(2, k))*rho0*abs(g)
+            ps(1)%p%rho(k) = rho0*(analytical_pressure*7._fp/(rho0*ps(1)%p%c(k)**2) + 1._fp)**(1._fp/7._fp)
+            ps(1)%p%mass(k) = rho0*dx*dx
             ps(1)%p%v(:, k) = 0._fp
         end do
     end do
@@ -136,7 +199,7 @@ program main
         ps(2)%p%x(1, k) = 75._fp + 0.5_fp*dx
         ps(2)%p%x(2, k) = (j + 0.5_fp)*dx
     end do
-    ps(2)%p%rho(:) = 1000._fp
+    ps(2)%p%rho(:) = rho0
     ps(2)%p%c(:) = 10._fp*sqrt(2._fp*abs(g)*25._fp) ! 10*max_speed
 
     ! init interactions
@@ -146,6 +209,6 @@ program main
     ! init kernel
     call kernel%init(2, 1.2_fp*dx)
 
-    call leap_frog_time_integration(100000, 1000, 1000, ps, pic, 0.1_fp, kernel, "/home/edwardy/test", "", 4)
+    call leap_frog_time_integration(100000, 1000, 1000, ps, pic, 0.05_fp, kernel, "/home/edwardy/test", "", 4)
 
 end program main
