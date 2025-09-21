@@ -4,9 +4,8 @@ module grasph_monaghan1994
     use grasph_particles, only: base_particles
     use weakly_compressible_particles, only: wcp => tait_eos_particles
     use grasph_pair_sets, only: particle_interactions_base
-    use weakly_compressible_interactions, only: fluid_self_interaction
-    use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force, &
-                                        repulsive_force
+    use weakly_compressible_interactions, only: fluid_self_interaction, fluid_fluid_interaction
+    use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, repulsive_force
 
     implicit none
     ! parameters to describe geometry
@@ -14,7 +13,7 @@ module grasph_monaghan1994
     integer, parameter:: nfx = 25._fp/dx, nfy = 25._fp/dx, nbx = 75._fp/dx, nby = 40._fp/dx
 
     ! define how fluid particles interact with boundary
-    type, extends(particle_interactions_base):: fluid_boundary_interaction
+    type, extends(fluid_fluid_interaction):: fluid_boundary_interaction
     contains
         procedure:: sweep => fluid_boundary_sweep
     end type fluid_boundary_interaction
@@ -24,11 +23,18 @@ contains
     subroutine fluid_boundary_sweep(self)
         class(fluid_boundary_interaction), intent(inout):: self
         integer:: i, j, k
+        real(fp):: dummy_dvxdt(self%ps_rhs%ndims)
 
         do k = 1, self%pairs%npairs_total
             i = self%pairs%pair_ij(1, k)
             j = self%pairs%pair_ij(2, k)
             call repulsive_force(2, dx, self%ps_lhs%c(i), self%ps_lhs%x(:, i), self%ps_rhs%x(:, j), self%ps_lhs%dvxdt(:, i))
+            call artificial_viscosity_monaghan1994(2, self%ps_lhs%x(:, i), self%ps_rhs%x(:, j), self%ps_lhs%v(:, i), &
+                                                   self%ps_rhs%v(:, j), self%ps_lhs%rho(i), self%ps_rhs%rho(j), self%h, &
+                                                   self%h, self%ps_lhs%c(i), self%ps_rhs%c(j), self%ps_lhs%mass(i), &
+                                                   self%ps_rhs%mass(j), self%ps_lhs%dvxdt(:, i), dummy_dvxdt(:), &
+                                                   self%pairs%dwdx(:, k), self%artvisc_alpha, self%artvisc_beta &
+                                                  )
         end do
 
     end subroutine fluid_boundary_sweep
@@ -61,10 +67,17 @@ program main
     class is (fluid_self_interaction)
         pi%g = g
         pi%h = 1.2_fp*dx
-        pi%artvisc_alpha = 0.1_fp
-        pi%artvisc_beta = 0.1_fp
+        pi%artvisc_alpha = 0.01_fp
+        pi%artvisc_beta = 0._fp
     end select
     allocate (fluid_boundary_interaction::pic(2)%pi)
+    select type (pi => pic(2)%pi)
+    class is (fluid_boundary_interaction)
+        pi%g = g
+        pi%h = 1.2_fp*dx
+        pi%artvisc_alpha = 0.01_fp
+        pi%artvisc_beta = 0._fp
+    end select
 
     ! init fluid particles
     select type (ps => ps(1)%p) ! specialise for weakly compressible particles
@@ -80,7 +93,7 @@ program main
             ps(1)%p%x(2, k) = (j + 0.5_fp)*dx
             ps(1)%p%rho(k) = 1000._fp
             ps(1)%p%mass(k) = 1000._fp*dx*dx
-            ps(1)%p%c(k) = 10._fp*2._fp*sqrt(abs(g)*25._fp) ! 10*max_speed
+            ps(1)%p%c(k) = 10._fp*sqrt(2._fp*abs(g)*25._fp) ! 10*max_speed
             ps(1)%p%v(:, k) = 0._fp
         end do
     end do
@@ -123,6 +136,8 @@ program main
         ps(2)%p%x(1, k) = 75._fp + 0.5_fp*dx
         ps(2)%p%x(2, k) = (j + 0.5_fp)*dx
     end do
+    ps(2)%p%rho(:) = 1000._fp
+    ps(2)%p%c(:) = 10._fp*sqrt(2._fp*abs(g)*25._fp) ! 10*max_speed
 
     ! init interactions
     call pic(1)%pi%base_init(30, ps(1)%p)
