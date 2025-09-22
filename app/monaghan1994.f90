@@ -14,7 +14,7 @@ module grasph_monaghan1994
     use grasph_pair_sets, only: particle_interactions_base, base_sweeper
     use weakly_compressible_interactions, only: fluid_self_interaction, fluid_fluid_interaction, fluid_self_sweeper
     use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, repulsive_force
-    use grasph_particle_shifting, only: xsph_shift
+    use grasph_particle_shifting, only: xsph_shifter
 
     implicit none
     ! parameters to describe geometry
@@ -23,20 +23,6 @@ module grasph_monaghan1994
     integer, parameter:: nfx = 25._fp/dx, nfy = 25._fp/dx
     ! no. of particles in x, y direction for boundary
     integer, parameter:: nbx = 75._fp/dx, nby = 40._fp/dx
-
-    ! special interaction for monaghan 1994 which includes XSPH shifting
-    type, extends(fluid_self_interaction):: fluid_self_interaction_XSPH
-        real(fp):: xsph_epsilon = 0.5_fp
-    contains
-        procedure:: shift => xsph_shift_self
-    end type fluid_self_interaction_XSPH
-
-    ! define how fluid particles interact with boundary
-    type, extends(fluid_fluid_interaction):: fluid_boundary_interaction
-        real(fp):: xsph_epsilon = 0.5_fp
-    contains
-        procedure:: shift => xsph_shift_left
-    end type fluid_boundary_interaction
 
     type, extends(base_sweeper):: fluid_boundary_sweeper
         !> @brief Acceleration due to gravity (m/s)
@@ -83,70 +69,6 @@ contains
 
     end subroutine fluid_boundary_sweep_new
 
-    subroutine fluid_boundary_sweep(self)
-        class(fluid_boundary_interaction), intent(inout):: self
-        integer:: i, j, k
-        real(fp):: dummy_dvxdt(self%ps_rhs%ndims)
-
-        do k = 1, self%pairs%npairs_total
-            i = self%pairs%pair_ij(1, k)
-            j = self%pairs%pair_ij(2, k)
-            ! update both fluid and boundary particles' density.
-            call continuity_density(2, self%ps_lhs%v(:, i), self%ps_rhs%v(:, j), self%ps_lhs%mass(i), self%ps_rhs%mass(j), &
-                                    self%ps_lhs%drhodt(i), self%ps_rhs%drhodt(j), self%pairs%dwdx(:, k))
-            ! apply boundary force with eqn 4.1.
-            call repulsive_force(2, dx, self%ps_lhs%c(i), self%ps_lhs%x(:, i), self%ps_rhs%x(:, j), self%ps_lhs%dvxdt(:, i))
-            ! boundary particles included in artificial viscosity calculation (start of pg 402), but velocities of boundary
-            ! particles aren't updated.
-            call artificial_viscosity_monaghan1994(2, self%ps_lhs%x(:, i), self%ps_rhs%x(:, j), self%ps_lhs%v(:, i), &
-                                                   self%ps_rhs%v(:, j), self%ps_lhs%rho(i), self%ps_rhs%rho(j), self%h, &
-                                                   self%h, self%ps_lhs%c(i), self%ps_rhs%c(j), self%ps_lhs%mass(i), &
-                                                   self%ps_rhs%mass(j), self%ps_lhs%dvxdt(:, i), dummy_dvxdt(:), &
-                                                   self%pairs%dwdx(:, k), self%artvisc_alpha, self%artvisc_beta &
-                                                   )
-        end do
-
-    end subroutine fluid_boundary_sweep
-
-    subroutine xsph_shift_self(self, dt)
-        class(fluid_self_interaction_XSPH), intent(inout):: self
-        real(fp), intent(in):: dt
-        integer:: i, j, k
-        class(base_particles), pointer:: ps_lhs
-
-        ps_lhs => self%ps_lhs
-
-        ! apply XSPH particle shifting to fluid particles (eqn 2.6).
-        do k = 1, self%pairs%npairs_total
-            i = self%pairs%pair_ij(1, k)
-            j = self%pairs%pair_ij(2, k)
-            call xsph_shift(2, ps_lhs%x(:, i), ps_lhs%x(:, j), ps_lhs%v(:, i), ps_lhs%v(:, j), ps_lhs%rho(i), ps_lhs%rho(j), &
-                            ps_lhs%mass(i), ps_lhs%mass(j), self%pairs%w(k), dt, 0.5_fp)
-        end do
-
-    end subroutine xsph_shift_self
-
-    subroutine xsph_shift_left(self, dt)
-        class(fluid_boundary_interaction), intent(inout):: self
-        real(fp), intent(in):: dt
-        integer:: i, j, k
-        class(base_particles), pointer:: ps_lhs, ps_rhs
-        real(fp):: dummyx(2)
-
-        ps_lhs => self%ps_lhs
-        ps_rhs => self%ps_rhs
-
-        ! calculate boundary particles' contribution to XSPH shifting (eqn 2.6).
-        do k = 1, self%pairs%npairs_total
-            i = self%pairs%pair_ij(1, k)
-            j = self%pairs%pair_ij(2, k)
-            call xsph_shift(2, ps_lhs%x(:, i), dummyx, ps_lhs%v(:, i), ps_rhs%v(:, j), &
-                            ps_lhs%rho(i), ps_rhs%rho(j), ps_lhs%mass(i), ps_rhs%mass(j), self%pairs%w(k), &
-                            dt, 0.5_fp)
-        end do
-
-    end subroutine xsph_shift_left
-
 end module grasph_monaghan1994
 
 program main
@@ -155,7 +77,7 @@ program main
 
     use grasph_particles, only: particles_container, bp => base_particles
     use weakly_compressible_particles, only: wcp => linear_eos_particles
-    use grasph_pair_sets, only: particle_interactions_container
+    use grasph_pair_sets, only: particle_interactions_container, particle_interactions_base
     use grasph_time_integration, only: leap_frog_time_integration
     use grasph_kernels, only: grasph_cubic_bspline_kernel
 
@@ -167,22 +89,15 @@ program main
     real(fp):: analytical_pressure
     type(fluid_self_sweeper):: self_sweeper
     type(fluid_boundary_sweeper):: boundary_sweeper
+    type(xsph_shifter):: shifter
 
     ! declare particles - fluid and boundary (repulsive force)
     allocate (wcp::ps(1)%p)
     allocate (bp::ps(2)%p)
 
     ! describe interacting particles - fluid with themselves, and fluid with the boundary
-    allocate (fluid_self_interaction_XSPH::pic(1)%pi)
-
-    allocate (fluid_boundary_interaction::pic(2)%pi)
-    select type (pi => pic(2)%pi)
-    class is (fluid_boundary_interaction)
-        pi%g = g
-        pi%h = 1.2_fp*dx
-        pi%artvisc_alpha = 0.01_fp
-        pi%artvisc_beta = 0._fp
-    end select
+    allocate (particle_interactions_base::pic(1)%pi)
+    allocate (particle_interactions_base::pic(2)%pi)
 
     ! init fluid particles
     select type (ps => ps(1)%p) ! specialise for weakly compressible particles
@@ -255,8 +170,10 @@ program main
     boundary_sweeper%artvisc_beta = 0._fp
     boundary_sweeper%h = 1.2_fp*dx
     boundary_sweeper%g = g
-    call pic(1)%pi%base_init(30, ps(1)%p, sweeper=self_sweeper)
-    call pic(2)%pi%base_init(30, ps(1)%p, ps(2)%p, sweeper=boundary_sweeper)
+    shifter%epsilon = 0.5_fp
+    shifter%update_rhs = .true.
+    call pic(1)%pi%base_init(30, ps(1)%p, sweeper=self_sweeper, shifter=shifter)
+    call pic(2)%pi%base_init(30, ps(1)%p, ps(2)%p, sweeper=boundary_sweeper, shifter=shifter)
 
     ! init kernel
     call kernel%init(2, 1.2_fp*dx)

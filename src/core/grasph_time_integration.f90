@@ -92,7 +92,7 @@ contains
 
             ! perform shifting
             do i = 1, nparticle_interactions
-                call particle_interactions(i)%pi%shift(dt)
+                call particle_interactions(i)%pi%do_shift(dt)
             end do
 
             ! write data
