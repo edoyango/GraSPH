@@ -59,6 +59,8 @@ module grasph_pair_sets
     !>        extensions of this class override the sweep to, for example, work with different particle types and implement
     !>        different physics.
     type:: base_sweeper
+        !> @brief Controls whether to update the RHS particles (if they're associated).
+        logical:: update_rhs = .true.
     contains
         !> @brief Update particles' rate-of-change data by sweeping through particle pairs.
         procedure:: sweep => donothing_sweep
@@ -67,6 +69,8 @@ module grasph_pair_sets
     !> @brief Base "strategy" class whose shift method is used to perform any particle shifting via position or velocity &
     !>        adjustments.
     type:: base_shifter
+        !> @brief Controls whether to update the RHS particles (if they're associated).
+        logical:: update_rhs = .true.
     contains
         !> @brief Perform particle shifting.
         procedure:: shift => donothing_shift

@@ -17,8 +17,6 @@ module grasph_particle_shifting
     type, extends(base_shifter):: xsph_shifter
         !> @brief Coefficient controlling strength of shifting.
         real(fp):: epsilon = 0.5_fp
-        !> @brief whether to shift the RHS particles in the interaction. Ignored if no RHS particles.
-        logical:: update_rhs = .false.
     contains
         !> @brief Performs XSPH particle shifting, as described in Monaghan 1994.
         procedure:: shift => xsph_shift

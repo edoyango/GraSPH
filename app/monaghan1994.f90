@@ -12,7 +12,7 @@ module grasph_monaghan1994
     use weakly_compressible_particles, only: wcp => tait_eos_particles
     use grasph_pairs, only: particle_pairs
     use grasph_pair_sets, only: particle_interactions_base, base_sweeper
-    use weakly_compressible_interactions, only: fluid_self_interaction, fluid_fluid_interaction, fluid_self_sweeper
+    use weakly_compressible_interactions, only: fluid_sweeper
     use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, repulsive_force
     use grasph_particle_shifting, only: xsph_shifter
 
@@ -87,7 +87,7 @@ program main
     type(grasph_cubic_bspline_kernel):: kernel, kernel2
     integer:: i, j, k
     real(fp):: analytical_pressure
-    type(fluid_self_sweeper):: self_sweeper
+    type(fluid_sweeper):: self_sweeper
     type(fluid_boundary_sweeper):: boundary_sweeper
     type(xsph_shifter):: shifter
 
