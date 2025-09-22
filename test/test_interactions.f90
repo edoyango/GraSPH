@@ -3,8 +3,9 @@ module test_interactions
     use grasph_constants, only: fp
     use grasph_kernels, only: grasph_base_kernel, grasph_cubic_bspline_kernel
     use grasph_pairs, only: particle_pairs, cell_list_search
-    use grasph_particles, only: base_particles, wc_particles => weakly_compressible_particles
-    use grasph_pair_sets, only: particle_interactions_base
+    use grasph_particles, only: base_particles
+    use weakly_compressible_particles, only: wc_particles => linear_eos_particles
+    use grasph_pair_sets, only: particle_interactions_base, base_sweeper
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
     implicit none
@@ -15,10 +16,10 @@ module test_interactions
     ! data for testing
     real(fp), parameter:: dx = 0.25_fp
 
-    type, extends(particle_interactions_base):: example_real_virt_set
+    type, extends(base_sweeper):: example_real_virt_sweeper
     contains
         procedure:: sweep => example_real_virt_sweep
-    end type example_real_virt_set
+    end type example_real_virt_sweeper
 
     type, extends(particle_interactions_base):: example_self_set
     end type example_self_set
@@ -34,20 +35,23 @@ contains
 
     end function tests
 
-    subroutine example_real_virt_sweep(self)
-        class(example_real_virt_set), intent(inout):: self
+    subroutine example_real_virt_sweep(self, pairs, ps_lhs, ps_rhs)
+        class(example_real_virt_sweeper), intent(in):: self
+        type(particle_pairs), intent(in):: pairs
+        class(base_particles), intent(inout):: ps_lhs
+        class(base_particles), optional, intent(inout):: ps_rhs
         integer:: i, j, k
         class(wc_particles), pointer:: ps_real, ps_virt
 
         ! assign pointers to ps_lhs/rhs for access to p
-        select type (ps => self%ps_lhs)
+        select type (ps => ps_lhs)
         class is (wc_particles)
             ps_real => ps
         class default
             error stop "Invalid class for ps_lhs"
         end select
 
-        select type (ps => self%ps_rhs)
+        select type (ps => ps_rhs)
         class is (wc_particles)
             ps_virt => ps
         class default
@@ -55,9 +59,9 @@ contains
         end select
 
         ! perform sweep
-        do k = 1, self%pairs%npairs_total
-            i = self%pairs%pair_ij(1, k)
-            j = self%pairs%pair_ij(2, k)
+        do k = 1, pairs%npairs_total
+            i = pairs%pair_ij(1, k)
+            j = pairs%pair_ij(2, k)
             ps_real%p(i) = ps_real%p(i) + ps_virt%p(j)
         end do
 
@@ -65,7 +69,8 @@ contains
 
     subroutine test_set_pair_setup()
 
-        type(example_real_virt_set):: real_virt_set
+        type(particle_interactions_base):: real_virt_set
+        type(example_real_virt_sweeper):: rv_sweeper
         type(wc_particles), target:: realp, virtp
         type(grasph_cubic_bspline_kernel):: kernel
         integer:: ii, j, i
@@ -88,9 +93,9 @@ contains
         end do
 
         ! manual init
-        call real_virt_set%base_init(nv, realp, virtp)
+        call real_virt_set%base_init(nv, realp, virtp, rv_sweeper)
         call real_virt_set%find_pairs(1._fp, kernel)
-        call real_virt_set%sweep()
+        call real_virt_set%do_sweep()
 
         do i = 1, 4
             write (ic, "(I1)") i
@@ -105,7 +110,7 @@ contains
         virtp%p(:) = [(real(i, kind=fp), i=1, nv)]
 
         call real_virt_set%find_pairs(0.75_fp*dx, kernel)
-        call real_virt_set%sweep()
+        call real_virt_set%do_sweep()
 
         call check( &
             is_close(realp%p(1), 13._fp), &

@@ -30,14 +30,16 @@ module grasph_pair_sets
         logical:: initialized = .false.
         !> @brief Whether the particle_interactions describes ps_lhs interaction with itself, or with ps_rhs.
         logical:: is_pair_set = .false.
+        !> @brief Overridable "strategy" class that performs sweep.
+        class(base_sweeper), allocatable:: sweeper
     contains
         !> @brief A placeholder subroutine intended to update particles' state that depend on interpolated information.
         !>        E.g. Updating virtual particles' data, which requires a sweep.
         !>        Does nothing in the base type and is intended to be overridden when necessary.
-        procedure:: sweep_prologue => donothing_sweep
-        !> @brief A placeholder subroutine intended to calculate time-evolving data's rate-of-change.
-        !>        E.g. acceleration. Does nothing in base type and is intended to be overridden when necessary.
-        procedure:: sweep => donothing_sweep
+        procedure:: sweep_prologue => donothing_sweep_old
+        !> @brief Subroutine to calculate time-evolving data's rate-of-change e.g. acceleration. Does so by using the sweeper's
+        !>        sweep method.
+        procedure:: do_sweep
         !> @brief A placeholder subroutine intended to perform any particle shifting via position or velocity adjustments.
         procedure:: shift => donothing_shift
         !> @brief If is_pair_set is .true., calculates pairs within ps_lhs, else pairs between ps_lhs and ps_rhs.
@@ -50,22 +52,58 @@ module grasph_pair_sets
         procedure:: init => particle_interactions_base_init
     end type particle_interactions_base
 
+    !> @brief Base "strategy" class whose sweep method is used to update time-evolving data's rate-of-change e.g. acceleration.
+    !>        extensions of this class override the sweep to, for example, work with different particle types and implement
+    !>        different physics.
+    type:: base_sweeper
+    contains
+        !> @brief Update particles' rate-of-change data by sweeping through particle pairs.
+        procedure:: sweep => donothing_sweep
+    end type base_sweeper
+
     !> @brief A simple container class to facilitate polymorphism if extended particle_interactions.
     type:: particle_interactions_container
         !> @brief The polymorphic container to be allocated to particle_interactions_base or its derivatives.
         class(particle_interactions_base), allocatable:: pi
     end type particle_interactions_container
 
-    public:: particle_interactions_base, particle_interactions_container
+    public:: particle_interactions_base, particle_interactions_container, base_sweeper
 
 contains
 
+    subroutine do_sweep(self)
+        class(particle_interactions_base), intent(inout):: self
+
+        ! check that sweeper has been allocated
+        if (.not. allocated(self%sweeper)) error stop "sweeper not allocated in particle_interactions_base."
+
+        ! pass in ps_rhs if associated
+        if (associated(self%ps_rhs)) then
+            call self%sweeper%sweep(self%pairs, self%ps_lhs, self%ps_rhs)
+        else
+            call self%sweeper%sweep(self%pairs, self%ps_lhs)
+        end if
+
+    end subroutine do_sweep
+
     !> @brief A do-nothing placeholder subroutine. Intended to be overriden when particles have
     !>        meaningful sweeps to perform.
-    !> @param self The particle interactions class which performing the sweep.
-    subroutine donothing_sweep(self)
-        class(particle_interactions_base), intent(inout):: self
+    !> @param self The sweeper class. Used to access constants.
+    !> @param pairs The class storing particle pair index information.
+    !> @param ps_lhs the LHS particles involved in the interactions.
+    !> @param ps_rhs Ths RHS particles involved in the interactions. ps_rhs will not be passed in if not associated in the owning
+    !>        particle_interactions class.
+    subroutine donothing_sweep(self, pairs, ps_lhs, ps_rhs)
+        class(base_sweeper), intent(in):: self
+        type(particle_pairs), intent(in):: pairs
+        class(base_particles), intent(inout):: ps_lhs
+        class(base_particles), optional, intent(inout):: ps_rhs
     end subroutine donothing_sweep
+
+    !> @param self The particle interactions class which performing the sweep.
+    subroutine donothing_sweep_old(self)
+        class(particle_interactions_base), intent(inout):: self
+    end subroutine donothing_sweep_old
 
     !> @brief A do-nothing placeholder subroutine. Intended to be overriden when a position/velocity adjustment is implemented.
     !>        AKA for particle shifting.
@@ -97,17 +135,24 @@ contains
     !> @param self The particle_interactions instance to initialize.
     !> @param ps_lhs The LHS particles to be attached to the instance.
     !> @param ps_rhs The RHS particles to be attached to the instance.
-    subroutine particle_interactions_base_init(self, npairs_per_particle, ps_lhs, ps_rhs)
+    subroutine particle_interactions_base_init(self, npairs_per_particle, ps_lhs, ps_rhs, sweeper)
         class(particle_interactions_base), intent(out):: self
         integer, intent(in):: npairs_per_particle
         class(base_particles), target, intent(in):: ps_lhs
         class(base_particles), target, optional, intent(in):: ps_rhs
+        class(base_sweeper), optional, intent(in):: sweeper
+        type(base_sweeper):: tmp_base_sweeper
         self%ps_lhs => ps_lhs
         if (present(ps_rhs)) then
             self%ps_rhs => ps_rhs
             self%is_pair_set = .true.
         end if
         call self%pairs%init(ps_lhs%size, npairs_per_particle, ps_lhs%ndims)
+        if (present(sweeper)) then
+            allocate (self%sweeper, source=sweeper)
+        else
+            allocate (self%sweeper, source=tmp_base_sweeper)
+        end if
     end subroutine particle_interactions_base_init
 
 end module grasph_pair_sets

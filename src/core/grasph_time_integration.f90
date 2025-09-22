@@ -82,7 +82,7 @@ contains
 
             ! perform actual sweep i.e., calculate acceleration, density change etc.
             do i = 1, nparticle_interactions
-                call particle_interactions(i)%pi%sweep
+                call particle_interactions(i)%pi%do_sweep
             end do
 
             ! update states to full-timestep
