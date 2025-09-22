@@ -13,6 +13,7 @@ module grasph_monaghan1994
     use grasph_pair_sets, only: particle_interactions_base
     use weakly_compressible_interactions, only: fluid_self_interaction, fluid_fluid_interaction
     use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, repulsive_force
+    use grasph_particle_shifting, only: xsph_shift
 
     implicit none
     ! parameters to describe geometry
@@ -68,16 +69,16 @@ contains
         class(fluid_self_interaction_XSPH), intent(inout):: self
         real(fp), intent(in):: dt
         integer:: i, j, k
-        real:: dv(2), mrho
+        class(base_particles), pointer:: ps_lhs
+
+        ps_lhs => self%ps_lhs
 
         ! apply XSPH particle shifting to fluid particles (eqn 2.6).
         do k = 1, self%pairs%npairs_total
             i = self%pairs%pair_ij(1, k)
             j = self%pairs%pair_ij(2, k)
-            mrho = 0.5_fp*(self%ps_lhs%rho(i) + self%ps_lhs%rho(j))
-            dv(:) = self%xsph_epsilon*(self%ps_lhs%v(:, j) - self%ps_lhs%v(:, i))/mrho*self%pairs%w(k)
-            self%ps_lhs%x(:, i) = self%ps_lhs%x(:, i) + self%ps_lhs%mass(j)*dv(:)*dt
-            self%ps_lhs%x(:, j) = self%ps_lhs%x(:, j) - self%ps_lhs%mass(i)*dv(:)*dt
+            call xsph_shift(2, ps_lhs%x(:, i), ps_lhs%x(:, j), ps_lhs%v(:, i), ps_lhs%v(:, j), ps_lhs%rho(i), ps_lhs%rho(j), &
+                            ps_lhs%mass(i), ps_lhs%mass(j), self%pairs%w(k), dt, 0.5_fp)
         end do
 
     end subroutine xsph_shift_self
@@ -86,15 +87,19 @@ contains
         class(fluid_boundary_interaction), intent(inout):: self
         real(fp), intent(in):: dt
         integer:: i, j, k
-        real:: dv(2), mrho
+        class(base_particles), pointer:: ps_lhs, ps_rhs
+        real(fp):: dummyx(2)
+
+        ps_lhs => self%ps_lhs
+        ps_rhs => self%ps_rhs
 
         ! calculate boundary particles' contribution to XSPH shifting (eqn 2.6).
         do k = 1, self%pairs%npairs_total
             i = self%pairs%pair_ij(1, k)
             j = self%pairs%pair_ij(2, k)
-            mrho = 0.5_fp*(self%ps_lhs%rho(i) + self%ps_rhs%rho(j))
-            dv(:) = self%xsph_epsilon*(self%ps_rhs%v(:, j) - self%ps_lhs%v(:, i))/mrho*self%pairs%w(k)
-            self%ps_lhs%x(:, i) = self%ps_lhs%x(:, i) + self%ps_lhs%mass(j)*dv(:)*dt
+            call xsph_shift(2, ps_lhs%x(:, i), dummyx, ps_lhs%v(:, i), ps_rhs%v(:, j), &
+                            ps_lhs%rho(i), ps_rhs%rho(j), ps_lhs%mass(i), ps_rhs%mass(j), self%pairs%w(k), &
+                            dt, 0.5_fp)
         end do
 
     end subroutine xsph_shift_left
