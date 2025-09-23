@@ -5,7 +5,7 @@ module test_interactions
     use grasph_pairs, only: particle_pairs, cell_list_search
     use grasph_particles, only: base_particles
     use weakly_compressible_particles, only: wc_particles => linear_eos_particles
-    use grasph_pair_sets, only: particle_interactions_base, base_sweeper
+    use grasph_pair_sets, only: particle_interactions, base_sweeper
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
     implicit none
@@ -20,9 +20,6 @@ module test_interactions
     contains
         procedure:: sweep => example_real_virt_sweep
     end type example_real_virt_sweeper
-
-    type, extends(particle_interactions_base):: example_self_set
-    end type example_self_set
 
 contains
 
@@ -69,7 +66,7 @@ contains
 
     subroutine test_set_pair_setup()
 
-        type(particle_interactions_base):: real_virt_set
+        type(particle_interactions):: real_virt_set
         type(example_real_virt_sweeper):: rv_sweeper
         type(wc_particles), target:: realp, virtp
         type(grasph_cubic_bspline_kernel):: kernel
@@ -93,7 +90,7 @@ contains
         end do
 
         ! manual init
-        call real_virt_set%base_init(nv, realp, virtp, sweeper=rv_sweeper)
+        call real_virt_set%init(nv, realp, virtp, sweeper=rv_sweeper)
         call real_virt_set%find_pairs(1._fp, kernel)
         call real_virt_set%do_sweep()
 
@@ -135,7 +132,7 @@ contains
 
         type(wc_particles):: ps
         type(grasph_cubic_bspline_kernel):: kernel
-        type(example_self_set):: ps_set
+        type(particle_interactions):: ps_set
         integer:: i, j, k, ii
 
         call ps%init(27, 3, "test", 0._fp)
@@ -150,7 +147,7 @@ contains
 
         call kernel%init(3, 0.9_fp*dx)
 
-        call ps_set%base_init(27, ps)
+        call ps_set%init(27, ps)
 
         call ps_set%find_pairs(kernel%cutoff, kernel)
 

@@ -4,7 +4,7 @@ module grasph_monaghan1994_2
     use grasph_particles, only: base_particles
     use weakly_compressible_particles, only: wcp => tait_eos_particles
     use weakly_compressible_interactions, only: fluid_self_interaction, fluid_fluid_interaction, fluid_sweeper
-    use grasph_pair_sets, only: particle_interactions_base, base_sweeper
+    use grasph_pair_sets, only: particle_interactions, base_sweeper
     use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force, &
                                         repulsive_force
     use grasph_pairs, only: particle_pairs
@@ -67,13 +67,13 @@ program main
 
     use grasph_particles, only: particles_container
     use weakly_compressible_particles, only: wcp => linear_eos_particles
-    use grasph_pair_sets, only: particle_interactions_container
+    use grasph_pair_sets, only: particle_interactions
     use grasph_time_integration, only: leap_frog_time_integration
     use grasph_kernels, only: grasph_cubic_bspline_kernel
 
     implicit none
     type(particles_container):: ps(2)
-    type(particle_interactions_container):: pic(2)
+    type(particle_interactions):: pic(2)
     type(grasph_cubic_bspline_kernel):: kernel
     type(fluid_sweeper):: sweeper
     type(boundary_update_sweeper):: boundary_sweeper
@@ -82,10 +82,6 @@ program main
     ! declare particles - fluid and boundary
     allocate (wcp::ps(1)%p)
     allocate (wcp::ps(2)%p)
-
-    ! describe interacting particles - fluid with themselves, and fluid with the boundary
-    allocate (particle_interactions_base::pic(1)%pi)
-    allocate (particle_interactions_base::pic(2)%pi)
 
     ! init kernel
     call kernel%init(2, 1.2_fp*dx)
@@ -164,9 +160,9 @@ program main
     sweeper%update_rhs = .false.
 
     ! init interactions
-    call pic(1)%pi%base_init(30, ps(1)%p, sweeper=sweeper)
+    call pic(1)%init(30, ps(1)%p, sweeper=sweeper)
     sweeper%initialize = .false.
-    call pic(2)%pi%base_init(30, ps(1)%p, ps(2)%p, prologue_sweeper=boundary_sweeper, sweeper=sweeper)
+    call pic(2)%init(30, ps(1)%p, ps(2)%p, prologue_sweeper=boundary_sweeper, sweeper=sweeper)
 
     call leap_frog_time_integration(100000, 1000, 1000, ps, pic, 0.05_fp, kernel, "/home/edwardy/test", "", 4)
 

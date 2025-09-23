@@ -7,7 +7,7 @@ module weakly_compressible_interactions
     use grasph_constants, only: fp
     use grasph_particles, only: base_particles
     use weakly_compressible_particles, only: linear_eos_particles
-    use grasph_pair_sets, only: particle_interactions_base, base_sweeper
+    use grasph_pair_sets, only: particle_interactions, base_sweeper
     use grasph_pairs, only: particle_pairs
     use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force
 
@@ -29,7 +29,7 @@ module weakly_compressible_interactions
     end type fluid_sweeper
 
     !> @brief Describes how a single set of weakly-compressible fluid particles interact with itself.
-    type, extends(particle_interactions_base):: fluid_self_interaction
+    type, extends(particle_interactions):: fluid_self_interaction
         !> @brief Acceleration due to gravity (m/s)
         real(fp):: g = -9.81_fp
         !> @brief Alpha coefficient for artificial viscosity.

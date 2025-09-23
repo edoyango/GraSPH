@@ -14,7 +14,7 @@ module grasph_pair_sets
     private
 
     !> @brief base interaction class to extend into new ones. The base isn't that useful on its own.
-    type:: particle_interactions_base
+    type:: particle_interactions
         !> @brief Pointer to LHS particles involved in the interaction.
         !>        Note that these can't be overriden, so if LHS extended particles' properties are needed, then a new pointer is
         !>        needed in the derived type.
@@ -47,14 +47,10 @@ module grasph_pair_sets
         !>        shift method.
         procedure:: do_shift
         !> @brief If is_pair_set is .true., calculates pairs within ps_lhs, else pairs between ps_lhs and ps_rhs.
-        !>        Shouldn't need to be overridden.
-        procedure:: find_pairs => particle_interactions_base_find_pairs
-        !> @brief Initializes base data (pointers and pairs). Intended not to be overridden and instead be used in derived types'
-        !>        initializer.
-        procedure:: base_init => particle_interactions_base_init
-        !> @brief Initializes data (pointers and pairs). Intended to be overridden by derived types' intializer.
-        procedure:: init => particle_interactions_base_init
-    end type particle_interactions_base
+        procedure:: find_pairs => particle_interactions_find_pairs
+        !> @brief Initializes data (pointers, pairs, and strategy classes).
+        procedure:: init => particle_interactions_init
+    end type particle_interactions
 
     !> @brief Base "strategy" class whose sweep method is used to update time-evolving data's rate-of-change e.g. acceleration.
     !>        extensions of this class override the sweep to, for example, work with different particle types and implement
@@ -79,21 +75,15 @@ module grasph_pair_sets
         procedure:: shift => donothing_shift
     end type base_shifter
 
-    !> @brief A simple container class to facilitate polymorphism if extended particle_interactions.
-    type:: particle_interactions_container
-        !> @brief The polymorphic container to be allocated to particle_interactions_base or its derivatives.
-        class(particle_interactions_base), allocatable:: pi
-    end type particle_interactions_container
-
-    public:: particle_interactions_base, particle_interactions_container, base_sweeper, base_shifter
+    public:: particle_interactions, base_sweeper, base_shifter
 
 contains
 
     subroutine do_sweep_prologue(self)
-        class(particle_interactions_base), intent(inout):: self
+        class(particle_interactions), intent(inout):: self
 
         ! check that prologue_sweeper has been allocated
-        if (.not. allocated(self%prologue_sweeper)) error stop "prologue sweeper not allocated in particle_interactions_base."
+        if (.not. allocated(self%prologue_sweeper)) error stop "prologue sweeper not allocated in particle_interactions."
 
         ! pass in ps_rhs if associated
         if (associated(self%ps_rhs)) then
@@ -105,10 +95,10 @@ contains
     end subroutine do_sweep_prologue
 
     subroutine do_sweep(self)
-        class(particle_interactions_base), intent(inout):: self
+        class(particle_interactions), intent(inout):: self
 
         ! check that sweeper has been allocated
-        if (.not. allocated(self%sweeper)) error stop "sweeper not allocated in particle_interactions_base."
+        if (.not. allocated(self%sweeper)) error stop "sweeper not allocated in particle_interactions."
 
         ! pass in ps_rhs if associated
         if (associated(self%ps_rhs)) then
@@ -120,11 +110,11 @@ contains
     end subroutine do_sweep
 
     subroutine do_shift(self, dt)
-        class(particle_interactions_base), intent(inout):: self
+        class(particle_interactions), intent(inout):: self
         real(fp), intent(in):: dt
 
         ! check that sweeper has been allocated
-        if (.not. allocated(self%shifter)) error stop "shifter not allocated in particle_interactions_base."
+        if (.not. allocated(self%shifter)) error stop "shifter not allocated in particle_interactions."
 
         ! pass in ps_rhs if associated
         if (associated(self%ps_rhs)) then
@@ -167,7 +157,7 @@ contains
 
     !> @param self The particle interactions class which performing the sweep.
     subroutine donothing_sweep_old(self)
-        class(particle_interactions_base), intent(inout):: self
+        class(particle_interactions), intent(inout):: self
     end subroutine donothing_sweep_old
 
     !> @brief The subroutine to find pairs of particles contained in particle_interactions.
@@ -175,8 +165,8 @@ contains
     !> @param self The particle interactions class to find pairs within.
     !> @param cutoff The interacting distance of particles.
     !> @param kernel The SPH kernel used to calculate values and kernel gradient values from.
-    subroutine particle_interactions_base_find_pairs(self, cutoff, kernel)
-        class(particle_interactions_base), intent(inout):: self
+    subroutine particle_interactions_find_pairs(self, cutoff, kernel)
+        class(particle_interactions), intent(inout):: self
         real(fp), intent(in):: cutoff
         class(grasph_base_kernel), intent(in):: kernel
 
@@ -185,7 +175,7 @@ contains
         else
             call cell_list_search(self%ps_lhs%x, cutoff, kernel, self%pairs)
         end if
-    end subroutine particle_interactions_base_find_pairs
+    end subroutine particle_interactions_find_pairs
 
     !> @brief The base initializer of particle_interactions instances. Not intended to be overridden
     !>        and instead intended to be called within an extended type's initializer subroutine.
@@ -195,8 +185,8 @@ contains
     !> @param ps_rhs The RHS particles to be attached to the instance.
     !> @param sweeper The sweeper to use in this interaction.
     !> @param shifter The shifter to use in this interaction.
-    subroutine particle_interactions_base_init(self, npairs_per_particle, ps_lhs, ps_rhs, prologue_sweeper, sweeper, shifter)
-        class(particle_interactions_base), intent(out):: self
+    subroutine particle_interactions_init(self, npairs_per_particle, ps_lhs, ps_rhs, prologue_sweeper, sweeper, shifter)
+        class(particle_interactions), intent(out):: self
         integer, intent(in):: npairs_per_particle
         class(base_particles), target, intent(in):: ps_lhs
         class(base_particles), target, optional, intent(in):: ps_rhs
@@ -228,6 +218,6 @@ contains
         else
             allocate (self%shifter, source=tmp_base_shifter)
         end if
-    end subroutine particle_interactions_base_init
+    end subroutine particle_interactions_init
 
 end module grasph_pair_sets

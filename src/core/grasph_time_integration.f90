@@ -6,7 +6,7 @@ module grasph_time_integration
 
     use grasph_constants, only: fp
     use grasph_particles, only: particles_container
-    use grasph_pair_sets, only: particle_interactions_container
+    use grasph_pair_sets, only: particle_interactions
     use grasph_kernels, only: grasph_base_kernel
     use grasph_misc, only: print_summary, system_timer
 
@@ -22,18 +22,18 @@ contains
     !> @param print_step The interval number of time-steps to update the terminal with run information.
     !> @param save_step The interval number of time-steps to save data to disk using particles' inbuilt dump method.
     !> @param particles The list of particles who's state is being updated over time.
-    !> @param particle_interactions The list of particle_pair_set objects which describe particles' relationship with one another.
+    !> @param interactions The list of particle_pair_set objects which describe particles' relationship with one another.
     !> @param CFL The Courant-Freidrichs-Lewy coefficient for time-stepping.
     !> @param kernel The kernel to use.
     !> @param output_path The directory to store saved data.
     !> @param output_prefix The filename prefix to use in the output files.
     !> @param output_comp_level The level of GZIP compression to use when writing the output HDF5 files.
-    subroutine leap_frog_time_integration(maxtimestep, print_step, save_step, particles, particle_interactions, CFL, kernel, &
+    subroutine leap_frog_time_integration(maxtimestep, print_step, save_step, particles, interactions, CFL, kernel, &
                                           output_path, output_prefix, output_comp_level)
 
         integer, intent(in):: maxtimestep, print_step, save_step
         class(particles_container):: particles(:)
-        class(particle_interactions_container):: particle_interactions(:)
+        class(particle_interactions):: interactions(:)
         real(fp), intent(in):: CFL
         class(grasph_base_kernel), intent(in):: kernel
         character(*), intent(in):: output_path, output_prefix
@@ -43,7 +43,7 @@ contains
         type(system_timer):: timer
 
         nparticle_sets = size(particles)
-        nparticle_interactions = size(particle_interactions)
+        nparticle_interactions = size(interactions)
 
         call timer%start()
 
@@ -57,7 +57,7 @@ contains
 
             ! find pairs between provided particle interaction sets
             do i = 1, nparticle_interactions
-                call particle_interactions(i)%pi%find_pairs(kernel%cutoff, kernel)
+                call interactions(i)%find_pairs(kernel%cutoff, kernel)
             end do
 
             ! save data at start of timestep for each particles
@@ -72,7 +72,7 @@ contains
 
             ! perform pre-sweep prologue e.g. to update boundary particles' state
             do i = 1, nparticle_interactions
-                call particle_interactions(i)%pi%do_sweep_prologue
+                call interactions(i)%do_sweep_prologue
             end do
 
             ! Update particle state e.g. pressure/stress
@@ -82,7 +82,7 @@ contains
 
             ! perform actual sweep i.e., calculate acceleration, density change etc.
             do i = 1, nparticle_interactions
-                call particle_interactions(i)%pi%do_sweep
+                call interactions(i)%do_sweep
             end do
 
             ! update states to full-timestep
@@ -92,7 +92,7 @@ contains
 
             ! perform shifting
             do i = 1, nparticle_interactions
-                call particle_interactions(i)%pi%do_shift(dt)
+                call interactions(i)%do_shift(dt)
             end do
 
             ! write data
