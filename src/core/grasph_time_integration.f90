@@ -36,8 +36,9 @@ contains
         class(particle_interactions):: interactions(:)
         real(fp), intent(in):: CFL
         class(grasph_base_kernel), intent(in):: kernel
-        character(*), intent(in):: output_path, output_prefix
-        integer, intent(in):: output_comp_level
+        character(*), intent(in):: output_path
+        character(*), optional, intent(in):: output_prefix
+        integer, optional, intent(in):: output_comp_level
         integer:: nparticle_sets, nparticle_interactions, itimestep, i
         real(fp):: dt
         type(system_timer):: timer
@@ -55,19 +56,19 @@ contains
                 dt = min(dt, CFL*kernel%h/maxval(particles(i)%p%c(:)))
             end do
 
-            ! find pairs between provided particle interaction sets
-            do i = 1, nparticle_interactions
-                call interactions(i)%find_pairs(kernel%cutoff, kernel)
-            end do
-
             ! save data at start of timestep for each particles
             do i = 1, nparticle_sets
                 call particles(i)%p%start_timestep()
             end do
 
+            ! find pairs between provided particle interaction sets
+            do i = 1, nparticle_interactions
+                call interactions(i)%find_pairs(kernel%cutoff, kernel)
+            end do
+
             ! update particles to mid-timestep
             do i = 1, nparticle_sets
-                call particles(i)%p%mid_timestep_update(0.5_fp*dt)
+                if (particles(i)%p%evolve) call particles(i)%p%mid_timestep_update(0.5_fp*dt)
             end do
 
             ! perform pre-sweep prologue e.g. to update boundary particles' state
@@ -87,7 +88,7 @@ contains
 
             ! update states to full-timestep
             do i = 1, nparticle_sets
-                call particles(i)%p%full_timestep_update(dt, update_position=.true.)
+                if (particles(i)%p%evolve) call particles(i)%p%full_timestep_update(dt, update_position=.true.)
             end do
 
             ! perform shifting

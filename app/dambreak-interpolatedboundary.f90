@@ -113,6 +113,7 @@ program main
     select type (ps => ps(2)%p)
     type is (wcp)
         call ps%init(n=nvirt, d=2, name="boundary", rho_ref=1000._fp)
+        ps%evolve = .false.
     end select
     k = 0
     ! bottom layer and corners
@@ -164,6 +165,6 @@ program main
     sweeper%initialize = .false.
     call pic(2)%init(30, ps(1)%p, ps(2)%p, prologue_sweeper=boundary_sweeper, sweeper=sweeper)
 
-    call leap_frog_time_integration(100000, 1000, 1000, ps, pic, 0.05_fp, kernel, "/home/edwardy/test", "", 4)
+    call leap_frog_time_integration(100000, 1000, 1000, ps, pic, 0.05_fp, kernel, "/home/edwardy/test", output_comp_level=4)
 
 end program main

@@ -41,6 +41,8 @@ module grasph_particles
         real(fp), allocatable:: rho0(:)
         !> @brief Whether the particles have been initialized.
         logical:: initialized = .false.
+        !> @brief Whether to update the particles' properties
+        logical:: evolve = .true.
         !> @brief Whether to print information when generate_summary is called.
         logical:: to_print_summary = .true.
         !> @brief Number of spatial dimensions
