@@ -75,11 +75,13 @@ contains
         end select
 
         ! intialize LHS acceleration and density rate-of-change arrays
-        do i = 1, fluid_lhs%size
-            fluid_lhs%dvxdt(:, i) = 0._fp
-            fluid_lhs%dvxdt(fluid_lhs%ndims, i) = self%g
-            fluid_lhs%drhodt(i) = 0._fp
-        end do
+        if (self%initialize) then
+            do i = 1, fluid_lhs%size
+                fluid_lhs%dvxdt(:, i) = 0._fp
+                fluid_lhs%dvxdt(fluid_lhs%ndims, i) = self%g
+                fluid_lhs%drhodt(i) = 0._fp
+            end do
+        end if
 
         ! branch to handle logic for when ps_rhs is present as well as whether to update rhs
         if (present(ps_rhs)) then
@@ -92,11 +94,13 @@ contains
             end select
             if (self%update_rhs) then ! sweep using both lhs and rhs, and updating both
                 ! intialize RHS acceleration and density rate-of-change arrays
-                do i = 1, fluid_rhs%size
-                    fluid_rhs%dvxdt(:, i) = 0._fp
-                    fluid_rhs%dvxdt(fluid_rhs%ndims, i) = self%g
-                    fluid_rhs%drhodt(i) = 0._fp
-                end do
+                if (self%initialize) then
+                    do i = 1, fluid_rhs%size
+                        fluid_rhs%dvxdt(:, i) = 0._fp
+                        fluid_rhs%dvxdt(fluid_rhs%ndims, i) = self%g
+                        fluid_rhs%drhodt(i) = 0._fp
+                    end do
+                end if
 
                 ! perform sweep
                 do k = 1, pairs%npairs_total

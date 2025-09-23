@@ -61,6 +61,8 @@ module grasph_pair_sets
     type:: base_sweeper
         !> @brief Controls whether to update the RHS particles (if they're associated).
         logical:: update_rhs = .true.
+        !> @brief Controls whether the sweep initializes particles' rate-of-change data.
+        logical:: initialize = .true.
     contains
         !> @brief Update particles' rate-of-change data by sweeping through particle pairs.
         procedure:: sweep => donothing_sweep
