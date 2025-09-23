@@ -72,7 +72,7 @@ contains
 
             ! perform pre-sweep prologue e.g. to update boundary particles' state
             do i = 1, nparticle_interactions
-                call particle_interactions(i)%pi%sweep_prologue()
+                call particle_interactions(i)%pi%do_sweep_prologue
             end do
 
             ! Update particle state e.g. pressure/stress

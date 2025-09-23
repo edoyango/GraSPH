@@ -93,7 +93,7 @@ contains
         end do
 
         ! manual init
-        call real_virt_set%base_init(nv, realp, virtp, rv_sweeper)
+        call real_virt_set%base_init(nv, realp, virtp, sweeper=rv_sweeper)
         call real_virt_set%find_pairs(1._fp, kernel)
         call real_virt_set%do_sweep()
 

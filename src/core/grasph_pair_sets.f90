@@ -30,15 +30,16 @@ module grasph_pair_sets
         logical:: initialized = .false.
         !> @brief Whether the particle_interactions describes ps_lhs interaction with itself, or with ps_rhs.
         logical:: is_pair_set = .false.
+        !> @brief Overridable "strategy" class that performs sweep prologue.
+        class(base_sweeper), allocatable:: prologue_sweeper
         !> @brief Overridable "strategy" class that performs sweep.
         class(base_sweeper), allocatable:: sweeper
         !> @brief Overridable "strategy" class that performs shift.
         class(base_shifter), allocatable:: shifter
     contains
-        !> @brief A placeholder subroutine intended to update particles' state that depend on interpolated information.
-        !>        E.g. Updating virtual particles' data, which requires a sweep.
-        !>        Does nothing in the base type and is intended to be overridden when necessary.
-        procedure:: sweep_prologue => donothing_sweep_old
+        !> @brief Subroutine to update particles' state that depend on interpolated information. E.g. Updating virtual particles'
+        !>        data, which requires a sweep. Does so by using the prologue_sweeper's sweep method.
+        procedure:: do_sweep_prologue
         !> @brief Subroutine to calculate time-evolving data's rate-of-change e.g. acceleration. Does so by using the sweeper's
         !>        sweep method.
         procedure:: do_sweep
@@ -87,6 +88,21 @@ module grasph_pair_sets
     public:: particle_interactions_base, particle_interactions_container, base_sweeper, base_shifter
 
 contains
+
+    subroutine do_sweep_prologue(self)
+        class(particle_interactions_base), intent(inout):: self
+
+        ! check that prologue_sweeper has been allocated
+        if (.not. allocated(self%prologue_sweeper)) error stop "prologue sweeper not allocated in particle_interactions_base."
+
+        ! pass in ps_rhs if associated
+        if (associated(self%ps_rhs)) then
+            call self%prologue_sweeper%sweep(self%pairs, self%ps_lhs, self%ps_rhs)
+        else
+            call self%prologue_sweeper%sweep(self%pairs, self%ps_lhs)
+        end if
+
+    end subroutine do_sweep_prologue
 
     subroutine do_sweep(self)
         class(particle_interactions_base), intent(inout):: self
@@ -179,12 +195,12 @@ contains
     !> @param ps_rhs The RHS particles to be attached to the instance.
     !> @param sweeper The sweeper to use in this interaction.
     !> @param shifter The shifter to use in this interaction.
-    subroutine particle_interactions_base_init(self, npairs_per_particle, ps_lhs, ps_rhs, sweeper, shifter)
+    subroutine particle_interactions_base_init(self, npairs_per_particle, ps_lhs, ps_rhs, prologue_sweeper, sweeper, shifter)
         class(particle_interactions_base), intent(out):: self
         integer, intent(in):: npairs_per_particle
         class(base_particles), target, intent(in):: ps_lhs
         class(base_particles), target, optional, intent(in):: ps_rhs
-        class(base_sweeper), optional, intent(in):: sweeper
+        class(base_sweeper), optional, intent(in):: prologue_sweeper, sweeper
         class(base_shifter), optional, intent(in):: shifter
         type(base_sweeper):: tmp_base_sweeper
         type(base_shifter):: tmp_base_shifter
@@ -194,11 +210,19 @@ contains
             self%is_pair_set = .true.
         end if
         call self%pairs%init(ps_lhs%size, npairs_per_particle, ps_lhs%ndims)
+
+        if (present(prologue_sweeper)) then
+            allocate (self%prologue_sweeper, source=prologue_sweeper)
+        else
+            allocate (self%prologue_sweeper, source=tmp_base_sweeper)
+        end if
+
         if (present(sweeper)) then
             allocate (self%sweeper, source=sweeper)
         else
             allocate (self%sweeper, source=tmp_base_sweeper)
         end if
+
         if (present(shifter)) then
             allocate (self%shifter, source=shifter)
         else
