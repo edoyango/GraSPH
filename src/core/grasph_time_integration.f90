@@ -103,6 +103,11 @@ contains
                 end do
             end if
 
+            ! update number of interactions over loop lifetime
+            do i = 1, nparticle_interactions
+                call timer%update_interactions(interactions(i)%pairs%npairs_total)
+            end do
+
             ! print data to screen
             if (mod(itimestep, print_step) == 0) then
                 call print_summary(itimestep, "Leap-Frog", particles, timer)

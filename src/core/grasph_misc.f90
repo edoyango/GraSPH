@@ -5,6 +5,7 @@
 module grasph_misc
 
     use grasph_particles, only: particles_container
+    use grasph_pairs, only: particle_pairs
     use iso_fortran_env, only: int64, real64
 
     implicit none
@@ -17,11 +18,15 @@ module grasph_misc
         integer(int64):: start_count
         !> @brief System clock rate set when timer is started.
         integer(int64):: rate
+        !> @brief A counter for number of particle interactions. Used to calculate interactions per wall-second.
+        integer(int64):: ninteractions = 0
     contains
         !> @brief Starts the system clock timer.
         procedure:: start => start_timer
         !> @brief Stop the system clock timer and returns the elapsed time.
         procedure:: stop => stop_timer
+        !> @brief Updates the interaction counter.
+        procedure:: update_interactions
     end type system_timer
 
     public:: print_summary, system_timer
@@ -40,9 +45,11 @@ contains
         integer, intent(in):: itimestep
         character(*), intent(in):: time_integration_scheme
         type(system_timer), optional, intent(in):: timer
-        class(particles_container):: particles(:)
+        class(particles_container), intent(in):: particles(:)
         character(:), allocatable:: psummary
         integer:: i
+        real(real64):: t
+        character(20):: tc, nips
 
         write (*, "(A)") "========================= GraSPH Output ========================="
         write (*, "(A, I13)") time_integration_scheme//" time-intregration, time-step: ", itimestep
@@ -56,7 +63,11 @@ contains
             end if
         end do
         if (present(timer)) then
-            write (*, "(A, f12.5)") "Elapsed wall time: ", timer%stop()
+            t = timer%stop()
+            write (tc, '(f12.5)') t
+            write (*, "(A)") "Elapsed wall time (s)       : "//trim(adjustl(tc))
+            write (nips, "(es15.3)") real(timer%ninteractions, kind=real64)/t
+            write (*, "(A)") "Interactions per wall-second: "//trim(adjustl(nips))
         end if
         write (*, "(A)") "================================================================="
 
@@ -79,5 +90,15 @@ contains
         call system_clock(count=end_count)
         elapsed = real(end_count - self%start_count, kind=real64)/real(self%rate, kind=real64)
     end function stop_timer
+
+    !> @brief Updates the interaction counter.
+    !> @param The timer object to update.
+    !> @param The number of interactions to increment by.
+    subroutine update_interactions(self, ninteractions)
+        class(system_timer), intent(inout):: self
+        integer, intent(in):: ninteractions
+
+        self%ninteractions = self%ninteractions + int(ninteractions, kind=int64)
+    end subroutine update_interactions
 
 end module grasph_misc
