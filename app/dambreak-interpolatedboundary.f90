@@ -8,6 +8,7 @@ module grasph_monaghan1994_2
     use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force, &
                                         repulsive_force
     use grasph_pairs, only: particle_pairs
+    use grasph_particle_shifting, only: xsph_shifter
 
     implicit none
     ! parameters to describe geometry
@@ -47,12 +48,12 @@ contains
             vw = mw/ps_lhs%rho(i)
             wsum(j) = wsum(j) + vw
             ps_rhs%rho(j) = ps_rhs%rho(j) + mw
-            ps_rhs%v(:, j) = ps_rhs%v(:, j) - ps_lhs%v(:, i)*vw
+            ps_rhs%v(:, j) = ps_rhs%v(:, j) + ps_lhs%v(:, i)*vw
         end do
 
         do j = 1, ps_rhs%size
             if (wsum(j) > 0._fp) then
-                ps_rhs%v(:, j) = ps_rhs%v(:, j)/wsum(j)
+                ps_rhs%v(:, j) = -ps_rhs%v(:, j)/wsum(j)
                 ps_rhs%rho(j) = ps_rhs%rho(j)/wsum(j)
             end if
         end do
@@ -66,7 +67,7 @@ program main
     use grasph_monaghan1994_2
 
     use grasph_particles, only: particles_container
-    use weakly_compressible_particles, only: wcp => linear_eos_particles
+    use weakly_compressible_particles, only: wcp => tait_eos_particles
     use grasph_pair_sets, only: particle_interactions
     use grasph_time_integration, only: leap_frog_time_integration
     use grasph_kernels, only: grasph_cubic_bspline_kernel
@@ -77,6 +78,7 @@ program main
     type(grasph_cubic_bspline_kernel):: kernel
     type(fluid_sweeper):: sweeper
     type(boundary_update_sweeper):: boundary_sweeper
+    type(xsph_shifter):: shifter
     integer:: i, j, k, nlayer, nvirt
 
     ! declare particles - fluid and boundary
@@ -100,7 +102,7 @@ program main
             ps(1)%p%x(2, k) = (j + 0.5_fp)*dx
             ps(1)%p%rho(k) = 1000._fp
             ps(1)%p%mass(k) = 1000._fp*dx*dx
-            ps(1)%p%c(k) = 20._fp*sqrt(245.25_fp) ! 10*sqrt(2gH)
+            ps(1)%p%c(k) = 10._fp*sqrt(490.5_fp) ! 10*sqrt(2gH)
             ps(1)%p%v(:, k) = 0._fp
         end do
     end do
@@ -152,18 +154,21 @@ program main
     ps(2)%p%type(:) = -1
     ps(2)%p%rho(:) = 1000._fp
     ps(2)%p%mass(:) = 1000._fp*dx*dx
-    ps(2)%p%c(:) = 20._fp*sqrt(245.25_fp)
+    ps(2)%p%c(:) = 10._fp*sqrt(490.5_fp)
 
-    sweeper%artvisc_alpha = 0.1_fp
-    sweeper%artvisc_beta = 0.1_fp
+    sweeper%artvisc_alpha = 0.01_fp
+    sweeper%artvisc_beta = 0._fp
     sweeper%g = g
     sweeper%h = 1.2_fp*dx
     sweeper%update_rhs = .false.
 
+    shifter%epsilon = 0.5_fp
+    shifter%update_rhs = .false.
+
     ! init interactions
-    call pic(1)%init(30, ps(1)%p, sweeper=sweeper)
-    sweeper%initialize = .false.
-    call pic(2)%init(30, ps(1)%p, ps(2)%p, prologue_sweeper=boundary_sweeper, sweeper=sweeper)
+    call pic(1)%init(30, ps(1)%p, sweeper=sweeper, shifter=shifter)
+    sweeper%initialize = .false. ! second sweeper doesn't need to zero acceleation arrays
+    call pic(2)%init(30, ps(1)%p, ps(2)%p, prologue_sweeper=boundary_sweeper, sweeper=sweeper, shifter=shifter)
 
     call leap_frog_time_integration(100000, 1000, 1000, ps, pic, 0.05_fp, kernel, "/home/edwardy/test", output_comp_level=4)
 
