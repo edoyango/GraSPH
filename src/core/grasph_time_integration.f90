@@ -40,11 +40,13 @@ contains
         character(*), optional, intent(in):: output_prefix
         integer, optional, intent(in):: output_comp_level
         integer:: nparticle_sets, nparticle_interactions, itimestep, i
-        real(fp):: dt
+        real(fp):: dt, time
         type(system_timer):: timer
 
         nparticle_sets = size(particles)
         nparticle_interactions = size(interactions)
+
+        time = 0._fp
 
         call timer%start()
 
@@ -103,6 +105,8 @@ contains
                 end do
             end if
 
+            time = time + dt
+
             ! update number of interactions over loop lifetime
             do i = 1, nparticle_interactions
                 call timer%update_interactions(interactions(i)%pairs%npairs_total)
@@ -110,7 +114,7 @@ contains
 
             ! print data to screen
             if (mod(itimestep, print_step) == 0) then
-                call print_summary(itimestep, "Leap-Frog", particles, timer)
+                call print_summary(itimestep, "Leap-Frog", particles, timer, time)
             end if
 
         end do

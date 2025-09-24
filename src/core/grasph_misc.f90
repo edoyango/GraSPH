@@ -4,6 +4,7 @@
 !> @date 2025-06-09
 module grasph_misc
 
+    use grasph_constants, only: fp
     use grasph_particles, only: particles_container
     use grasph_pairs, only: particle_pairs
     use iso_fortran_env, only: int64, real64
@@ -40,12 +41,13 @@ contains
     !> @param time_integration_scheme The name of the time-integration scheme used in the simulation.
     !> @param particles The list of particles whose generate_summary methods to use.
     !> @param timer The system_timer object used to track time.
-    subroutine print_summary(itimestep, time_integration_scheme, particles, timer)
+    subroutine print_summary(itimestep, time_integration_scheme, particles, timer, time)
 
         integer, intent(in):: itimestep
         character(*), intent(in):: time_integration_scheme
         type(system_timer), optional, intent(in):: timer
         class(particles_container), intent(in):: particles(:)
+        real(fp), intent(in):: time
         character(:), allocatable:: psummary
         integer:: i
         real(real64):: t
@@ -53,6 +55,7 @@ contains
 
         write (*, "(A)") "========================= GraSPH Output ========================="
         write (*, "(A, I13)") time_integration_scheme//" time-intregration, time-step: ", itimestep
+        write (*, "(A, f14.7)") "  In-simulation time: ", time
         do i = 1, size(particles)
             write (*, "(A)") "  Summary data for: "//trim(particles(i)%p%name)
             if (particles(i)%p%to_print_summary) then
