@@ -99,6 +99,9 @@ program main
     select type (ps => ps(1)%p) ! specialise for weakly compressible particles
     class is (wcp)
         call ps%init(n=2500, d=2, name="fluid", rho_ref=rho0)
+        call ps%register_x%register_data(ps%x, "x", ps%v, "v")
+        call ps%register_v%register_data(ps%v, "v", ps%dvxdt, "dvxdt")
+        call ps%register_v%register_data(ps%rho, "rho", ps%drhodt, "drhodt")
     end select
     do i = 0, nfx - 1
         do j = 0, nfy - 1
@@ -120,7 +123,6 @@ program main
     ! use base_init since we're using the base type
     ! only need to initialize metadata and position as only position is used to calculate repulsive force
     call ps(2)%p%base_init(n=464, d=2, name="boundary")
-    ps(2)%p%evolve = .false.
     ps(2)%p%to_print_summary = .false.
     k = 0
     ! bottom layer and corners

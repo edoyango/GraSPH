@@ -92,6 +92,9 @@ program main
     select type (ps => ps(1)%p) ! specialise for weakly compressible particles
     class is (wcp)
         call ps%init(n=2500, d=2, name="fluid", rho_ref=1000._fp)
+        call ps%register_x%register_data(ps%x, "x", ps%v, "v")
+        call ps%register_v%register_data(ps%v, "v", ps%dvxdt, "dvxdt")
+        call ps%register_v%register_data(ps%rho, "rho", ps%drhodt, "drhodt")
     end select
     do i = 0, nfx - 1
         do j = 0, nfy - 1
@@ -115,7 +118,6 @@ program main
     select type (ps => ps(2)%p)
     type is (wcp)
         call ps%init(n=nvirt, d=2, name="boundary", rho_ref=1000._fp)
-        ps%evolve = .false.
     end select
     k = 0
     ! bottom layer and corners

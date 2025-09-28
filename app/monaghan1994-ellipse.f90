@@ -36,6 +36,9 @@ program main
     select type (ps => ps(1)%p) ! specialise for weakly compressible particles
     class is (wcp)
         call ps%init(n=1976, d=2, name="fluid", rho_ref=rho0)
+        call ps%register_x%register_data(ps%x, "x", ps%v, "v")
+        call ps%register_v%register_data(ps%v, "v", ps%dvxdt, "dvxdt")
+        call ps%register_v%register_data(ps%rho, "rho", ps%drhodt, "drhodt")
     end select
 
     ! initialize geometry

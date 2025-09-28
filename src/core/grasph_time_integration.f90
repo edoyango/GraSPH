@@ -5,10 +5,11 @@
 module grasph_time_integration
 
     use grasph_constants, only: fp
-    use grasph_particles, only: particles_container
+    use grasph_particles, only: particles_container, max_registrations
     use grasph_pair_sets, only: particle_interactions
     use grasph_kernels, only: grasph_base_kernel
     use grasph_misc, only: print_summary, system_timer
+    use grasph_common, only: array_pointer_container
 
     implicit none
     private
@@ -39,12 +40,21 @@ contains
         character(*), intent(in):: output_path
         character(*), optional, intent(in):: output_prefix
         integer, optional, intent(in):: output_comp_level
-        integer:: nparticle_sets, nparticle_interactions, itimestep, i
+        integer:: nparticle_sets, nparticle_interactions, itimestep, i, j
         real(fp):: dt, time
         type(system_timer):: timer
+        type(array_pointer_container), allocatable:: vars0(:, :)
 
         nparticle_sets = size(particles)
         nparticle_interactions = size(interactions)
+
+        allocate (vars0(max_registrations, nparticle_sets))
+
+        do i = 1, nparticle_sets
+            do j = 1, particles(i)%p%register_v%nregistrations
+                allocate (vars0(j, i)%p, mold=particles(i)%p%register_v%data(1, j)%p)
+            end do
+        end do
 
         time = 0._fp
 
@@ -60,7 +70,9 @@ contains
 
             ! save data at start of timestep for each particles
             do i = 1, nparticle_sets
-                call particles(i)%p%start_timestep()
+                do j = 1, particles(i)%p%register_v%nregistrations
+                    vars0(j, i)%p(:, :) = particles(i)%p%register_v%data(1, j)%p(:, :)
+                end do
             end do
 
             ! find pairs between provided particle interaction sets
@@ -70,7 +82,11 @@ contains
 
             ! update particles to mid-timestep
             do i = 1, nparticle_sets
-                if (particles(i)%p%evolve) call particles(i)%p%mid_timestep_update(0.5_fp*dt)
+                do j = 1, particles(i)%p%register_v%nregistrations
+                    particles(i)%p%register_v%data(1, j)%p(:, 1:particles(i)%p%size) = &
+                        particles(i)%p%register_v%data(1, j)%p(:, 1:particles(i)%p%size) + &
+                        0.5_fp*dt*particles(i)%p%register_v%data(2, j)%p(:, 1:particles(i)%p%size)
+                end do
             end do
 
             ! perform pre-sweep prologue e.g. to update boundary particles' state
@@ -90,7 +106,16 @@ contains
 
             ! update states to full-timestep
             do i = 1, nparticle_sets
-                if (particles(i)%p%evolve) call particles(i)%p%full_timestep_update(dt, update_position=.true.)
+                do j = 1, particles(i)%p%register_v%nregistrations
+                    particles(i)%p%register_v%data(1, j)%p(:, 1:particles(i)%p%size) = &
+                        vars0(j, i)%p(:, :) + &
+                        dt*particles(i)%p%register_v%data(2, j)%p(:, 1:particles(i)%p%size)
+                end do
+                do j = 1, particles(i)%p%register_x%nregistrations
+                    particles(i)%p%register_x%data(1, j)%p(:, 1:particles(i)%p%size) = &
+                        particles(i)%p%register_x%data(1, j)%p(:, 1:particles(i)%p%size) + &
+                        dt*particles(i)%p%register_x%data(2, j)%p(:, 1:particles(i)%p%size)
+                end do
             end do
 
             ! perform shifting
@@ -118,6 +143,8 @@ contains
             end if
 
         end do
+
+        deallocate (vars0)
 
     end subroutine leap_frog_time_integration
 
