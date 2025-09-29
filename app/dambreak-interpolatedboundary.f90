@@ -3,7 +3,7 @@ module grasph_monaghan1994_2
     use grasph_constants, only: fp
     use grasph_particles, only: base_particles
     use weakly_compressible_particles, only: wcp => tait_eos_particles
-    use weakly_compressible_interactions, only: fluid_self_interaction, fluid_fluid_interaction, fluid_sweeper
+    use weakly_compressible_interactions, only: fluid_sweeper
     use grasph_pair_sets, only: particle_interactions, base_sweeper
     use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force, &
                                         repulsive_force
@@ -38,23 +38,25 @@ contains
             error stop "Expected ps_rhs to be passed in."
         end if
 
-        ps_rhs%rho(:) = 0._fp
-        ps_rhs%v(:, :) = 0._fp
+        do i = 1, ps_rhs%size
+            ps_rhs%ps(i)%rho = 0._fp
+            ps_rhs%ps(i)%v(:) = 0._fp
+        end do
 
         do k = 1, pairs%npairs_total
             i = pairs%pair_ij(1, k)
             j = pairs%pair_ij(2, k)
-            mw = ps_lhs%mass(i)*pairs%w(k)
-            vw = mw/ps_lhs%rho(i)
+            mw = ps_lhs%ps(i)%mass*pairs%w(k)
+            vw = mw/ps_lhs%ps(i)%rho
             wsum(j) = wsum(j) + vw
-            ps_rhs%rho(j) = ps_rhs%rho(j) + mw
-            ps_rhs%v(:, j) = ps_rhs%v(:, j) + ps_lhs%v(:, i)*vw
+            ps_rhs%ps(j)%rho = ps_rhs%ps(j)%rho + mw
+            ps_rhs%ps(j)%v(:) = ps_rhs%ps(j)%v(:) + ps_lhs%ps(i)%v(:)*vw
         end do
 
         do j = 1, ps_rhs%size
             if (wsum(j) > 0._fp) then
-                ps_rhs%v(:, j) = -ps_rhs%v(:, j)/wsum(j)
-                ps_rhs%rho(j) = ps_rhs%rho(j)/wsum(j)
+                ps_rhs%ps(j)%v(:) = -ps_rhs%ps(j)%v(:)/wsum(j)
+                ps_rhs%ps(j)%rho = ps_rhs%ps(j)%rho/wsum(j)
             end if
         end do
 
@@ -91,22 +93,22 @@ program main
     ! init fluid particles
     select type (ps => ps(1)%p) ! specialise for weakly compressible particles
     class is (wcp)
-        call ps%init(n=2500, d=2, name="fluid", rho_ref=1000._fp)
-        call ps%register_x%register_data(ps%x, "x", ps%v, "v")
-        call ps%register_v%register_data(ps%v, "v", ps%dvxdt, "dvxdt")
-        call ps%register_v%register_data(ps%rho, "rho", ps%drhodt, "drhodt")
+        call ps%init(n=2500, name="fluid", rho_ref=1000._fp)
+        call ps%register_x%register(ps%ps(1), ps%ps(1)%x, ps%ps(1)%v)
+        call ps%register_v%register(ps%ps(1), ps%ps(1)%v, ps%ps(1)%dvxdt)
+        call ps%register_v%register(ps%ps(1), ps%ps(1)%rho, ps%ps(1)%drhodt)
     end select
     do i = 0, nfx - 1
         do j = 0, nfy - 1
             k = j*nfx + i + 1
-            ps(1)%p%id(k) = k
-            ps(1)%p%type = 1 ! not sure if type is needed anymore
-            ps(1)%p%x(1, k) = (i + 0.5_fp)*dx
-            ps(1)%p%x(2, k) = (j + 0.5_fp)*dx
-            ps(1)%p%rho(k) = 1000._fp
-            ps(1)%p%mass(k) = 1000._fp*dx*dx
-            ps(1)%p%c(k) = 10._fp*sqrt(490.5_fp) ! 10*sqrt(2gH)
-            ps(1)%p%v(:, k) = 0._fp
+            ps(1)%p%ps(k)%id = k
+            ps(1)%p%ps(k)%type = 1 ! not sure if type is needed anymore
+            ps(1)%p%ps(k)%x(1) = (i + 0.5_fp)*dx
+            ps(1)%p%ps(k)%x(2) = (j + 0.5_fp)*dx
+            ps(1)%p%ps(k)%rho = 1000._fp
+            ps(1)%p%ps(k)%mass = 1000._fp*dx*dx
+            ps(1)%p%ps(k)%c = 10._fp*sqrt(490.5_fp) ! 10*sqrt(2gH)
+            ps(1)%p%ps(k)%v(:) = 0._fp
         end do
     end do
 
@@ -117,46 +119,48 @@ program main
     nvirt = nlayer*2*(nbx + nby) + 4*nlayer*nlayer
     select type (ps => ps(2)%p)
     type is (wcp)
-        call ps%init(n=nvirt, d=2, name="boundary", rho_ref=1000._fp)
+        call ps%init(n=nvirt, name="boundary", rho_ref=1000._fp)
     end select
     k = 0
     ! bottom layer and corners
     do i = -nlayer, nbx + nlayer - 1
         do j = 0, nlayer - 1
             k = k + 1
-            ps(2)%p%x(1, k) = (i + 0.5_fp)*dx
-            ps(2)%p%x(2, k) = -(j + 0.5_fp)*dx
+            ps(2)%p%ps(k)%x(1) = (i + 0.5_fp)*dx
+            ps(2)%p%ps(k)%x(2) = -(j + 0.5_fp)*dx
         end do
     end do
     ! top layer and corners
     do i = -nlayer, nbx + nlayer - 1
         do j = 0, nlayer - 1
             k = k + 1
-            ps(2)%p%x(1, k) = (i + 0.5_fp)*dx
-            ps(2)%p%x(2, k) = 40._fp + (j + 0.5_fp)*dx
+            ps(2)%p%ps(k)%x(1) = (i + 0.5_fp)*dx
+            ps(2)%p%ps(k)%x(2) = 40._fp + (j + 0.5_fp)*dx
         end do
     end do
     ! left wall
     do j = 0, nby - 1
         do i = 0, nlayer - 1
             k = k + 1
-            ps(2)%p%x(1, k) = -(i + 0.5_fp)*dx
-            ps(2)%p%x(2, k) = (j + 0.5_fp)*dx
+            ps(2)%p%ps(k)%x(1) = -(i + 0.5_fp)*dx
+            ps(2)%p%ps(k)%x(2) = (j + 0.5_fp)*dx
         end do
     end do
     ! right wall
     do j = 0, nby - 1
         do i = 0, nlayer - 1
             k = k + 1
-            ps(2)%p%x(1, k) = 75._fp + (i + 0.5_fp)*dx
-            ps(2)%p%x(2, k) = (j + 0.5_fp)*dx
+            ps(2)%p%ps(k)%x(1) = 75._fp + (i + 0.5_fp)*dx
+            ps(2)%p%ps(k)%x(2) = (j + 0.5_fp)*dx
         end do
     end do
-    ps(2)%p%id(:) = [(i, i=1, nvirt)]
-    ps(2)%p%type(:) = -1
-    ps(2)%p%rho(:) = 1000._fp
-    ps(2)%p%mass(:) = 1000._fp*dx*dx
-    ps(2)%p%c(:) = 10._fp*sqrt(490.5_fp)
+    do i = 1, k
+        ps(2)%p%ps(i)%id = i
+        ps(2)%p%ps(i)%type = -1
+        ps(2)%p%ps(i)%rho = 1000._fp
+        ps(2)%p%ps(i)%mass = 1000._fp*dx*dx
+        ps(2)%p%ps(i)%c = 10._fp*sqrt(490.5_fp)
+    end do
 
     sweeper%artvisc_alpha = 0.01_fp
     sweeper%artvisc_beta = 0._fp

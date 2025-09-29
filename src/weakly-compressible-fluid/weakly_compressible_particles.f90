@@ -5,15 +5,18 @@
 module weakly_compressible_particles
 
     use grasph_constants, only: fp
-    use grasph_particles, only: base_particles, base_dump, base_read
+    use grasph_particles, only: base_particle, base_particles, base_dump, base_read
+
+    type, extends(base_particle):: linear_eos_particle
+        real(fp):: p
+    end type linear_eos_particle
 
     !> @brief particle type which adds pressure, determined from density with a linear EOS
     type, extends(base_particles):: linear_eos_particles
-        !> @brief Particles' isotropic pressure.
-        real(fp), allocatable:: p(:)
         !> @brief Reference density to be used to calculate pressure in the linear EOS.
         real(fp):: rho_ref
     contains
+        procedure, nopass:: ps_allocate
         !> @brief Custom intializer to initialize pressure and reference density.
         !>        Also calls base_init to initialize base data.
         procedure:: init => wcp_init
@@ -34,6 +37,14 @@ module weakly_compressible_particles
 
 contains
 
+    subroutine ps_allocate(ps, n)
+        class(base_particle), allocatable, intent(out):: ps(:)
+        integer, intent(in):: n
+
+        allocate (linear_eos_particle::ps(n))
+
+    end subroutine ps_allocate
+
     !> @brief Custom init function for weakly-compressible particles. Will also initialize base
     !>        particles' data.
     !> @param self The weakly-compressible particles to initialize.
@@ -41,15 +52,13 @@ contains
     !> @param d Spatial dimensions of the particles.
     !> @param name A label to give the particles. Used to label output/terminal information.
     !> @param rho_ref Reference density used in the linear EOS.
-    subroutine wcp_init(self, n, d, name, rho_ref)
+    subroutine wcp_init(self, n, name, rho_ref)
         class(linear_eos_particles), intent(inout):: self
-        integer, intent(in):: n, d
+        integer, intent(in):: n
         real(fp), intent(in):: rho_ref
         character(*), intent(in):: name
         self%rho_ref = rho_ref
-        if (self%initialized) deallocate (self%p)
-        call self%base_init(n, d, name)
-        allocate (self%p(n))
+        call self%base_init(n, name)
     end subroutine wcp_init
 
     !> @brief Custom output subroutine to include relevant weakly-compressible data. Overrides
@@ -68,9 +77,18 @@ contains
         integer, intent(in), optional:: comp_level
         character(*), parameter:: group = "weakly_compressible/"
         character(200):: filename_prefix, file_path, this_group
-        integer:: ierr
+        integer:: ierr, i
         type(hdf5_file):: h5f
         character(10):: ic
+        real(fp):: tmp_p(self%size)
+        class(linear_eos_particle), pointer:: wcp(:)
+
+        select type (ps => self%ps)
+        class is (linear_eos_particle)
+            wcp => ps(:)
+        class default
+            error stop "Linear_eos_particle required."
+        end select
 
         if (present(prefix_in)) then
             filename_prefix = prefix_in
@@ -84,7 +102,10 @@ contains
 
         call base_dump(self, itimestep, path, prefix_in, comp_level)
         call h5f%open(file_path, action="a")
-        call h5f%write(trim(this_group)//"p", self%p)
+        do i = 1, self%size
+            tmp_p(i) = wcp(i)%p
+        end do
+        call h5f%write(trim(this_group)//"p", tmp_p)
         call h5f%close()
 
     end subroutine wcp_dump
@@ -99,17 +120,30 @@ contains
         character(*), intent(in):: file_path, name
         character(*), parameter:: group = "weakly_compressible/"
         character(200):: filename, this_group
-        integer:: ierr, d, n
+        integer:: ierr, d, n, i
         type(hdf5_file):: h5f
         character(10):: ic
+        real(fp), allocatable:: tmp_p(:)
+        class(linear_eos_particle), pointer:: wcp(:)
+
         call base_read(self, file_path, name)
+
+        select type (ps => self%ps)
+        class is (linear_eos_particle)
+            wcp => ps
+        class default
+            error stop "Linear_eos_particle required."
+        end select
+
+        allocate (tmp_p(self%size))
 
         this_group = "/"//trim(name)//"/"//group
 
-        allocate (self%p(self%size))
-
         call h5f%open(file_path, action="r")
-        call h5f%read(trim(this_group)//"p", self%p)
+        call h5f%read(trim(this_group)//"p", tmp_p)
+        do i = 1, self%size
+            wcp(i)%p = tmp_p(i)
+        end do
         call h5f%close()
     end subroutine wcp_read
 
@@ -122,9 +156,14 @@ contains
         class(linear_eos_particles), intent(inout):: self
         real(fp), intent(in), optional:: dt
         integer:: i
-        do i = 1, self%size
-            self%p(i) = self%c(i)**2*(self%rho(i) - self%rho_ref)
-        end do
+        select type (ps => self%ps)
+        class is (linear_eos_particle)
+            do i = 1, self%size
+                ps(i)%p = ps(i)%c**2*(ps(i)%rho - self%rho_ref)
+            end do
+        class default
+            error stop "linear_eos_particle required"
+        end select
     end subroutine linear_eos
 
     !> @brief The Tait state equation to update stress using the particles' speed of sound (c),
@@ -137,9 +176,14 @@ contains
         real(fp), intent(in), optional:: dt
         integer:: i
         integer, parameter:: gamma = 7
-        do i = 1, self%size
-            self%p(i) = self%rho_ref*self%c(i)*self%c(i)/real(gamma, kind=fp)*((self%rho(i)/self%rho_ref)**gamma - 1._fp)
-        end do
+        select type (ps => self%ps)
+        class is (linear_eos_particle)
+            do i = 1, self%size
+                ps(i)%p = self%rho_ref*ps(i)%c*ps(i)%c/real(gamma, kind=fp)*((ps(i)%rho/self%rho_ref)**gamma - 1._fp)
+            end do
+        class default
+            error stop "linear_eos_particle required"
+        end select
     end subroutine tait_eos
 
 end module weakly_compressible_particles

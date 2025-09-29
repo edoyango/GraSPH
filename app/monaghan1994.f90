@@ -9,7 +9,7 @@ module grasph_monaghan1994
 
     use grasph_constants, only: fp
     use grasph_particles, only: base_particles
-    use weakly_compressible_particles, only: wcp => tait_eos_particles
+    use weakly_compressible_particles, only: wcp => tait_eos_particles, linear_eos_particle
     use grasph_pairs, only: particle_pairs
     use grasph_pair_sets, only: particle_interactions, base_sweeper
     use weakly_compressible_interactions, only: fluid_sweeper
@@ -53,14 +53,13 @@ contains
             i = pairs%pair_ij(1, k)
             j = pairs%pair_ij(2, k)
             ! apply boundary force with eqn 4.1.
-            call repulsive_force(2, dx, ps_lhs%c(i), ps_lhs%x(:, i), ps_rhs%x(:, j), ps_lhs%dvxdt(:, i))
+            call repulsive_force(dx, ps_lhs%ps(i)%c, ps_lhs%ps(i)%x(:), ps_rhs%ps(j)%x(:), ps_lhs%ps(i)%dvxdt(:))
             ! boundary particles included in artificial viscosity calculation (start of pg 402), but velocities of boundary
             ! particles aren't updated.
-            call artificial_viscosity_monaghan1994(2, ps_lhs%x(:, i), ps_rhs%x(:, j), ps_lhs%v(:, i), &
-                                                   ps_rhs%v(:, j), ps_lhs%rho(i), ps_rhs%rho(j), self%h, &
-                                                   self%h, ps_lhs%c(i), ps_rhs%c(j), ps_lhs%mass(i), &
-                                                   ps_rhs%mass(j), ps_lhs%dvxdt(:, i), dummy_dvxdt(:), &
-                                                   pairs%dwdx(:, k), self%artvisc_alpha, self%artvisc_beta &
+            call artificial_viscosity_monaghan1994(ps_lhs%ps(i)%x(:), ps_rhs%ps(j)%x(:), ps_lhs%ps(i)%v(:), ps_rhs%ps(j)%v(:), &
+                                                   ps_lhs%ps(i)%rho, ps_rhs%ps(j)%rho, self%h, self%h, ps_lhs%ps(i)%c, &
+                                                   ps_rhs%ps(j)%c, ps_lhs%ps(i)%mass, ps_rhs%ps(j)%mass, ps_lhs%ps(i)%dvxdt(:), &
+                                                   dummy_dvxdt(:), pairs%dwdx(:, k), self%artvisc_alpha, self%artvisc_beta &
                                                    )
         end do
 
@@ -95,63 +94,65 @@ program main
     ! init fluid particles
     select type (ps => ps(1)%p) ! specialise for weakly compressible particles
     class is (wcp)
-        call ps%init(n=2500, d=2, name="fluid", rho_ref=rho0)
-        call ps%register_x%register_data(ps%x, "x", ps%v, "v")
-        call ps%register_v%register_data(ps%v, "v", ps%dvxdt, "dvxdt")
-        call ps%register_v%register_data(ps%rho, "rho", ps%drhodt, "drhodt")
+        call ps%init(n=2500, name="fluid", rho_ref=rho0)
+        call ps%register_x%register(ps%ps(1), ps%ps(1)%x, ps%ps(1)%v)
+        call ps%register_v%register(ps%ps(1), ps%ps(1)%v, ps%ps(1)%dvxdt)
+        call ps%register_v%register(ps%ps(1), ps%ps(1)%rho, ps%ps(1)%drhodt)
     end select
     do i = 0, nfx - 1
         do j = 0, nfy - 1
             k = j*nfx + i + 1
-            ps(1)%p%id(k) = k
-            ps(1)%p%type = 1 ! not sure if type is needed anymore
-            ps(1)%p%x(1, k) = (i + 0.5_fp)*dx
-            ps(1)%p%x(2, k) = (j + 0.5_fp)*dx
-            ps(1)%p%c(k) = 10._fp*sqrt(2._fp*abs(g)*25._fp) ! 10*sqrt(2gH) eqn 3.3
+            ps(1)%p%ps(k)%id = k
+            ps(1)%p%ps(k)%type = 1 ! not sure if type is needed anymore
+            ps(1)%p%ps(k)%x(1) = (i + 0.5_fp)*dx
+            ps(1)%p%ps(k)%x(2) = (j + 0.5_fp)*dx
+            ps(1)%p%ps(k)%c = 10._fp*sqrt(2._fp*abs(g)*25._fp) ! 10*sqrt(2gH) eqn 3.3
             ! initialize density of fluid particles using hydrostatic pressure condition (eqn 5.1)
-            analytical_pressure = (25._fp - ps(1)%p%x(2, k))*rho0*abs(g)
-            ps(1)%p%rho(k) = rho0*(analytical_pressure*7._fp/(rho0*ps(1)%p%c(k)**2) + 1._fp)**(1._fp/7._fp)
-            ps(1)%p%mass(k) = rho0*dx*dx
-            ps(1)%p%v(:, k) = 0._fp
+            analytical_pressure = (25._fp - ps(1)%p%ps(k)%x(2))*rho0*abs(g)
+            ps(1)%p%ps(k)%rho = rho0*(analytical_pressure*7._fp/(rho0*ps(1)%p%ps(k)%c**2) + 1._fp)**(1._fp/7._fp)
+            ps(1)%p%ps(k)%mass = rho0*dx*dx
+            ps(1)%p%ps(k)%v(:) = 0._fp
         end do
     end do
 
     ! init boundary particles
     ! use base_init since we're using the base type
     ! only need to initialize metadata and position as only position is used to calculate repulsive force
-    call ps(2)%p%base_init(n=464, d=2, name="boundary")
+    call ps(2)%p%base_init(n=464, name="boundary")
     ps(2)%p%to_print_summary = .false.
     k = 0
     ! bottom layer and corners
     do i = -1, nbx
         k = k + 1
-        ps(2)%p%x(1, k) = (i + 0.5_fp)*dx
-        ps(2)%p%x(2, k) = -0.5_fp*dx
+        ps(2)%p%ps(k)%x(1) = (i + 0.5_fp)*dx
+        ps(2)%p%ps(k)%x(2) = -0.5_fp*dx
     end do
     ! top layer and corners
     do i = -1, nbx
         k = k + 1
-        ps(2)%p%x(1, k) = (i + 0.5_fp)*dx
-        ps(2)%p%x(2, k) = 40._fp + 0.5_fp*dx
+        ps(2)%p%ps(k)%x(1) = (i + 0.5_fp)*dx
+        ps(2)%p%ps(k)%x(2) = 40._fp + 0.5_fp*dx
     end do
     ! left wall
     do j = 0, nby - 1
         k = k + 1
-        ps(2)%p%x(1, k) = -0.5_fp*dx
-        ps(2)%p%x(2, k) = (j + 0.5_fp)*dx
+        ps(2)%p%ps(k)%x(1) = -0.5_fp*dx
+        ps(2)%p%ps(k)%x(2) = (j + 0.5_fp)*dx
     end do
     ! right wall
     do j = 0, nby - 1
         k = k + 1
-        ps(2)%p%x(1, k) = 75._fp + 0.5_fp*dx
-        ps(2)%p%x(2, k) = (j + 0.5_fp)*dx
+        ps(2)%p%ps(k)%x(1) = 75._fp + 0.5_fp*dx
+        ps(2)%p%ps(k)%x(2) = (j + 0.5_fp)*dx
     end do
-    ps(2)%p%id(:) = [(i, i=1, k)]
-    ps(2)%p%type(:) = -1
-    ps(2)%p%rho(:) = rho0
-    ps(2)%p%c(:) = 10._fp*sqrt(2._fp*abs(g)*25._fp) ! 10*max_speed
-    ps(2)%p%mass(:) = rho0*dx*dx
-    ps(2)%p%v(:, :) = 0._fp
+    do i = 1, k
+        ps(2)%p%ps(i)%id = i
+        ps(2)%p%ps(i)%type = -1
+        ps(2)%p%ps(i)%rho = rho0
+        ps(2)%p%ps(i)%mass = rho0*dx*dx
+        ps(2)%p%ps(i)%v(:) = 0._fp
+        ps(2)%p%ps(i)%c = 10._fp*sqrt(2._fp*abs(g)*25._fp) ! 10*max_speed
+    end do
 
     ! init interactions
     self_sweeper%artvisc_alpha = 0.01_fp

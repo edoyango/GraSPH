@@ -14,4 +14,10 @@ module grasph_constants
 
     real(fp), parameter:: pi = 4._fp*atan(1._fp)
 
+#ifdef THREED
+    integer, parameter:: ndims = 3
+#else
+    integer, parameter:: ndims = 2
+#endif
+
 end module grasph_constants

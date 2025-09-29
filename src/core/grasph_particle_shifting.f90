@@ -4,7 +4,7 @@
 !> @date 2025-09-22
 module grasph_particle_shifting
 
-    use grasph_constants, only: fp
+    use grasph_constants, only: fp, ndims
     use grasph_pair_sets, only: base_shifter
     use grasph_pairs, only: particle_pairs
     use grasph_particles, only: base_particles
@@ -39,8 +39,7 @@ contains
     !> @param w Kernel weight (W_ij) [dimensionless].
     !> @param dt Timestep increment [s].
     !> @param epsilon XSPH shifting coefficient [dimensionless].
-    subroutine xsph_shift_ij(ndims, xi, xj, vi, vj, rhoi, rhoj, massi, massj, w, dt, epsilon)
-        integer, intent(in):: ndims
+    subroutine xsph_shift_ij(xi, xj, vi, vj, rhoi, rhoj, massi, massj, w, dt, epsilon)
         real(fp), intent(inout):: xi(ndims), xj(ndims)
         real(fp), intent(in):: vi(ndims), vj(ndims), rhoi, rhoj, massi, massj, w, dt, epsilon
         real(fp):: dv(ndims), mrho
@@ -66,27 +65,27 @@ contains
         class(base_particles), optional, intent(inout):: ps_rhs
         real(fp), intent(in):: dt
         integer:: i, j, k
-        real(fp):: dummyx(ps_lhs%ndims)
+        real(fp):: dummyx(ndims)
 
         if (present(ps_rhs)) then
             do k = 1, pairs%npairs_total
                 i = pairs%pair_ij(1, k)
                 j = pairs%pair_ij(2, k)
                 if (self%update_rhs) then
-                    call xsph_shift_ij(ps_lhs%ndims, ps_lhs%x(:, i), ps_rhs%x(:, j), ps_lhs%v(:, i), ps_rhs%v(:, j), &
-                                       ps_lhs%rho(i), ps_rhs%rho(j), ps_lhs%mass(i), ps_rhs%mass(j), pairs%w(k), dt, &
+                    call xsph_shift_ij(ps_lhs%ps(i)%x(:), ps_rhs%ps(j)%x(:), ps_lhs%ps(i)%v(:), ps_rhs%ps(j)%v(:), &
+                                       ps_lhs%ps(i)%rho, ps_rhs%ps(j)%rho, ps_lhs%ps(i)%mass, ps_rhs%ps(j)%mass, pairs%w(k), dt, &
                                        self%epsilon)
                 else
-                    call xsph_shift_ij(ps_lhs%ndims, ps_lhs%x(:, i), dummyx, ps_lhs%v(:, i), ps_rhs%v(:, j), ps_lhs%rho(i), &
-                                       ps_rhs%rho(j), ps_lhs%mass(i), ps_rhs%mass(j), pairs%w(k), dt, self%epsilon)
+                    call xsph_shift_ij(ps_lhs%ps(i)%x(:), dummyx, ps_lhs%ps(i)%v(:), ps_rhs%ps(j)%v(:), ps_lhs%ps(i)%rho, &
+                                       ps_rhs%ps(j)%rho, ps_lhs%ps(i)%mass, ps_rhs%ps(j)%mass, pairs%w(k), dt, self%epsilon)
                 end if
             end do
         else
             do k = 1, pairs%npairs_total
                 i = pairs%pair_ij(1, k)
                 j = pairs%pair_ij(2, k)
-                call xsph_shift_ij(ps_lhs%ndims, ps_lhs%x(:, i), ps_lhs%x(:, j), ps_lhs%v(:, i), ps_lhs%v(:, j), ps_lhs%rho(i), &
-                                   ps_lhs%rho(j), ps_lhs%mass(i), ps_lhs%mass(j), pairs%w(k), dt, self%epsilon)
+                call xsph_shift_ij(ps_lhs%ps(i)%x(:), ps_lhs%ps(j)%x(:), ps_lhs%ps(i)%v(:), ps_lhs%ps(j)%v(:), ps_lhs%ps(i)%rho, &
+                                   ps_lhs%ps(j)%rho, ps_lhs%ps(i)%mass, ps_lhs%ps(j)%mass, pairs%w(k), dt, self%epsilon)
             end do
         end if
 

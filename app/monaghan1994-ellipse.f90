@@ -35,10 +35,10 @@ program main
     ! init fluid particles
     select type (ps => ps(1)%p) ! specialise for weakly compressible particles
     class is (wcp)
-        call ps%init(n=1976, d=2, name="fluid", rho_ref=rho0)
-        call ps%register_x%register_data(ps%x, "x", ps%v, "v")
-        call ps%register_v%register_data(ps%v, "v", ps%dvxdt, "dvxdt")
-        call ps%register_v%register_data(ps%rho, "rho", ps%drhodt, "drhodt")
+        call ps%init(n=1976, name="fluid", rho_ref=rho0)
+        call ps%register_x%register(ps%ps(1), ps%ps(1)%x, ps%ps(1)%v)
+        call ps%register_v%register(ps%ps(1), ps%ps(1)%v, ps%ps(1)%dvxdt)
+        call ps%register_v%register(ps%ps(1), ps%ps(1)%rho, ps%ps(1)%drhodt)
     end select
 
     ! initialize geometry
@@ -50,15 +50,15 @@ program main
             y = -1._fp + (j + 0.5_fp)*dx
             if (x*x + y*y < 1._fp) then
                 k = k + 1
-                ps(1)%p%id(k) = k
-                ps(1)%p%type(k) = 1
-                ps(1)%p%x(1, k) = x
-                ps(1)%p%x(2, k) = y
-                ps(1)%p%c(k) = 1400._fp
-                ps(1)%p%rho(k) = rho0
-                ps(1)%p%mass(k) = pi*rho0/1976
-                ps(1)%p%v(1, k) = -100._fp*x
-                ps(1)%p%v(2, k) = 100._fp*y
+                ps(1)%p%ps(k)%id = k
+                ps(1)%p%ps(k)%type = 1
+                ps(1)%p%ps(k)%x(1) = x
+                ps(1)%p%ps(k)%x(2) = y
+                ps(1)%p%ps(k)%c = 1400._fp
+                ps(1)%p%ps(k)%rho = rho0
+                ps(1)%p%ps(k)%mass = pi*rho0/1976
+                ps(1)%p%ps(k)%v(1) = -100._fp*x
+                ps(1)%p%ps(k)%v(2) = 100._fp*y
             end if
         end do
     end do

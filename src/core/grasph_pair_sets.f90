@@ -171,9 +171,9 @@ contains
         class(grasph_base_kernel), intent(in):: kernel
 
         if (self%is_pair_set) then
-            call cell_list_search(self%ps_lhs%x, self%ps_rhs%x, self%ps_rhs%size, cutoff, kernel, self%pairs)
+            call cell_list_search(self%ps_lhs%ps, self%ps_rhs%ps, cutoff, kernel, self%pairs)
         else
-            call cell_list_search(self%ps_lhs%x, cutoff, kernel, self%pairs)
+            call cell_list_search(self%ps_lhs%ps, cutoff, kernel, self%pairs)
         end if
     end subroutine particle_interactions_find_pairs
 
@@ -199,7 +199,7 @@ contains
             self%ps_rhs => ps_rhs
             self%is_pair_set = .true.
         end if
-        call self%pairs%init(ps_lhs%size, npairs_per_particle, ps_lhs%ndims)
+        call self%pairs%init(ps_lhs%size, npairs_per_particle)
 
         if (present(prologue_sweeper)) then
             allocate (self%prologue_sweeper, source=prologue_sweeper)

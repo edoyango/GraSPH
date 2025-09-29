@@ -40,10 +40,11 @@ contains
         character(*), intent(in):: output_path
         character(*), optional, intent(in):: output_prefix
         integer, optional, intent(in):: output_comp_level
-        integer:: nparticle_sets, nparticle_interactions, itimestep, i, j
-        real(fp):: dt, time
+        integer:: nparticle_sets, nparticle_interactions, itimestep, i, j, k
+        real(fp):: dt, time, maxc
         type(system_timer):: timer
         type(array_pointer_container), allocatable:: vars0(:, :)
+        real(fp), pointer:: var_ptr(:), deriv_ptr(:)
 
         nparticle_sets = size(particles)
         nparticle_interactions = size(interactions)
@@ -52,7 +53,7 @@ contains
 
         do i = 1, nparticle_sets
             do j = 1, particles(i)%p%register_v%nregistrations
-                allocate (vars0(j, i)%p, mold=particles(i)%p%register_v%data(1, j)%p)
+                allocate (vars0(j, i)%p(particles(i)%p%register_v%dims(j), particles(i)%p%size))
             end do
         end do
 
@@ -63,15 +64,21 @@ contains
         do itimestep = 1, maxtimestep
 
             ! calculate timestep to use
-            dt = huge(1._fp)
+            maxc = particles(1)%p%ps(1)%c
             do i = 1, nparticle_sets
-                dt = min(dt, CFL*kernel%h/maxval(particles(i)%p%c(:)))
+                do j = 1, particles(i)%p%size
+                    maxc = max(maxc, particles(i)%p%ps(j)%c)
+                end do
             end do
+            dt = CFL*kernel%h/maxc
 
             ! save data at start of timestep for each particles
             do i = 1, nparticle_sets
                 do j = 1, particles(i)%p%register_v%nregistrations
-                    vars0(j, i)%p(:, :) = particles(i)%p%register_v%data(1, j)%p(:, :)
+                    do k = 1, particles(i)%p%size
+                        call particles(i)%p%register_v%get(particles(i)%p%ps(k), j, var_ptr, deriv_ptr)
+                        vars0(j, i)%p(:, k) = var_ptr(:)
+                    end do
                 end do
             end do
 
@@ -83,9 +90,10 @@ contains
             ! update particles to mid-timestep
             do i = 1, nparticle_sets
                 do j = 1, particles(i)%p%register_v%nregistrations
-                    particles(i)%p%register_v%data(1, j)%p(:, 1:particles(i)%p%size) = &
-                        particles(i)%p%register_v%data(1, j)%p(:, 1:particles(i)%p%size) + &
-                        0.5_fp*dt*particles(i)%p%register_v%data(2, j)%p(:, 1:particles(i)%p%size)
+                    do k = 1, particles(i)%p%size
+                        call particles(i)%p%register_v%get(particles(i)%p%ps(k), j, var_ptr, deriv_ptr)
+                        var_ptr(:) = var_ptr(:) + 0.5_fp*dt*deriv_ptr(:)
+                    end do
                 end do
             end do
 
@@ -107,14 +115,16 @@ contains
             ! update states to full-timestep
             do i = 1, nparticle_sets
                 do j = 1, particles(i)%p%register_v%nregistrations
-                    particles(i)%p%register_v%data(1, j)%p(:, 1:particles(i)%p%size) = &
-                        vars0(j, i)%p(:, :) + &
-                        dt*particles(i)%p%register_v%data(2, j)%p(:, 1:particles(i)%p%size)
+                    do k = 1, particles(i)%p%size
+                        call particles(i)%p%register_v%get(particles(i)%p%ps(k), j, var_ptr, deriv_ptr)
+                        var_ptr(:) = vars0(j, i)%p(:, k) + dt*deriv_ptr(:)
+                    end do
                 end do
                 do j = 1, particles(i)%p%register_x%nregistrations
-                    particles(i)%p%register_x%data(1, j)%p(:, 1:particles(i)%p%size) = &
-                        particles(i)%p%register_x%data(1, j)%p(:, 1:particles(i)%p%size) + &
-                        dt*particles(i)%p%register_x%data(2, j)%p(:, 1:particles(i)%p%size)
+                    do k = 1, particles(i)%p%size
+                        call particles(i)%p%register_x%get(particles(i)%p%ps(k), j, var_ptr, deriv_ptr)
+                        var_ptr(:) = var_ptr(:) + dt*deriv_ptr(:)
+                    end do
                 end do
             end do
 
