@@ -86,6 +86,7 @@ program main
     type(fluid_sweeper):: self_sweeper
     type(fluid_boundary_sweeper):: boundary_sweeper
     type(xsph_shifter):: shifter
+    type(linear_eos_particle):: ps_template
 
     ! declare particles - fluid and boundary (repulsive force)
     allocate (wcp::ps(1)%p)
@@ -94,7 +95,7 @@ program main
     ! init fluid particles
     select type (ps => ps(1)%p) ! specialise for weakly compressible particles
     class is (wcp)
-        call ps%init(n=2500, name="fluid", rho_ref=rho0)
+        call ps%init(n=2500, name="fluid", rho_ref=rho0, ps_template=ps_template)
         call ps%register_x%register(ps%ps(1), ps%ps(1)%x, ps%ps(1)%v)
         call ps%register_v%register(ps%ps(1), ps%ps(1)%v, ps%ps(1)%dvxdt)
         call ps%register_v%register(ps%ps(1), ps%ps(1)%rho, ps%ps(1)%drhodt)

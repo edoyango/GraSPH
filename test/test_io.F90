@@ -74,7 +74,7 @@ contains
         character:: dc
         type(linear_eos_particle), pointer:: ps_lhs(:), ps_rhs(:)
 
-        call ps%init(10, "test_wcp_particles", 1000._fp)
+        call ps%init(n=10, name="test_wcp_particles", rho_ref=1000._fp)
 
         select type (psf => ps%ps)
         class is (linear_eos_particle)

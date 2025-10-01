@@ -16,7 +16,6 @@ module weakly_compressible_particles
         !> @brief Reference density to be used to calculate pressure in the linear EOS.
         real(fp):: rho_ref
     contains
-        procedure, nopass:: ps_allocate
         !> @brief Custom intializer to initialize pressure and reference density.
         !>        Also calls base_init to initialize base data.
         procedure:: init => wcp_init
@@ -37,14 +36,6 @@ module weakly_compressible_particles
 
 contains
 
-    subroutine ps_allocate(ps, n)
-        class(base_particle), allocatable, intent(out):: ps(:)
-        integer, intent(in):: n
-
-        allocate (linear_eos_particle::ps(n))
-
-    end subroutine ps_allocate
-
     !> @brief Custom init function for weakly-compressible particles. Will also initialize base
     !>        particles' data.
     !> @param self The weakly-compressible particles to initialize.
@@ -52,13 +43,19 @@ contains
     !> @param d Spatial dimensions of the particles.
     !> @param name A label to give the particles. Used to label output/terminal information.
     !> @param rho_ref Reference density used in the linear EOS.
-    subroutine wcp_init(self, n, name, rho_ref)
+    subroutine wcp_init(self, n, name, ps_template, rho_ref)
         class(linear_eos_particles), intent(inout):: self
         integer, intent(in):: n
         real(fp), intent(in):: rho_ref
         character(*), intent(in):: name
+        class(linear_eos_particle), optional, intent(in):: ps_template
+        type(linear_eos_particle):: ps_default
         self%rho_ref = rho_ref
-        call self%base_init(n, name)
+        if (present(ps_template)) then
+            call self%base_init(n, name, ps_template)
+        else
+            call self%base_init(n, name, ps_default)
+        end if
     end subroutine wcp_init
 
     !> @brief Custom output subroutine to include relevant weakly-compressible data. Overrides
@@ -114,10 +111,11 @@ contains
     !> @param self The weakly-compressible particles to read data into.
     !> @param file_path The path to the file to read.
     !> @param name The name to of particles to read and assign to the read particles.
-    subroutine wcp_read(self, file_path, name)
+    subroutine wcp_read(self, file_path, name, ps_template)
         use h5fortran, only: hdf5_file
         class(linear_eos_particles), intent(out):: self
         character(*), intent(in):: file_path, name
+        class(base_particle), optional, intent(in):: ps_template
         character(*), parameter:: group = "weakly_compressible/"
         character(200):: filename, this_group
         integer:: ierr, d, n, i
@@ -125,8 +123,13 @@ contains
         character(10):: ic
         real(fp), allocatable:: tmp_p(:)
         class(linear_eos_particle), pointer:: wcp(:)
+        type(linear_eos_particle):: ps_default
 
-        call base_read(self, file_path, name)
+        if (present(ps_template)) then
+            call base_read(self, file_path, name, ps_template)
+        else
+            call base_read(self, file_path, name, ps_default)
+        end if
 
         select type (ps => self%ps)
         class is (linear_eos_particle)

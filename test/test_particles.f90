@@ -29,8 +29,9 @@ contains
     subroutine test_particles_init()
 
         type(wc_particles):: ps
+        type(linear_eos_particle):: ps_template
 
-        call ps%init(n=16, name="test", rho_ref=0._fp)
+        call ps%init(n=16, name="test", ps_template=ps_template, rho_ref=0._fp)
 
         ! check name assigned correctly
         call check(ps%name == "test", "Particle set name not initialized to 'test'")
@@ -49,10 +50,11 @@ contains
     subroutine test_linear_eos_wc_particles()
 
         type(wc_particles):: ps1
+        type(linear_eos_particle):: ps_template
         integer:: i
         character:: ic
 
-        call ps1%init(5, "test", 1._fp)
+        call ps1%init(n=5, name="test", ps_template=ps_template, rho_ref=1._fp)
 
         do i = 1, 5
             ps1%ps(i)%rho = real(i, kind=fp)

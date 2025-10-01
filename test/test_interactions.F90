@@ -74,10 +74,11 @@ contains
         character:: ic
         integer, parameter:: nd = 2, nxr = 2, nr = nxr**nd, nxv = 3, nv = nxv**nd
         class(wc_particle), pointer:: ps_lhs(:), ps_rhs(:)
+        type(wc_particle):: ps_template
 
 #ifndef THREED
-        call realp%init(nr, "test", 1._fp)
-        call virtp%init(nv, "test", 1._fp)
+        call realp%init(n=nr, name="test", ps_template=ps_template, rho_ref=1._fp)
+        call virtp%init(n=nv, name="test", ps_template=ps_template, rho_ref=1._fp)
         select type (ps => realp%ps)
         class is (wc_particle)
             ps_lhs => ps

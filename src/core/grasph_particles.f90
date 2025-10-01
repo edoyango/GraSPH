@@ -54,7 +54,6 @@ module grasph_particles
         !> @brief Register for variables to be updated at mid- and full-timestep e.g. velocity (v) and density (rho).
         type(variable_register):: register_v
     contains
-        procedure, nopass:: ps_allocate
         !> @brief The initializer for the base class. Intended to be called in extended types' initializer method.
         procedure:: base_init
         !> @brief A manual destructor to clean up.
@@ -83,14 +82,6 @@ module grasph_particles
     public:: base_particle, base_particles, particles_container, base_dump, base_read, max_registrations
 
 contains
-
-    subroutine ps_allocate(ps, n)
-        class(base_particle), allocatable, intent(out):: ps(:)
-        integer, intent(in):: n
-
-        allocate (base_particle::ps(n))
-
-    end subroutine ps_allocate
 
     subroutine register_vector(self, base, member, member_deriv)
         class(variable_register), intent(inout):: self
@@ -164,12 +155,17 @@ contains
     !> @param self The particles to initialize.
     !> @param n The number of particles.
     !> @param name A label to give the particles. Used to label output/terminal information.
-    subroutine base_init(self, n, name)
+    subroutine base_init(self, n, name, ps_template)
         class(base_particles), intent(inout):: self
         integer, intent(in):: n
         character(*), intent(in):: name
+        class(base_particle), optional, intent(in):: ps_template
         if (self%initialized) call self%base_clear()
-        call self%ps_allocate(self%ps, n)
+        if (present(ps_template)) then
+            allocate (self%ps(n), source=ps_template)
+        else
+            allocate (self%ps(n))
+        end if
 
         self%initialized = .true.
         self%size = n
@@ -274,10 +270,11 @@ contains
     !> @param self The particles to read data into.
     !> @param file_path The path to the file to read.
     !> @param name The name to of particles to read and assign to the read particles.
-    subroutine base_read(self, file_path, name)
+    subroutine base_read(self, file_path, name, ps_template)
         use h5fortran, only: hdf5_file
         class(base_particles), intent(out):: self
         character(*), intent(in):: name, file_path
+        class(base_particle), optional, intent(in):: ps_template
         character(*), parameter:: group = "base/"
         character(200):: this_group
         integer:: d, n, i
@@ -291,7 +288,7 @@ contains
         call h5f%read("/"//trim(name)//"/n", n)
         call h5f%read("/"//trim(name)//"/ndims", d)
         if (d /= ndims) error stop "Input HDF5 file dimensions don't match code dimensions."
-        call self%base_init(n, name)
+        call self%base_init(n, name, ps_template)
         allocate (tmp_int(n))
         call h5f%read(trim(this_group)//"id", tmp_int)
         do i = 1, n
@@ -355,6 +352,7 @@ contains
 
         ! save max accel
         maxv = sum(self%ps(1)%dvxdt(:)**2)
+        maxi = 1
         do i = 2, self%size
             v = sum(self%ps(i)%dvxdt(:)**2)
             if (v > maxv) then
@@ -368,6 +366,7 @@ contains
 
         ! save max vel
         maxv = sum(self%ps(1)%v(:)**2)
+        maxi = 1
         do i = 2, self%size
             v = sum(self%ps(i)%v(:)**2)
             if (v > maxv) then
@@ -382,6 +381,8 @@ contains
         ! save min/max rho
         maxv = self%ps(1)%rho
         minv = self%ps(1)%rho
+        maxi = 1
+        mini = 1
         do i = 2, self%size
             if (self%ps(i)%rho > maxv) then
                 maxv = self%ps(i)%rho
@@ -392,7 +393,7 @@ contains
                 mini = i
             end if
         end do
-        write (out_str(offset + 1:offset + line_length), format_str) "     min(rho) of ", minv, " at particle ", maxi
+        write (out_str(offset + 1:offset + line_length), format_str) "     min(rho) of ", minv, " at particle ", mini
         offset = offset + line_length
         write (out_str(offset:offset), "(A1)") new_line("a")
 
@@ -402,6 +403,7 @@ contains
         write (out_str(offset:offset), "(A1)") new_line("a")
 
         maxv = abs(self%ps(1)%drhodt)
+        maxi = 1
         do i = 2, self%size
             v = abs(self%ps(i)%drhodt)
             if (v > maxv) then

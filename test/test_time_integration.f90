@@ -27,12 +27,13 @@ contains
         type(particle_interactions):: wcp_interaction_pairs(1)
         type(particles_container):: wcp_sets(1)
         type(grasph_cubic_bspline_kernel):: kernel
+        type(linear_eos_particle):: ps_template
 
         allocate (wcp::wcp_sets(1)%p)
 
-        select type (ps => wcp_setS(1)%p)
+        select type (ps => wcp_sets(1)%p)
         type is (wcp)
-            call ps%init(n=1, name="test", rho_ref=1000._fp)
+            call ps%init(n=1, name="test", ps_template=ps_template, rho_ref=1000._fp)
             ! call ps%register_x%register_data(ps%x, "x", ps%v, "v")
             call ps%register_v%register(ps%ps(1), ps%ps(1)%v, ps%ps(1)%dvxdt)
             call ps%register_v%register(ps%ps(1), ps%ps(1)%rho, ps%ps(1)%drhodt)
