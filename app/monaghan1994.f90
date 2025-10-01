@@ -52,9 +52,6 @@ contains
         do k = 1, pairs%npairs_total
             i = pairs%pair_ij(1, k)
             j = pairs%pair_ij(2, k)
-            ! update both fluid and boundary particles' density.
-            call continuity_density(2, ps_lhs%v(:, i), ps_rhs%v(:, j), ps_lhs%mass(i), ps_rhs%mass(j), &
-                                    ps_lhs%drhodt(i), ps_rhs%drhodt(j), pairs%dwdx(:, k))
             ! apply boundary force with eqn 4.1.
             call repulsive_force(2, dx, ps_lhs%c(i), ps_lhs%x(:, i), ps_rhs%x(:, j), ps_lhs%dvxdt(:, i))
             ! boundary particles included in artificial viscosity calculation (start of pg 402), but velocities of boundary
@@ -128,37 +125,33 @@ program main
     ! bottom layer and corners
     do i = -1, nbx
         k = k + 1
-        ps(2)%p%id(k) = k
-        ps(2)%p%type(k) = -1
         ps(2)%p%x(1, k) = (i + 0.5_fp)*dx
         ps(2)%p%x(2, k) = -0.5_fp*dx
     end do
     ! top layer and corners
     do i = -1, nbx
         k = k + 1
-        ps(2)%p%id(k) = k
-        ps(2)%p%type(k) = -1
         ps(2)%p%x(1, k) = (i + 0.5_fp)*dx
         ps(2)%p%x(2, k) = 40._fp + 0.5_fp*dx
     end do
     ! left wall
     do j = 0, nby - 1
         k = k + 1
-        ps(2)%p%id(k) = k
-        ps(2)%p%type(k) = -1
         ps(2)%p%x(1, k) = -0.5_fp*dx
         ps(2)%p%x(2, k) = (j + 0.5_fp)*dx
     end do
     ! right wall
     do j = 0, nby - 1
         k = k + 1
-        ps(2)%p%id(k) = k
-        ps(2)%p%type(k) = -1
         ps(2)%p%x(1, k) = 75._fp + 0.5_fp*dx
         ps(2)%p%x(2, k) = (j + 0.5_fp)*dx
     end do
+    ps(2)%p%id(:) = [(i, i=1, k)]
+    ps(2)%p%type(:) = -1
     ps(2)%p%rho(:) = rho0
     ps(2)%p%c(:) = 10._fp*sqrt(2._fp*abs(g)*25._fp) ! 10*max_speed
+    ps(2)%p%mass(:) = rho0*dx*dx
+    ps(2)%p%v(:, :) = 0._fp
 
     ! init interactions
     self_sweeper%artvisc_alpha = 0.01_fp
@@ -172,6 +165,7 @@ program main
     shifter%epsilon = 0.5_fp
     shifter%update_rhs = .true.
     call pic(1)%init(30, ps(1)%p, sweeper=self_sweeper, shifter=shifter)
+    shifter%update_rhs = .false.
     call pic(2)%init(30, ps(1)%p, ps(2)%p, sweeper=boundary_sweeper, shifter=shifter)
 
     ! init kernel
