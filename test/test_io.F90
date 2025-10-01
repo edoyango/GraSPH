@@ -46,6 +46,8 @@ contains
 
         call ps%dump(1, "/tmp")
 
+        call ps2%base_init(10, "test_base_particles")
+
         call ps2%read("/tmp/grasph_particles_0000000001.h5", "test_base_particles")
 
         do i = 1, 10
@@ -99,6 +101,8 @@ contains
         end do
 
         call ps%dump(1, "/tmp", "test-grasph_particles", 4)
+
+        call ps2%init(n=10, name="test_wcp_particles", rho_ref=1000._fp)
 
         call ps2%read("/tmp/test-grasph_particles_0000000001.h5", "test_wcp_particles")
 

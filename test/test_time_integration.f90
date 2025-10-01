@@ -35,8 +35,8 @@ contains
         type is (wcp)
             call ps%init(n=1, name="test", ps_template=ps_template, rho_ref=1000._fp)
             ! call ps%register_x%register_data(ps%x, "x", ps%v, "v")
-            call ps%register_v%register(ps%ps(1), ps%ps(1)%v, ps%ps(1)%dvxdt)
-            call ps%register_v%register(ps%ps(1), ps%ps(1)%rho, ps%ps(1)%drhodt)
+            call ps%register_v%register(ps%ps(1), "v", ps%ps(1)%v, ps%ps(1)%dvxdt)
+            call ps%register_v%register(ps%ps(1), "rho", ps%ps(1)%rho, ps%ps(1)%drhodt)
             ps%ps(1)%x(1) = 1._fp
             ps%ps(1)%x(2) = 2._fp
             ps%ps(1)%v(1) = 3._fp
@@ -69,7 +69,7 @@ contains
         end select
 
         ! add the x-registration
-        call wcp_sets(1)%p%register_x%register(wcp_sets(1)%p%ps(1), wcp_sets(1)%p%ps(1)%x, wcp_sets(1)%p%ps(1)%v)
+        call wcp_sets(1)%p%register_x%register(wcp_sets(1)%p%ps(1), "x", wcp_sets(1)%p%ps(1)%x, wcp_sets(1)%p%ps(1)%v)
 
         call leap_frog_time_integration(1, 1, 1, wcp_sets, wcp_interaction_pairs, 1._fp, kernel, "/tmp", "test-", 4)
 

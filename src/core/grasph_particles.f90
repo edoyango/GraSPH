@@ -4,6 +4,7 @@
 !> @date 2025-06-09
 module grasph_particles
 
+    use iso_fortran_env, only: error_unit
     use grasph_constants, only: fp, ndims
     use grasph_common, only: array_pointer_container
     use iso_c_binding, only: c_intptr_t, c_f_pointer, c_ptr, c_loc
@@ -29,12 +30,21 @@ module grasph_particles
     type variable_register
         integer:: nregistrations = 0
         integer:: dims(max_registrations)
-        integer(c_intptr_t):: offsets(2, max_registrations)
+        character(20):: names(max_registrations)
+        integer(c_intptr_t):: offsets(max_registrations)
     contains
-        procedure:: register_vector, register_scalar
-        generic:: register => register_vector, register_scalar
-        procedure:: get
+        procedure:: register_variable_vector, register_variable_scalar
+        generic:: register_variable => register_variable_vector, register_variable_scalar
+        procedure:: get_variable
     end type variable_register
+
+    type, extends(variable_register):: variable_deriv_register
+        integer(c_intptr_t):: deriv_offsets(max_registrations)
+    contains
+        procedure:: register_variable_deriv_vector, register_variable_deriv_scalar
+        generic:: register => register_variable_deriv_vector, register_variable_deriv_scalar
+        procedure:: get
+    end type variable_deriv_register
 
     !> @brief The core particles derived type
     type:: base_particles
@@ -50,9 +60,11 @@ module grasph_particles
         !> @brief Name used in naming groups in output hdf5 file
         character(100):: name
         !> @brief Register for variables to be updated only at full-timestep e.g. position (x).
-        type(variable_register):: register_x
+        type(variable_deriv_register):: register_x
         !> @brief Register for variables to be updated at mid- and full-timestep e.g. velocity (v) and density (rho).
-        type(variable_register):: register_v
+        type(variable_deriv_register):: register_v
+        !> @brief Register for variables to be written/read.
+        type(variable_register):: register_io
     contains
         !> @brief The initializer for the base class. Intended to be called in extended types' initializer method.
         procedure:: base_init
@@ -79,28 +91,30 @@ module grasph_particles
         class(base_particles), allocatable:: p
     end type particles_container
 
-    public:: base_particle, base_particles, particles_container, base_dump, base_read, max_registrations
+    public:: base_particle, base_particles, particles_container, max_registrations
 
 contains
 
-    subroutine register_vector(self, base, member, member_deriv)
-        class(variable_register), intent(inout):: self
+    subroutine register_variable_deriv_vector(self, base, name, member, member_deriv)
+        class(variable_deriv_register), intent(inout):: self
         class(base_particle), target, intent(in):: base
+        character(*), intent(in):: name
         real(fp), target, intent(in):: member(:), member_deriv(:)
 
         if (size(member) == 0) error stop "Cannot register 0-size member variable."
         if (size(member_deriv) == 0) error stop "Cannot register 0-size member derivative variable."
         if (size(member) /= size(member_deriv)) error stop "member and member_deriv are not same size."
 
-        call register_scalar(self, base, member(1), member_deriv(1))
+        call register_variable_deriv_scalar(self, base, name, member(1), member_deriv(1))
 
         self%dims(self%nregistrations) = size(member)
 
-    end subroutine register_vector
+    end subroutine register_variable_deriv_vector
 
-    subroutine register_scalar(self, base, member, member_deriv)
-        class(variable_register), intent(inout):: self
+    subroutine register_variable_deriv_scalar(self, base, name, member, member_deriv)
+        class(variable_deriv_register), intent(inout):: self
         class(base_particle), target, intent(in):: base
+        character(*), intent(in):: name
         real(fp), target, intent(in):: member, member_deriv
         integer(c_intptr_t):: base_addr
 
@@ -109,47 +123,100 @@ contains
         base_addr = transfer(c_loc(base%id), base_addr)
 
         self%nregistrations = self%nregistrations + 1
-        self%offsets(1, self%nregistrations) = transfer(c_loc(member), base_addr) - base_addr
-        self%offsets(2, self%nregistrations) = transfer(c_loc(member_deriv), base_addr) - base_addr
+        self%names(self%nregistrations) = name
+        self%offsets(self%nregistrations) = get_offset_(base_addr, member)
+        self%deriv_offsets(self%nregistrations) = get_offset_(base_addr, member_deriv)
         self%dims(self%nregistrations) = 1
 
-        if (self%offsets(1, self%nregistrations) >= sizeof(base)) error stop "Member is not a subset of base."
-        if (self%offsets(2, self%nregistrations) >= sizeof(base)) error stop "member_deriv is not a subset of base."
+        if (self%offsets(self%nregistrations) >= sizeof(base)) error stop "Member is not a subset of base."
+        if (self%deriv_offsets(self%nregistrations) >= sizeof(base)) error stop "member_deriv is not a subset of base."
 
-    end subroutine register_scalar
+    end subroutine register_variable_deriv_scalar
+
+    elemental integer(c_intptr_t) function get_offset_(base_addr, member)
+        integer(c_intptr_t), intent(in):: base_addr
+        real(fp), target, intent(in):: member
+
+        get_offset_ = transfer(c_loc(member), base_addr) - base_addr
+
+    end function get_offset_
 
     subroutine get(self, base, idx, ptr, ptr_deriv)
-        class(variable_register), intent(in):: self
+        class(variable_deriv_register), intent(in):: self
         class(base_particle), target, intent(in):: base
         integer, intent(in):: idx
         real(fp), pointer, intent(out):: ptr(:), ptr_deriv(:)
-        type(c_ptr):: tmp_ptr
+        integer(c_intptr_t):: base_addr
 
-        call c_f_pointer( &
-            transfer( &
-            transfer( &
-            c_loc(base%id), &
-            self%offsets(1, idx) &
-            ) + self%offsets(1, idx), &
-            tmp_ptr &
-            ), &
-            ptr, &
-            [self%dims(idx)] &
-            )
+        base_addr = transfer(c_loc(base%id), base_addr)
 
-        call c_f_pointer( &
-            transfer( &
-            transfer( &
-            c_loc(base%id), &
-            self%offsets(2, idx) &
-            ) + self%offsets(2, idx), &
-            tmp_ptr &
-            ), &
-            ptr_deriv, &
-            [self%dims(idx)] &
-            )
+        call ptr_from_offset_(base_addr, self%offsets(idx), self%dims(idx), ptr)
+        call ptr_from_offset_(base_addr, self%deriv_offsets(idx), self%dims(idx), ptr_deriv)
 
     end subroutine get
+
+    subroutine ptr_from_offset_(base_addr, offset, dims, ptr)
+        integer(c_intptr_t), intent(in):: base_addr, offset
+        integer, intent(in):: dims
+        real(fp), pointer, intent(out):: ptr(:)
+        integer(c_intptr_t):: member_offset
+        type(c_ptr):: member_c_ptr
+
+        ! calculate address of member
+        member_offset = base_addr + offset
+        ! convert address to c_ptr
+        member_c_ptr = transfer(member_offset, member_c_ptr)
+        ! convert c_ptr to Fortran pointer
+        call c_f_pointer(member_c_ptr, ptr, [dims])
+
+    end subroutine ptr_from_offset_
+
+    subroutine register_variable_vector(self, base, name, member)
+        class(variable_register), intent(inout):: self
+        class(base_particle), target, intent(in):: base
+        character(*), intent(in):: name
+        real(fp), target, intent(in):: member(:)
+
+        if (size(member) == 0) error stop "Cannot register 0-size member variable."
+
+        call register_variable_scalar(self, base, name, member(1))
+
+        self%dims(self%nregistrations) = size(member)
+
+    end subroutine register_variable_vector
+
+    subroutine register_variable_scalar(self, base, name, member)
+        class(variable_register), intent(inout):: self
+        class(base_particle), target, intent(in):: base
+        character(*), intent(in):: name
+        real(fp), target, intent(in):: member
+        integer(c_intptr_t):: base_addr
+
+        if (self%nregistrations == max_registrations) error stop "Exceeded maximum variable registrations."
+
+        base_addr = transfer(c_loc(base%id), base_addr)
+
+        self%nregistrations = self%nregistrations + 1
+        self%names(self%nregistrations) = name
+        self%offsets(self%nregistrations) = get_offset_(base_addr, member)
+        self%dims(self%nregistrations) = 1
+
+        if (self%offsets(self%nregistrations) >= sizeof(base)) error stop "Member is not a subset of base."
+
+    end subroutine register_variable_scalar
+
+    subroutine get_variable(self, base, idx, ptr)
+        class(variable_register), intent(in):: self
+        class(base_particle), target, intent(in):: base
+        integer, intent(in):: idx
+        real(fp), pointer, intent(out):: ptr(:)
+        integer(c_intptr_t):: base_addr
+
+        base_addr = transfer(c_loc(base%id), base_addr)
+
+        call ptr_from_offset_(base_addr, self%offsets(idx), self%dims(idx), ptr)
+
+    end subroutine get_variable
 
     !> @brief Initializes base_particles' internal arrays.
     !> @param self The particles to initialize.
@@ -171,6 +238,14 @@ contains
         self%size = n
         self%ndims = ndims
         self%name = name
+
+        call self%register_io%register_variable(self%ps(1), "x", self%ps(1)%x)
+        call self%register_io%register_variable(self%ps(1), "v", self%ps(1)%v)
+        call self%register_io%register_variable(self%ps(1), "rho", self%ps(1)%rho)
+        call self%register_io%register_variable(self%ps(1), "mass", self%ps(1)%mass)
+        call self%register_io%register_variable(self%ps(1), "c", self%ps(1)%c)
+        call self%register_io%register_variable(self%ps(1), "dvxdt", self%ps(1)%dvxdt)
+        call self%register_io%register_variable(self%ps(1), "drhodt", self%ps(1)%drhodt)
     end subroutine base_init
 
     !> @brief Deallocates internal arrays of self and sets state to uninitialized
@@ -203,11 +278,12 @@ contains
         integer, intent(in), optional:: comp_level
         character(*), parameter:: group = "base/"
         character(200):: filename_prefix, file_path, this_group
-        integer:: ierr, i
+        integer:: ierr, i, v
         type(hdf5_file):: h5f
         character(10):: ic
         integer, allocatable:: tmp_int(:)
         real(fp), allocatable:: tmp_real(:, :)
+        real(fp), pointer:: ptr(:)
 
         if (present(prefix_in)) then
             filename_prefix = prefix_in
@@ -231,37 +307,24 @@ contains
             tmp_int(i) = self%ps(i)%type
         end do
         call h5f%write(trim(this_group)//"type", tmp_int)
-        allocate (tmp_real(ndims, self%size))
-        do i = 1, self%size
-            tmp_real(:, i) = self%ps(i)%x(:)
+        do v = 1, self%register_io%nregistrations
+            if (allocated(tmp_real)) deallocate (tmp_real)
+            if (self%register_io%dims(v) == 1) then
+                allocate (tmp_real(self%size, 1))
+                do i = 1, self%size
+                    call self%register_io%get_variable(self%ps(i), v, ptr)
+                    tmp_real(i, 1) = ptr(1)
+                end do
+                call h5f%write(trim(this_group)//trim(self%register_io%names(v)), tmp_real(:, 1))
+            else
+                allocate (tmp_real(self%register_io%dims(v), self%size))
+                do i = 1, self%size
+                    call self%register_io%get_variable(self%ps(i), v, ptr)
+                    tmp_real(:, i) = ptr(:)
+                end do
+                call h5f%write(trim(this_group)//trim(self%register_io%names(v)), tmp_real)
+            end if
         end do
-        call h5f%write(trim(this_group)//"x", tmp_real)
-        do i = 1, self%size
-            tmp_real(:, i) = self%ps(i)%v(:)
-        end do
-        call h5f%write(trim(this_group)//"v", tmp_real)
-        do i = 1, self%size
-            tmp_real(:, i) = self%ps(i)%dvxdt(:)
-        end do
-        call h5f%write(trim(this_group)//"dvxdt", tmp_real)
-        deallocate (tmp_real)
-        allocate (tmp_real(self%size, 1))
-        do i = 1, self%size
-            tmp_real(i, 1) = self%ps(i)%rho
-        end do
-        call h5f%write(trim(this_group)//"rho", tmp_real(:, 1))
-        do i = 1, self%size
-            tmp_real(i, 1) = self%ps(i)%drhodt
-        end do
-        call h5f%write(trim(this_group)//"drhodt", tmp_real(:, 1))
-        do i = 1, self%size
-            tmp_real(i, 1) = self%ps(i)%mass
-        end do
-        call h5f%write(trim(this_group)//"mass", tmp_real(:, 1))
-        do i = 1, self%size
-            tmp_real(i, 1) = self%ps(i)%c
-        end do
-        call h5f%write(trim(this_group)//"c", tmp_real(:, 1))
         call h5f%close()
 
     end subroutine base_dump
@@ -271,16 +334,20 @@ contains
     !> @param file_path The path to the file to read.
     !> @param name The name to of particles to read and assign to the read particles.
     subroutine base_read(self, file_path, name, ps_template)
-        use h5fortran, only: hdf5_file
-        class(base_particles), intent(out):: self
+        use h5fortran, only: hdf5_file, hsize_t
+        class(base_particles), intent(inout):: self
         character(*), intent(in):: name, file_path
         class(base_particle), optional, intent(in):: ps_template
         character(*), parameter:: group = "base/"
         character(200):: this_group
-        integer:: d, n, i
+        character(250):: arr_path
+        integer:: d, n, i, v, nrank
         type(hdf5_file):: h5f
         integer, allocatable:: tmp_int(:)
+        integer(hsize_t), allocatable:: dims(:)
         real(fp), allocatable:: tmp_real(:, :)
+        real(fp), pointer:: ptr(:)
+        character(2):: nc_dim_arr, nc_dim_h5
 
         this_group = "/"//trim(name)//"/"//group
 
@@ -288,7 +355,6 @@ contains
         call h5f%read("/"//trim(name)//"/n", n)
         call h5f%read("/"//trim(name)//"/ndims", d)
         if (d /= ndims) error stop "Input HDF5 file dimensions don't match code dimensions."
-        call self%base_init(n, name, ps_template)
         allocate (tmp_int(n))
         call h5f%read(trim(this_group)//"id", tmp_int)
         do i = 1, n
@@ -299,36 +365,43 @@ contains
             self%ps(i)%type = tmp_int(i)
         end do
         deallocate (tmp_int)
-        allocate (tmp_real(d, n))
-        call h5f%read(trim(this_group)//"x", tmp_real)
-        do i = 1, n
-            self%ps(i)%x(:) = tmp_real(:, i)
-        end do
-        call h5f%read(trim(this_group)//"v", tmp_real)
-        do i = 1, n
-            self%ps(i)%v(:) = tmp_real(:, i)
-        end do
-        call h5f%read(trim(this_group)//"dvxdt", tmp_real)
-        do i = 1, n
-            self%ps(i)%dvxdt(:) = tmp_real(:, i)
-        end do
-        deallocate (tmp_real)
-        allocate (tmp_real(n, 1))
-        call h5f%read(trim(this_group)//"rho", tmp_real(:, 1))
-        do i = 1, n
-            self%ps(i)%rho = tmp_real(i, 1)
-        end do
-        call h5f%read(trim(this_group)//"mass", tmp_real(:, 1))
-        do i = 1, n
-            self%ps(i)%mass = tmp_real(i, 1)
-        end do
-        call h5f%read(trim(this_group)//"c", tmp_real(:, 1))
-        do i = 1, n
-            self%ps(i)%c = tmp_real(i, 1)
-        end do
-        call h5f%read(trim(this_group)//"drhodt", tmp_real(:, 1))
-        do i = 1, n
-            self%ps(i)%drhodt = tmp_real(i, 1)
+
+        ! iterate over registered variables
+        do v = 1, self%register_io%nregistrations
+            ! name of array in hdf5 file
+            arr_path = trim(this_group)//trim(self%register_io%names(v))
+
+            ! inspect rank and shape of array in hdf5 file
+            nrank = h5f%ndim(arr_path)
+            call h5f%shape(arr_path, dims)
+
+            ! handle storing data base on array rank
+            if (nrank == 1) then
+                if (self%register_io%dims(v) /= 1) &
+                    error stop "Expected rank 1 array for "//trim(arr_path)//"in input HDF5 file, "//file_path//"."
+                allocate (tmp_real(n, 1))
+                call h5f%read(arr_path, tmp_real(:, 1))
+                do i = 1, n
+                    call self%register_io%get_variable(self%ps(i), v, ptr)
+                    ptr(1) = tmp_real(i, 1)
+                end do
+            elseif (nrank == 2) then
+                if (self%register_io%dims(v) /= dims(1)) then
+                    write (nc_dim_arr, "(I2)") self%register_io%dims(v)
+                    write (nc_dim_h5, "(I2)") dims(1)
+                    error stop "Expected dim 1 of "//trim(arr_path)//"in input HDF5 file to be "//trim(nc_dim_arr)// &
+                        ", but found "//trim(nc_dim_h5)//"."
+                end if
+                allocate (tmp_real(self%register_io%dims(v), n))
+                call h5f%read(arr_path, tmp_real)
+                do i = 1, n
+                    call self%register_io%get_variable(self%ps(i), v, ptr)
+                    ptr(:) = tmp_real(:, i)
+                end do
+            else
+                error stop "HDF5 array must be either rank 1 or 2."
+            end if
+            deallocate (tmp_real)
         end do
         call h5f%close()
 

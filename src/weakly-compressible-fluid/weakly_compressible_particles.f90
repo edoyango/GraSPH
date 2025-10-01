@@ -5,7 +5,7 @@
 module weakly_compressible_particles
 
     use grasph_constants, only: fp
-    use grasph_particles, only: base_particle, base_particles, base_dump, base_read
+    use grasph_particles, only: base_particle, base_particles
 
     type, extends(base_particle):: linear_eos_particle
         real(fp):: p
@@ -21,10 +21,10 @@ module weakly_compressible_particles
         procedure:: init => wcp_init
         !> @brief Linear equation of state which overrides the do-nothing base state-update subroutine.
         procedure:: state_update => linear_eos
-        !> @brief Overrides base output dump to include pressure data.
-        procedure:: dump => wcp_dump
-        !> @brief Overrides base input read to include pressure data.
-        procedure:: read => wcp_read
+        ! !> @brief Overrides base output dump to include pressure data.
+        ! procedure:: dump => wcp_dump
+        ! !> @brief Overrides base input read to include pressure data.
+        ! procedure:: read => wcp_read
     end type linear_eos_particles
 
     !> @brief particle type which adds pressure, determined from density with a Tait EOS
@@ -53,102 +53,12 @@ contains
         self%rho_ref = rho_ref
         if (present(ps_template)) then
             call self%base_init(n, name, ps_template)
+            call self%register_io%register_variable(ps_template, "p", ps_template%p)
         else
             call self%base_init(n, name, ps_default)
+            call self%register_io%register_variable(ps_default, "p", ps_default%p)
         end if
     end subroutine wcp_init
-
-    !> @brief Custom output subroutine to include relevant weakly-compressible data. Overrides
-    !>        base particles' dump method.
-    !> @param self The weakly-compressible particles to write.
-    !> @param itimestep The timestep to add to the filename.
-    !> @param path The output directory.
-    !> @param prefix_in The prefix to give to the output filenames.
-    !> @param comp_level The level of gzip compression to use.
-    subroutine wcp_dump(self, itimestep, path, prefix_in, comp_level)
-        use h5fortran, only: hdf5_file
-        class(linear_eos_particles), intent(in):: self
-        integer, intent(in):: itimestep
-        character(*), intent(in):: path
-        character(*), intent(in), optional:: prefix_in
-        integer, intent(in), optional:: comp_level
-        character(*), parameter:: group = "weakly_compressible/"
-        character(200):: filename_prefix, file_path, this_group
-        integer:: ierr, i
-        type(hdf5_file):: h5f
-        character(10):: ic
-        real(fp):: tmp_p(self%size)
-        class(linear_eos_particle), pointer:: wcp(:)
-
-        select type (ps => self%ps)
-        class is (linear_eos_particle)
-            wcp => ps(:)
-        class default
-            error stop "Linear_eos_particle required."
-        end select
-
-        if (present(prefix_in)) then
-            filename_prefix = prefix_in
-        else
-            filename_prefix = "grasph_particles"
-        end if
-
-        write (ic, "(I10.10)") itimestep
-        file_path = path//"/"//trim(filename_prefix)//"_"//ic//".h5"
-        this_group = "/"//trim(self%name)//"/"//group
-
-        call base_dump(self, itimestep, path, prefix_in, comp_level)
-        call h5f%open(file_path, action="a")
-        do i = 1, self%size
-            tmp_p(i) = wcp(i)%p
-        end do
-        call h5f%write(trim(this_group)//"p", tmp_p)
-        call h5f%close()
-
-    end subroutine wcp_dump
-
-    !> @brief Reads weakly-compressible particle data from HDF5 file.
-    !> @param self The weakly-compressible particles to read data into.
-    !> @param file_path The path to the file to read.
-    !> @param name The name to of particles to read and assign to the read particles.
-    subroutine wcp_read(self, file_path, name, ps_template)
-        use h5fortran, only: hdf5_file
-        class(linear_eos_particles), intent(out):: self
-        character(*), intent(in):: file_path, name
-        class(base_particle), optional, intent(in):: ps_template
-        character(*), parameter:: group = "weakly_compressible/"
-        character(200):: filename, this_group
-        integer:: ierr, d, n, i
-        type(hdf5_file):: h5f
-        character(10):: ic
-        real(fp), allocatable:: tmp_p(:)
-        class(linear_eos_particle), pointer:: wcp(:)
-        type(linear_eos_particle):: ps_default
-
-        if (present(ps_template)) then
-            call base_read(self, file_path, name, ps_template)
-        else
-            call base_read(self, file_path, name, ps_default)
-        end if
-
-        select type (ps => self%ps)
-        class is (linear_eos_particle)
-            wcp => ps
-        class default
-            error stop "Linear_eos_particle required."
-        end select
-
-        allocate (tmp_p(self%size))
-
-        this_group = "/"//trim(name)//"/"//group
-
-        call h5f%open(file_path, action="r")
-        call h5f%read(trim(this_group)//"p", tmp_p)
-        do i = 1, self%size
-            wcp(i)%p = tmp_p(i)
-        end do
-        call h5f%close()
-    end subroutine wcp_read
 
     !> @brief The linear state equation to update stress using the particles' speed of sound (c),
     !>        density (rho), and reference density (rho_ref). Overrides base_particles' state_update
