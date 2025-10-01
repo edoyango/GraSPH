@@ -5,7 +5,7 @@
 module weakly_compressible_particles
 
     use grasph_constants, only: fp
-    use grasph_particles, only: base_particle, base_particles
+    use grasph_particles, only: base_particle, base_particles, base_state_updater
 
     type, extends(base_particle):: linear_eos_particle
         real(fp):: p
@@ -13,26 +13,23 @@ module weakly_compressible_particles
 
     !> @brief particle type which adds pressure, determined from density with a linear EOS
     type, extends(base_particles):: linear_eos_particles
-        !> @brief Reference density to be used to calculate pressure in the linear EOS.
-        real(fp):: rho_ref
     contains
         !> @brief Custom intializer to initialize pressure and reference density.
         !>        Also calls base_init to initialize base data.
         procedure:: init => wcp_init
-        !> @brief Linear equation of state which overrides the do-nothing base state-update subroutine.
-        procedure:: state_update => linear_eos
-        ! !> @brief Overrides base output dump to include pressure data.
-        ! procedure:: dump => wcp_dump
-        ! !> @brief Overrides base input read to include pressure data.
-        ! procedure:: read => wcp_read
     end type linear_eos_particles
 
-    !> @brief particle type which adds pressure, determined from density with a Tait EOS
-    type, extends(linear_eos_particles):: tait_eos_particles
+    type, extends(base_state_updater):: linear_eos_state_updater
+        real(fp):: rho_ref
     contains
-        !> @brief Tait equation of state which overrides the do-nothing base state-update subroutine.
-        procedure:: state_update => tait_eos
-    end type tait_eos_particles
+        procedure:: update_state => linear_eos_update_state
+    end type linear_eos_state_updater
+
+    type, extends(linear_eos_state_updater):: tait_eos_state_updater
+        integer:: gamma = 7
+    contains
+        procedure:: update_state => tait_eos_update_state
+    end type tait_eos_state_updater
 
 contains
 
@@ -43,19 +40,18 @@ contains
     !> @param d Spatial dimensions of the particles.
     !> @param name A label to give the particles. Used to label output/terminal information.
     !> @param rho_ref Reference density used in the linear EOS.
-    subroutine wcp_init(self, n, name, ps_template, rho_ref)
+    subroutine wcp_init(self, n, name, ps_template, state_updater)
         class(linear_eos_particles), intent(inout):: self
         integer, intent(in):: n
-        real(fp), intent(in):: rho_ref
         character(*), intent(in):: name
         class(linear_eos_particle), optional, intent(in):: ps_template
+        class(base_state_updater), optional, intent(in):: state_updater
         type(linear_eos_particle):: ps_default
-        self%rho_ref = rho_ref
         if (present(ps_template)) then
-            call self%base_init(n, name, ps_template)
+            call self%base_init(n, name, ps_template, state_updater=state_updater)
             call self%register_io%register_variable(ps_template, "p", ps_template%p)
         else
-            call self%base_init(n, name, ps_default)
+            call self%base_init(n, name, ps_default, state_updater=state_updater)
             call self%register_io%register_variable(ps_default, "p", ps_default%p)
         end if
     end subroutine wcp_init
@@ -65,38 +61,42 @@ contains
     !>        subroutine.
     !> @param self The particles' pressure to be updated.
     !> @param dt The input time-increment (unused - included to match the overriden method).
-    subroutine linear_eos(self, dt)
-        class(linear_eos_particles), intent(inout):: self
+    subroutine linear_eos_update_state(self, ps, n, dt)
+        class(linear_eos_state_updater), intent(in):: self
+        integer, intent(in):: n
+        class(base_particle), intent(inout):: ps(n)
         real(fp), intent(in), optional:: dt
         integer:: i
-        select type (ps => self%ps)
+        select type (ps_eos => ps)
         class is (linear_eos_particle)
-            do i = 1, self%size
-                ps(i)%p = ps(i)%c**2*(ps(i)%rho - self%rho_ref)
+            do i = 1, n
+                ps_eos(i)%p = ps_eos(i)%c**2*(ps_eos(i)%rho - self%rho_ref)
             end do
         class default
             error stop "linear_eos_particle required"
         end select
-    end subroutine linear_eos
+    end subroutine linear_eos_update_state
 
     !> @brief The Tait state equation to update stress using the particles' speed of sound (c),
     !>        density (rho), and reference density (rho_ref). Overrides base_particles' state_update
     !>        subroutine.
     !> @param self The particles' pressure to be updated.
     !> @param dt The input time-increment (unused - included to match the overriden method).
-    subroutine tait_eos(self, dt)
-        class(tait_eos_particles), intent(inout):: self
+    subroutine tait_eos_update_state(self, ps, n, dt)
+        class(tait_eos_state_updater), intent(in):: self
+        integer, intent(in):: n
+        class(base_particle), intent(inout):: ps(n)
         real(fp), intent(in), optional:: dt
         integer:: i
-        integer, parameter:: gamma = 7
-        select type (ps => self%ps)
+        select type (ps_eos => ps)
         class is (linear_eos_particle)
-            do i = 1, self%size
-                ps(i)%p = self%rho_ref*ps(i)%c*ps(i)%c/real(gamma, kind=fp)*((ps(i)%rho/self%rho_ref)**gamma - 1._fp)
+            do i = 1, n
+                ps_eos(i)%p = self%rho_ref*ps_eos(i)%c*ps_eos(i)%c/real(self%gamma, kind=fp)* &
+                              ((ps_eos(i)%rho/self%rho_ref)**self%gamma - 1._fp)
             end do
         class default
             error stop "linear_eos_particle required"
         end select
-    end subroutine tait_eos
+    end subroutine tait_eos_update_state
 
 end module weakly_compressible_particles

@@ -46,6 +46,11 @@ module grasph_particles
         procedure:: get
     end type variable_deriv_register
 
+    type:: base_state_updater
+    contains
+        procedure:: update_state => base_update_state
+    end type base_state_updater
+
     !> @brief The core particles derived type
     type:: base_particles
         class(base_particle), allocatable:: ps(:)
@@ -59,6 +64,8 @@ module grasph_particles
         integer:: size = 0
         !> @brief Name used in naming groups in output hdf5 file
         character(100):: name
+        !> @brief Allocatable "strategy" class that performs particles' state update.
+        class(base_state_updater), allocatable:: state_updater
         !> @brief Register for variables to be updated only at full-timestep e.g. position (x).
         type(variable_deriv_register):: register_x
         !> @brief Register for variables to be updated at mid- and full-timestep e.g. velocity (v) and density (rho).
@@ -73,7 +80,7 @@ module grasph_particles
         !> @brief A method intended to be overriden when extended particles' state needs to be updated during time-integration.
         !>        Is called after any time-evolution has occurred, but before any sweeps are supposed to happen.
         !>        Does nothing in the base_particles instance.
-        procedure:: state_update => base_state_update
+        procedure:: do_state_update
         !> @brief A method intended to be overriden when extended particles' have extra data that needs to be saved in the output
         !>        files. Different derived types should store their data in different groups
         !>        e.g. /\<name>/base_particles/..., and /\<name>/derived_particles/....
@@ -91,7 +98,7 @@ module grasph_particles
         class(base_particles), allocatable:: p
     end type particles_container
 
-    public:: base_particle, base_particles, particles_container, max_registrations
+    public:: base_particle, base_particles, base_state_updater, particles_container, max_registrations
 
 contains
 
@@ -222,11 +229,13 @@ contains
     !> @param self The particles to initialize.
     !> @param n The number of particles.
     !> @param name A label to give the particles. Used to label output/terminal information.
-    subroutine base_init(self, n, name, ps_template)
+    subroutine base_init(self, n, name, ps_template, state_updater)
         class(base_particles), intent(inout):: self
         integer, intent(in):: n
         character(*), intent(in):: name
         class(base_particle), optional, intent(in):: ps_template
+        class(base_state_updater), optional, intent(in):: state_updater
+
         if (self%initialized) call self%base_clear()
         if (present(ps_template)) then
             allocate (self%ps(n), source=ps_template)
@@ -246,6 +255,12 @@ contains
         call self%register_io%register_variable(self%ps(1), "c", self%ps(1)%c)
         call self%register_io%register_variable(self%ps(1), "dvxdt", self%ps(1)%dvxdt)
         call self%register_io%register_variable(self%ps(1), "drhodt", self%ps(1)%drhodt)
+
+        if (present(state_updater)) then
+            allocate (self%state_updater, source=state_updater)
+        else
+            allocate (self%state_updater)
+        end if
     end subroutine base_init
 
     !> @brief Deallocates internal arrays of self and sets state to uninitialized
@@ -254,14 +269,24 @@ contains
         class(base_particles), intent(out):: self
     end subroutine base_clear
 
+    subroutine do_state_update(self, dt)
+        class(base_particles), intent(inout):: self
+        real(fp), optional, intent(in):: dt
+
+        call self%state_updater%update_state(self%ps, self%size, dt)
+
+    end subroutine do_state_update
+
     !> @brief A do-nothing placeholder subroutine used in time-integration. Extend this with particles' internal state update code e.g. updating pressure, stress.
     !> @param self Particles whose state is to be updated.
     !> @param dt A time-increment which may be used to update particles' state.
-    subroutine base_state_update(self, dt)
-        class(base_particles), intent(inout):: self
+    subroutine base_update_state(self, ps, n, dt)
+        class(base_state_updater), intent(in):: self
+        integer, intent(in):: n
+        class(base_particle), intent(inout):: ps(n)
         real(fp), intent(in), optional:: dt
         ! do nothing e.g. when using static repulsive boundaries that have no state
-    end subroutine base_state_update
+    end subroutine base_update_state
 
     !> @brief Writes base particle data to HDF5 file.
     !> @param self The particles to write.

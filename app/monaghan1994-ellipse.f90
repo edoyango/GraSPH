@@ -9,7 +9,7 @@ program main
 
     use grasph_constants, only: fp, pi
     use grasph_particles, only: particles_container, bp => base_particles
-    use weakly_compressible_particles, only: wcp => tait_eos_particles
+    use weakly_compressible_particles, only: wcp => linear_eos_particles, tait_eos_state_updater
     use weakly_compressible_interactions, only: fluid_sweeper
     use grasph_pair_sets, only: particle_interactions
     use grasph_time_integration, only: leap_frog_time_integration
@@ -27,6 +27,7 @@ program main
     integer:: i, j, k
     type(fluid_sweeper):: sweeper
     type(xsph_shifter):: shifter
+    type(tait_eos_state_updater):: state_updater
     real(fp):: x, y
 
     ! declare fluid particles
@@ -35,7 +36,8 @@ program main
     ! init fluid particles
     select type (ps => ps(1)%p) ! specialise for weakly compressible particles
     class is (wcp)
-        call ps%init(n=1976, name="fluid", rho_ref=rho0)
+        state_updater%rho_ref = rho0
+        call ps%init(n=1976, name="fluid", state_updater=state_updater)
         call ps%register_x%register(ps%ps(1), "x", ps%ps(1)%x, ps%ps(1)%v)
         call ps%register_v%register(ps%ps(1), "v", ps%ps(1)%v, ps%ps(1)%dvxdt)
         call ps%register_v%register(ps%ps(1), "rho", ps%ps(1)%rho, ps%ps(1)%drhodt)

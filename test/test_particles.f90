@@ -4,7 +4,7 @@ module test_particles
     use grasph_kernels, only: grasph_cubic_bspline_kernel
     use grasph_pairs, only: particle_pairs
     use grasph_particles, only: base_particles
-    use weakly_compressible_particles, only: wc_particles => linear_eos_particles, linear_eos_particle
+    use weakly_compressible_particles, only: wc_particles => linear_eos_particles, linear_eos_particle, linear_eos_state_updater
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
     implicit none
@@ -31,7 +31,7 @@ contains
         type(wc_particles):: ps
         type(linear_eos_particle):: ps_template
 
-        call ps%init(n=16, name="test", ps_template=ps_template, rho_ref=0._fp)
+        call ps%init(n=16, name="test", ps_template=ps_template)
 
         ! check name assigned correctly
         call check(ps%name == "test", "Particle set name not initialized to 'test'")
@@ -51,17 +51,19 @@ contains
 
         type(wc_particles):: ps1
         type(linear_eos_particle):: ps_template
+        type(linear_eos_state_updater):: state_updater
         integer:: i
         character:: ic
 
-        call ps1%init(n=5, name="test", ps_template=ps_template, rho_ref=1._fp)
+        state_updater%rho_ref = 1._fp
+        call ps1%init(n=5, name="test", ps_template=ps_template, state_updater=state_updater)
 
         do i = 1, 5
             ps1%ps(i)%rho = real(i, kind=fp)
             ps1%ps(i)%c = 2._fp
         end do
 
-        call ps1%state_update()
+        call ps1%do_state_update()
 
         do i = 1, 5
             write (ic, "(I1)") i

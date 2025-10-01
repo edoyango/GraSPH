@@ -76,7 +76,7 @@ contains
         character:: dc
         type(linear_eos_particle), pointer:: ps_lhs(:), ps_rhs(:)
 
-        call ps%init(n=10, name="test_wcp_particles", rho_ref=1000._fp)
+        call ps%init(n=10, name="test_wcp_particles")
 
         select type (psf => ps%ps)
         class is (linear_eos_particle)
@@ -102,7 +102,7 @@ contains
 
         call ps%dump(1, "/tmp", "test-grasph_particles", 4)
 
-        call ps2%init(n=10, name="test_wcp_particles", rho_ref=1000._fp)
+        call ps2%init(n=10, name="test_wcp_particles")
 
         call ps2%read("/tmp/test-grasph_particles_0000000001.h5", "test_wcp_particles")
 

@@ -9,7 +9,7 @@ module grasph_monaghan1994
 
     use grasph_constants, only: fp
     use grasph_particles, only: base_particles
-    use weakly_compressible_particles, only: wcp => tait_eos_particles, linear_eos_particle
+    use weakly_compressible_particles, only: linear_eos_particle, tait_eos_state_updater
     use grasph_pairs, only: particle_pairs
     use grasph_pair_sets, only: particle_interactions, base_sweeper
     use weakly_compressible_interactions, only: fluid_sweeper
@@ -72,7 +72,7 @@ program main
     use grasph_monaghan1994
 
     use grasph_particles, only: particles_container, bp => base_particles
-    use weakly_compressible_particles, only: wcp => linear_eos_particles
+    use weakly_compressible_particles, only: wcp => linear_eos_particles, tait_eos_state_updater
     use grasph_pair_sets, only: particle_interactions
     use grasph_time_integration, only: leap_frog_time_integration
     use grasph_kernels, only: grasph_cubic_bspline_kernel
@@ -87,6 +87,7 @@ program main
     type(fluid_boundary_sweeper):: boundary_sweeper
     type(xsph_shifter):: shifter
     type(linear_eos_particle):: ps_template
+    type(tait_eos_state_updater):: state_updater
 
     ! declare particles - fluid and boundary (repulsive force)
     allocate (wcp::ps(1)%p)
@@ -95,7 +96,8 @@ program main
     ! init fluid particles
     select type (ps => ps(1)%p) ! specialise for weakly compressible particles
     class is (wcp)
-        call ps%init(n=2500, name="fluid", rho_ref=rho0, ps_template=ps_template)
+        state_updater%rho_ref = rho0
+        call ps%init(n=2500, name="fluid", ps_template=ps_template, state_updater=state_updater)
         call ps%register_x%register(ps%ps(1), "x", ps%ps(1)%x, ps%ps(1)%v)
         call ps%register_v%register(ps%ps(1), "v", ps%ps(1)%v, ps%ps(1)%dvxdt)
         call ps%register_v%register(ps%ps(1), "rho", ps%ps(1)%rho, ps%ps(1)%drhodt)

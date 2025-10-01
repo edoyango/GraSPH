@@ -77,8 +77,8 @@ contains
         type(wc_particle):: ps_template
 
 #ifndef THREED
-        call realp%init(n=nr, name="test", ps_template=ps_template, rho_ref=1._fp)
-        call virtp%init(n=nv, name="test", ps_template=ps_template, rho_ref=1._fp)
+        call realp%init(n=nr, name="test", ps_template=ps_template)
+        call virtp%init(n=nv, name="test", ps_template=ps_template)
         select type (ps => realp%ps)
         class is (wc_particle)
             ps_lhs => ps

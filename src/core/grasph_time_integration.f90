@@ -104,7 +104,7 @@ contains
 
             ! Update particle state e.g. pressure/stress
             do i = 1, nparticle_sets
-                call particles(i)%p%state_update(0.5_fp*dt)
+                call particles(i)%p%do_state_update(0.5_fp*dt)
             end do
 
             ! perform actual sweep i.e., calculate acceleration, density change etc.

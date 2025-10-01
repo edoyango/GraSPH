@@ -2,7 +2,7 @@ module test_time_integration
 
     use grasph_constants, only: fp
     use grasph_particles, only: base_particles, particles_container
-    use weakly_compressible_particles, only: wcp => linear_eos_particles, linear_eos_particle
+    use weakly_compressible_particles, only: wcp => linear_eos_particles, linear_eos_particle, linear_eos_state_updater
     use grasph_kernels, only: grasph_cubic_bspline_kernel
     use grasph_pair_sets, only: particle_interactions
     use grasph_time_integration, only: leap_frog_time_integration
@@ -28,12 +28,14 @@ contains
         type(particles_container):: wcp_sets(1)
         type(grasph_cubic_bspline_kernel):: kernel
         type(linear_eos_particle):: ps_template
+        type(linear_eos_state_updater):: state_updater
 
         allocate (wcp::wcp_sets(1)%p)
 
         select type (ps => wcp_sets(1)%p)
         type is (wcp)
-            call ps%init(n=1, name="test", ps_template=ps_template, rho_ref=1000._fp)
+            state_updater%rho_ref = 1000._fp
+            call ps%init(n=1, name="test", ps_template=ps_template, state_updater=state_updater)
             ! call ps%register_x%register_data(ps%x, "x", ps%v, "v")
             call ps%register_v%register(ps%ps(1), "v", ps%ps(1)%v, ps%ps(1)%dvxdt)
             call ps%register_v%register(ps%ps(1), "rho", ps%ps(1)%rho, ps%ps(1)%drhodt)

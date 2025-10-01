@@ -2,7 +2,7 @@ module grasph_monaghan1994_2
 
     use grasph_constants, only: fp
     use grasph_particles, only: base_particles
-    use weakly_compressible_particles, only: wcp => tait_eos_particles
+    use weakly_compressible_particles, only: wcp => linear_eos_particles
     use weakly_compressible_interactions, only: fluid_sweeper
     use grasph_pair_sets, only: particle_interactions, base_sweeper
     use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force, &
@@ -12,7 +12,7 @@ module grasph_monaghan1994_2
 
     implicit none
     ! parameters to describe geometry
-    real(fp), parameter:: dx = 0.5_fp, g = -9.81_fp
+    real(fp), parameter:: dx = 0.5_fp, g = -9.81_fp, rho0 = 1000._fp
     integer, parameter:: nfx = 25._fp/dx, nfy = 25._fp/dx, nbx = 75._fp/dx, nby = 40._fp/dx
 
     ! define how fluid particles interact with boundary
@@ -69,7 +69,7 @@ program main
     use grasph_monaghan1994_2
 
     use grasph_particles, only: particles_container
-    use weakly_compressible_particles, only: wcp => tait_eos_particles
+    use weakly_compressible_particles, only: wcp => linear_eos_particles, tait_eos_state_updater
     use grasph_pair_sets, only: particle_interactions
     use grasph_time_integration, only: leap_frog_time_integration
     use grasph_kernels, only: grasph_cubic_bspline_kernel
@@ -81,6 +81,7 @@ program main
     type(fluid_sweeper):: sweeper
     type(boundary_update_sweeper):: boundary_sweeper
     type(xsph_shifter):: shifter
+    type(tait_eos_state_updater):: state_updater
     integer:: i, j, k, nlayer, nvirt
 
     ! declare particles - fluid and boundary
@@ -93,7 +94,8 @@ program main
     ! init fluid particles
     select type (ps => ps(1)%p) ! specialise for weakly compressible particles
     class is (wcp)
-        call ps%init(n=2500, name="fluid", rho_ref=1000._fp)
+        state_updater%rho_ref = rho0
+        call ps%init(n=2500, name="fluid", state_updater=state_updater)
         call ps%register_x%register(ps%ps(1), "x", ps%ps(1)%x, ps%ps(1)%v)
         call ps%register_v%register(ps%ps(1), "v", ps%ps(1)%v, ps%ps(1)%dvxdt)
         call ps%register_v%register(ps%ps(1), "rho", ps%ps(1)%rho, ps%ps(1)%drhodt)
@@ -105,8 +107,8 @@ program main
             ps(1)%p%ps(k)%type = 1 ! not sure if type is needed anymore
             ps(1)%p%ps(k)%x(1) = (i + 0.5_fp)*dx
             ps(1)%p%ps(k)%x(2) = (j + 0.5_fp)*dx
-            ps(1)%p%ps(k)%rho = 1000._fp
-            ps(1)%p%ps(k)%mass = 1000._fp*dx*dx
+            ps(1)%p%ps(k)%rho = rho0
+            ps(1)%p%ps(k)%mass = rho0*dx*dx
             ps(1)%p%ps(k)%c = 10._fp*sqrt(490.5_fp) ! 10*sqrt(2gH)
             ps(1)%p%ps(k)%v(:) = 0._fp
         end do
@@ -119,7 +121,7 @@ program main
     nvirt = nlayer*2*(nbx + nby) + 4*nlayer*nlayer
     select type (ps => ps(2)%p)
     type is (wcp)
-        call ps%init(n=nvirt, name="boundary", rho_ref=1000._fp)
+        call ps%init(n=nvirt, name="boundary", state_updater=state_updater)
     end select
     k = 0
     ! bottom layer and corners
@@ -157,8 +159,8 @@ program main
     do i = 1, k
         ps(2)%p%ps(i)%id = i
         ps(2)%p%ps(i)%type = -1
-        ps(2)%p%ps(i)%rho = 1000._fp
-        ps(2)%p%ps(i)%mass = 1000._fp*dx*dx
+        ps(2)%p%ps(i)%rho = rho0
+        ps(2)%p%ps(i)%mass = rho0*dx*dx
         ps(2)%p%ps(i)%c = 10._fp*sqrt(490.5_fp)
     end do
 
