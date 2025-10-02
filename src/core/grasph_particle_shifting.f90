@@ -7,7 +7,7 @@ module grasph_particle_shifting
     use grasph_constants, only: fp, ndims
     use grasph_pair_sets, only: base_shifter
     use grasph_pairs, only: particle_pairs
-    use grasph_particles, only: base_particles
+    use grasph_particles, only: particle_system_t
 
     implicit none
 
@@ -54,38 +54,40 @@ contains
     !> @brief Performs XSPH particle shifting, as described in Monaghan 1994.
     !> @param self The shifter class. Used to access epsilon.
     !> @param pairs The class storing particle pair index information.
-    !> @param ps_lhs the LHS particles involved in the interactions.
-    !> @param ps_rhs The RHS particles involved in the interactions. ps_rhs will not be passed in if not associated in the owning
-    !>        particle_interactions class.
+    !> @param psys_lhs the LHS particles involved in the interactions.
+    !> @param psys_rhs The RHS particles involved in the interactions. psys_rhs will not be passed in if not associated in the
+    !>        owning particle_interactions class.
     !> @param dt The time-step increment.
-    subroutine xsph_shift(self, pairs, ps_lhs, ps_rhs, dt)
+    subroutine xsph_shift(self, pairs, psys_lhs, psys_rhs, dt)
         class(xsph_shifter), intent(in):: self
         type(particle_pairs), intent(in):: pairs
-        class(base_particles), intent(inout):: ps_lhs
-        class(base_particles), optional, intent(inout):: ps_rhs
+        class(particle_system_t), intent(inout):: psys_lhs
+        class(particle_system_t), optional, intent(inout):: psys_rhs
         real(fp), intent(in):: dt
         integer:: i, j, k
         real(fp):: dummyx(ndims)
 
-        if (present(ps_rhs)) then
+        if (present(psys_rhs)) then
             do k = 1, pairs%npairs_total
                 i = pairs%pair_ij(1, k)
                 j = pairs%pair_ij(2, k)
                 if (self%update_rhs) then
-                    call xsph_shift_ij(ps_lhs%ps(i)%x(:), ps_rhs%ps(j)%x(:), ps_lhs%ps(i)%v(:), ps_rhs%ps(j)%v(:), &
-                                       ps_lhs%ps(i)%rho, ps_rhs%ps(j)%rho, ps_lhs%ps(i)%mass, ps_rhs%ps(j)%mass, pairs%w(k), dt, &
-                                       self%epsilon)
+                    call xsph_shift_ij(psys_lhs%particles(i)%x(:), psys_rhs%particles(j)%x(:), psys_lhs%particles(i)%v(:), &
+                                       psys_rhs%particles(j)%v(:), psys_lhs%particles(i)%rho, psys_rhs%particles(j)%rho, &
+                                       psys_lhs%particles(i)%mass, psys_rhs%particles(j)%mass, pairs%w(k), dt, self%epsilon)
                 else
-                    call xsph_shift_ij(ps_lhs%ps(i)%x(:), dummyx, ps_lhs%ps(i)%v(:), ps_rhs%ps(j)%v(:), ps_lhs%ps(i)%rho, &
-                                       ps_rhs%ps(j)%rho, ps_lhs%ps(i)%mass, ps_rhs%ps(j)%mass, pairs%w(k), dt, self%epsilon)
+                    call xsph_shift_ij(psys_lhs%particles(i)%x(:), dummyx, psys_lhs%particles(i)%v(:), psys_rhs%particles(j)%v(:), &
+                                       psys_lhs%particles(i)%rho, psys_rhs%particles(j)%rho, psys_lhs%particles(i)%mass, &
+                                       psys_rhs%particles(j)%mass, pairs%w(k), dt, self%epsilon)
                 end if
             end do
         else
             do k = 1, pairs%npairs_total
                 i = pairs%pair_ij(1, k)
                 j = pairs%pair_ij(2, k)
-                call xsph_shift_ij(ps_lhs%ps(i)%x(:), ps_lhs%ps(j)%x(:), ps_lhs%ps(i)%v(:), ps_lhs%ps(j)%v(:), ps_lhs%ps(i)%rho, &
-                                   ps_lhs%ps(j)%rho, ps_lhs%ps(i)%mass, ps_lhs%ps(j)%mass, pairs%w(k), dt, self%epsilon)
+                call xsph_shift_ij(psys_lhs%particles(i)%x(:), psys_lhs%particles(j)%x(:), psys_lhs%particles(i)%v(:), &
+                                   psys_lhs%particles(j)%v(:), psys_lhs%particles(i)%rho, psys_lhs%particles(j)%rho, &
+                                   psys_lhs%particles(i)%mass, psys_lhs%particles(j)%mass, pairs%w(k), dt, self%epsilon)
             end do
         end if
 

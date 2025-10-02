@@ -5,7 +5,7 @@
 module weakly_compressible_particles
 
     use grasph_constants, only: fp
-    use grasph_particles, only: base_particle, base_particles, base_state_updater
+    use grasph_particles, only: base_particle, particle_system_t, base_state_updater
 
     implicit none
 
@@ -32,7 +32,7 @@ module weakly_compressible_particles
 contains
 
     !> @brief The linear state equation to update stress using the particles' speed of sound (c),
-    !>        density (rho), and reference density (rho_ref). Overrides base_particles' state_update
+    !>        density (rho), and reference density (rho_ref). Overrides particle system's state_update
     !>        subroutine.
     !> @param self The particles' pressure to be updated.
     !> @param dt The input time-increment (unused - included to match the overriden method).
@@ -53,7 +53,7 @@ contains
     end subroutine linear_eos_update_state
 
     !> @brief The Tait state equation to update stress using the particles' speed of sound (c),
-    !>        density (rho), and reference density (rho_ref). Overrides base_particles' state_update
+    !>        density (rho), and reference density (rho_ref). Overrides particle system's state_update
     !>        subroutine.
     !> @param self The particles' pressure to be updated.
     !> @param dt The input time-increment (unused - included to match the overriden method).

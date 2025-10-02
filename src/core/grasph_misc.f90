@@ -5,7 +5,7 @@
 module grasph_misc
 
     use grasph_constants, only: fp
-    use grasph_particles, only: base_particles
+    use grasph_particles, only: particle_system_t
     use grasph_pairs, only: particle_pairs
     use iso_fortran_env, only: int64, real64
 
@@ -35,18 +35,18 @@ module grasph_misc
 contains
 
     !> @brief A generic helper function to print summary data about the running simulation.
-    !>        It leverages particles' "generate_summary" procedures to print summary data about the
+    !>        It leverages particle_system_t's "generate_summary" procedures to print summary data about the
     !>        the particles to the terminal.
     !> @param itimestep The current time-step.
     !> @param time_integration_scheme The name of the time-integration scheme used in the simulation.
-    !> @param particles The list of particles whose generate_summary methods to use.
+    !> @param psystems The list of particle systems whose generate_summary methods to use.
     !> @param timer The system_timer object used to track time.
-    subroutine print_summary(itimestep, time_integration_scheme, particles, timer, time)
+    subroutine print_summary(itimestep, time_integration_scheme, psystems, timer, time)
 
         integer, intent(in):: itimestep
         character(*), intent(in):: time_integration_scheme
         type(system_timer), optional, intent(in):: timer
-        class(base_particles), intent(in):: particles(:)
+        class(particle_system_t), intent(in):: psystems(:)
         real(fp), intent(in):: time
         character(:), allocatable:: psummary
         integer:: i
@@ -56,10 +56,10 @@ contains
         write (*, "(A)") "========================= GraSPH Output ========================="
         write (*, "(A, I13)") time_integration_scheme//" time-intregration, time-step: ", itimestep
         write (*, "(A, f14.7)") "  In-simulation time: ", time
-        do i = 1, size(particles)
-            write (*, "(A)") "  Summary data for: "//trim(particles(i)%name)
-            if (particles(i)%to_print_summary) then
-                call particles(i)%generate_summary(psummary)
+        do i = 1, size(psystems)
+            write (*, "(A)") "  Summary data for: "//trim(psystems(i)%name)
+            if (psystems(i)%to_print_summary) then
+                call psystems(i)%generate_summary(psummary)
                 write (*, "(A)") psummary
             else
                 write (*, "(A)") "    skipped"

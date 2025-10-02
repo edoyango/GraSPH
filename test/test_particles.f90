@@ -3,7 +3,7 @@ module test_particles
     use grasph_constants, only: fp, ndims
     use grasph_kernels, only: grasph_cubic_bspline_kernel
     use grasph_pairs, only: particle_pairs
-    use grasph_particles, only: base_particles
+    use grasph_particles, only: particle_system_t
     use weakly_compressible_particles, only: eos_particle, linear_eos_state_updater
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
@@ -28,46 +28,46 @@ contains
 
     subroutine test_particles_init()
 
-        type(base_particles):: ps
+        type(particle_system_t):: psys
         type(eos_particle):: ps_template
 
-        call ps%base_init(n=16, name="test", ps_template=ps_template)
+        call psys%base_init(n=16, name="test", particle_template=ps_template)
 
         ! check name assigned correctly
-        call check(ps%name == "test", "Particle set name not initialized to 'test'")
+        call check(psys%name == "test", "Particle set name not initialized to 'test'")
 
         ! check member values set correctly
-        call check(ps%initialized, "Particle initilization logical not set to .true.")
-        call check(is_equal(ps%ndims, ndims), "Particle ndims not set correctly")
-        call check(is_equal(ps%size, 16), "Particle size not set correctly")
+        call check(psys%initialized, "Particle initilization logical not set to .true.")
+        call check(is_equal(psys%ndims, ndims), "Particle ndims not set correctly")
+        call check(is_equal(psys%size, 16), "Particle size not set correctly")
 
         ! check arrays are allocated and sized correctly
-        call check(allocated(ps%ps), "Particle array not allocated")
-        call check(is_equal(size(ps%ps), 16), "Particle array size incorrect")
+        call check(allocated(psys%particles), "Particle array not allocated")
+        call check(is_equal(size(psys%particles), 16), "Particle array size incorrect")
 
     end subroutine test_particles_init
 
     subroutine test_linear_eos_wc_particles()
 
-        type(base_particles):: ps1
+        type(particle_system_t):: psys
         type(eos_particle):: ps_template
         type(linear_eos_state_updater):: state_updater
         integer:: i
         character:: ic
 
         state_updater%rho_ref = 1._fp
-        call ps1%base_init(n=5, name="test", ps_template=ps_template, state_updater=state_updater)
+        call psys%base_init(n=5, name="test", particle_template=ps_template, state_updater=state_updater)
 
         do i = 1, 5
-            ps1%ps(i)%rho = real(i, kind=fp)
-            ps1%ps(i)%c = 2._fp
+            psys%particles(i)%rho = real(i, kind=fp)
+            psys%particles(i)%c = 2._fp
         end do
 
-        call ps1%do_state_update()
+        call psys%do_state_update()
 
         do i = 1, 5
             write (ic, "(I1)") i
-            select type (ps => ps1%ps)
+            select type (ps => psys%particles)
             class is (eos_particle)
                 call check( &
                     is_close(ps(i)%p, 4._fp*real(i - 1, kind=fp)), &

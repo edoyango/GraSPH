@@ -3,8 +3,8 @@ module test_interactions
     use grasph_constants, only: fp
     use grasph_kernels, only: grasph_base_kernel, grasph_cubic_bspline_kernel
     use grasph_pairs, only: particle_pairs, cell_list_search
-    use grasph_particles, only: base_particles
-    use weakly_compressible_particles, only: wc_particle => eos_particle
+    use grasph_particles, only: particle_system_t
+    use weakly_compressible_particles, only: eos_particle
     use grasph_pair_sets, only: particle_interactions, base_sweeper
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
@@ -32,27 +32,27 @@ contains
 
     end function tests
 
-    subroutine example_real_virt_sweep(self, pairs, ps_lhs, ps_rhs)
+    subroutine example_real_virt_sweep(self, pairs, psys_lhs, psys_rhs)
         class(example_real_virt_sweeper), intent(in):: self
         type(particle_pairs), intent(in):: pairs
-        class(base_particles), intent(inout):: ps_lhs
-        class(base_particles), optional, intent(inout):: ps_rhs
+        class(particle_system_t), intent(inout):: psys_lhs
+        class(particle_system_t), optional, intent(inout):: psys_rhs
         integer:: i, j, k
-        class(wc_particle), pointer:: ps_real(:), ps_virt(:)
+        class(eos_particle), pointer:: ps_real(:), ps_virt(:)
 
-        ! assign pointers to ps_lhs/rhs for access to p
-        select type (ps => ps_lhs%ps)
-        class is (wc_particle)
+        ! assign pointers to ps_lhs/rhs for access to pressure
+        select type (ps => psys_lhs%particles)
+        class is (eos_particle)
             ps_real => ps
         class default
-            error stop "Invalid class for ps_lhs"
+            error stop "Invalid class for psys_lhs"
         end select
 
-        select type (ps => ps_rhs%ps)
-        class is (wc_particle)
+        select type (ps => psys_rhs%particles)
+        class is (eos_particle)
             ps_virt => ps
         class default
-            error stop "Invalid class for ps_rhs"
+            error stop "Invalid class for psys_rhs"
         end select
 
         ! perform sweep
@@ -68,22 +68,22 @@ contains
 
         type(particle_interactions):: real_virt_set
         type(example_real_virt_sweeper):: rv_sweeper
-        type(base_particles), target:: realp, virtp
+        type(particle_system_t), target:: psys_real, psys_virt
         type(grasph_cubic_bspline_kernel):: kernel
         integer:: ii, j, i
         character:: ic
         integer, parameter:: nd = 2, nxr = 2, nr = nxr**nd, nxv = 3, nv = nxv**nd
-        class(wc_particle), pointer:: ps_lhs(:), ps_rhs(:)
-        type(wc_particle):: ps_template
+        class(eos_particle), pointer:: ps_lhs(:), ps_rhs(:)
+        type(eos_particle):: ps_template
 
 #ifndef THREED
-        call realp%base_init(n=nr, name="test", ps_template=ps_template)
-        call virtp%base_init(n=nv, name="test", ps_template=ps_template)
-        select type (ps => realp%ps)
-        class is (wc_particle)
+        call psys_real%base_init(n=nr, name="test", particle_template=ps_template)
+        call psys_virt%base_init(n=nv, name="test", particle_template=ps_template)
+        select type (ps => psys_real%particles)
+        class is (eos_particle)
             ps_lhs => ps
         class default
-            error stop "Expected eos_particle for realp%ps."
+            error stop "Expected eos_particle for psys_real%particles."
         end select
         do concurrent(i=0:nxr - 1, j=0:nxr - 1)
             ii = i*nxr + j + 1
@@ -91,11 +91,11 @@ contains
             ps_lhs(ii)%x(2) = (j + 0.5_fp)*dx
             ps_lhs(ii)%p = real(ii, kind=fp)
         end do
-        select type (ps => virtp%ps)
-        class is (wc_particle)
+        select type (ps => psys_virt%particles)
+        class is (eos_particle)
             ps_rhs => ps
         class default
-            error stop "Expected eos_particle for virt%ps."
+            error stop "Expected eos_particle for virt%particles."
         end select
         do concurrent(i=0:nxv - 1, j=0:nxv - 1)
             ii = i*nxv + j + 1
@@ -105,7 +105,7 @@ contains
         end do
 
         ! manual init
-        call real_virt_set%init(nv, realp, virtp, sweeper=rv_sweeper)
+        call real_virt_set%init(nv, psys_real, psys_virt, sweeper=rv_sweeper)
         call real_virt_set%find_pairs(1._fp, kernel)
         call real_virt_set%do_sweep()
 
@@ -150,34 +150,34 @@ contains
 
     subroutine test_find_self_pairs()
 
-        type(base_particles):: ps
+        type(particle_system_t):: psys
         type(grasph_cubic_bspline_kernel):: kernel
         type(particle_interactions):: ps_set
         integer:: i, j, k, ii
-        class(wc_particle), pointer:: ps_real(:)
+        class(eos_particle), pointer:: ps_real(:)
 
 #ifdef THREED
 
-        select type (psr => ps%ps)
-        class is (wc_particle)
-            ps_real => psr
+        select type (ps => psys%particles)
+        class is (eos_particle)
+            ps_real => ps
         class default
-            error stop "Expected eos_particle for ps%ps"
+            error stop "Expected eos_particle for psys%particles"
         end select
 
-        call ps%init(27, "test", 0._fp)
+        call psys%init(27, "test", 0._fp)
 
         do concurrent(i=0:2, j=0:2, k=0:2)
             ii = i*9 + j*3 + k + 1
-            psr(ii)%x(1) = (i + 0.5_fp)*dx
-            psr(ii)%x(2) = (j + 0.5_fp)*dx
-            psr(ii)%x(3) = (k + 0.5_fp)*dx
-            psr(ii)%p = real(ii, kind=fp)
+            ps_real(ii)%x(1) = (i + 0.5_fp)*dx
+            ps_real(ii)%x(2) = (j + 0.5_fp)*dx
+            ps_real(ii)%x(3) = (k + 0.5_fp)*dx
+            ps_real(ii)%p = real(ii, kind=fp)
         end do
 
         call kernel%init(3, 0.9_fp*dx)
 
-        call ps_set%init(27, ps)
+        call ps_set%init(27, psys)
 
         call ps_set%find_pairs(kernel%cutoff, kernel)
 

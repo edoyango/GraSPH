@@ -5,7 +5,7 @@
 module weakly_compressible_interactions
 
     use grasph_constants, only: fp, ndims
-    use grasph_particles, only: base_particles
+    use grasph_particles, only: particle_system_t
     use weakly_compressible_particles, only: eos_particle
     use grasph_pair_sets, only: particle_interactions, base_sweeper
     use grasph_pairs, only: particle_pairs
@@ -34,23 +34,23 @@ contains
     !>        isotropic pressure, artificial viscosity, and mass continuity.
     !> @param self The sweeper class holding artificial viscosity constants and gravity.
     !> @param pairs The class storing particle pair index information.
-    !> @param ps_lhs the LHS particles involved in the interactions.
-    !> @param ps_rhs Ths RHS particles involved in the interactions. Expecting not to be passed in.
-    subroutine fluid_sweep(self, pairs, ps_lhs, ps_rhs)
+    !> @param psys_lhs the LHS particles involved in the interactions.
+    !> @param psys_rhs Ths RHS particles involved in the interactions. Expecting not to be passed in.
+    subroutine fluid_sweep(self, pairs, psys_lhs, psys_rhs)
         class(fluid_sweeper), intent(in):: self
         type(particle_pairs), intent(in):: pairs
-        class(base_particles), intent(inout):: ps_lhs
-        class(base_particles), optional, intent(inout):: ps_rhs
+        class(particle_system_t), intent(inout):: psys_lhs
+        class(particle_system_t), optional, intent(inout):: psys_rhs
         class(eos_particle), pointer:: fluid_lhs(:), fluid_rhs(:)
         integer:: i, j, k
         real(fp):: dummy_drhodt, dummy_dvxdt(ndims) ! dummy variables for when update_rhs is .false.
 
         ! point to lhs particlse for access to pressure member
-        select type (ps => ps_lhs%ps)
+        select type (ps => psys_lhs%particles)
         class is (eos_particle)
             fluid_lhs => ps
         class default
-            error stop "Invalid type for ps_lhs"
+            error stop "Invalid type for psys_lhs"
         end select
 
         ! intialize LHS acceleration and density rate-of-change arrays
@@ -62,14 +62,14 @@ contains
             end do
         end if
 
-        ! branch to handle logic for when ps_rhs is present as well as whether to update rhs
-        if (present(ps_rhs)) then
+        ! branch to handle logic for when psys_rhs is present as well as whether to update rhs
+        if (present(psys_rhs)) then
             ! point to rhs particlse for access to pressure member
-            select type (ps => ps_rhs%ps)
+            select type (ps => psys_rhs%particles)
             class is (eos_particle)
                 fluid_rhs => ps
             class default
-                error stop "Invalid type for ps_rhs"
+                error stop "Invalid type for psys_rhs"
             end select
             if (self%update_rhs) then ! sweep using both lhs and rhs, and updating both
                 ! intialize RHS acceleration and density rate-of-change arrays
@@ -122,7 +122,7 @@ contains
 
             end if
 
-        else ! self-sweep using only ps_lhs
+        else ! self-sweep using only psys_lhs
 
             ! perform sweep
             do k = 1, pairs%npairs_total
