@@ -1,8 +1,8 @@
 module test_time_integration
 
     use grasph_constants, only: fp
-    use grasph_particles, only: base_particles, particles_container
-    use weakly_compressible_particles, only: wcp => linear_eos_particles, linear_eos_particle, linear_eos_state_updater
+    use grasph_particles, only: base_particles
+    use weakly_compressible_particles, only: linear_eos_particle, linear_eos_state_updater
     use grasph_kernels, only: grasph_cubic_bspline_kernel
     use grasph_pair_sets, only: particle_interactions
     use grasph_time_integration, only: leap_frog_time_integration
@@ -25,65 +25,59 @@ contains
 
     subroutine test_LF_1particle_nointeractions()
         type(particle_interactions):: wcp_interaction_pairs(1)
-        type(particles_container):: wcp_sets(1)
+        type(base_particles):: wcp_sets(1)
         type(grasph_cubic_bspline_kernel):: kernel
         type(linear_eos_particle):: ps_template
         type(linear_eos_state_updater):: state_updater
 
-        allocate (wcp::wcp_sets(1)%p)
+        state_updater%rho_ref = 1000._fp
+        call wcp_sets(1)%base_init(n=1, name="test", ps_template=ps_template, state_updater=state_updater)
+        ! call ps%register_x%register_data(ps%x, "x", ps%v, "v")
+        call wcp_sets(1)%register_v%register(wcp_sets(1)%ps(1), "v", wcp_sets(1)%ps(1)%v, wcp_sets(1)%ps(1)%dvxdt)
+        call wcp_sets(1)%register_v%register(wcp_sets(1)%ps(1), "rho", wcp_sets(1)%ps(1)%rho, wcp_sets(1)%ps(1)%drhodt)
+        wcp_sets(1)%ps(1)%x(1) = 1._fp
+        wcp_sets(1)%ps(1)%x(2) = 2._fp
+        wcp_sets(1)%ps(1)%v(1) = 3._fp
+        wcp_sets(1)%ps(1)%v(2) = 4._fp
+        wcp_sets(1)%ps(1)%dvxdt(1) = 10._fp
+        wcp_sets(1)%ps(1)%dvxdt(2) = 20._fp
+        wcp_sets(1)%ps(1)%rho = 1000._fp
+        wcp_sets(1)%ps(1)%drhodt = 1000._fp
+        wcp_sets(1)%ps(1)%c = 2._fp
 
-        select type (ps => wcp_sets(1)%p)
-        type is (wcp)
-            state_updater%rho_ref = 1000._fp
-            call ps%init(n=1, name="test", ps_template=ps_template, state_updater=state_updater)
-            ! call ps%register_x%register_data(ps%x, "x", ps%v, "v")
-            call ps%register_v%register(ps%ps(1), "v", ps%ps(1)%v, ps%ps(1)%dvxdt)
-            call ps%register_v%register(ps%ps(1), "rho", ps%ps(1)%rho, ps%ps(1)%drhodt)
-            ps%ps(1)%x(1) = 1._fp
-            ps%ps(1)%x(2) = 2._fp
-            ps%ps(1)%v(1) = 3._fp
-            ps%ps(1)%v(2) = 4._fp
-            ps%ps(1)%dvxdt(1) = 10._fp
-            ps%ps(1)%dvxdt(2) = 20._fp
-            ps%ps(1)%rho = 1000._fp
-            ps%ps(1)%drhodt = 1000._fp
-            ps%ps(1)%c = 2._fp
-
-        end select
-
-        call wcp_interaction_pairs(1)%init(1, wcp_sets(1)%p)
+        call wcp_interaction_pairs(1)%init(1, wcp_sets(1))
 
         call kernel%init(2, 1._fp)
 
         call leap_frog_time_integration(1, 1, 1, wcp_sets, wcp_interaction_pairs, 1._fp, kernel, "/tmp", "test-", 4)
 
-        call check(is_close(wcp_sets(1)%p%ps(1)%dvxdt(1), 10._fp), "Incorrect value for dvxdt(1)") ! should be unchanged
-        call check(is_close(wcp_sets(1)%p%ps(1)%dvxdt(2), 20._fp), "Incorrect value for dvxdt(2)") ! should be unchanged
-        call check(is_close(wcp_sets(1)%p%ps(1)%v(1), 8._fp), "Incorrect value for v(1)") ! should be 3 + (1/2)*10
-        call check(is_close(wcp_sets(1)%p%ps(1)%v(2), 14._fp), "Incorrect value for v(2)") ! should be 4 + (1/2)*20
-        call check(is_close(wcp_sets(1)%p%ps(1)%x(1), 1._fp), "Incorrect value for x(1)") ! should be unchanged
-        call check(is_close(wcp_sets(1)%p%ps(1)%x(2), 2._fp), "Incorrect value for x(2)") ! should be unchanged
-        call check(is_close(wcp_sets(1)%p%ps(1)%drhodt, 1000._fp), "Incorrect value for drhodt") ! should be unchanged
-        call check(is_close(wcp_sets(1)%p%ps(1)%rho, 1500._fp), "Incorrect value for rho") ! should be 1000 + (1/2)*1000
-        select type (ps => wcp_sets(1)%p%ps)
+        call check(is_close(wcp_sets(1)%ps(1)%dvxdt(1), 10._fp), "Incorrect value for dvxdt(1)") ! should be unchanged
+        call check(is_close(wcp_sets(1)%ps(1)%dvxdt(2), 20._fp), "Incorrect value for dvxdt(2)") ! should be unchanged
+        call check(is_close(wcp_sets(1)%ps(1)%v(1), 8._fp), "Incorrect value for v(1)") ! should be 3 + (1/2)*10
+        call check(is_close(wcp_sets(1)%ps(1)%v(2), 14._fp), "Incorrect value for v(2)") ! should be 4 + (1/2)*20
+        call check(is_close(wcp_sets(1)%ps(1)%x(1), 1._fp), "Incorrect value for x(1)") ! should be unchanged
+        call check(is_close(wcp_sets(1)%ps(1)%x(2), 2._fp), "Incorrect value for x(2)") ! should be unchanged
+        call check(is_close(wcp_sets(1)%ps(1)%drhodt, 1000._fp), "Incorrect value for drhodt") ! should be unchanged
+        call check(is_close(wcp_sets(1)%ps(1)%rho, 1500._fp), "Incorrect value for rho") ! should be 1000 + (1/2)*1000
+        select type (ps => wcp_sets(1)%ps)
         type is (linear_eos_particle)
             call check(is_close(ps(1)%p, 1000._fp), "Incorrect value for p") ! should be 2**2*((1000 + 0.5*(1/2)*1000) - 1000)
         end select
 
         ! add the x-registration
-        call wcp_sets(1)%p%register_x%register(wcp_sets(1)%p%ps(1), "x", wcp_sets(1)%p%ps(1)%x, wcp_sets(1)%p%ps(1)%v)
+        call wcp_sets(1)%register_x%register(wcp_sets(1)%ps(1), "x", wcp_sets(1)%ps(1)%x, wcp_sets(1)%ps(1)%v)
 
         call leap_frog_time_integration(1, 1, 1, wcp_sets, wcp_interaction_pairs, 1._fp, kernel, "/tmp", "test-", 4)
 
-        call check(is_close(wcp_sets(1)%p%ps(1)%dvxdt(1), 10._fp), "Incorrect value for dvxdt(1)") ! should be unchanged
-        call check(is_close(wcp_sets(1)%p%ps(1)%dvxdt(2), 20._fp), "Incorrect value for dvxdt(2)") ! should be unchanged
-        call check(is_close(wcp_sets(1)%p%ps(1)%v(1), 13._fp), "Incorrect value for v(1)") ! should be 8 + (1/2)*10
-        call check(is_close(wcp_sets(1)%p%ps(1)%v(2), 24._fp), "Incorrect value for v(2)") ! should be 14 + (1/2)*20
-        call check(is_close(wcp_sets(1)%p%ps(1)%x(1), 7.5_fp), "Incorrect value for x(1)") ! should be 1 + (1/2)*(8 + (1/2)*10)
-        call check(is_close(wcp_sets(1)%p%ps(1)%x(2), 14._fp), "Incorrect value for x(2)") ! should be 2 + (1/2)*(14 + (1/2)*20)
-        call check(is_close(wcp_sets(1)%p%ps(1)%drhodt, 1000._fp), "Incorrect value for drhodt") ! should be unchanged
-        call check(is_close(wcp_sets(1)%p%ps(1)%rho, 2000._fp), "Incorrect value for rho") ! should be 1500 + (1/2)*1000
-        select type (ps => wcp_sets(1)%p%ps)
+        call check(is_close(wcp_sets(1)%ps(1)%dvxdt(1), 10._fp), "Incorrect value for dvxdt(1)") ! should be unchanged
+        call check(is_close(wcp_sets(1)%ps(1)%dvxdt(2), 20._fp), "Incorrect value for dvxdt(2)") ! should be unchanged
+        call check(is_close(wcp_sets(1)%ps(1)%v(1), 13._fp), "Incorrect value for v(1)") ! should be 8 + (1/2)*10
+        call check(is_close(wcp_sets(1)%ps(1)%v(2), 24._fp), "Incorrect value for v(2)") ! should be 14 + (1/2)*20
+        call check(is_close(wcp_sets(1)%ps(1)%x(1), 7.5_fp), "Incorrect value for x(1)") ! should be 1 + (1/2)*(8 + (1/2)*10)
+        call check(is_close(wcp_sets(1)%ps(1)%x(2), 14._fp), "Incorrect value for x(2)") ! should be 2 + (1/2)*(14 + (1/2)*20)
+        call check(is_close(wcp_sets(1)%ps(1)%drhodt, 1000._fp), "Incorrect value for drhodt") ! should be unchanged
+        call check(is_close(wcp_sets(1)%ps(1)%rho, 2000._fp), "Incorrect value for rho") ! should be 1500 + (1/2)*1000
+        select type (ps => wcp_sets(1)%ps)
         type is (linear_eos_particle)
             call check(is_close(ps(1)%p, 3000._fp), "Incorrect value for p") ! should be 2**2*((1500 + 0.5*(1/2)*1000) - 1000)
         end select

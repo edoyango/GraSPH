@@ -71,14 +71,14 @@ program main
 
     use grasph_monaghan1994
 
-    use grasph_particles, only: particles_container, bp => base_particles
-    use weakly_compressible_particles, only: wcp => linear_eos_particles, tait_eos_state_updater
+    use grasph_particles, only: base_particles
+    use weakly_compressible_particles, only: tait_eos_state_updater
     use grasph_pair_sets, only: particle_interactions
     use grasph_time_integration, only: leap_frog_time_integration
     use grasph_kernels, only: grasph_cubic_bspline_kernel
 
     implicit none
-    type(particles_container):: ps(2)
+    type(base_particles):: ps(2)
     type(particle_interactions):: pic(2)
     type(grasph_cubic_bspline_kernel):: kernel
     integer:: i, j, k
@@ -89,72 +89,90 @@ program main
     type(linear_eos_particle):: ps_template
     type(tait_eos_state_updater):: state_updater
 
-    ! declare particles - fluid and boundary (repulsive force)
-    allocate (wcp::ps(1)%p)
-    allocate (bp::ps(2)%p)
-
     ! init fluid particles
-    select type (ps => ps(1)%p) ! specialise for weakly compressible particles
-    class is (wcp)
-        state_updater%rho_ref = rho0
-        call ps%init(n=2500, name="fluid", ps_template=ps_template, state_updater=state_updater)
-        call ps%register_x%register(ps%ps(1), "x", ps%ps(1)%x, ps%ps(1)%v)
-        call ps%register_v%register(ps%ps(1), "v", ps%ps(1)%v, ps%ps(1)%dvxdt)
-        call ps%register_v%register(ps%ps(1), "rho", ps%ps(1)%rho, ps%ps(1)%drhodt)
+    state_updater%rho_ref = rho0
+    call ps(1)%base_init(n=2500, name="fluid", ps_template=ps_template, state_updater=state_updater)
+
+    ! register variables for time-update
+    call ps(1)%register_x%register(ps(1)%ps(1), "x", ps(1)%ps(1)%x, ps(1)%ps(1)%v)
+    call ps(1)%register_v%register(ps(1)%ps(1), "v", ps(1)%ps(1)%v, ps(1)%ps(1)%dvxdt)
+    call ps(1)%register_v%register(ps(1)%ps(1), "rho", ps(1)%ps(1)%rho, ps(1)%ps(1)%drhodt)
+
+    ! register variables for io
+    select type (p => ps(1)%ps)
+    class is (linear_eos_particle)
+        call ps(1)%register_io%register_variable(p(1), "x", p(1)%x)
+        call ps(1)%register_io%register_variable(p(1), "v", p(1)%v)
+        call ps(1)%register_io%register_variable(p(1), "rho", p(1)%rho)
+        call ps(1)%register_io%register_variable(p(1), "mass", p(1)%mass)
+        call ps(1)%register_io%register_variable(p(1), "c", p(1)%c)
+        call ps(1)%register_io%register_variable(p(1), "dvxdt", p(1)%dvxdt)
+        call ps(1)%register_io%register_variable(p(1), "drhodt", p(1)%drhodt)
+        call ps(1)%register_io%register_variable(p(1), "p", p(1)%p)
+    class default
+        error stop "Expected linear_eos_particle for ps(1)%p."
     end select
+    call ps(2)%register_io%register_variable(ps(2)%ps(1), "x", ps(2)%ps(1)%x)
+    call ps(2)%register_io%register_variable(ps(2)%ps(1), "v", ps(2)%ps(1)%v)
+    call ps(2)%register_io%register_variable(ps(2)%ps(1), "rho", ps(2)%ps(1)%rho)
+    call ps(2)%register_io%register_variable(ps(2)%ps(1), "mass", ps(2)%ps(1)%mass)
+    call ps(2)%register_io%register_variable(ps(2)%ps(1), "c", ps(2)%ps(1)%c)
+    call ps(2)%register_io%register_variable(ps(2)%ps(1), "dvxdt", ps(2)%ps(1)%dvxdt)
+    call ps(2)%register_io%register_variable(ps(2)%ps(1), "drhodt", ps(2)%ps(1)%drhodt)
+
     do i = 0, nfx - 1
         do j = 0, nfy - 1
             k = j*nfx + i + 1
-            ps(1)%p%ps(k)%id = k
-            ps(1)%p%ps(k)%type = 1 ! not sure if type is needed anymore
-            ps(1)%p%ps(k)%x(1) = (i + 0.5_fp)*dx
-            ps(1)%p%ps(k)%x(2) = (j + 0.5_fp)*dx
-            ps(1)%p%ps(k)%c = 10._fp*sqrt(2._fp*abs(g)*25._fp) ! 10*sqrt(2gH) eqn 3.3
+            ps(1)%ps(k)%id = k
+            ps(1)%ps(k)%type = 1 ! not sure if type is needed anymore
+            ps(1)%ps(k)%x(1) = (i + 0.5_fp)*dx
+            ps(1)%ps(k)%x(2) = (j + 0.5_fp)*dx
+            ps(1)%ps(k)%c = 10._fp*sqrt(2._fp*abs(g)*25._fp) ! 10*sqrt(2gH) eqn 3.3
             ! initialize density of fluid particles using hydrostatic pressure condition (eqn 5.1)
-            analytical_pressure = (25._fp - ps(1)%p%ps(k)%x(2))*rho0*abs(g)
-            ps(1)%p%ps(k)%rho = rho0*(analytical_pressure*7._fp/(rho0*ps(1)%p%ps(k)%c**2) + 1._fp)**(1._fp/7._fp)
-            ps(1)%p%ps(k)%mass = rho0*dx*dx
-            ps(1)%p%ps(k)%v(:) = 0._fp
+            analytical_pressure = (25._fp - ps(1)%ps(k)%x(2))*rho0*abs(g)
+            ps(1)%ps(k)%rho = rho0*(analytical_pressure*7._fp/(rho0*ps(1)%ps(k)%c**2) + 1._fp)**(1._fp/7._fp)
+            ps(1)%ps(k)%mass = rho0*dx*dx
+            ps(1)%ps(k)%v(:) = 0._fp
         end do
     end do
 
     ! init boundary particles
     ! use base_init since we're using the base type
     ! only need to initialize metadata and position as only position is used to calculate repulsive force
-    call ps(2)%p%base_init(n=464, name="boundary")
-    ps(2)%p%to_print_summary = .false.
+    call ps(2)%base_init(n=464, name="boundary")
+    ps(2)%to_print_summary = .false.
     k = 0
     ! bottom layer and corners
     do i = -1, nbx
         k = k + 1
-        ps(2)%p%ps(k)%x(1) = (i + 0.5_fp)*dx
-        ps(2)%p%ps(k)%x(2) = -0.5_fp*dx
+        ps(2)%ps(k)%x(1) = (i + 0.5_fp)*dx
+        ps(2)%ps(k)%x(2) = -0.5_fp*dx
     end do
     ! top layer and corners
     do i = -1, nbx
         k = k + 1
-        ps(2)%p%ps(k)%x(1) = (i + 0.5_fp)*dx
-        ps(2)%p%ps(k)%x(2) = 40._fp + 0.5_fp*dx
+        ps(2)%ps(k)%x(1) = (i + 0.5_fp)*dx
+        ps(2)%ps(k)%x(2) = 40._fp + 0.5_fp*dx
     end do
     ! left wall
     do j = 0, nby - 1
         k = k + 1
-        ps(2)%p%ps(k)%x(1) = -0.5_fp*dx
-        ps(2)%p%ps(k)%x(2) = (j + 0.5_fp)*dx
+        ps(2)%ps(k)%x(1) = -0.5_fp*dx
+        ps(2)%ps(k)%x(2) = (j + 0.5_fp)*dx
     end do
     ! right wall
     do j = 0, nby - 1
         k = k + 1
-        ps(2)%p%ps(k)%x(1) = 75._fp + 0.5_fp*dx
-        ps(2)%p%ps(k)%x(2) = (j + 0.5_fp)*dx
+        ps(2)%ps(k)%x(1) = 75._fp + 0.5_fp*dx
+        ps(2)%ps(k)%x(2) = (j + 0.5_fp)*dx
     end do
     do i = 1, k
-        ps(2)%p%ps(i)%id = i
-        ps(2)%p%ps(i)%type = -1
-        ps(2)%p%ps(i)%rho = rho0
-        ps(2)%p%ps(i)%mass = rho0*dx*dx
-        ps(2)%p%ps(i)%v(:) = 0._fp
-        ps(2)%p%ps(i)%c = 10._fp*sqrt(2._fp*abs(g)*25._fp) ! 10*max_speed
+        ps(2)%ps(i)%id = i
+        ps(2)%ps(i)%type = -1
+        ps(2)%ps(i)%rho = rho0
+        ps(2)%ps(i)%mass = rho0*dx*dx
+        ps(2)%ps(i)%v(:) = 0._fp
+        ps(2)%ps(i)%c = 10._fp*sqrt(2._fp*abs(g)*25._fp) ! 10*max_speed
     end do
 
     ! init interactions
@@ -168,9 +186,9 @@ program main
     boundary_sweeper%g = g
     shifter%epsilon = 0.5_fp
     shifter%update_rhs = .true.
-    call pic(1)%init(30, ps(1)%p, sweeper=self_sweeper, shifter=shifter)
+    call pic(1)%init(30, ps(1), sweeper=self_sweeper, shifter=shifter)
     shifter%update_rhs = .false.
-    call pic(2)%init(30, ps(1)%p, ps(2)%p, sweeper=boundary_sweeper, shifter=shifter)
+    call pic(2)%init(30, ps(1), ps(2), sweeper=boundary_sweeper, shifter=shifter)
 
     ! init kernel
     call kernel%init(2, 1.2_fp*dx)

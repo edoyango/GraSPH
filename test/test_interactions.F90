@@ -4,7 +4,7 @@ module test_interactions
     use grasph_kernels, only: grasph_base_kernel, grasph_cubic_bspline_kernel
     use grasph_pairs, only: particle_pairs, cell_list_search
     use grasph_particles, only: base_particles
-    use weakly_compressible_particles, only: wc_particles => linear_eos_particles, wc_particle => linear_eos_particle
+    use weakly_compressible_particles, only: wc_particle => linear_eos_particle
     use grasph_pair_sets, only: particle_interactions, base_sweeper
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
@@ -68,7 +68,7 @@ contains
 
         type(particle_interactions):: real_virt_set
         type(example_real_virt_sweeper):: rv_sweeper
-        type(wc_particles), target:: realp, virtp
+        type(base_particles), target:: realp, virtp
         type(grasph_cubic_bspline_kernel):: kernel
         integer:: ii, j, i
         character:: ic
@@ -77,8 +77,8 @@ contains
         type(wc_particle):: ps_template
 
 #ifndef THREED
-        call realp%init(n=nr, name="test", ps_template=ps_template)
-        call virtp%init(n=nv, name="test", ps_template=ps_template)
+        call realp%base_init(n=nr, name="test", ps_template=ps_template)
+        call virtp%base_init(n=nv, name="test", ps_template=ps_template)
         select type (ps => realp%ps)
         class is (wc_particle)
             ps_lhs => ps
@@ -150,7 +150,7 @@ contains
 
     subroutine test_find_self_pairs()
 
-        type(wc_particles):: ps
+        type(base_particles):: ps
         type(grasph_cubic_bspline_kernel):: kernel
         type(particle_interactions):: ps_set
         integer:: i, j, k, ii

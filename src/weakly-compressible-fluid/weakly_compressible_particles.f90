@@ -11,14 +11,6 @@ module weakly_compressible_particles
         real(fp):: p
     end type linear_eos_particle
 
-    !> @brief particle type which adds pressure, determined from density with a linear EOS
-    type, extends(base_particles):: linear_eos_particles
-    contains
-        !> @brief Custom intializer to initialize pressure and reference density.
-        !>        Also calls base_init to initialize base data.
-        procedure:: init => wcp_init
-    end type linear_eos_particles
-
     type, extends(base_state_updater):: linear_eos_state_updater
         real(fp):: rho_ref
     contains
@@ -32,29 +24,6 @@ module weakly_compressible_particles
     end type tait_eos_state_updater
 
 contains
-
-    !> @brief Custom init function for weakly-compressible particles. Will also initialize base
-    !>        particles' data.
-    !> @param self The weakly-compressible particles to initialize.
-    !> @param n Number of particles to allocate space for.
-    !> @param d Spatial dimensions of the particles.
-    !> @param name A label to give the particles. Used to label output/terminal information.
-    !> @param rho_ref Reference density used in the linear EOS.
-    subroutine wcp_init(self, n, name, ps_template, state_updater)
-        class(linear_eos_particles), intent(inout):: self
-        integer, intent(in):: n
-        character(*), intent(in):: name
-        class(linear_eos_particle), optional, intent(in):: ps_template
-        class(base_state_updater), optional, intent(in):: state_updater
-        type(linear_eos_particle):: ps_default
-        if (present(ps_template)) then
-            call self%base_init(n, name, ps_template, state_updater=state_updater)
-            call self%register_io%register_variable(ps_template, "p", ps_template%p)
-        else
-            call self%base_init(n, name, ps_default, state_updater=state_updater)
-            call self%register_io%register_variable(ps_default, "p", ps_default%p)
-        end if
-    end subroutine wcp_init
 
     !> @brief The linear state equation to update stress using the particles' speed of sound (c),
     !>        density (rho), and reference density (rho_ref). Overrides base_particles' state_update

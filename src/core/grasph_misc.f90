@@ -5,7 +5,7 @@
 module grasph_misc
 
     use grasph_constants, only: fp
-    use grasph_particles, only: particles_container
+    use grasph_particles, only: base_particles
     use grasph_pairs, only: particle_pairs
     use iso_fortran_env, only: int64, real64
 
@@ -46,7 +46,7 @@ contains
         integer, intent(in):: itimestep
         character(*), intent(in):: time_integration_scheme
         type(system_timer), optional, intent(in):: timer
-        class(particles_container), intent(in):: particles(:)
+        class(base_particles), intent(in):: particles(:)
         real(fp), intent(in):: time
         character(:), allocatable:: psummary
         integer:: i
@@ -57,9 +57,9 @@ contains
         write (*, "(A, I13)") time_integration_scheme//" time-intregration, time-step: ", itimestep
         write (*, "(A, f14.7)") "  In-simulation time: ", time
         do i = 1, size(particles)
-            write (*, "(A)") "  Summary data for: "//trim(particles(i)%p%name)
-            if (particles(i)%p%to_print_summary) then
-                call particles(i)%p%generate_summary(psummary)
+            write (*, "(A)") "  Summary data for: "//trim(particles(i)%name)
+            if (particles(i)%to_print_summary) then
+                call particles(i)%generate_summary(psummary)
                 write (*, "(A)") psummary
             else
                 write (*, "(A)") "    skipped"

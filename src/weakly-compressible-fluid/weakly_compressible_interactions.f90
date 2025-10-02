@@ -6,7 +6,7 @@ module weakly_compressible_interactions
 
     use grasph_constants, only: fp, ndims
     use grasph_particles, only: base_particles
-    use weakly_compressible_particles, only: linear_eos_particles, linear_eos_particle
+    use weakly_compressible_particles, only: linear_eos_particle
     use grasph_pair_sets, only: particle_interactions, base_sweeper
     use grasph_pairs, only: particle_pairs
     use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force

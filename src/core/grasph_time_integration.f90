@@ -5,7 +5,7 @@
 module grasph_time_integration
 
     use grasph_constants, only: fp
-    use grasph_particles, only: particles_container, max_registrations
+    use grasph_particles, only: base_particles, max_registrations
     use grasph_pair_sets, only: particle_interactions
     use grasph_kernels, only: grasph_base_kernel
     use grasph_misc, only: print_summary, system_timer
@@ -33,7 +33,7 @@ contains
                                           output_path, output_prefix, output_comp_level)
 
         integer, intent(in):: maxtimestep, print_step, save_step
-        class(particles_container):: particles(:)
+        class(base_particles):: particles(:)
         class(particle_interactions):: interactions(:)
         real(fp), intent(in):: CFL
         class(grasph_base_kernel), intent(in):: kernel
@@ -52,8 +52,8 @@ contains
         allocate (vars0(max_registrations, nparticle_sets))
 
         do i = 1, nparticle_sets
-            do j = 1, particles(i)%p%register_v%nregistrations
-                allocate (vars0(j, i)%p(particles(i)%p%register_v%dims(j), particles(i)%p%size))
+            do j = 1, particles(i)%register_v%nregistrations
+                allocate (vars0(j, i)%p(particles(i)%register_v%dims(j), particles(i)%size))
             end do
         end do
 
@@ -64,19 +64,19 @@ contains
         do itimestep = 1, maxtimestep
 
             ! calculate timestep to use
-            maxc = particles(1)%p%ps(1)%c
+            maxc = particles(1)%ps(1)%c
             do i = 1, nparticle_sets
-                do j = 1, particles(i)%p%size
-                    maxc = max(maxc, particles(i)%p%ps(j)%c)
+                do j = 1, particles(i)%size
+                    maxc = max(maxc, particles(i)%ps(j)%c)
                 end do
             end do
             dt = CFL*kernel%h/maxc
 
             ! save data at start of timestep for each particles
             do i = 1, nparticle_sets
-                do j = 1, particles(i)%p%register_v%nregistrations
-                    do k = 1, particles(i)%p%size
-                        call particles(i)%p%register_v%get(particles(i)%p%ps(k), j, var_ptr, deriv_ptr)
+                do j = 1, particles(i)%register_v%nregistrations
+                    do k = 1, particles(i)%size
+                        call particles(i)%register_v%get(particles(i)%ps(k), j, var_ptr, deriv_ptr)
                         vars0(j, i)%p(:, k) = var_ptr(:)
                     end do
                 end do
@@ -89,9 +89,9 @@ contains
 
             ! update particles to mid-timestep
             do i = 1, nparticle_sets
-                do j = 1, particles(i)%p%register_v%nregistrations
-                    do k = 1, particles(i)%p%size
-                        call particles(i)%p%register_v%get(particles(i)%p%ps(k), j, var_ptr, deriv_ptr)
+                do j = 1, particles(i)%register_v%nregistrations
+                    do k = 1, particles(i)%size
+                        call particles(i)%register_v%get(particles(i)%ps(k), j, var_ptr, deriv_ptr)
                         var_ptr(:) = var_ptr(:) + 0.5_fp*dt*deriv_ptr(:)
                     end do
                 end do
@@ -104,7 +104,7 @@ contains
 
             ! Update particle state e.g. pressure/stress
             do i = 1, nparticle_sets
-                call particles(i)%p%do_state_update(0.5_fp*dt)
+                call particles(i)%do_state_update(0.5_fp*dt)
             end do
 
             ! perform actual sweep i.e., calculate acceleration, density change etc.
@@ -114,15 +114,15 @@ contains
 
             ! update states to full-timestep
             do i = 1, nparticle_sets
-                do j = 1, particles(i)%p%register_v%nregistrations
-                    do k = 1, particles(i)%p%size
-                        call particles(i)%p%register_v%get(particles(i)%p%ps(k), j, var_ptr, deriv_ptr)
+                do j = 1, particles(i)%register_v%nregistrations
+                    do k = 1, particles(i)%size
+                        call particles(i)%register_v%get(particles(i)%ps(k), j, var_ptr, deriv_ptr)
                         var_ptr(:) = vars0(j, i)%p(:, k) + dt*deriv_ptr(:)
                     end do
                 end do
-                do j = 1, particles(i)%p%register_x%nregistrations
-                    do k = 1, particles(i)%p%size
-                        call particles(i)%p%register_x%get(particles(i)%p%ps(k), j, var_ptr, deriv_ptr)
+                do j = 1, particles(i)%register_x%nregistrations
+                    do k = 1, particles(i)%size
+                        call particles(i)%register_x%get(particles(i)%ps(k), j, var_ptr, deriv_ptr)
                         var_ptr(:) = var_ptr(:) + dt*deriv_ptr(:)
                     end do
                 end do
@@ -136,7 +136,7 @@ contains
             ! write data
             if (mod(itimestep, save_step) == 0) then
                 do i = 1, nparticle_sets
-                    call particles(i)%p%dump(itimestep, output_path, output_prefix, output_comp_level)
+                    call particles(i)%dump(itimestep, output_path, output_prefix, output_comp_level)
                 end do
             end if
 

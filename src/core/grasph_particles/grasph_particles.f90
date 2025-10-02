@@ -59,13 +59,7 @@ module grasph_particles
         procedure:: generate_summary => base_generate_summary
     end type base_particles
 
-    !> @brief particles container class for setting up simulation
-    type:: particles_container
-        !> @brief The polymorphic container to be allocated to base_particles or its derivatives.
-        class(base_particles), allocatable:: p
-    end type particles_container
-
-    public:: base_particle, base_particles, base_state_updater, particles_container, max_registrations
+    public:: base_particle, base_particles, base_state_updater, max_registrations
 
 contains
 
@@ -91,14 +85,6 @@ contains
         self%size = n
         self%ndims = ndims
         self%name = name
-
-        call self%register_io%register_variable(self%ps(1), "x", self%ps(1)%x)
-        call self%register_io%register_variable(self%ps(1), "v", self%ps(1)%v)
-        call self%register_io%register_variable(self%ps(1), "rho", self%ps(1)%rho)
-        call self%register_io%register_variable(self%ps(1), "mass", self%ps(1)%mass)
-        call self%register_io%register_variable(self%ps(1), "c", self%ps(1)%c)
-        call self%register_io%register_variable(self%ps(1), "dvxdt", self%ps(1)%dvxdt)
-        call self%register_io%register_variable(self%ps(1), "drhodt", self%ps(1)%drhodt)
 
         if (present(state_updater)) then
             allocate (self%state_updater, source=state_updater)
@@ -145,7 +131,6 @@ contains
         character(*), intent(in):: path
         character(*), intent(in), optional:: prefix_in
         integer, intent(in), optional:: comp_level
-        character(*), parameter:: group = "base/"
         character(200):: filename_prefix, file_path, this_group
         integer:: ierr, i, v
         type(hdf5_file):: h5f
@@ -162,7 +147,7 @@ contains
 
         write (ic, "(I10.10)") itimestep
         file_path = path//"/"//trim(filename_prefix)//"_"//ic//".h5"
-        this_group = "/"//trim(self%name)//"/"//group
+        this_group = "/"//trim(self%name)//"/"
 
         call h5f%open(file_path, action="a", comp_lvl=comp_level)
         call h5f%write("/"//trim(self%name)//"/n", self%size)
@@ -207,7 +192,6 @@ contains
         class(base_particles), intent(inout):: self
         character(*), intent(in):: name, file_path
         class(base_particle), optional, intent(in):: ps_template
-        character(*), parameter:: group = "base/"
         character(200):: this_group
         character(250):: arr_path
         integer:: d, n, i, v, nrank
@@ -218,7 +202,7 @@ contains
         real(fp), pointer:: ptr(:)
         character(2):: nc_dim_arr, nc_dim_h5
 
-        this_group = "/"//trim(name)//"/"//group
+        this_group = "/"//trim(name)//"/"
 
         call h5f%open(file_path, action="r")
         call h5f%read("/"//trim(name)//"/n", n)
