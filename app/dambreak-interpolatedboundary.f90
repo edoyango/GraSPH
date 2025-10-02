@@ -3,7 +3,7 @@ module grasph_monaghan1994_2
     use grasph_constants, only: fp
     use grasph_particles, only: particle_system_t
     use weakly_compressible_interactions, only: fluid_sweeper
-    use grasph_pair_sets, only: particle_interactions, base_sweeper
+    use grasph_system_interactions_m, only: base_sweeper
     use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force, &
                                         repulsive_force
     use grasph_pairs, only: particle_pairs
@@ -69,13 +69,13 @@ program main
 
     use grasph_particles, only: particle_system_t
     use weakly_compressible_particles, only: tait_eos_state_updater, eos_particle
-    use grasph_pair_sets, only: particle_interactions
+    use grasph_system_interactions_m, only: system_interaction_t
     use grasph_time_integration, only: leap_frog_time_integration
     use grasph_kernels, only: grasph_cubic_bspline_kernel
 
     implicit none
     type(particle_system_t):: psys(2)
-    type(particle_interactions):: pic(2)
+    type(system_interaction_t):: psys_interactions(2)
     type(grasph_cubic_bspline_kernel):: kernel
     type(fluid_sweeper):: sweeper
     type(boundary_update_sweeper):: boundary_sweeper
@@ -197,10 +197,20 @@ program main
     shifter%update_rhs = .false.
 
     ! init interactions
-    call pic(1)%init(30, psys(1), sweeper=sweeper, shifter=shifter)
+    call psys_interactions(1)%init(30, psys(1), sweeper=sweeper, shifter=shifter)
     sweeper%initialize = .false. ! second sweeper doesn't need to zero acceleation arrays
-    call pic(2)%init(30, psys(1), psys(2), prologue_sweeper=boundary_sweeper, sweeper=sweeper, shifter=shifter)
+    call psys_interactions(2)%init(30, psys(1), psys(2), prologue_sweeper=boundary_sweeper, sweeper=sweeper, shifter=shifter)
 
-    call leap_frog_time_integration(100000, 1000, 1000, psys, pic, 0.05_fp, kernel, "/home/edwardy/test", output_comp_level=4)
+    call leap_frog_time_integration( &
+        maxtimestep=100000, &
+        print_step=1000, &
+        save_step=1000, &
+        psystems=psys, &
+        interactions=psys_interactions, &
+        CFL=0.05_fp, &
+        kernel=kernel, &
+        output_path="/home/edwardy/test", &
+        output_comp_level=4 &
+        )
 
 end program main

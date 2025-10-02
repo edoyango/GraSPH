@@ -1,8 +1,8 @@
-!> @file grasph_pair_sets.f90
+!> @file grasph_system_interactions.f90
 !> @brief Module containing types that are used to hold information about particle interactions
 !> @author Edward Yang
 !> @date 2025-06-09
-module grasph_pair_sets
+module grasph_system_interactions_m
 
     use grasph_constants, only: fp
     use grasph_particles, only: particle_system_t
@@ -13,22 +13,18 @@ module grasph_pair_sets
 
     private
 
-    !> @brief base interaction class to extend into new ones. The base isn't that useful on its own.
-    type:: particle_interactions
-        !> @brief Pointer to LHS particles involved in the interaction.
-        !>        Note that these can't be overriden, so if LHS extended particles' properties are needed, then a new pointer is
-        !>        needed in the derived type.
+    !> @brief Manages the interaction between a particle_system_t and itself or between two particle_system_t instances.
+    type:: system_interaction_t
+        !> @brief Pointer to LHS particle system involved in the interaction.
         class(particle_system_t), pointer:: psys_lhs
         !> @brief Pointer to RHS particles involved in the interaction.
-        !>        Note that these can't be overriden, so if LHS extended particles' properties are needed, then a new pointer is
-        !>        needed in the derived type.
         class(particle_system_t), pointer:: psys_rhs
         !> @brief The pairs of particles found either in psys_lhs or between psys_lhs and psys_rhs (depends on whether
         !>        psys_rhs was passed to initializer).
         type(particle_pairs):: pairs
-        !> @brief Whether particle_interactions has been initialized.
+        !> @brief Whether system_interaction_t has been initialized.
         logical:: initialized = .false.
-        !> @brief Whether the particle_interactions describes psys_lhs interaction with itself, or with psys_rhs.
+        !> @brief Whether the system_interaction_t describes psys_lhs interaction with itself, or with psys_rhs.
         logical:: is_pair_set = .false.
         !> @brief Overridable "strategy" class that performs sweep prologue.
         class(base_sweeper), allocatable:: prologue_sweeper
@@ -37,20 +33,18 @@ module grasph_pair_sets
         !> @brief Overridable "strategy" class that performs shift.
         class(base_shifter), allocatable:: shifter
     contains
-        !> @brief Subroutine to update particles' state that depend on interpolated information. E.g. Updating virtual particles'
-        !>        data, which requires a sweep. Does so by using the prologue_sweeper's sweep method.
+        !> @brief Updates particles' state that depend on interpolated information. E.g. Updating virtual particles' data, which
+        !>        requires a sweep. Does so by using the prologue_sweeper's sweep method.
         procedure:: do_sweep_prologue
-        !> @brief Subroutine to calculate time-evolving data's rate-of-change e.g. acceleration. Does so by using the sweeper's
-        !>        sweep method.
+        !> @brief Calculates time-evolving data's rate-of-change e.g. acceleration. Does so by using the sweeper's sweep method.
         procedure:: do_sweep
-        !> @brief Subroutine to perform any particle shifting via position or velocity adjustments. Does so by using the shifter's
-        !>        shift method.
+        !> @brief Performs any particle shifting via position or velocity adjustments. Does so by using the shifter's shift method.
         procedure:: do_shift
         !> @brief If is_pair_set is .true., calculates pairs within psys_lhs, else pairs between psys_lhs and psys_rhs.
         procedure:: find_pairs => particle_interactions_find_pairs
         !> @brief Initializes data (pointers, pairs, and strategy classes).
         procedure:: init => particle_interactions_init
-    end type particle_interactions
+    end type system_interaction_t
 
     !> @brief Base "strategy" class whose sweep method is used to update time-evolving data's rate-of-change e.g. acceleration.
     !>        extensions of this class override the sweep to, for example, work with different particle types and implement
@@ -75,15 +69,15 @@ module grasph_pair_sets
         procedure:: shift => donothing_shift
     end type base_shifter
 
-    public:: particle_interactions, base_sweeper, base_shifter
+    public:: system_interaction_t, base_sweeper, base_shifter
 
 contains
 
     subroutine do_sweep_prologue(self)
-        class(particle_interactions), intent(inout):: self
+        class(system_interaction_t), intent(inout):: self
 
         ! check that prologue_sweeper has been allocated
-        if (.not. allocated(self%prologue_sweeper)) error stop "prologue sweeper not allocated in particle_interactions."
+        if (.not. allocated(self%prologue_sweeper)) error stop "prologue sweeper not allocated in system_interaction_t."
 
         ! pass in psys_rhs if associated
         if (associated(self%psys_rhs)) then
@@ -95,10 +89,10 @@ contains
     end subroutine do_sweep_prologue
 
     subroutine do_sweep(self)
-        class(particle_interactions), intent(inout):: self
+        class(system_interaction_t), intent(inout):: self
 
         ! check that sweeper has been allocated
-        if (.not. allocated(self%sweeper)) error stop "sweeper not allocated in particle_interactions."
+        if (.not. allocated(self%sweeper)) error stop "sweeper not allocated in system_interaction_t."
 
         ! pass in psys_rhs if associated
         if (associated(self%psys_rhs)) then
@@ -110,11 +104,11 @@ contains
     end subroutine do_sweep
 
     subroutine do_shift(self, dt)
-        class(particle_interactions), intent(inout):: self
+        class(system_interaction_t), intent(inout):: self
         real(fp), intent(in):: dt
 
         ! check that sweeper has been allocated
-        if (.not. allocated(self%shifter)) error stop "shifter not allocated in particle_interactions."
+        if (.not. allocated(self%shifter)) error stop "shifter not allocated in system_interaction_t."
 
         ! pass in psys_rhs if associated
         if (associated(self%psys_rhs)) then
@@ -131,7 +125,7 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the LHS particles involved in the interactions.
     !> @param psys_rhs The RHS particles involved in the interactions. psys_rhs will not be passed in if not associated in the
-    !>        owning particle_interactions class.
+    !>        owning system_interaction_t class.
     subroutine donothing_sweep(self, pairs, psys_lhs, psys_rhs)
         class(base_sweeper), intent(in):: self
         type(particle_pairs), intent(in):: pairs
@@ -145,7 +139,7 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the LHS particles involved in the interactions.
     !> @param psys_rhs The RHS particles involved in the interactions. psys_rhs will not be passed in if not associated in the
-    !>        owning particle_interactions class.
+    !>        owning system_interaction_t class.
     !> @param dt The time-step increment.
     subroutine donothing_shift(self, pairs, psys_lhs, psys_rhs, dt)
         class(base_shifter), intent(in):: self
@@ -157,16 +151,16 @@ contains
 
     !> @param self The particle interactions class which performing the sweep.
     subroutine donothing_sweep_old(self)
-        class(particle_interactions), intent(inout):: self
+        class(system_interaction_t), intent(inout):: self
     end subroutine donothing_sweep_old
 
-    !> @brief The subroutine to find pairs of particles contained in particle_interactions.
-    !>        Adapts to whether the particle_interactions instance is a pair set or not.
+    !> @brief The subroutine to find pairs of particles contained in system_interaction_t.
+    !>        Adapts to whether the system_interaction_t instance is a pair set or not.
     !> @param self The particle interactions class to find pairs within.
     !> @param cutoff The interacting distance of particles.
     !> @param kernel The SPH kernel used to calculate values and kernel gradient values from.
     subroutine particle_interactions_find_pairs(self, cutoff, kernel)
-        class(particle_interactions), intent(inout):: self
+        class(system_interaction_t), intent(inout):: self
         real(fp), intent(in):: cutoff
         class(grasph_base_kernel), intent(in):: kernel
 
@@ -177,16 +171,16 @@ contains
         end if
     end subroutine particle_interactions_find_pairs
 
-    !> @brief The base initializer of particle_interactions instances. Not intended to be overridden
-    !>        and instead intended to be called within an extended type's initializer subroutine.
+    !> @brief The base initializer of system_interaction_t instances.
     !> @param npairs_per_particle Maximum number of particle interactions expected for each LHS particle.
-    !> @param self The particle_interactions instance to initialize.
+    !> @param self The system_interaction_t instance to initialize.
     !> @param psys_lhs The LHS particles to be attached to the instance.
     !> @param psys_rhs The RHS particles to be attached to the instance.
+    !> @param prologue_sweeper The sweeper to use in the prologue sweep in this interaction.
     !> @param sweeper The sweeper to use in this interaction.
     !> @param shifter The shifter to use in this interaction.
     subroutine particle_interactions_init(self, npairs_per_particle, psys_lhs, psys_rhs, prologue_sweeper, sweeper, shifter)
-        class(particle_interactions), intent(out):: self
+        class(system_interaction_t), intent(out):: self
         integer, intent(in):: npairs_per_particle
         class(particle_system_t), target, intent(in):: psys_lhs
         class(particle_system_t), target, optional, intent(in):: psys_rhs
@@ -220,4 +214,4 @@ contains
         end if
     end subroutine particle_interactions_init
 
-end module grasph_pair_sets
+end module grasph_system_interactions_m

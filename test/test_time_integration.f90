@@ -4,7 +4,7 @@ module test_time_integration
     use grasph_particles, only: particle_system_t
     use weakly_compressible_particles, only: eos_particle, linear_eos_state_updater
     use grasph_kernels, only: grasph_cubic_bspline_kernel
-    use grasph_pair_sets, only: particle_interactions
+    use grasph_system_interactions_m, only: system_interaction_t
     use grasph_time_integration, only: leap_frog_time_integration
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
@@ -24,7 +24,7 @@ contains
     end function tests
 
     subroutine test_LF_1particle_nointeractions()
-        type(particle_interactions):: wcp_interaction_pairs(1)
+        type(system_interaction_t):: wcp_interaction_pairs(1)
         type(particle_system_t):: psys(1)
         type(grasph_cubic_bspline_kernel):: kernel
         type(eos_particle):: ps_template

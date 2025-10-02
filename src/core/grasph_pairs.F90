@@ -33,17 +33,6 @@ module grasph_pairs
         procedure:: init => particle_pairs_init
     end type particle_pairs
 
-    ! ! abstract interface provided to be used in function pointers
-    ! abstract interface
-    !     pure subroutine find_pairs_fixed_h(x, ndims, n, cutoff, kernel, npairs_per_particle, pairs)
-    !         import:: fp, grasph_base_kernel, particle_pairs
-    !         type(particle_pairs), intent(inout):: pairs
-    !         integer, intent(in):: ndims, n, npairs_per_particle
-    !         real(fp), intent(in):: x(ndims, n), cutoff
-    !         class(grasph_base_kernel), intent(in):: kernel
-    !     end subroutine find_pairs_fixed_h
-    ! end interface
-
     !> @brief The overloaded interface to find pairs of particles using the direct search (aka
     !>        brute-force) algorithm. Overloaded with a version that finds pairs amongst a single
     !>        set of particles, and two sets of particles. In both instances, particles are assumed

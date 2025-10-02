@@ -5,7 +5,7 @@ module test_interactions
     use grasph_pairs, only: particle_pairs, cell_list_search
     use grasph_particles, only: particle_system_t
     use weakly_compressible_particles, only: eos_particle
-    use grasph_pair_sets, only: particle_interactions, base_sweeper
+    use grasph_system_interactions_m, only: system_interaction_t, base_sweeper
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
     implicit none
@@ -66,7 +66,7 @@ contains
 
     subroutine test_set_pair_setup()
 
-        type(particle_interactions):: real_virt_set
+        type(system_interaction_t):: real_virt_set
         type(example_real_virt_sweeper):: rv_sweeper
         type(particle_system_t), target:: psys_real, psys_virt
         type(grasph_cubic_bspline_kernel):: kernel
@@ -152,7 +152,7 @@ contains
 
         type(particle_system_t):: psys
         type(grasph_cubic_bspline_kernel):: kernel
-        type(particle_interactions):: ps_set
+        type(system_interaction_t):: ps_set
         integer:: i, j, k, ii
         class(eos_particle), pointer:: ps_real(:)
 

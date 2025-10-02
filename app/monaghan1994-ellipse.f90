@@ -11,7 +11,7 @@ program main
     use grasph_particles, only: particle_system_t
     use weakly_compressible_particles, only: tait_eos_state_updater, eos_particle
     use weakly_compressible_interactions, only: fluid_sweeper
-    use grasph_pair_sets, only: particle_interactions
+    use grasph_system_interactions_m, only: system_interaction_t
     use grasph_time_integration, only: leap_frog_time_integration
     use grasph_kernels, only: grasph_cubic_bspline_kernel
     use grasph_particle_shifting, only: xsph_shifter
@@ -22,7 +22,7 @@ program main
     ! no. of particles in x, y direction in initial geometry of fluid
     integer, parameter:: nfx = 2._fp/dx, nfy = 2._fp/dx
     type(particle_system_t):: psys(1)
-    type(particle_interactions):: pic(1)
+    type(system_interaction_t):: psys_interactions(1)
     type(grasph_cubic_bspline_kernel):: kernel
     integer:: i, j, k
     type(fluid_sweeper):: sweeper
@@ -84,11 +84,21 @@ program main
     sweeper%g = g
     shifter%epsilon = 0.5_fp
     shifter%update_rhs = .true.
-    call pic(1)%init(30, psys(1), sweeper=sweeper, shifter=shifter)
+    call psys_interactions(1)%init(30, psys(1), sweeper=sweeper, shifter=shifter)
 
     ! init kernel
     call kernel%init(2, 1.2_fp*dx)
 
-    call leap_frog_time_integration(5000, 10, 10, psys, pic, 0.05_fp, kernel, "/home/edwardy/test", output_comp_level=4)
+    call leap_frog_time_integration( &
+        maxtimestep=5000, &
+        print_step=10, &
+        save_step=10, &
+        psystems=psys, &
+        interactions=psys_interactions, &
+        CFL=0.05_fp, &
+        kernel=kernel, &
+        output_path="/home/edwardy/test", &
+        output_comp_level=4 &
+        )
 
 end program main
