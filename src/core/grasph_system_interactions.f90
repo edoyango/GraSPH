@@ -6,7 +6,7 @@ module grasph_system_interactions_m
 
     use grasph_constants, only: fp
     use grasph_particle_system_m, only: particle_system_t
-    use grasph_pairs, only: particle_pairs, cell_list_search
+    use grasph_pairs_m, only: particle_pairs_t, cell_list_search
     use grasph_kernels, only: grasph_base_kernel
 
     implicit none
@@ -21,7 +21,7 @@ module grasph_system_interactions_m
         class(particle_system_t), pointer:: psys_rhs
         !> @brief The pairs of particles found either in psys_lhs or between psys_lhs and psys_rhs (depends on whether
         !>        psys_rhs was passed to initializer).
-        type(particle_pairs):: pairs
+        type(particle_pairs_t):: pairs
         !> @brief Whether system_interaction_t has been initialized.
         logical:: initialized = .false.
         !> @brief Whether the system_interaction_t describes psys_lhs interaction with itself, or with psys_rhs.
@@ -128,7 +128,7 @@ contains
     !>        owning system_interaction_t class.
     subroutine donothing_sweep(self, pairs, psys_lhs, psys_rhs)
         class(base_sweeper), intent(in):: self
-        type(particle_pairs), intent(in):: pairs
+        type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
     end subroutine donothing_sweep
@@ -143,7 +143,7 @@ contains
     !> @param dt The time-step increment.
     subroutine donothing_shift(self, pairs, psys_lhs, psys_rhs, dt)
         class(base_shifter), intent(in):: self
-        type(particle_pairs), intent(in):: pairs
+        type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
         real(fp), intent(in):: dt

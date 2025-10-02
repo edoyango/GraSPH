@@ -3,7 +3,7 @@ module test_pair_finding
     use grasph_constants, only: fp
     use grasph_particle_system_m, only: base_particle_t
     use grasph_kernels, only: grasph_cubic_bspline_kernel
-    use grasph_pairs, only: particle_pairs, dsearch, cell_list_search
+    use grasph_pairs_m, only: particle_pairs_t, dsearch, cell_list_search
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
     implicit none
@@ -140,7 +140,7 @@ contains
 
     subroutine check_pairs(pairs, ps_lhs, ps_rhs, correct_pairs, ncorrect_pairs, case_string, kernel)
 
-        type(particle_pairs), intent(in):: pairs
+        type(particle_pairs_t), intent(in):: pairs
         type(base_particle_t), intent(in):: ps_lhs(:), ps_rhs(:)
         integer, intent(in):: ncorrect_pairs, correct_pairs(2, ncorrect_pairs)
         character(*), intent(in):: case_string
@@ -179,7 +179,7 @@ contains
 
     subroutine test_dsearch()
 
-        type(particle_pairs):: pairs
+        type(particle_pairs_t):: pairs
         type(grasph_cubic_bspline_kernel):: kernel
 
 #ifdef THREED
@@ -213,7 +213,7 @@ contains
 
     subroutine test_dsearch_other()
 
-        type(particle_pairs):: pairs
+        type(particle_pairs_t):: pairs
         type(grasph_cubic_bspline_kernel):: kernel
 #ifdef THREED
         call kernel%init(3, 1._fp)
@@ -232,7 +232,7 @@ contains
 
     subroutine test_cell_list()
 
-        type(particle_pairs):: pairs
+        type(particle_pairs_t):: pairs
         type(grasph_cubic_bspline_kernel):: kernel
 #ifdef THREED
         call kernel%init(3, 1._fp)
@@ -261,7 +261,7 @@ contains
 
     subroutine test_cell_list_other()
 
-        type(particle_pairs):: pairs
+        type(particle_pairs_t):: pairs
         type(grasph_cubic_bspline_kernel):: kernel
 #ifdef THREED
         call kernel%init(3, 1._fp)

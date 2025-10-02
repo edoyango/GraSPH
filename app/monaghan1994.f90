@@ -10,7 +10,7 @@ module grasph_monaghan1994
     use grasph_constants, only: fp
     use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_particles, only: eos_particle, tait_eos_state_updater
-    use grasph_pairs, only: particle_pairs
+    use grasph_pairs_m, only: particle_pairs_t
     use grasph_system_interactions_m, only: base_sweeper
     use weakly_compressible_interactions, only: fluid_sweeper
     use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, repulsive_force
@@ -41,7 +41,7 @@ contains
 
     subroutine fluid_boundary_sweep_new(self, pairs, psys_lhs, psys_rhs)
         class(fluid_boundary_sweeper), intent(in):: self
-        type(particle_pairs), intent(in):: pairs
+        type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
         integer:: i, j, k

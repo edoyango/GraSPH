@@ -6,7 +6,7 @@ module grasph_monaghan1994_2
     use grasph_system_interactions_m, only: base_sweeper
     use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force, &
                                         repulsive_force
-    use grasph_pairs, only: particle_pairs
+    use grasph_pairs_m, only: particle_pairs_t
     use grasph_particle_shifting, only: xsph_shifter
 
     implicit none
@@ -24,7 +24,7 @@ contains
 
     subroutine boundary_update_sweep(self, pairs, psys_lhs, psys_rhs)
         class(boundary_update_sweeper), intent(in):: self
-        type(particle_pairs), intent(in):: pairs
+        type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
         integer:: i, j, k

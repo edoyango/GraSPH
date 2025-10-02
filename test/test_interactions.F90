@@ -2,7 +2,7 @@ module test_interactions
 
     use grasph_constants, only: fp
     use grasph_kernels, only: grasph_base_kernel, grasph_cubic_bspline_kernel
-    use grasph_pairs, only: particle_pairs, cell_list_search
+    use grasph_pairs_m, only: particle_pairs_t, cell_list_search
     use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_particles, only: eos_particle
     use grasph_system_interactions_m, only: system_interaction_t, base_sweeper
@@ -34,7 +34,7 @@ contains
 
     subroutine example_real_virt_sweep(self, pairs, psys_lhs, psys_rhs)
         class(example_real_virt_sweeper), intent(in):: self
-        type(particle_pairs), intent(in):: pairs
+        type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
         integer:: i, j, k

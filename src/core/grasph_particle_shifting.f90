@@ -6,7 +6,7 @@ module grasph_particle_shifting
 
     use grasph_constants, only: fp, ndims
     use grasph_system_interactions_m, only: base_shifter
-    use grasph_pairs, only: particle_pairs
+    use grasph_pairs_m, only: particle_pairs_t
     use grasph_particle_system_m, only: particle_system_t
 
     implicit none
@@ -60,7 +60,7 @@ contains
     !> @param dt The time-step increment.
     subroutine xsph_shift(self, pairs, psys_lhs, psys_rhs, dt)
         class(xsph_shifter), intent(in):: self
-        type(particle_pairs), intent(in):: pairs
+        type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
         real(fp), intent(in):: dt
