@@ -5,7 +5,7 @@
 module grasph_misc
 
     use grasph_constants, only: fp
-    use grasph_particles, only: particle_system_t
+    use grasph_particle_system_m, only: particle_system_t
     use grasph_pairs, only: particle_pairs
     use iso_fortran_env, only: int64, real64
 

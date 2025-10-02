@@ -8,7 +8,7 @@
 module grasph_monaghan1994
 
     use grasph_constants, only: fp
-    use grasph_particles, only: particle_system_t
+    use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_particles, only: eos_particle, tait_eos_state_updater
     use grasph_pairs, only: particle_pairs
     use grasph_system_interactions_m, only: base_sweeper
@@ -75,7 +75,7 @@ program main
 
     use grasph_monaghan1994
 
-    use grasph_particles, only: particle_system_t
+    use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_particles, only: tait_eos_state_updater
     use grasph_system_interactions_m, only: system_interaction_t
     use grasph_time_integration, only: leap_frog_time_integration

@@ -5,7 +5,7 @@
 module grasph_system_interactions_m
 
     use grasph_constants, only: fp
-    use grasph_particles, only: particle_system_t
+    use grasph_particle_system_m, only: particle_system_t
     use grasph_pairs, only: particle_pairs, cell_list_search
     use grasph_kernels, only: grasph_base_kernel
 

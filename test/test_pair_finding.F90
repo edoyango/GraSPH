@@ -1,7 +1,7 @@
 module test_pair_finding
 
     use grasph_constants, only: fp
-    use grasph_particles, only: base_particle_t
+    use grasph_particle_system_m, only: base_particle_t
     use grasph_kernels, only: grasph_cubic_bspline_kernel
     use grasph_pairs, only: particle_pairs, dsearch, cell_list_search
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list

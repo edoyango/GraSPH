@@ -1,8 +1,8 @@
-!> @file grasph_particles.f90
+!> @file grasph_particle_system.f90
 !> @brief Module containing core particles derived types and methods
 !> @author Edward Yang
 !> @date 2025-06-09
-module grasph_particles
+module grasph_particle_system_m
 
     use iso_fortran_env, only: error_unit
     use grasph_constants, only: fp, ndims
@@ -346,4 +346,4 @@ contains
 
     end subroutine base_generate_summary
 
-end module grasph_particles
+end module grasph_particle_system_m

@@ -8,7 +8,7 @@
 program main
 
     use grasph_constants, only: fp, pi
-    use grasph_particles, only: particle_system_t
+    use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_particles, only: tait_eos_state_updater, eos_particle
     use weakly_compressible_interactions, only: fluid_sweeper
     use grasph_system_interactions_m, only: system_interaction_t

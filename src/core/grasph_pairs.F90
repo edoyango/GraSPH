@@ -6,7 +6,7 @@ module grasph_pairs
 
     use grasph_constants, only: fp, ndims
     use grasph_kernels, only: grasph_base_kernel
-    use grasph_particles, only: base_particle_t
+    use grasph_particle_system_m, only: base_particle_t
 
     implicit none
 

@@ -3,7 +3,7 @@ module test_interactions
     use grasph_constants, only: fp
     use grasph_kernels, only: grasph_base_kernel, grasph_cubic_bspline_kernel
     use grasph_pairs, only: particle_pairs, cell_list_search
-    use grasph_particles, only: particle_system_t
+    use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_particles, only: eos_particle
     use grasph_system_interactions_m, only: system_interaction_t, base_sweeper
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
