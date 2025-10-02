@@ -5,13 +5,13 @@
 module weakly_compressible_particles
 
     use grasph_constants, only: fp
-    use grasph_particles, only: base_particle, particle_system_t, base_state_updater
+    use grasph_particles, only: base_particle_t, particle_system_t, base_state_updater
 
     implicit none
 
     private
 
-    type, extends(base_particle):: eos_particle
+    type, extends(base_particle_t):: eos_particle
         real(fp):: p
     end type eos_particle
 
@@ -39,7 +39,7 @@ contains
     subroutine linear_eos_update_state(self, ps, n, dt)
         class(linear_eos_state_updater), intent(in):: self
         integer, intent(in):: n
-        class(base_particle), intent(inout):: ps(n)
+        class(base_particle_t), intent(inout):: ps(n)
         real(fp), intent(in), optional:: dt
         integer:: i
         select type (ps_eos => ps)
@@ -60,7 +60,7 @@ contains
     subroutine tait_eos_update_state(self, ps, n, dt)
         class(tait_eos_state_updater), intent(in):: self
         integer, intent(in):: n
-        class(base_particle), intent(inout):: ps(n)
+        class(base_particle_t), intent(inout):: ps(n)
         real(fp), intent(in), optional:: dt
         integer:: i
         select type (ps_eos => ps)

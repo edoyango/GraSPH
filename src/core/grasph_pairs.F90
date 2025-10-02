@@ -6,7 +6,7 @@ module grasph_pairs
 
     use grasph_constants, only: fp, ndims
     use grasph_kernels, only: grasph_base_kernel
-    use grasph_particles, only: base_particle
+    use grasph_particles, only: base_particle_t
 
     implicit none
 
@@ -84,7 +84,7 @@ contains
     pure subroutine dsearch_self(ps, cutoff, kernel, pairs)
 
         type(particle_pairs), intent(inout):: pairs
-        type(base_particle), intent(in):: ps(:)
+        type(base_particle_t), intent(in):: ps(:)
         real(fp), intent(in):: cutoff
         class(grasph_base_kernel), intent(in):: kernel
         integer:: i, j, n
@@ -119,7 +119,7 @@ contains
     pure subroutine dsearch_other(ps_lhs, ps_rhs, cutoff, kernel, pairs)
 
         type(particle_pairs), intent(inout):: pairs
-        class(base_particle), intent(in):: ps_lhs(:), ps_rhs(:)
+        class(base_particle_t), intent(in):: ps_lhs(:), ps_rhs(:)
         real(fp), intent(in):: cutoff
         class(grasph_base_kernel), intent(in):: kernel
         integer:: i, j, n_lhs, n_rhs
@@ -152,7 +152,7 @@ contains
     pure subroutine cell_list_search_self(ps, cutoff, kernel, pairs)
 
         type(particle_pairs), intent(inout):: pairs
-        class(base_particle), intent(in):: ps(:)
+        class(base_particle_t), intent(in):: ps(:)
         real(fp), intent(in):: cutoff
         class(grasph_base_kernel), intent(in):: kernel
         real(fp):: minextents(ndims), maxextents(ndims), dcell
@@ -195,7 +195,7 @@ contains
 
         type(particle_pairs), intent(inout):: pairs
         real(fp), intent(in):: cutoff
-        class(base_particle), intent(in):: ps(:)
+        class(base_particle_t), intent(in):: ps(:)
         class(grasph_base_kernel), intent(in):: kernel
         integer, intent(in):: ngridx(ndims), grid_idx(ndims, size(ps))
         integer:: i, j, icell, jcell, jj, pic, n
@@ -322,7 +322,7 @@ contains
     pure subroutine cell_list_search_other(ps_lhs, ps_rhs, cutoff, kernel, pairs)
 
         type(particle_pairs), intent(inout):: pairs
-        class(base_particle), intent(in):: ps_lhs(:), ps_rhs(:)
+        class(base_particle_t), intent(in):: ps_lhs(:), ps_rhs(:)
         real(fp), intent(in):: cutoff
         class(grasph_base_kernel), intent(in):: kernel
         real(fp):: minextents(pairs%ndims), maxextents(pairs%ndims), dcell
@@ -371,7 +371,7 @@ contains
         type(particle_pairs), intent(inout):: pairs
         real(fp), intent(in):: minextents(ndims), cutoff
         class(grasph_base_kernel), intent(in):: kernel
-        class(base_particle), intent(in):: ps_lhs(:), ps_rhs(:)
+        class(base_particle_t), intent(in):: ps_lhs(:), ps_rhs(:)
         integer, intent(in):: ngridx(ndims), grid_idx(ndims, size(ps_rhs))
         integer:: i, icell, jcell, kcell, this_cell(ndims), n_lhs, n_rhs
         real(fp):: dx(ndims)
@@ -455,7 +455,7 @@ contains
     pure subroutine sweep_cell(cutoff, xi, n, ps_rhs, n_in_cell, p_in_cell, kernel, pairs, i)
 
         integer, intent(in):: n, n_in_cell, p_in_cell(n_in_cell)
-        class(base_particle), intent(in):: ps_rhs(n)
+        class(base_particle_t), intent(in):: ps_rhs(n)
         real(fp), intent(in):: cutoff, xi(ndims)
         class(grasph_base_kernel), intent(in):: kernel
         type(particle_pairs), intent(inout):: pairs

@@ -1,7 +1,7 @@
 module test_pair_finding
 
     use grasph_constants, only: fp
-    use grasph_particles, only: base_particle
+    use grasph_particles, only: base_particle_t
     use grasph_kernels, only: grasph_cubic_bspline_kernel
     use grasph_pairs, only: particle_pairs, dsearch, cell_list_search
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
@@ -14,10 +14,10 @@ module test_pair_finding
     ! data for testing
     real(fp), parameter:: dx = 0.25_fp
 #ifdef THREED
-    type(base_particle):: ps(27), ps_other(64)
+    type(base_particle_t):: ps(27), ps_other(64)
     integer:: pairs3d_1(2, 351), pairs3d_2(2, 158), pairs3d_other(2, 216)
 #else
-    type(base_particle):: ps(16), ps_other(25)
+    type(base_particle_t):: ps(16), ps_other(25)
     integer:: pairs2d_1(2, 120), pairs2d_2(2, 42), pairs2d_other(2, 64)
 #endif
 
@@ -141,7 +141,7 @@ contains
     subroutine check_pairs(pairs, ps_lhs, ps_rhs, correct_pairs, ncorrect_pairs, case_string, kernel)
 
         type(particle_pairs), intent(in):: pairs
-        type(base_particle), intent(in):: ps_lhs(:), ps_rhs(:)
+        type(base_particle_t), intent(in):: ps_lhs(:), ps_rhs(:)
         integer, intent(in):: ncorrect_pairs, correct_pairs(2, ncorrect_pairs)
         character(*), intent(in):: case_string
         type(grasph_cubic_bspline_kernel), intent(in):: kernel

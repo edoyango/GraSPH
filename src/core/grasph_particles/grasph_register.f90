@@ -5,7 +5,7 @@
 module grasph_register
 
     use grasph_constants, only: fp, ndims
-    use grasph_particle, only: base_particle
+    use grasph_particle_m, only: base_particle_t
     use iso_c_binding, only: c_intptr_t, c_f_pointer, c_ptr, c_loc
 
     implicit none
@@ -63,7 +63,7 @@ contains
     !> @param member_deriv The derivative of the member being registered. Should also be a member of "base".
     subroutine register_variable_deriv_vector(self, base, name, member, member_deriv)
         class(variable_deriv_register), intent(inout):: self
-        class(base_particle), target, intent(in):: base
+        class(base_particle_t), target, intent(in):: base
         character(*), intent(in):: name
         real(fp), target, intent(in):: member(:), member_deriv(:)
 
@@ -85,7 +85,7 @@ contains
     !> @param member_deriv The derivative of the member being registered. Should also be a member of "base".
     subroutine register_variable_deriv_scalar(self, base, name, member, member_deriv)
         class(variable_deriv_register), intent(inout):: self
-        class(base_particle), target, intent(in):: base
+        class(base_particle_t), target, intent(in):: base
         character(*), intent(in):: name
         real(fp), target, intent(in):: member, member_deriv
         integer(c_intptr_t):: base_addr
@@ -124,7 +124,7 @@ contains
     !> @param ptr_deriv The pointer that will be associated to base's member's derivative.
     subroutine get(self, base, idx, ptr, ptr_deriv)
         class(variable_deriv_register), intent(in):: self
-        class(base_particle), target, intent(in):: base
+        class(base_particle_t), target, intent(in):: base
         integer, intent(in):: idx
         real(fp), pointer, intent(out):: ptr(:), ptr_deriv(:)
         integer(c_intptr_t):: base_addr
@@ -164,7 +164,7 @@ contains
     !> @param member The member variable of "base" being registered.
     subroutine register_variable_vector(self, base, name, member)
         class(variable_register), intent(inout):: self
-        class(base_particle), target, intent(in):: base
+        class(base_particle_t), target, intent(in):: base
         character(*), intent(in):: name
         real(fp), target, intent(in):: member(:)
 
@@ -183,7 +183,7 @@ contains
     !> @param member The member variable of "base" being registered.
     subroutine register_variable_scalar(self, base, name, member)
         class(variable_register), intent(inout):: self
-        class(base_particle), target, intent(in):: base
+        class(base_particle_t), target, intent(in):: base
         character(*), intent(in):: name
         real(fp), target, intent(in):: member
         integer(c_intptr_t):: base_addr
@@ -208,7 +208,7 @@ contains
     !> @param ptr The pointer that will be associated to base's member.
     subroutine get_variable(self, base, idx, ptr)
         class(variable_register), intent(in):: self
-        class(base_particle), target, intent(in):: base
+        class(base_particle_t), target, intent(in):: base
         integer, intent(in):: idx
         real(fp), pointer, intent(out):: ptr(:)
         integer(c_intptr_t):: base_addr

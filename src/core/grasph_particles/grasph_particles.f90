@@ -6,7 +6,7 @@ module grasph_particles
 
     use iso_fortran_env, only: error_unit
     use grasph_constants, only: fp, ndims
-    use grasph_particle, only: base_particle
+    use grasph_particle_m, only: base_particle_t
     use grasph_common, only: array_pointer_container
     use grasph_register, only: variable_register, variable_deriv_register, max_registrations
 
@@ -21,7 +21,7 @@ module grasph_particles
     !> @brief Manages a group of particles that behave similarly.
     type:: particle_system_t
         !> @brief The particles that comprise the system.
-        class(base_particle), allocatable:: particles(:)
+        class(base_particle_t), allocatable:: particles(:)
         !> @brief Whether the system have been initialized.
         logical:: initialized = .false.
         !> @brief Whether to print information when generate_summary is called.
@@ -60,7 +60,7 @@ module grasph_particles
         procedure:: generate_summary => base_generate_summary
     end type particle_system_t
 
-    public:: base_particle, particle_system_t, base_state_updater, max_registrations
+    public:: base_particle_t, particle_system_t, base_state_updater, max_registrations
 
 contains
 
@@ -74,7 +74,7 @@ contains
         class(particle_system_t), intent(inout):: self
         integer, intent(in):: n
         character(*), intent(in):: name
-        class(base_particle), optional, intent(in):: particle_template
+        class(base_particle_t), optional, intent(in):: particle_template
         class(base_state_updater), optional, intent(in):: state_updater
 
         if (self%initialized) call self%base_clear()
@@ -118,7 +118,7 @@ contains
     subroutine base_update_state(self, ps, n, dt)
         class(base_state_updater), intent(in):: self
         integer, intent(in):: n
-        class(base_particle), intent(inout):: ps(n)
+        class(base_particle_t), intent(inout):: ps(n)
         real(fp), intent(in), optional:: dt
         ! do nothing e.g. when using static repulsive boundaries that have no state
     end subroutine base_update_state

@@ -2,7 +2,7 @@
 !> @brief Module containing the base particle class.
 !> @author Edward Yang
 !> @date 2025-10-02
-module grasph_particle
+module grasph_particle_m
 
     use grasph_constants, only: fp, ndims
 
@@ -11,7 +11,7 @@ module grasph_particle
     private
 
     !> @brief base particle type.
-    type:: base_particle
+    type:: base_particle_t
         !> @brief the ID of the particle.
         integer:: id
         !> @brief An integer indicating the "type" of the particle. Not currently used for anything and may be removed.
@@ -30,8 +30,8 @@ module grasph_particle
         real(fp):: dvxdt(ndims)
         !> @brief The density rate-of-change of the particle.
         real(fp):: drhodt
-    end type base_particle
+    end type base_particle_t
 
-    public:: base_particle
+    public:: base_particle_t
 
-end module grasph_particle
+end module grasph_particle_m
