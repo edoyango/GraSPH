@@ -9,7 +9,7 @@ module grasph_monaghan1994
 
     use grasph_constants, only: fp
     use grasph_particles, only: base_particles
-    use weakly_compressible_particles, only: linear_eos_particle, tait_eos_state_updater
+    use weakly_compressible_particles, only: eos_particle, tait_eos_state_updater
     use grasph_pairs, only: particle_pairs
     use grasph_pair_sets, only: particle_interactions, base_sweeper
     use weakly_compressible_interactions, only: fluid_sweeper
@@ -86,7 +86,7 @@ program main
     type(fluid_sweeper):: self_sweeper
     type(fluid_boundary_sweeper):: boundary_sweeper
     type(xsph_shifter):: shifter
-    type(linear_eos_particle):: ps_template
+    type(eos_particle):: ps_template
     type(tait_eos_state_updater):: state_updater
 
     ! init fluid particles
@@ -100,7 +100,7 @@ program main
 
     ! register variables for io
     select type (p => ps(1)%ps)
-    class is (linear_eos_particle)
+    class is (eos_particle)
         call ps(1)%register_io%register_variable(p(1), "x", p(1)%x)
         call ps(1)%register_io%register_variable(p(1), "v", p(1)%v)
         call ps(1)%register_io%register_variable(p(1), "rho", p(1)%rho)
@@ -110,7 +110,7 @@ program main
         call ps(1)%register_io%register_variable(p(1), "drhodt", p(1)%drhodt)
         call ps(1)%register_io%register_variable(p(1), "p", p(1)%p)
     class default
-        error stop "Expected linear_eos_particle for ps(1)%p."
+        error stop "Expected eos_particle for ps(1)%p."
     end select
     call ps(2)%register_io%register_variable(ps(2)%ps(1), "x", ps(2)%ps(1)%x)
     call ps(2)%register_io%register_variable(ps(2)%ps(1), "v", ps(2)%ps(1)%v)

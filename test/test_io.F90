@@ -2,7 +2,7 @@ module test_io
 
     use grasph_constants, only: fp, ndims
     use grasph_particles, only: base_particles
-    use weakly_compressible_particles, only: linear_eos_particle
+    use weakly_compressible_particles, only: eos_particle
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
     implicit none
@@ -91,14 +91,14 @@ contains
         integer:: i, d
         character(2):: ic
         character:: dc
-        type(linear_eos_particle), pointer:: ps_lhs(:), ps_rhs(:)
-        type(linear_eos_particle):: ps_template
+        type(eos_particle), pointer:: ps_lhs(:), ps_rhs(:)
+        type(eos_particle):: ps_template
         character(*), parameter:: name = "test_wcp_particles"
 
         call ps%base_init(n=10, name=name, ps_template=ps_template)
 
         select type (psf => ps%ps)
-        class is (linear_eos_particle)
+        class is (eos_particle)
             ps_lhs => psf
             call ps%register_io%register_variable(psf(1), "x", psf(1)%x)
             call ps%register_io%register_variable(psf(1), "v", psf(1)%v)
@@ -109,7 +109,7 @@ contains
             call ps%register_io%register_variable(psf(1), "drhodt", psf(1)%drhodt)
             call ps%register_io%register_variable(psf(1), "p", psf(1)%p)
         class default
-            error stop "Expected linear_eos_particle for ps%ps."
+            error stop "Expected eos_particle for ps%ps."
         end select
 
         do i = 1, 10
@@ -132,7 +132,7 @@ contains
         call ps2%base_init(n=10, name=name, ps_template=ps_template)
 
         select type (psf => ps2%ps)
-        class is (linear_eos_particle)
+        class is (eos_particle)
             ps_rhs => psf
             call ps2%register_io%register_variable(psf(1), "x", psf(1)%x)
             call ps2%register_io%register_variable(psf(1), "v", psf(1)%v)
@@ -143,7 +143,7 @@ contains
             call ps2%register_io%register_variable(psf(1), "drhodt", psf(1)%drhodt)
             call ps2%register_io%register_variable(psf(1), "p", psf(1)%p)
         class default
-            error stop "Expected linear_eos_particle for ps2%ps."
+            error stop "Expected eos_particle for ps2%ps."
         end select
 
         call ps2%read("/tmp/grasph_particles_0000000001.h5", name)

@@ -7,9 +7,13 @@ module weakly_compressible_particles
     use grasph_constants, only: fp
     use grasph_particles, only: base_particle, base_particles, base_state_updater
 
-    type, extends(base_particle):: linear_eos_particle
+    implicit none
+
+    private
+
+    type, extends(base_particle):: eos_particle
         real(fp):: p
-    end type linear_eos_particle
+    end type eos_particle
 
     type, extends(base_state_updater):: linear_eos_state_updater
         real(fp):: rho_ref
@@ -22,6 +26,8 @@ module weakly_compressible_particles
     contains
         procedure:: update_state => tait_eos_update_state
     end type tait_eos_state_updater
+
+    public:: eos_particle, linear_eos_state_updater, tait_eos_state_updater
 
 contains
 
@@ -37,12 +43,12 @@ contains
         real(fp), intent(in), optional:: dt
         integer:: i
         select type (ps_eos => ps)
-        class is (linear_eos_particle)
+        class is (eos_particle)
             do i = 1, n
                 ps_eos(i)%p = ps_eos(i)%c**2*(ps_eos(i)%rho - self%rho_ref)
             end do
         class default
-            error stop "linear_eos_particle required"
+            error stop "eos_particle required"
         end select
     end subroutine linear_eos_update_state
 
@@ -58,13 +64,13 @@ contains
         real(fp), intent(in), optional:: dt
         integer:: i
         select type (ps_eos => ps)
-        class is (linear_eos_particle)
+        class is (eos_particle)
             do i = 1, n
                 ps_eos(i)%p = self%rho_ref*ps_eos(i)%c*ps_eos(i)%c/real(self%gamma, kind=fp)* &
                               ((ps_eos(i)%rho/self%rho_ref)**self%gamma - 1._fp)
             end do
         class default
-            error stop "linear_eos_particle required"
+            error stop "eos_particle required"
         end select
     end subroutine tait_eos_update_state
 

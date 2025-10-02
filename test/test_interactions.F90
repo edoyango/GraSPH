@@ -4,7 +4,7 @@ module test_interactions
     use grasph_kernels, only: grasph_base_kernel, grasph_cubic_bspline_kernel
     use grasph_pairs, only: particle_pairs, cell_list_search
     use grasph_particles, only: base_particles
-    use weakly_compressible_particles, only: wc_particle => linear_eos_particle
+    use weakly_compressible_particles, only: wc_particle => eos_particle
     use grasph_pair_sets, only: particle_interactions, base_sweeper
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
@@ -83,7 +83,7 @@ contains
         class is (wc_particle)
             ps_lhs => ps
         class default
-            error stop "Expected linear_eos_particle for realp%ps."
+            error stop "Expected eos_particle for realp%ps."
         end select
         do concurrent(i=0:nxr - 1, j=0:nxr - 1)
             ii = i*nxr + j + 1
@@ -95,7 +95,7 @@ contains
         class is (wc_particle)
             ps_rhs => ps
         class default
-            error stop "Expected linear_eos_particle for virt%ps."
+            error stop "Expected eos_particle for virt%ps."
         end select
         do concurrent(i=0:nxv - 1, j=0:nxv - 1)
             ii = i*nxv + j + 1
@@ -162,7 +162,7 @@ contains
         class is (wc_particle)
             ps_real => psr
         class default
-            error stop "Expected linear_eos_particle for ps%ps"
+            error stop "Expected eos_particle for ps%ps"
         end select
 
         call ps%init(27, "test", 0._fp)

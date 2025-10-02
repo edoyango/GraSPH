@@ -6,7 +6,7 @@ module weakly_compressible_interactions
 
     use grasph_constants, only: fp, ndims
     use grasph_particles, only: base_particles
-    use weakly_compressible_particles, only: linear_eos_particle
+    use weakly_compressible_particles, only: eos_particle
     use grasph_pair_sets, only: particle_interactions, base_sweeper
     use grasph_pairs, only: particle_pairs
     use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force
@@ -41,13 +41,13 @@ contains
         type(particle_pairs), intent(in):: pairs
         class(base_particles), intent(inout):: ps_lhs
         class(base_particles), optional, intent(inout):: ps_rhs
-        class(linear_eos_particle), pointer:: fluid_lhs(:), fluid_rhs(:)
+        class(eos_particle), pointer:: fluid_lhs(:), fluid_rhs(:)
         integer:: i, j, k
         real(fp):: dummy_drhodt, dummy_dvxdt(ndims) ! dummy variables for when update_rhs is .false.
 
         ! point to lhs particlse for access to pressure member
         select type (ps => ps_lhs%ps)
-        class is (linear_eos_particle)
+        class is (eos_particle)
             fluid_lhs => ps
         class default
             error stop "Invalid type for ps_lhs"
@@ -66,7 +66,7 @@ contains
         if (present(ps_rhs)) then
             ! point to rhs particlse for access to pressure member
             select type (ps => ps_rhs%ps)
-            class is (linear_eos_particle)
+            class is (eos_particle)
                 fluid_rhs => ps
             class default
                 error stop "Invalid type for ps_rhs"

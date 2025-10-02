@@ -2,7 +2,7 @@ module test_time_integration
 
     use grasph_constants, only: fp
     use grasph_particles, only: base_particles
-    use weakly_compressible_particles, only: linear_eos_particle, linear_eos_state_updater
+    use weakly_compressible_particles, only: eos_particle, linear_eos_state_updater
     use grasph_kernels, only: grasph_cubic_bspline_kernel
     use grasph_pair_sets, only: particle_interactions
     use grasph_time_integration, only: leap_frog_time_integration
@@ -27,7 +27,7 @@ contains
         type(particle_interactions):: wcp_interaction_pairs(1)
         type(base_particles):: wcp_sets(1)
         type(grasph_cubic_bspline_kernel):: kernel
-        type(linear_eos_particle):: ps_template
+        type(eos_particle):: ps_template
         type(linear_eos_state_updater):: state_updater
 
         state_updater%rho_ref = 1000._fp
@@ -60,7 +60,7 @@ contains
         call check(is_close(wcp_sets(1)%ps(1)%drhodt, 1000._fp), "Incorrect value for drhodt") ! should be unchanged
         call check(is_close(wcp_sets(1)%ps(1)%rho, 1500._fp), "Incorrect value for rho") ! should be 1000 + (1/2)*1000
         select type (ps => wcp_sets(1)%ps)
-        type is (linear_eos_particle)
+        type is (eos_particle)
             call check(is_close(ps(1)%p, 1000._fp), "Incorrect value for p") ! should be 2**2*((1000 + 0.5*(1/2)*1000) - 1000)
         end select
 
@@ -78,7 +78,7 @@ contains
         call check(is_close(wcp_sets(1)%ps(1)%drhodt, 1000._fp), "Incorrect value for drhodt") ! should be unchanged
         call check(is_close(wcp_sets(1)%ps(1)%rho, 2000._fp), "Incorrect value for rho") ! should be 1500 + (1/2)*1000
         select type (ps => wcp_sets(1)%ps)
-        type is (linear_eos_particle)
+        type is (eos_particle)
             call check(is_close(ps(1)%p, 3000._fp), "Incorrect value for p") ! should be 2**2*((1500 + 0.5*(1/2)*1000) - 1000)
         end select
 

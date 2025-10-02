@@ -9,7 +9,7 @@ program main
 
     use grasph_constants, only: fp, pi
     use grasph_particles, only: base_particles
-    use weakly_compressible_particles, only: tait_eos_state_updater, linear_eos_particle
+    use weakly_compressible_particles, only: tait_eos_state_updater, eos_particle
     use weakly_compressible_interactions, only: fluid_sweeper
     use grasph_pair_sets, only: particle_interactions
     use grasph_time_integration, only: leap_frog_time_integration
@@ -28,7 +28,7 @@ program main
     type(fluid_sweeper):: sweeper
     type(xsph_shifter):: shifter
     type(tait_eos_state_updater):: state_updater
-    type(linear_eos_particle):: ps_template
+    type(eos_particle):: ps_template
     real(fp):: x, y
 
     ! init fluid particles
@@ -42,7 +42,7 @@ program main
 
     ! register variables for io
     select type (p => ps(1)%ps)
-    class is (linear_eos_particle)
+    class is (eos_particle)
         call ps(1)%register_io%register_variable(p(1), "x", p(1)%x)
         call ps(1)%register_io%register_variable(p(1), "v", p(1)%v)
         call ps(1)%register_io%register_variable(p(1), "rho", p(1)%rho)
@@ -52,7 +52,7 @@ program main
         call ps(1)%register_io%register_variable(p(1), "drhodt", p(1)%drhodt)
         call ps(1)%register_io%register_variable(p(1), "p", p(1)%p)
     class default
-        error stop "Expected linear_eos_particle for ps(1)%p."
+        error stop "Expected eos_particle for ps(1)%p."
     end select
 
     ! initialize geometry
