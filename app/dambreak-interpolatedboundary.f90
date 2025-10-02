@@ -71,12 +71,12 @@ program main
     use weakly_compressible_particles, only: tait_eos_state_updater, eos_particle
     use grasph_system_interactions_m, only: system_interaction_t
     use grasph_time_integration, only: leap_frog_time_integration
-    use grasph_kernels, only: grasph_cubic_bspline_kernel
+    use grasph_kernels_m, only: cubic_bspline_kernel_t
 
     implicit none
     type(particle_system_t):: psys(2)
     type(system_interaction_t):: psys_interactions(2)
-    type(grasph_cubic_bspline_kernel):: kernel
+    type(cubic_bspline_kernel_t):: kernel
     type(fluid_sweeper):: sweeper
     type(boundary_update_sweeper):: boundary_sweeper
     type(xsph_shifter):: shifter

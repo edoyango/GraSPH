@@ -7,7 +7,7 @@ module grasph_time_integration
     use grasph_constants, only: fp
     use grasph_particle_system_m, only: particle_system_t, max_registrations
     use grasph_system_interactions_m, only: system_interaction_t
-    use grasph_kernels, only: grasph_base_kernel
+    use grasph_kernels_m, only: base_kernel_t
     use grasph_misc, only: print_summary, system_timer
     use grasph_common, only: array_pointer_container
 
@@ -36,7 +36,7 @@ contains
         class(particle_system_t):: psystems(:)
         class(system_interaction_t):: interactions(:)
         real(fp), intent(in):: CFL
-        class(grasph_base_kernel), intent(in):: kernel
+        class(base_kernel_t), intent(in):: kernel
         character(*), intent(in):: output_path
         character(*), optional, intent(in):: output_prefix
         integer, optional, intent(in):: output_comp_level

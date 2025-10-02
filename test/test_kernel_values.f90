@@ -1,7 +1,7 @@
 module test_kernel_values
 
     use grasph_constants, only: fp, pi
-    use grasph_kernels, only: grasph_base_kernel, grasph_cubic_bspline_kernel
+    use grasph_kernels_m, only: base_kernel_t, cubic_bspline_kernel_t
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
     implicit none
@@ -18,7 +18,7 @@ contains
 
     subroutine test_cubic_spline_values()
         implicit none
-        type(grasph_cubic_bspline_kernel):: my_kernel
+        type(cubic_bspline_kernel_t):: my_kernel
         real(fp):: w, dwdx(3)
         integer:: d
         real(fp), parameter:: h = 1.2_fp, alpha2d = 10._fp/(7._fp*pi*h*h), alpha3d = 1._fp/(pi*h*h*h)

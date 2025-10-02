@@ -5,7 +5,7 @@
 module grasph_pairs_m
 
     use grasph_constants, only: fp, ndims
-    use grasph_kernels, only: grasph_base_kernel
+    use grasph_kernels_m, only: base_kernel_t
     use grasph_particle_system_m, only: base_particle_t
 
     implicit none
@@ -86,7 +86,7 @@ contains
         type(particle_pairs_t), intent(inout):: pairs
         type(base_particle_t), intent(in):: ps(:)
         real(fp), intent(in):: cutoff
-        class(grasph_base_kernel), intent(in):: kernel
+        class(base_kernel_t), intent(in):: kernel
         integer:: i, j, n
         real(fp):: dx(ndims)
 
@@ -121,7 +121,7 @@ contains
         type(particle_pairs_t), intent(inout):: pairs
         class(base_particle_t), intent(in):: ps_lhs(:), ps_rhs(:)
         real(fp), intent(in):: cutoff
-        class(grasph_base_kernel), intent(in):: kernel
+        class(base_kernel_t), intent(in):: kernel
         integer:: i, j, n_lhs, n_rhs
         real(fp):: dx(ndims)
 
@@ -154,7 +154,7 @@ contains
         type(particle_pairs_t), intent(inout):: pairs
         class(base_particle_t), intent(in):: ps(:)
         real(fp), intent(in):: cutoff
-        class(grasph_base_kernel), intent(in):: kernel
+        class(base_kernel_t), intent(in):: kernel
         real(fp):: minextents(ndims), maxextents(ndims), dcell
         integer:: i, n, ngridx(ndims), grid_idx(ndims, size(ps)) ! might need to be allocatable in the future...
 
@@ -196,7 +196,7 @@ contains
         type(particle_pairs_t), intent(inout):: pairs
         real(fp), intent(in):: cutoff
         class(base_particle_t), intent(in):: ps(:)
-        class(grasph_base_kernel), intent(in):: kernel
+        class(base_kernel_t), intent(in):: kernel
         integer, intent(in):: ngridx(ndims), grid_idx(ndims, size(ps))
         integer:: i, j, icell, jcell, jj, pic, n
         real(fp):: dx(ndims)
@@ -324,7 +324,7 @@ contains
         type(particle_pairs_t), intent(inout):: pairs
         class(base_particle_t), intent(in):: ps_lhs(:), ps_rhs(:)
         real(fp), intent(in):: cutoff
-        class(grasph_base_kernel), intent(in):: kernel
+        class(base_kernel_t), intent(in):: kernel
         real(fp):: minextents(pairs%ndims), maxextents(pairs%ndims), dcell
         integer:: i, ngridx(ndims), grid_idx(ndims, size(ps_rhs)) ! might need to be allocatable in the future...
 
@@ -370,7 +370,7 @@ contains
     pure subroutine grid_sweep_other(cutoff, kernel, minextents, ngridx, grid_idx, ps_lhs, ps_rhs, pairs)
         type(particle_pairs_t), intent(inout):: pairs
         real(fp), intent(in):: minextents(ndims), cutoff
-        class(grasph_base_kernel), intent(in):: kernel
+        class(base_kernel_t), intent(in):: kernel
         class(base_particle_t), intent(in):: ps_lhs(:), ps_rhs(:)
         integer, intent(in):: ngridx(ndims), grid_idx(ndims, size(ps_rhs))
         integer:: i, icell, jcell, kcell, this_cell(ndims), n_lhs, n_rhs
@@ -457,7 +457,7 @@ contains
         integer, intent(in):: n, n_in_cell, p_in_cell(n_in_cell)
         class(base_particle_t), intent(in):: ps_rhs(n)
         real(fp), intent(in):: cutoff, xi(ndims)
-        class(grasph_base_kernel), intent(in):: kernel
+        class(base_kernel_t), intent(in):: kernel
         type(particle_pairs_t), intent(inout):: pairs
         integer, intent(in):: i
         integer:: j, pic

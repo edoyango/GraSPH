@@ -1,7 +1,7 @@
 module test_interactions
 
     use grasph_constants, only: fp
-    use grasph_kernels, only: grasph_base_kernel, grasph_cubic_bspline_kernel
+    use grasph_kernels_m, only: base_kernel_t, cubic_bspline_kernel_t
     use grasph_pairs_m, only: particle_pairs_t, cell_list_search
     use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_particles, only: eos_particle
@@ -69,7 +69,7 @@ contains
         type(system_interaction_t):: real_virt_set
         type(example_real_virt_sweeper):: rv_sweeper
         type(particle_system_t), target:: psys_real, psys_virt
-        type(grasph_cubic_bspline_kernel):: kernel
+        type(cubic_bspline_kernel_t):: kernel
         integer:: ii, j, i
         character:: ic
         integer, parameter:: nd = 2, nxr = 2, nr = nxr**nd, nxv = 3, nv = nxv**nd
@@ -151,7 +151,7 @@ contains
     subroutine test_find_self_pairs()
 
         type(particle_system_t):: psys
-        type(grasph_cubic_bspline_kernel):: kernel
+        type(cubic_bspline_kernel_t):: kernel
         type(system_interaction_t):: ps_set
         integer:: i, j, k, ii
         class(eos_particle), pointer:: ps_real(:)

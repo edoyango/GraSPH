@@ -7,7 +7,7 @@ module grasph_system_interactions_m
     use grasph_constants, only: fp
     use grasph_particle_system_m, only: particle_system_t
     use grasph_pairs_m, only: particle_pairs_t, cell_list_search
-    use grasph_kernels, only: grasph_base_kernel
+    use grasph_kernels_m, only: base_kernel_t
 
     implicit none
 
@@ -162,7 +162,7 @@ contains
     subroutine particle_interactions_find_pairs(self, cutoff, kernel)
         class(system_interaction_t), intent(inout):: self
         real(fp), intent(in):: cutoff
-        class(grasph_base_kernel), intent(in):: kernel
+        class(base_kernel_t), intent(in):: kernel
 
         if (self%is_pair_set) then
             call cell_list_search(self%psys_lhs%particles, self%psys_rhs%particles, cutoff, kernel, self%pairs)

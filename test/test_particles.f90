@@ -1,7 +1,6 @@
 module test_particles
 
     use grasph_constants, only: fp, ndims
-    use grasph_kernels, only: grasph_cubic_bspline_kernel
     use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_particles, only: eos_particle, linear_eos_state_updater
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list

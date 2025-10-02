@@ -1,13 +1,17 @@
-module grasph_kernels
+!> @file grasph_kernels.f90
+!> @brief Contains truncated kernels that can be used in SPH.
+!> @author Edward Yang
+!> @date 2025-06-01
+module grasph_kernels_m
 
     use grasph_constants, only: fp, pi
 
     implicit none
 
-    ! private
+    private
 
     !> @brief base kernel which describes required members and methods of a kernel
-    type, abstract:: grasph_base_kernel
+    type, abstract:: base_kernel_t
         !> @brief Number of spatial dimensions
         integer:: d = 0
         !> @brief Normalization factor base on kernel and spatial dimension.
@@ -28,15 +32,15 @@ module grasph_kernels
         procedure(w_interface), deferred:: w
         !> @brief The spatial gradient of the kernel gradient.
         procedure(w_interface), deferred:: gradw
-    end type grasph_base_kernel
+    end type base_kernel_t
 
     interface
         !> @brief The kernel function interface.
         !> @param self The kernel class with required constants.
         !> @param q The distance value, normalized by smoothing length.
         real(fp) pure function w_interface(self, q)
-            import:: fp, grasph_base_kernel
-            class(grasph_base_kernel), intent(in):: self
+            import:: fp, base_kernel_t
+            class(base_kernel_t), intent(in):: self
             real(fp), intent(in):: q
         end function w_interface
         !> @brief The kernel initializer interface.
@@ -44,15 +48,15 @@ module grasph_kernels
         !> @param d The spatial dimension.
         !> @param h The constant smoothing length.
         subroutine kernel_init_interface(self, d, h)
-            import:: fp, grasph_base_kernel
-            class(grasph_base_kernel), intent(inout):: self
+            import:: fp, base_kernel_t
+            class(base_kernel_t), intent(inout):: self
             integer, intent(in):: d
             real(fp), intent(in):: h
         end subroutine kernel_init_interface
     end interface
 
     !> @brief Implementation of the cubic B-spline SPH kernel.
-    type, extends(grasph_base_kernel):: grasph_cubic_bspline_kernel
+    type, extends(base_kernel_t):: cubic_bspline_kernel_t
     contains
         !> @brief Overriden initializer for the cubic B-spline kernel.
         procedure:: init => init_cubic_bspline
@@ -60,9 +64,9 @@ module grasph_kernels
         procedure:: w => w_cubic_bspline
         !> @brief Concret definition of the cubic B-spline kernel gradient.
         procedure:: gradw => gradw_cubic_bspline
-    end type grasph_cubic_bspline_kernel
+    end type cubic_bspline_kernel_t
 
-    public:: grasph_base_kernel, grasph_cubic_bspline_kernel
+    public:: base_kernel_t, cubic_bspline_kernel_t
 contains
 
     !> @brief A call to calculate both kernel values and gradients.
@@ -71,7 +75,7 @@ contains
     !> @param w The return kernel value.
     !> @param dwdx The return kernel gradient values.
     pure subroutine values(self, dx, w, dwdx)
-        class(grasph_base_kernel), intent(in):: self
+        class(base_kernel_t), intent(in):: self
         real(fp), intent(in):: dx(self%d)
         real(fp), intent(out):: w, dwdx(self%d)
         real(fp):: q, r
@@ -86,7 +90,7 @@ contains
     !> @param d The spatial dimension.
     !> @param h The smoothing length to use.
     subroutine init_cubic_bspline(self, d, h)
-        class(grasph_cubic_bspline_kernel), intent(inout):: self
+        class(cubic_bspline_kernel_t), intent(inout):: self
         integer, intent(in):: d
         real(fp), intent(in):: h
         self%d = d
@@ -104,7 +108,7 @@ contains
     !> @param self The cubic B-spline kernel with needed constants.
     !> @param q The normalized distance between particles.
     real(fp) pure function w_cubic_bspline(self, q)
-        class(grasph_cubic_bspline_kernel), intent(in):: self
+        class(cubic_bspline_kernel_t), intent(in):: self
         real(fp), intent(in):: q
         w_cubic_bspline = self%alpha*(0.25_fp*dim(2._fp, q)**3 - dim(1._fp, q)**3)
     end function w_cubic_bspline
@@ -113,9 +117,9 @@ contains
     !> @param self The cubic B-spline kernel with needed constants.
     !> @param q The normalized distance between particles.
     real(fp) pure function gradw_cubic_bspline(self, q)
-        class(grasph_cubic_bspline_kernel), intent(in):: self
+        class(cubic_bspline_kernel_t), intent(in):: self
         real(fp), intent(in):: q
         gradw_cubic_bspline = -self%alpha*3._fp*(0.25_fp*dim(2._fp, q)**2 - dim(1._fp, q)**2)
     end function gradw_cubic_bspline
 
-end module grasph_kernels
+end module grasph_kernels_m

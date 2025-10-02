@@ -13,7 +13,7 @@ program main
     use weakly_compressible_interactions, only: fluid_sweeper
     use grasph_system_interactions_m, only: system_interaction_t
     use grasph_time_integration, only: leap_frog_time_integration
-    use grasph_kernels, only: grasph_cubic_bspline_kernel
+    use grasph_kernels_m, only: cubic_bspline_kernel_t
     use grasph_particle_shifting, only: xsph_shifter
 
     implicit none
@@ -23,7 +23,7 @@ program main
     integer, parameter:: nfx = 2._fp/dx, nfy = 2._fp/dx
     type(particle_system_t):: psys(1)
     type(system_interaction_t):: psys_interactions(1)
-    type(grasph_cubic_bspline_kernel):: kernel
+    type(cubic_bspline_kernel_t):: kernel
     integer:: i, j, k
     type(fluid_sweeper):: sweeper
     type(xsph_shifter):: shifter
