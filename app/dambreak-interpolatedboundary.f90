@@ -2,7 +2,7 @@ module grasph_monaghan1994_2
 
     use grasph_constants_m, only: fp
     use grasph_particle_system_m, only: particle_system_t
-    use weakly_compressible_interactions, only: fluid_sweeper_t
+    use weakly_compressible_interactions_m, only: fluid_sweeper_t
     use grasph_system_interactions_m, only: base_sweeper_t
     use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force, &
                                         repulsive_force

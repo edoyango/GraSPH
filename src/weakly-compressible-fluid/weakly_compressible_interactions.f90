@@ -2,7 +2,7 @@
 !> @brief Module containing subroutines for describing interactions between weakly compressible particles
 !> @author Edward Yang
 !> @date 2025-09-21
-module weakly_compressible_interactions
+module weakly_compressible_interactions_m
 
     use grasph_constants_m, only: fp, ndims
     use grasph_particle_system_m, only: particle_system_t
@@ -150,4 +150,4 @@ contains
         end if
     end subroutine fluid_sweep
 
-end module weakly_compressible_interactions
+end module weakly_compressible_interactions_m

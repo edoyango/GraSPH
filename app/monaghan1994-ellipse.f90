@@ -10,7 +10,7 @@ program main
     use grasph_constants_m, only: fp, pi
     use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_particles_m, only: tait_eos_state_updater_t, eos_particle_t
-    use weakly_compressible_interactions, only: fluid_sweeper_t
+    use weakly_compressible_interactions_m, only: fluid_sweeper_t
     use grasph_system_interactions_m, only: system_interaction_t
     use grasph_time_integration, only: leap_frog_time_integration
     use grasph_kernels_m, only: cubic_bspline_kernel_t
