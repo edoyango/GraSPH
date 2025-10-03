@@ -2,7 +2,7 @@
 !> @brief Module miscelaneous helper routines and types.
 !> @author Edward Yang
 !> @date 2025-06-09
-module grasph_misc
+module grasph_misc_m
 
     use grasph_constants_m, only: fp
     use grasph_particle_system_m, only: particle_system_t
@@ -103,4 +103,4 @@ contains
         self%ninteractions = self%ninteractions + int(ninteractions, kind=int64)
     end subroutine update_interactions
 
-end module grasph_misc
+end module grasph_misc_m
