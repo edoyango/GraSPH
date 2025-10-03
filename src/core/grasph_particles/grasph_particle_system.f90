@@ -44,7 +44,7 @@ module grasph_particle_system_m
         !> @brief The initializer for the base class.
         procedure:: init => base_init
         !> @brief A manual destructor to clean up.
-        procedure:: base_clear
+        procedure:: clear => base_clear
         !> @brief A method intended to be overriden when extended particles' state needs to be updated during time-integration.
         !>        Is called after any time-evolution has occurred, but before any sweeps are supposed to happen.
         !>        Does nothing in the particle_system_t instance.
@@ -77,7 +77,7 @@ contains
         class(base_particle_t), optional, intent(in):: particle_template
         class(base_state_updater_t), optional, intent(in):: state_updater
 
-        if (self%initialized) call self%base_clear()
+        if (self%initialized) call self%clear()
         if (present(particle_template)) then
             allocate (self%particles(n), source=particle_template)
         else
