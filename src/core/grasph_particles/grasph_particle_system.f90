@@ -8,7 +8,7 @@ module grasph_particle_system_m
     use grasph_constants_m, only: fp, ndims
     use grasph_particle_m, only: base_particle_t
     use grasph_common_m, only: array_pointer_container_t
-    use grasph_register, only: variable_register, variable_deriv_register, max_registrations
+    use grasph_register_m, only: variable_register_t, variable_deriv_register_t, max_registrations
 
     implicit none
     private
@@ -35,11 +35,11 @@ module grasph_particle_system_m
         !> @brief Allocatable "strategy" class that performs particles' state update.
         class(base_state_updater), allocatable:: state_updater
         !> @brief Register for variables to be updated only at full-timestep e.g. position (x).
-        type(variable_deriv_register):: register_x
+        type(variable_deriv_register_t):: register_x
         !> @brief Register for variables to be updated at mid- and full-timestep e.g. velocity (v) and density (rho).
-        type(variable_deriv_register):: register_v
+        type(variable_deriv_register_t):: register_v
         !> @brief Register for variables to be written/read.
-        type(variable_register):: register_io
+        type(variable_register_t):: register_io
     contains
         !> @brief The initializer for the base class. Intended to be called in extended types' initializer method.
         procedure:: base_init

@@ -2,7 +2,7 @@
 !> @brief Module containing classes for registering particle variables e.g. for io or time-evolution.
 !> @author Edward Yang
 !> @date 2025-10-02
-module grasph_register
+module grasph_register_m
 
     use grasph_constants_m, only: fp, ndims
     use grasph_particle_m, only: base_particle_t
@@ -16,7 +16,7 @@ module grasph_register
     integer, parameter:: max_registrations = 20
 
     !> @brief Registers particle's variables for access through pointer e.g. for dynamically selecting variables for IO.
-    type variable_register
+    type variable_register_t
         !> @brief Number of variables currently registered.
         integer:: nregistrations = 0
         !> @brief Dimension of each variable registered.
@@ -34,10 +34,10 @@ module grasph_register
         generic, public:: register_variable => register_variable_vector, register_variable_scalar
         !> @brief Associates pointer to a registered variable.
         procedure, public:: get_variable
-    end type variable_register
+    end type variable_register_t
 
     !> @brief Registers a particle's varaible, along with its derivative.
-    type, extends(variable_register):: variable_deriv_register
+    type, extends(variable_register_t):: variable_deriv_register_t
         !> @brief Offset in memory of registered derivative variables.
         integer(c_intptr_t):: deriv_offsets(max_registrations)
     contains
@@ -49,9 +49,9 @@ module grasph_register
         generic, public:: register => register_variable_deriv_vector, register_variable_deriv_scalar
         !> @brief Associates pointers to a registered variable and its derivative.
         procedure, public:: get
-    end type variable_deriv_register
+    end type variable_deriv_register_t
 
-    public:: max_registrations, variable_register, variable_deriv_register
+    public:: max_registrations, variable_register_t, variable_deriv_register_t
 
 contains
 
@@ -62,7 +62,7 @@ contains
     !> @param member The member variable of "base" being registered.
     !> @param member_deriv The derivative of the member being registered. Should also be a member of "base".
     subroutine register_variable_deriv_vector(self, base, name, member, member_deriv)
-        class(variable_deriv_register), intent(inout):: self
+        class(variable_deriv_register_t), intent(inout):: self
         class(base_particle_t), target, intent(in):: base
         character(*), intent(in):: name
         real(fp), target, intent(in):: member(:), member_deriv(:)
@@ -84,7 +84,7 @@ contains
     !> @param member The member variable of "base" being registered.
     !> @param member_deriv The derivative of the member being registered. Should also be a member of "base".
     subroutine register_variable_deriv_scalar(self, base, name, member, member_deriv)
-        class(variable_deriv_register), intent(inout):: self
+        class(variable_deriv_register_t), intent(inout):: self
         class(base_particle_t), target, intent(in):: base
         character(*), intent(in):: name
         real(fp), target, intent(in):: member, member_deriv
@@ -123,7 +123,7 @@ contains
     !> @param ptr The pointer that will be associated to base's member.
     !> @param ptr_deriv The pointer that will be associated to base's member's derivative.
     subroutine get(self, base, idx, ptr, ptr_deriv)
-        class(variable_deriv_register), intent(in):: self
+        class(variable_deriv_register_t), intent(in):: self
         class(base_particle_t), target, intent(in):: base
         integer, intent(in):: idx
         real(fp), pointer, intent(out):: ptr(:), ptr_deriv(:)
@@ -163,7 +163,7 @@ contains
     !> @param name The name of the variable being registered.
     !> @param member The member variable of "base" being registered.
     subroutine register_variable_vector(self, base, name, member)
-        class(variable_register), intent(inout):: self
+        class(variable_register_t), intent(inout):: self
         class(base_particle_t), target, intent(in):: base
         character(*), intent(in):: name
         real(fp), target, intent(in):: member(:)
@@ -182,7 +182,7 @@ contains
     !> @param name The name of the variable being registered.
     !> @param member The member variable of "base" being registered.
     subroutine register_variable_scalar(self, base, name, member)
-        class(variable_register), intent(inout):: self
+        class(variable_register_t), intent(inout):: self
         class(base_particle_t), target, intent(in):: base
         character(*), intent(in):: name
         real(fp), target, intent(in):: member
@@ -207,7 +207,7 @@ contains
     !> @param idx The index of the registered variable of interest.
     !> @param ptr The pointer that will be associated to base's member.
     subroutine get_variable(self, base, idx, ptr)
-        class(variable_register), intent(in):: self
+        class(variable_register_t), intent(in):: self
         class(base_particle_t), target, intent(in):: base
         integer, intent(in):: idx
         real(fp), pointer, intent(out):: ptr(:)
@@ -219,4 +219,4 @@ contains
 
     end subroutine get_variable
 
-end module grasph_register
+end module grasph_register_m
