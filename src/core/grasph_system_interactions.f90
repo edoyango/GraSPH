@@ -31,7 +31,7 @@ module grasph_system_interactions_m
         !> @brief Overridable "strategy" class that performs sweep.
         class(base_sweeper_t), allocatable:: sweeper
         !> @brief Overridable "strategy" class that performs shift.
-        class(base_shifter), allocatable:: shifter
+        class(base_shifter_t), allocatable:: shifter
     contains
         !> @brief Updates particles' state that depend on interpolated information. E.g. Updating virtual particles' data, which
         !>        requires a sweep. Does so by using the prologue_sweeper's sweep method.
@@ -61,15 +61,15 @@ module grasph_system_interactions_m
 
     !> @brief Base "strategy" class whose shift method is used to perform any particle shifting via position or velocity &
     !>        adjustments.
-    type:: base_shifter
+    type:: base_shifter_t
         !> @brief Controls whether to update the RHS particles (if they're associated).
         logical:: update_rhs = .true.
     contains
         !> @brief Perform particle shifting.
         procedure:: shift => donothing_shift
-    end type base_shifter
+    end type base_shifter_t
 
-    public:: system_interaction_t, base_sweeper_t, base_shifter
+    public:: system_interaction_t, base_sweeper_t, base_shifter_t
 
 contains
 
@@ -142,7 +142,7 @@ contains
     !>        owning system_interaction_t class.
     !> @param dt The time-step increment.
     subroutine donothing_shift(self, pairs, psys_lhs, psys_rhs, dt)
-        class(base_shifter), intent(in):: self
+        class(base_shifter_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
@@ -185,9 +185,9 @@ contains
         class(particle_system_t), target, intent(in):: psys_lhs
         class(particle_system_t), target, optional, intent(in):: psys_rhs
         class(base_sweeper_t), optional, intent(in):: prologue_sweeper, sweeper
-        class(base_shifter), optional, intent(in):: shifter
+        class(base_shifter_t), optional, intent(in):: shifter
         type(base_sweeper_t):: tmp_base_sweeper
-        type(base_shifter):: tmp_base_shifter
+        type(base_shifter_t):: tmp_base_shifter
         self%psys_lhs => psys_lhs
         if (present(psys_rhs)) then
             self%psys_rhs => psys_rhs

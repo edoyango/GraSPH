@@ -14,7 +14,7 @@ module grasph_monaghan1994
     use grasph_system_interactions_m, only: base_sweeper_t
     use weakly_compressible_interactions, only: fluid_sweeper_t
     use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, repulsive_force
-    use grasph_particle_shifting, only: xsph_shifter
+    use grasph_particle_shifting_m, only: xsph_shifter_t
 
     implicit none
     ! parameters to describe geometry
@@ -89,7 +89,7 @@ program main
     real(fp):: analytical_pressure
     type(fluid_sweeper_t):: self_sweeper
     type(fluid_boundary_sweeper_t):: boundary_sweeper
-    type(xsph_shifter):: shifter
+    type(xsph_shifter_t):: shifter
     type(eos_particle):: ps_template
     type(tait_eos_state_updater):: state_updater
 

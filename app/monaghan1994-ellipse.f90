@@ -14,7 +14,7 @@ program main
     use grasph_system_interactions_m, only: system_interaction_t
     use grasph_time_integration, only: leap_frog_time_integration
     use grasph_kernels_m, only: cubic_bspline_kernel_t
-    use grasph_particle_shifting, only: xsph_shifter
+    use grasph_particle_shifting_m, only: xsph_shifter_t
 
     implicit none
     ! parameters to describe geometry
@@ -26,7 +26,7 @@ program main
     type(cubic_bspline_kernel_t):: kernel
     integer:: i, j, k
     type(fluid_sweeper_t):: sweeper
-    type(xsph_shifter):: shifter
+    type(xsph_shifter_t):: shifter
     type(tait_eos_state_updater):: state_updater
     type(eos_particle):: ps_template
     real(fp):: x, y

@@ -7,7 +7,7 @@ module grasph_monaghan1994_2
     use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force, &
                                         repulsive_force
     use grasph_pairs_m, only: particle_pairs_t
-    use grasph_particle_shifting, only: xsph_shifter
+    use grasph_particle_shifting_m, only: xsph_shifter_t
 
     implicit none
     ! parameters to describe geometry
@@ -79,7 +79,7 @@ program main
     type(cubic_bspline_kernel_t):: kernel
     type(fluid_sweeper_t):: sweeper
     type(boundary_update_sweeper_t):: boundary_sweeper
-    type(xsph_shifter):: shifter
+    type(xsph_shifter_t):: shifter
     type(tait_eos_state_updater):: state_updater
     type(eos_particle):: ps_template
     integer:: i, j, k, nlayer, nvirt
