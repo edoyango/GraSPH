@@ -13,10 +13,10 @@ module grasph_particle_system_m
     implicit none
     private
 
-    type:: base_state_updater
+    type:: base_state_updater_t
     contains
         procedure:: update_state => base_update_state
-    end type base_state_updater
+    end type base_state_updater_t
 
     !> @brief Manages a group of particles that behave similarly.
     type:: particle_system_t
@@ -33,7 +33,7 @@ module grasph_particle_system_m
         !> @brief Name used in naming groups in output hdf5 file
         character(100):: name
         !> @brief Allocatable "strategy" class that performs particles' state update.
-        class(base_state_updater), allocatable:: state_updater
+        class(base_state_updater_t), allocatable:: state_updater
         !> @brief Register for variables to be updated only at full-timestep e.g. position (x).
         type(variable_deriv_register_t):: register_x
         !> @brief Register for variables to be updated at mid- and full-timestep e.g. velocity (v) and density (rho).
@@ -60,7 +60,7 @@ module grasph_particle_system_m
         procedure:: generate_summary => base_generate_summary
     end type particle_system_t
 
-    public:: base_particle_t, particle_system_t, base_state_updater, max_registrations
+    public:: base_particle_t, particle_system_t, base_state_updater_t, max_registrations
 
 contains
 
@@ -75,7 +75,7 @@ contains
         integer, intent(in):: n
         character(*), intent(in):: name
         class(base_particle_t), optional, intent(in):: particle_template
-        class(base_state_updater), optional, intent(in):: state_updater
+        class(base_state_updater_t), optional, intent(in):: state_updater
 
         if (self%initialized) call self%base_clear()
         if (present(particle_template)) then
@@ -116,7 +116,7 @@ contains
     !> @param n Number of particles in ps.
     !> @param dt A time-increment which may be used to update particles' state.
     subroutine base_update_state(self, ps, n, dt)
-        class(base_state_updater), intent(in):: self
+        class(base_state_updater_t), intent(in):: self
         integer, intent(in):: n
         class(base_particle_t), intent(inout):: ps(n)
         real(fp), intent(in), optional:: dt

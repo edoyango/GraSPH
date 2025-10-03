@@ -5,7 +5,7 @@
 module weakly_compressible_particles
 
     use grasph_constants_m, only: fp
-    use grasph_particle_system_m, only: base_particle_t, particle_system_t, base_state_updater
+    use grasph_particle_system_m, only: base_particle_t, particle_system_t, base_state_updater_t
 
     implicit none
 
@@ -15,7 +15,7 @@ module weakly_compressible_particles
         real(fp):: p
     end type eos_particle
 
-    type, extends(base_state_updater):: linear_eos_state_updater
+    type, extends(base_state_updater_t):: linear_eos_state_updater
         real(fp):: rho_ref
     contains
         procedure:: update_state => linear_eos_update_state
