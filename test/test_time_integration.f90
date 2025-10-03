@@ -5,7 +5,7 @@ module test_time_integration
     use weakly_compressible_particles_m, only: eos_particle_t, linear_eos_state_updater_t
     use grasph_kernels_m, only: cubic_bspline_kernel_t
     use grasph_system_interactions_m, only: system_interaction_t
-    use grasph_time_integration, only: leap_frog_time_integration
+    use grasph_time_integration_m, only: leap_frog_time_integration
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
     implicit none

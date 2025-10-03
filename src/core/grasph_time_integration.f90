@@ -2,7 +2,7 @@
 !> @brief Module containing useful generic time-integration schemes to be used in an SPH simulation.
 !> @author Edward Yang
 !> @date 2025-06-09
-module grasph_time_integration
+module grasph_time_integration_m
 
     use grasph_constants_m, only: fp
     use grasph_particle_system_m, only: particle_system_t, max_registrations
@@ -158,4 +158,4 @@ contains
 
     end subroutine leap_frog_time_integration
 
-end module grasph_time_integration
+end module grasph_time_integration_m

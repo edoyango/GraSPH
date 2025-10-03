@@ -12,7 +12,7 @@ program main
     use weakly_compressible_particles_m, only: tait_eos_state_updater_t, eos_particle_t
     use weakly_compressible_interactions_m, only: fluid_sweeper_t
     use grasph_system_interactions_m, only: system_interaction_t
-    use grasph_time_integration, only: leap_frog_time_integration
+    use grasph_time_integration_m, only: leap_frog_time_integration
     use grasph_kernels_m, only: cubic_bspline_kernel_t
     use grasph_particle_shifting_m, only: xsph_shifter_t
 
