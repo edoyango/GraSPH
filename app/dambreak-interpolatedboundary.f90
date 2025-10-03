@@ -2,8 +2,8 @@ module grasph_monaghan1994_2
 
     use grasph_constants_m, only: fp
     use grasph_particle_system_m, only: particle_system_t
-    use weakly_compressible_interactions, only: fluid_sweeper
-    use grasph_system_interactions_m, only: base_sweeper
+    use weakly_compressible_interactions, only: fluid_sweeper_t
+    use grasph_system_interactions_m, only: base_sweeper_t
     use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force, &
                                         repulsive_force
     use grasph_pairs_m, only: particle_pairs_t
@@ -15,15 +15,15 @@ module grasph_monaghan1994_2
     integer, parameter:: nfx = 25._fp/dx, nfy = 25._fp/dx, nbx = 75._fp/dx, nby = 40._fp/dx
 
     ! define how fluid particles interact with boundary
-    type, extends(base_sweeper):: boundary_update_sweeper
+    type, extends(base_sweeper_t):: boundary_update_sweeper_t
     contains
         procedure:: sweep => boundary_update_sweep
-    end type boundary_update_sweeper
+    end type boundary_update_sweeper_t
 
 contains
 
     subroutine boundary_update_sweep(self, pairs, psys_lhs, psys_rhs)
-        class(boundary_update_sweeper), intent(in):: self
+        class(boundary_update_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
@@ -77,8 +77,8 @@ program main
     type(particle_system_t):: psys(2)
     type(system_interaction_t):: psys_interactions(2)
     type(cubic_bspline_kernel_t):: kernel
-    type(fluid_sweeper):: sweeper
-    type(boundary_update_sweeper):: boundary_sweeper
+    type(fluid_sweeper_t):: sweeper
+    type(boundary_update_sweeper_t):: boundary_sweeper
     type(xsph_shifter):: shifter
     type(tait_eos_state_updater):: state_updater
     type(eos_particle):: ps_template

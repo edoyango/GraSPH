@@ -11,8 +11,8 @@ module grasph_monaghan1994
     use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_particles, only: eos_particle, tait_eos_state_updater
     use grasph_pairs_m, only: particle_pairs_t
-    use grasph_system_interactions_m, only: base_sweeper
-    use weakly_compressible_interactions, only: fluid_sweeper
+    use grasph_system_interactions_m, only: base_sweeper_t
+    use weakly_compressible_interactions, only: fluid_sweeper_t
     use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, repulsive_force
     use grasph_particle_shifting, only: xsph_shifter
 
@@ -24,7 +24,7 @@ module grasph_monaghan1994
     ! no. of particles in x, y direction for boundary
     integer, parameter:: nbx = 75._fp/dx, nby = 40._fp/dx
 
-    type, extends(base_sweeper):: fluid_boundary_sweeper
+    type, extends(base_sweeper_t):: fluid_boundary_sweeper_t
         !> @brief Acceleration due to gravity (m/s)
         real(fp):: g = -9.81_fp
         !> @brief Alpha coefficient for artificial viscosity.
@@ -35,12 +35,12 @@ module grasph_monaghan1994
         real(fp):: h = 0._fp
     contains
         procedure:: sweep => fluid_boundary_sweep_new
-    end type fluid_boundary_sweeper
+    end type fluid_boundary_sweeper_t
 
 contains
 
     subroutine fluid_boundary_sweep_new(self, pairs, psys_lhs, psys_rhs)
-        class(fluid_boundary_sweeper), intent(in):: self
+        class(fluid_boundary_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
@@ -87,8 +87,8 @@ program main
     type(cubic_bspline_kernel_t):: kernel
     integer:: i, j, k
     real(fp):: analytical_pressure
-    type(fluid_sweeper):: self_sweeper
-    type(fluid_boundary_sweeper):: boundary_sweeper
+    type(fluid_sweeper_t):: self_sweeper
+    type(fluid_boundary_sweeper_t):: boundary_sweeper
     type(xsph_shifter):: shifter
     type(eos_particle):: ps_template
     type(tait_eos_state_updater):: state_updater

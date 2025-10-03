@@ -27,9 +27,9 @@ module grasph_system_interactions_m
         !> @brief Whether the system_interaction_t describes psys_lhs interaction with itself, or with psys_rhs.
         logical:: is_pair_set = .false.
         !> @brief Overridable "strategy" class that performs sweep prologue.
-        class(base_sweeper), allocatable:: prologue_sweeper
+        class(base_sweeper_t), allocatable:: prologue_sweeper
         !> @brief Overridable "strategy" class that performs sweep.
-        class(base_sweeper), allocatable:: sweeper
+        class(base_sweeper_t), allocatable:: sweeper
         !> @brief Overridable "strategy" class that performs shift.
         class(base_shifter), allocatable:: shifter
     contains
@@ -49,7 +49,7 @@ module grasph_system_interactions_m
     !> @brief Base "strategy" class whose sweep method is used to update time-evolving data's rate-of-change e.g. acceleration.
     !>        extensions of this class override the sweep to, for example, work with different particle types and implement
     !>        different physics.
-    type:: base_sweeper
+    type:: base_sweeper_t
         !> @brief Controls whether to update the RHS particles (if they're associated).
         logical:: update_rhs = .true.
         !> @brief Controls whether the sweep initializes particles' rate-of-change data.
@@ -57,7 +57,7 @@ module grasph_system_interactions_m
     contains
         !> @brief Update particles' rate-of-change data by sweeping through particle pairs.
         procedure:: sweep => donothing_sweep
-    end type base_sweeper
+    end type base_sweeper_t
 
     !> @brief Base "strategy" class whose shift method is used to perform any particle shifting via position or velocity &
     !>        adjustments.
@@ -69,7 +69,7 @@ module grasph_system_interactions_m
         procedure:: shift => donothing_shift
     end type base_shifter
 
-    public:: system_interaction_t, base_sweeper, base_shifter
+    public:: system_interaction_t, base_sweeper_t, base_shifter
 
 contains
 
@@ -127,7 +127,7 @@ contains
     !> @param psys_rhs The RHS particles involved in the interactions. psys_rhs will not be passed in if not associated in the
     !>        owning system_interaction_t class.
     subroutine donothing_sweep(self, pairs, psys_lhs, psys_rhs)
-        class(base_sweeper), intent(in):: self
+        class(base_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
@@ -184,9 +184,9 @@ contains
         integer, intent(in):: npairs_per_particle
         class(particle_system_t), target, intent(in):: psys_lhs
         class(particle_system_t), target, optional, intent(in):: psys_rhs
-        class(base_sweeper), optional, intent(in):: prologue_sweeper, sweeper
+        class(base_sweeper_t), optional, intent(in):: prologue_sweeper, sweeper
         class(base_shifter), optional, intent(in):: shifter
-        type(base_sweeper):: tmp_base_sweeper
+        type(base_sweeper_t):: tmp_base_sweeper
         type(base_shifter):: tmp_base_shifter
         self%psys_lhs => psys_lhs
         if (present(psys_rhs)) then

@@ -5,7 +5,7 @@ module test_interactions
     use grasph_pairs_m, only: particle_pairs_t, cell_list_search
     use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_particles, only: eos_particle
-    use grasph_system_interactions_m, only: system_interaction_t, base_sweeper
+    use grasph_system_interactions_m, only: system_interaction_t, base_sweeper_t
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
     implicit none
@@ -16,10 +16,10 @@ module test_interactions
     ! data for testing
     real(fp), parameter:: dx = 0.25_fp
 
-    type, extends(base_sweeper):: example_real_virt_sweeper
+    type, extends(base_sweeper_t):: example_real_virt_sweeper_t
     contains
         procedure:: sweep => example_real_virt_sweep
-    end type example_real_virt_sweeper
+    end type example_real_virt_sweeper_t
 
 contains
 
@@ -33,7 +33,7 @@ contains
     end function tests
 
     subroutine example_real_virt_sweep(self, pairs, psys_lhs, psys_rhs)
-        class(example_real_virt_sweeper), intent(in):: self
+        class(example_real_virt_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
@@ -67,7 +67,7 @@ contains
     subroutine test_set_pair_setup()
 
         type(system_interaction_t):: real_virt_set
-        type(example_real_virt_sweeper):: rv_sweeper
+        type(example_real_virt_sweeper_t):: rv_sweeper
         type(particle_system_t), target:: psys_real, psys_virt
         type(cubic_bspline_kernel_t):: kernel
         integer:: ii, j, i

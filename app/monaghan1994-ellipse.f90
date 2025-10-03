@@ -10,7 +10,7 @@ program main
     use grasph_constants_m, only: fp, pi
     use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_particles, only: tait_eos_state_updater, eos_particle
-    use weakly_compressible_interactions, only: fluid_sweeper
+    use weakly_compressible_interactions, only: fluid_sweeper_t
     use grasph_system_interactions_m, only: system_interaction_t
     use grasph_time_integration, only: leap_frog_time_integration
     use grasph_kernels_m, only: cubic_bspline_kernel_t
@@ -25,7 +25,7 @@ program main
     type(system_interaction_t):: psys_interactions(1)
     type(cubic_bspline_kernel_t):: kernel
     integer:: i, j, k
-    type(fluid_sweeper):: sweeper
+    type(fluid_sweeper_t):: sweeper
     type(xsph_shifter):: shifter
     type(tait_eos_state_updater):: state_updater
     type(eos_particle):: ps_template

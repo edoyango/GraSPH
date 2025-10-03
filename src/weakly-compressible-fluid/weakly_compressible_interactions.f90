@@ -7,13 +7,15 @@ module weakly_compressible_interactions
     use grasph_constants_m, only: fp, ndims
     use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_particles, only: eos_particle
-    use grasph_system_interactions_m, only: base_sweeper
+    use grasph_system_interactions_m, only: base_sweeper_t
     use grasph_pairs_m, only: particle_pairs_t
     use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force
 
     implicit none
 
-    type, extends(base_sweeper):: fluid_sweeper
+    private
+
+    type, extends(base_sweeper_t):: fluid_sweeper_t
         !> @brief Acceleration due to gravity (m/s)
         real(fp):: g = -9.81_fp
         !> @brief Alpha coefficient for artificial viscosity.
@@ -26,7 +28,9 @@ module weakly_compressible_interactions
         !> @brief For a single set of weakly-compressible fluid particles, calculate acceleration and density rate-of-change due to
         !>        isotropic pressure, artificial viscosity, and mass continuity.
         procedure:: sweep => fluid_sweep
-    end type fluid_sweeper
+    end type fluid_sweeper_t
+
+    public:: fluid_sweeper_t
 
 contains
 
@@ -37,7 +41,7 @@ contains
     !> @param psys_lhs the LHS particles involved in the interactions.
     !> @param psys_rhs Ths RHS particles involved in the interactions. Expecting not to be passed in.
     subroutine fluid_sweep(self, pairs, psys_lhs, psys_rhs)
-        class(fluid_sweeper), intent(in):: self
+        class(fluid_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
