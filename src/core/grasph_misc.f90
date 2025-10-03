@@ -13,7 +13,7 @@ module grasph_misc_m
 
     !> @brief A simple timer derived type that uses the more accurate system_clock intrinsic to
     !>        measure elapsed time.
-    type system_timer
+    type system_timer_t
         !> @brief System clock counter when the timer was started.
         integer(int64):: start_count
         !> @brief System clock rate set when timer is started.
@@ -27,9 +27,9 @@ module grasph_misc_m
         procedure:: stop => stop_timer
         !> @brief Updates the interaction counter.
         procedure:: update_interactions
-    end type system_timer
+    end type system_timer_t
 
-    public:: print_summary, system_timer
+    public:: print_summary, system_timer_t
 
 contains
 
@@ -39,12 +39,12 @@ contains
     !> @param itimestep The current time-step.
     !> @param time_integration_scheme The name of the time-integration scheme used in the simulation.
     !> @param psystems The list of particle systems whose generate_summary methods to use.
-    !> @param timer The system_timer object used to track time.
+    !> @param timer The system_timer_t object used to track time.
     subroutine print_summary(itimestep, time_integration_scheme, psystems, timer, time)
 
         integer, intent(in):: itimestep
         character(*), intent(in):: time_integration_scheme
-        type(system_timer), optional, intent(in):: timer
+        type(system_timer_t), optional, intent(in):: timer
         class(particle_system_t), intent(in):: psystems(:)
         real(fp), intent(in):: time
         character(:), allocatable:: psummary
@@ -75,10 +75,10 @@ contains
 
     end subroutine print_summary
 
-    !> @brief Starts the system_timer by recording the current system_clock time.
+    !> @brief Starts the system_timer_t by recording the current system_clock time.
     !> @param self The timer to start.
     subroutine start_timer(self)
-        class(system_timer), intent(out):: self
+        class(system_timer_t), intent(out):: self
 
         call system_clock(count=self%start_count, count_rate=self%rate)
     end subroutine start_timer
@@ -87,7 +87,7 @@ contains
     !> @param self The timer.
     !> @returns elapsed The time elapsed since the given timer was started.
     real(real64) function stop_timer(self) result(elapsed)
-        class(system_timer), intent(in):: self
+        class(system_timer_t), intent(in):: self
         integer(int64):: end_count
         call system_clock(count=end_count)
         elapsed = real(end_count - self%start_count, kind=real64)/real(self%rate, kind=real64)
@@ -97,7 +97,7 @@ contains
     !> @param The timer object to update.
     !> @param The number of interactions to increment by.
     subroutine update_interactions(self, ninteractions)
-        class(system_timer), intent(inout):: self
+        class(system_timer_t), intent(inout):: self
         integer, intent(in):: ninteractions
 
         self%ninteractions = self%ninteractions + int(ninteractions, kind=int64)
