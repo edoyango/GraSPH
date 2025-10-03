@@ -29,7 +29,7 @@ contains
         character:: dc
         character(*), parameter:: name = "test_base_particles"
 
-        call psys%base_init(10, name)
+        call psys%init(10, name)
 
         do i = 1, 10
             do d = 1, ndims
@@ -55,7 +55,7 @@ contains
 
         call psys%dump(1, "/tmp")
 
-        call psys2%base_init(10, name)
+        call psys2%init(10, name)
 
         call psys2%register_io%register_variable(psys2%particles(1), "x", psys2%particles(1)%x)
         call psys2%register_io%register_variable(psys2%particles(1), "v", psys2%particles(1)%v)
@@ -96,7 +96,7 @@ contains
         type(eos_particle_t):: ps_template
         character(*), parameter:: name = "test_wcp_particles"
 
-        call psys%base_init(n=10, name=name, particle_template=ps_template)
+        call psys%init(n=10, name=name, particle_template=ps_template)
 
         select type (psf => psys%particles)
         class is (eos_particle_t)
@@ -130,7 +130,7 @@ contains
 
         call psys%dump(1, "/tmp")
 
-        call psys2%base_init(n=10, name=name, particle_template=ps_template)
+        call psys2%init(n=10, name=name, particle_template=ps_template)
 
         select type (psf => psys2%particles)
         class is (eos_particle_t)

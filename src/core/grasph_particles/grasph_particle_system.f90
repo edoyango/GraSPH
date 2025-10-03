@@ -41,8 +41,8 @@ module grasph_particle_system_m
         !> @brief Register for variables to be written/read.
         type(variable_register_t):: register_io
     contains
-        !> @brief The initializer for the base class. Intended to be called in extended types' initializer method.
-        procedure:: base_init
+        !> @brief The initializer for the base class.
+        procedure:: init => base_init
         !> @brief A manual destructor to clean up.
         procedure:: base_clear
         !> @brief A method intended to be overriden when extended particles' state needs to be updated during time-integration.

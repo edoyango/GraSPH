@@ -31,7 +31,7 @@ contains
         type(linear_eos_state_updater_t):: state_updater
 
         state_updater%rho_ref = 1000._fp
-        call psys(1)%base_init(n=1, name="test", particle_template=ps_template, state_updater=state_updater)
+        call psys(1)%init(n=1, name="test", particle_template=ps_template, state_updater=state_updater)
         ! call ps%register_x%register_data(ps%x, "x", ps%v, "v")
         call psys(1)%register_v%register(psys(1)%particles(1), "v", psys(1)%particles(1)%v, psys(1)%particles(1)%dvxdt)
         call psys(1)%register_v%register(psys(1)%particles(1), "rho", psys(1)%particles(1)%rho, psys(1)%particles(1)%drhodt)

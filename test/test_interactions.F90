@@ -77,8 +77,8 @@ contains
         type(eos_particle_t):: ps_template
 
 #ifndef THREED
-        call psys_real%base_init(n=nr, name="test", particle_template=ps_template)
-        call psys_virt%base_init(n=nv, name="test", particle_template=ps_template)
+        call psys_real%init(n=nr, name="test", particle_template=ps_template)
+        call psys_virt%init(n=nv, name="test", particle_template=ps_template)
         select type (ps => psys_real%particles)
         class is (eos_particle_t)
             ps_lhs => ps

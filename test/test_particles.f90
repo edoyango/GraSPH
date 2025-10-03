@@ -29,7 +29,7 @@ contains
         type(particle_system_t):: psys
         type(eos_particle_t):: ps_template
 
-        call psys%base_init(n=16, name="test", particle_template=ps_template)
+        call psys%init(n=16, name="test", particle_template=ps_template)
 
         ! check name assigned correctly
         call check(psys%name == "test", "Particle set name not initialized to 'test'")
@@ -54,7 +54,7 @@ contains
         character:: ic
 
         state_updater%rho_ref = 1._fp
-        call psys%base_init(n=5, name="test", particle_template=ps_template, state_updater=state_updater)
+        call psys%init(n=5, name="test", particle_template=ps_template, state_updater=state_updater)
 
         do i = 1, 5
             psys%particles(i)%rho = real(i, kind=fp)

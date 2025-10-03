@@ -89,7 +89,7 @@ program main
 
     ! init fluid particles
     state_updater%rho_ref = rho0
-    call psys(1)%base_init(n=2500, name="fluid", state_updater=state_updater, particle_template=ps_template)
+    call psys(1)%init(n=2500, name="fluid", state_updater=state_updater, particle_template=ps_template)
 
     ! register variables for time-update
     call psys(1)%register_x%register(psys(1)%particles(1), "x", psys(1)%particles(1)%x, psys(1)%particles(1)%v)
@@ -126,11 +126,10 @@ program main
     end do
 
     ! init boundary particles
-    ! use base_init since we're using the base type
     ! only need to initialize metadata and position as only position is used to calculate repulsive force
     nlayer = ceiling(kernel%cutoff/dx)
     nvirt = nlayer*2*(nbx + nby) + 4*nlayer*nlayer
-    call psys(2)%base_init(n=nvirt, name="boundary", state_updater=state_updater, particle_template=ps_template)
+    call psys(2)%init(n=nvirt, name="boundary", state_updater=state_updater, particle_template=ps_template)
 
     ! register variables for io
     select type (p => psys(2)%particles)
