@@ -9,7 +9,7 @@ module weakly_compressible_interactions_m
     use weakly_compressible_particles_m, only: eos_particle_t
     use grasph_system_interactions_m, only: base_sweeper_t
     use grasph_pairs_m, only: particle_pairs_t
-    use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force
+    use grasph_pair_interactions_m, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force
 
     implicit none
 

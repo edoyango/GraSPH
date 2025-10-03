@@ -13,7 +13,7 @@ module grasph_monaghan1994
     use grasph_pairs_m, only: particle_pairs_t
     use grasph_system_interactions_m, only: base_sweeper_t
     use weakly_compressible_interactions_m, only: fluid_sweeper_t
-    use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, repulsive_force
+    use grasph_pair_interactions_m, only: artificial_viscosity_monaghan1994, continuity_density, repulsive_force
     use grasph_particle_shifting_m, only: xsph_shifter_t
 
     implicit none

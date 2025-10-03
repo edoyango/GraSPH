@@ -2,7 +2,7 @@
 !> @brief Module containing subroutines describing common particle interactions.
 !> @author Edward Yang
 !> @date 2025-06-09
-module grasph_pair_interactions
+module grasph_pair_interactions_m
 
     use grasph_constants_m, only: fp, ndims
 
@@ -118,4 +118,4 @@ contains
         end if
     end subroutine repulsive_force
 
-end module grasph_pair_interactions
+end module grasph_pair_interactions_m
