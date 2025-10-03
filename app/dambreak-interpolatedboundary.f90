@@ -68,7 +68,7 @@ program main
     use grasph_monaghan1994_2
 
     use grasph_particle_system_m, only: particle_system_t
-    use weakly_compressible_particles, only: tait_eos_state_updater, eos_particle
+    use weakly_compressible_particles_m, only: tait_eos_state_updater_t, eos_particle_t
     use grasph_system_interactions_m, only: system_interaction_t
     use grasph_time_integration, only: leap_frog_time_integration
     use grasph_kernels_m, only: cubic_bspline_kernel_t
@@ -80,8 +80,8 @@ program main
     type(fluid_sweeper_t):: sweeper
     type(boundary_update_sweeper_t):: boundary_sweeper
     type(xsph_shifter_t):: shifter
-    type(tait_eos_state_updater):: state_updater
-    type(eos_particle):: ps_template
+    type(tait_eos_state_updater_t):: state_updater
+    type(eos_particle_t):: ps_template
     integer:: i, j, k, nlayer, nvirt
 
     ! init kernel
@@ -98,7 +98,7 @@ program main
 
     ! register variables for io
     select type (p => psys(1)%particles)
-    class is (eos_particle)
+    class is (eos_particle_t)
         call psys(1)%register_io%register_variable(p(1), "x", p(1)%x)
         call psys(1)%register_io%register_variable(p(1), "v", p(1)%v)
         call psys(1)%register_io%register_variable(p(1), "rho", p(1)%rho)
@@ -108,7 +108,7 @@ program main
         call psys(1)%register_io%register_variable(p(1), "drhodt", p(1)%drhodt)
         call psys(1)%register_io%register_variable(p(1), "p", p(1)%p)
     class default
-        error stop "Expected eos_particle for psys(1)%p."
+        error stop "Expected eos_particle_t for psys(1)%p."
     end select
 
     do i = 0, nfx - 1
@@ -134,7 +134,7 @@ program main
 
     ! register variables for io
     select type (p => psys(2)%particles)
-    class is (eos_particle)
+    class is (eos_particle_t)
         call psys(2)%register_io%register_variable(p(1), "x", p(1)%x)
         call psys(2)%register_io%register_variable(p(1), "v", p(1)%v)
         call psys(2)%register_io%register_variable(p(1), "rho", p(1)%rho)
@@ -144,7 +144,7 @@ program main
         call psys(2)%register_io%register_variable(p(1), "drhodt", p(1)%drhodt)
         call psys(2)%register_io%register_variable(p(1), "p", p(1)%p)
     class default
-        error stop "Expected eos_particle for psys(1)%p."
+        error stop "Expected eos_particle_t for psys(1)%p."
     end select
     k = 0
     ! bottom layer and corners

@@ -4,7 +4,7 @@ module test_interactions
     use grasph_kernels_m, only: base_kernel_t, cubic_bspline_kernel_t
     use grasph_pairs_m, only: particle_pairs_t, cell_list_search
     use grasph_particle_system_m, only: particle_system_t
-    use weakly_compressible_particles, only: eos_particle
+    use weakly_compressible_particles_m, only: eos_particle_t
     use grasph_system_interactions_m, only: system_interaction_t, base_sweeper_t
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
@@ -38,18 +38,18 @@ contains
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
         integer:: i, j, k
-        class(eos_particle), pointer:: ps_real(:), ps_virt(:)
+        class(eos_particle_t), pointer:: ps_real(:), ps_virt(:)
 
         ! assign pointers to ps_lhs/rhs for access to pressure
         select type (ps => psys_lhs%particles)
-        class is (eos_particle)
+        class is (eos_particle_t)
             ps_real => ps
         class default
             error stop "Invalid class for psys_lhs"
         end select
 
         select type (ps => psys_rhs%particles)
-        class is (eos_particle)
+        class is (eos_particle_t)
             ps_virt => ps
         class default
             error stop "Invalid class for psys_rhs"
@@ -73,17 +73,17 @@ contains
         integer:: ii, j, i
         character:: ic
         integer, parameter:: nd = 2, nxr = 2, nr = nxr**nd, nxv = 3, nv = nxv**nd
-        class(eos_particle), pointer:: ps_lhs(:), ps_rhs(:)
-        type(eos_particle):: ps_template
+        class(eos_particle_t), pointer:: ps_lhs(:), ps_rhs(:)
+        type(eos_particle_t):: ps_template
 
 #ifndef THREED
         call psys_real%base_init(n=nr, name="test", particle_template=ps_template)
         call psys_virt%base_init(n=nv, name="test", particle_template=ps_template)
         select type (ps => psys_real%particles)
-        class is (eos_particle)
+        class is (eos_particle_t)
             ps_lhs => ps
         class default
-            error stop "Expected eos_particle for psys_real%particles."
+            error stop "Expected eos_particle_t for psys_real%particles."
         end select
         do concurrent(i=0:nxr - 1, j=0:nxr - 1)
             ii = i*nxr + j + 1
@@ -92,10 +92,10 @@ contains
             ps_lhs(ii)%p = real(ii, kind=fp)
         end do
         select type (ps => psys_virt%particles)
-        class is (eos_particle)
+        class is (eos_particle_t)
             ps_rhs => ps
         class default
-            error stop "Expected eos_particle for virt%particles."
+            error stop "Expected eos_particle_t for virt%particles."
         end select
         do concurrent(i=0:nxv - 1, j=0:nxv - 1)
             ii = i*nxv + j + 1
@@ -154,15 +154,15 @@ contains
         type(cubic_bspline_kernel_t):: kernel
         type(system_interaction_t):: ps_set
         integer:: i, j, k, ii
-        class(eos_particle), pointer:: ps_real(:)
+        class(eos_particle_t), pointer:: ps_real(:)
 
 #ifdef THREED
 
         select type (ps => psys%particles)
-        class is (eos_particle)
+        class is (eos_particle_t)
             ps_real => ps
         class default
-            error stop "Expected eos_particle for psys%particles"
+            error stop "Expected eos_particle_t for psys%particles"
         end select
 
         call psys%init(27, "test", 0._fp)

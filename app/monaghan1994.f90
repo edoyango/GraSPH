@@ -9,7 +9,7 @@ module grasph_monaghan1994
 
     use grasph_constants_m, only: fp
     use grasph_particle_system_m, only: particle_system_t
-    use weakly_compressible_particles, only: eos_particle, tait_eos_state_updater
+    use weakly_compressible_particles_m, only: eos_particle_t, tait_eos_state_updater_t
     use grasph_pairs_m, only: particle_pairs_t
     use grasph_system_interactions_m, only: base_sweeper_t
     use weakly_compressible_interactions, only: fluid_sweeper_t
@@ -76,7 +76,7 @@ program main
     use grasph_monaghan1994
 
     use grasph_particle_system_m, only: particle_system_t
-    use weakly_compressible_particles, only: tait_eos_state_updater
+    use weakly_compressible_particles_m, only: tait_eos_state_updater_t
     use grasph_system_interactions_m, only: system_interaction_t
     use grasph_time_integration, only: leap_frog_time_integration
     use grasph_kernels_m, only: cubic_bspline_kernel_t
@@ -90,8 +90,8 @@ program main
     type(fluid_sweeper_t):: self_sweeper
     type(fluid_boundary_sweeper_t):: boundary_sweeper
     type(xsph_shifter_t):: shifter
-    type(eos_particle):: ps_template
-    type(tait_eos_state_updater):: state_updater
+    type(eos_particle_t):: ps_template
+    type(tait_eos_state_updater_t):: state_updater
 
     ! init fluid particles
     state_updater%rho_ref = rho0
@@ -104,7 +104,7 @@ program main
 
     ! register variables for io
     select type (p => psys(1)%particles)
-    class is (eos_particle)
+    class is (eos_particle_t)
         call psys(1)%register_io%register_variable(p(1), "x", p(1)%x)
         call psys(1)%register_io%register_variable(p(1), "v", p(1)%v)
         call psys(1)%register_io%register_variable(p(1), "rho", p(1)%rho)
@@ -114,7 +114,7 @@ program main
         call psys(1)%register_io%register_variable(p(1), "drhodt", p(1)%drhodt)
         call psys(1)%register_io%register_variable(p(1), "p", p(1)%p)
     class default
-        error stop "Expected eos_particle for psys(1)%p."
+        error stop "Expected eos_particle_t for psys(1)%p."
     end select
     call psys(2)%register_io%register_variable(psys(2)%particles(1), "x", psys(2)%particles(1)%x)
     call psys(2)%register_io%register_variable(psys(2)%particles(1), "v", psys(2)%particles(1)%v)

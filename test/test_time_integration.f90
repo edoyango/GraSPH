@@ -2,7 +2,7 @@ module test_time_integration
 
     use grasph_constants_m, only: fp
     use grasph_particle_system_m, only: particle_system_t
-    use weakly_compressible_particles, only: eos_particle, linear_eos_state_updater
+    use weakly_compressible_particles_m, only: eos_particle_t, linear_eos_state_updater_t
     use grasph_kernels_m, only: cubic_bspline_kernel_t
     use grasph_system_interactions_m, only: system_interaction_t
     use grasph_time_integration, only: leap_frog_time_integration
@@ -27,8 +27,8 @@ contains
         type(system_interaction_t):: wcp_interaction_pairs(1)
         type(particle_system_t):: psys(1)
         type(cubic_bspline_kernel_t):: kernel
-        type(eos_particle):: ps_template
-        type(linear_eos_state_updater):: state_updater
+        type(eos_particle_t):: ps_template
+        type(linear_eos_state_updater_t):: state_updater
 
         state_updater%rho_ref = 1000._fp
         call psys(1)%base_init(n=1, name="test", particle_template=ps_template, state_updater=state_updater)
@@ -60,7 +60,7 @@ contains
         call check(is_close(psys(1)%particles(1)%drhodt, 1000._fp), "Incorrect value for drhodt") ! should be unchanged
         call check(is_close(psys(1)%particles(1)%rho, 1500._fp), "Incorrect value for rho") ! should be 1000 + (1/2)*1000
         select type (ps => psys(1)%particles)
-        type is (eos_particle)
+        type is (eos_particle_t)
             call check(is_close(ps(1)%p, 1000._fp), "Incorrect value for p") ! should be 2**2*((1000 + 0.5*(1/2)*1000) - 1000)
         end select
 
@@ -78,7 +78,7 @@ contains
         call check(is_close(psys(1)%particles(1)%drhodt, 1000._fp), "Incorrect value for drhodt") ! should be unchanged
         call check(is_close(psys(1)%particles(1)%rho, 2000._fp), "Incorrect value for rho") ! should be 1500 + (1/2)*1000
         select type (ps => psys(1)%particles)
-        type is (eos_particle)
+        type is (eos_particle_t)
             call check(is_close(ps(1)%p, 3000._fp), "Incorrect value for p") ! should be 2**2*((1500 + 0.5*(1/2)*1000) - 1000)
         end select
 

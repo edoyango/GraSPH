@@ -6,7 +6,7 @@ module weakly_compressible_interactions
 
     use grasph_constants_m, only: fp, ndims
     use grasph_particle_system_m, only: particle_system_t
-    use weakly_compressible_particles, only: eos_particle
+    use weakly_compressible_particles_m, only: eos_particle_t
     use grasph_system_interactions_m, only: base_sweeper_t
     use grasph_pairs_m, only: particle_pairs_t
     use grasph_pair_interactions, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force
@@ -45,13 +45,13 @@ contains
         type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
-        class(eos_particle), pointer:: fluid_lhs(:), fluid_rhs(:)
+        class(eos_particle_t), pointer:: fluid_lhs(:), fluid_rhs(:)
         integer:: i, j, k
         real(fp):: dummy_drhodt, dummy_dvxdt(ndims) ! dummy variables for when update_rhs is .false.
 
         ! point to lhs particlse for access to pressure member
         select type (ps => psys_lhs%particles)
-        class is (eos_particle)
+        class is (eos_particle_t)
             fluid_lhs => ps
         class default
             error stop "Invalid type for psys_lhs"
@@ -70,7 +70,7 @@ contains
         if (present(psys_rhs)) then
             ! point to rhs particlse for access to pressure member
             select type (ps => psys_rhs%particles)
-            class is (eos_particle)
+            class is (eos_particle_t)
                 fluid_rhs => ps
             class default
                 error stop "Invalid type for psys_rhs"

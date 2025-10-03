@@ -2,7 +2,7 @@ module test_io
 
     use grasph_constants_m, only: fp, ndims
     use grasph_particle_system_m, only: particle_system_t
-    use weakly_compressible_particles, only: eos_particle
+    use weakly_compressible_particles_m, only: eos_particle_t
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
     implicit none
@@ -92,14 +92,14 @@ contains
         integer:: i, d
         character(2):: ic
         character:: dc
-        type(eos_particle), pointer:: ps_lhs(:), ps_rhs(:)
-        type(eos_particle):: ps_template
+        type(eos_particle_t), pointer:: ps_lhs(:), ps_rhs(:)
+        type(eos_particle_t):: ps_template
         character(*), parameter:: name = "test_wcp_particles"
 
         call psys%base_init(n=10, name=name, particle_template=ps_template)
 
         select type (psf => psys%particles)
-        class is (eos_particle)
+        class is (eos_particle_t)
             ps_lhs => psf
             call psys%register_io%register_variable(psf(1), "x", psf(1)%x)
             call psys%register_io%register_variable(psf(1), "v", psf(1)%v)
@@ -110,7 +110,7 @@ contains
             call psys%register_io%register_variable(psf(1), "drhodt", psf(1)%drhodt)
             call psys%register_io%register_variable(psf(1), "p", psf(1)%p)
         class default
-            error stop "Expected eos_particle for psys%particles."
+            error stop "Expected eos_particle_t for psys%particles."
         end select
 
         do i = 1, 10
@@ -133,7 +133,7 @@ contains
         call psys2%base_init(n=10, name=name, particle_template=ps_template)
 
         select type (psf => psys2%particles)
-        class is (eos_particle)
+        class is (eos_particle_t)
             ps_rhs => psf
             call psys2%register_io%register_variable(psf(1), "x", psf(1)%x)
             call psys2%register_io%register_variable(psf(1), "v", psf(1)%v)
@@ -144,7 +144,7 @@ contains
             call psys2%register_io%register_variable(psf(1), "drhodt", psf(1)%drhodt)
             call psys2%register_io%register_variable(psf(1), "p", psf(1)%p)
         class default
-            error stop "Expected eos_particle for psys2%particles."
+            error stop "Expected eos_particle_t for psys2%particles."
         end select
 
         call psys2%read("/tmp/grasph_particles_0000000001.h5", name)

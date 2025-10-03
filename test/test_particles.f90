@@ -2,7 +2,7 @@ module test_particles
 
     use grasph_constants_m, only: fp, ndims
     use grasph_particle_system_m, only: particle_system_t
-    use weakly_compressible_particles, only: eos_particle, linear_eos_state_updater
+    use weakly_compressible_particles_m, only: eos_particle_t, linear_eos_state_updater_t
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
     implicit none
@@ -27,7 +27,7 @@ contains
     subroutine test_particles_init()
 
         type(particle_system_t):: psys
-        type(eos_particle):: ps_template
+        type(eos_particle_t):: ps_template
 
         call psys%base_init(n=16, name="test", particle_template=ps_template)
 
@@ -48,8 +48,8 @@ contains
     subroutine test_linear_eos_wc_particles()
 
         type(particle_system_t):: psys
-        type(eos_particle):: ps_template
-        type(linear_eos_state_updater):: state_updater
+        type(eos_particle_t):: ps_template
+        type(linear_eos_state_updater_t):: state_updater
         integer:: i
         character:: ic
 
@@ -66,7 +66,7 @@ contains
         do i = 1, 5
             write (ic, "(I1)") i
             select type (ps => psys%particles)
-            class is (eos_particle)
+            class is (eos_particle_t)
                 call check( &
                     is_close(ps(i)%p, 4._fp*real(i - 1, kind=fp)), &
                     "State update function not applied correctly to particle "//ic &
