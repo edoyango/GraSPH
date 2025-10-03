@@ -1,6 +1,6 @@
 module test_kernel_values
 
-    use grasph_constants, only: fp, pi
+    use grasph_constants_m, only: fp, pi
     use grasph_kernels_m, only: base_kernel_t, cubic_bspline_kernel_t
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 

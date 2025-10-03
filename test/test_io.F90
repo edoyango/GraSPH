@@ -1,6 +1,6 @@
 module test_io
 
-    use grasph_constants, only: fp, ndims
+    use grasph_constants_m, only: fp, ndims
     use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_particles, only: eos_particle
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list

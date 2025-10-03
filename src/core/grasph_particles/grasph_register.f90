@@ -4,7 +4,7 @@
 !> @date 2025-10-02
 module grasph_register
 
-    use grasph_constants, only: fp, ndims
+    use grasph_constants_m, only: fp, ndims
     use grasph_particle_m, only: base_particle_t
     use iso_c_binding, only: c_intptr_t, c_f_pointer, c_ptr, c_loc
 

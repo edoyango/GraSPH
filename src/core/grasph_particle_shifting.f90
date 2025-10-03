@@ -4,7 +4,7 @@
 !> @date 2025-09-22
 module grasph_particle_shifting
 
-    use grasph_constants, only: fp, ndims
+    use grasph_constants_m, only: fp, ndims
     use grasph_system_interactions_m, only: base_shifter
     use grasph_pairs_m, only: particle_pairs_t
     use grasph_particle_system_m, only: particle_system_t

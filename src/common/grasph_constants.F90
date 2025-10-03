@@ -1,4 +1,8 @@
-module grasph_constants
+!> @file grasph_constants.F90
+!> @brief Holds constants used throughout GraSPH.
+!> @author Edward Yang
+!> @date 2025-06-01
+module grasph_constants_m
 
     use iso_fortran_env, only: real64, real32
 
@@ -20,4 +24,4 @@ module grasph_constants
     integer, parameter:: ndims = 2
 #endif
 
-end module grasph_constants
+end module grasph_constants_m

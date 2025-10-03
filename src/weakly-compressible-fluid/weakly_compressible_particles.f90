@@ -4,7 +4,7 @@
 !> @date 2025-09-21
 module weakly_compressible_particles
 
-    use grasph_constants, only: fp
+    use grasph_constants_m, only: fp
     use grasph_particle_system_m, only: base_particle_t, particle_system_t, base_state_updater
 
     implicit none

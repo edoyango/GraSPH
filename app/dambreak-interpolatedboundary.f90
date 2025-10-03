@@ -1,6 +1,6 @@
 module grasph_monaghan1994_2
 
-    use grasph_constants, only: fp
+    use grasph_constants_m, only: fp
     use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_interactions, only: fluid_sweeper
     use grasph_system_interactions_m, only: base_sweeper

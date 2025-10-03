@@ -1,6 +1,6 @@
 module test_time_integration
 
-    use grasph_constants, only: fp
+    use grasph_constants_m, only: fp
     use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_particles, only: eos_particle, linear_eos_state_updater
     use grasph_kernels_m, only: cubic_bspline_kernel_t

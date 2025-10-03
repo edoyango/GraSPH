@@ -4,7 +4,7 @@
 !> @date 2025-09-21
 module weakly_compressible_interactions
 
-    use grasph_constants, only: fp, ndims
+    use grasph_constants_m, only: fp, ndims
     use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_particles, only: eos_particle
     use grasph_system_interactions_m, only: base_sweeper

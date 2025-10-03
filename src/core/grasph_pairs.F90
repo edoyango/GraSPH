@@ -4,7 +4,7 @@
 !> @date 2025-06-09
 module grasph_pairs_m
 
-    use grasph_constants, only: fp, ndims
+    use grasph_constants_m, only: fp, ndims
     use grasph_kernels_m, only: base_kernel_t
     use grasph_particle_system_m, only: base_particle_t
 

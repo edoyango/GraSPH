@@ -4,7 +4,7 @@
 !> @date 2025-10-02
 module grasph_particle_m
 
-    use grasph_constants, only: fp, ndims
+    use grasph_constants_m, only: fp, ndims
 
     implicit none
 

@@ -4,7 +4,7 @@
 !> @date 2025-06-01
 module grasph_kernels_m
 
-    use grasph_constants, only: fp, pi
+    use grasph_constants_m, only: fp, pi
 
     implicit none
 

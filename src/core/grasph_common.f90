@@ -4,7 +4,7 @@
 !> @date 2025-09-26
 module grasph_common
 
-    use grasph_constants, only: fp
+    use grasph_constants_m, only: fp
 
     implicit none
 

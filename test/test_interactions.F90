@@ -1,6 +1,6 @@
 module test_interactions
 
-    use grasph_constants, only: fp
+    use grasph_constants_m, only: fp
     use grasph_kernels_m, only: base_kernel_t, cubic_bspline_kernel_t
     use grasph_pairs_m, only: particle_pairs_t, cell_list_search
     use grasph_particle_system_m, only: particle_system_t

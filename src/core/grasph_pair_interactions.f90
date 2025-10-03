@@ -4,7 +4,7 @@
 !> @date 2025-06-09
 module grasph_pair_interactions
 
-    use grasph_constants, only: fp, ndims
+    use grasph_constants_m, only: fp, ndims
 
     implicit none
 

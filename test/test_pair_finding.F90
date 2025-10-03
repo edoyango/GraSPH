@@ -1,6 +1,6 @@
 module test_pair_finding
 
-    use grasph_constants, only: fp
+    use grasph_constants_m, only: fp
     use grasph_particle_system_m, only: base_particle_t
     use grasph_kernels_m, only: cubic_bspline_kernel_t
     use grasph_pairs_m, only: particle_pairs_t, dsearch, cell_list_search
