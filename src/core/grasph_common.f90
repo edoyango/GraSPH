@@ -2,7 +2,7 @@
 !> @brief Contains miscelaneous utilities used across the package.
 !> @author Edward Yang
 !> @date 2025-09-26
-module grasph_common
+module grasph_common_m
 
     use grasph_constants_m, only: fp
 
@@ -10,8 +10,8 @@ module grasph_common
 
     public
 
-    type array_pointer_container
+    type array_pointer_container_t
         real(fp), pointer:: p(:, :)
-    end type array_pointer_container
+    end type array_pointer_container_t
 
-end module grasph_common
+end module grasph_common_m

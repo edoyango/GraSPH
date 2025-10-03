@@ -7,7 +7,7 @@ module grasph_particle_system_m
     use iso_fortran_env, only: error_unit
     use grasph_constants_m, only: fp, ndims
     use grasph_particle_m, only: base_particle_t
-    use grasph_common, only: array_pointer_container
+    use grasph_common_m, only: array_pointer_container_t
     use grasph_register, only: variable_register, variable_deriv_register, max_registrations
 
     implicit none

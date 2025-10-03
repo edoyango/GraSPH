@@ -9,7 +9,7 @@ module grasph_time_integration
     use grasph_system_interactions_m, only: system_interaction_t
     use grasph_kernels_m, only: base_kernel_t
     use grasph_misc_m, only: print_summary, system_timer_t
-    use grasph_common, only: array_pointer_container
+    use grasph_common_m, only: array_pointer_container_t
 
     implicit none
     private
@@ -43,7 +43,7 @@ contains
         integer:: nparticle_sets, nparticle_interactions, itimestep, i, j, k
         real(fp):: dt, time, maxc
         type(system_timer_t):: timer
-        type(array_pointer_container), allocatable:: vars0(:, :)
+        type(array_pointer_container_t), allocatable:: vars0(:, :)
         real(fp), pointer:: var_ptr(:), deriv_ptr(:)
 
         nparticle_sets = size(psystems)
