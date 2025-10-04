@@ -19,10 +19,6 @@ module grasph_monaghan1994
     implicit none
     ! parameters to describe geometry
     real(fp), parameter:: dx = 0.5_fp, g = -9.81_fp, rho0 = 1000._fp
-    ! no. of particles in x, y direction in initial geometry of fluid
-    integer, parameter:: nfx = 25._fp/dx, nfy = 25._fp/dx
-    ! no. of particles in x, y direction for boundary
-    integer, parameter:: nbx = 75._fp/dx, nby = 40._fp/dx
 
     type, extends(base_sweeper_t):: fluid_boundary_sweeper_t
         !> @brief Acceleration due to gravity (m/s)
@@ -92,6 +88,7 @@ program main
     type(xsph_shifter_t):: shifter
     type(eos_particle_t):: ps_template
     type(tait_eos_state_updater_t):: state_updater
+    integer:: nfx, nfy
 
     ! init fluid particles
     state_updater%rho_ref = rho0
@@ -116,13 +113,10 @@ program main
     class default
         error stop "Expected eos_particle_t for psys(1)%p."
     end select
-    call psys(2)%register_io%register_variable(psys(2)%particles(1), "x", psys(2)%particles(1)%x)
-    call psys(2)%register_io%register_variable(psys(2)%particles(1), "v", psys(2)%particles(1)%v)
-    call psys(2)%register_io%register_variable(psys(2)%particles(1), "rho", psys(2)%particles(1)%rho)
-    call psys(2)%register_io%register_variable(psys(2)%particles(1), "mass", psys(2)%particles(1)%mass)
-    call psys(2)%register_io%register_variable(psys(2)%particles(1), "c", psys(2)%particles(1)%c)
-    call psys(2)%register_io%register_variable(psys(2)%particles(1), "dvxdt", psys(2)%particles(1)%dvxdt)
-    call psys(2)%register_io%register_variable(psys(2)%particles(1), "drhodt", psys(2)%particles(1)%drhodt)
+
+    ! number of fluid particles in the x/y direction
+    nfx = 25._fp/dx
+    nfy = 25._fp/dx
 
     do i = 0, nfx - 1
         do j = 0, nfy - 1
@@ -132,53 +126,17 @@ program main
             psys(1)%particles(k)%x(1) = (i + 0.5_fp)*dx
             psys(1)%particles(k)%x(2) = (j + 0.5_fp)*dx
             psys(1)%particles(k)%c = 10._fp*sqrt(2._fp*abs(g)*25._fp) ! 10*sqrt(2gH) eqn 3.3
-            ! initialize density of fluid particles using hydrostatic pressure condition (eqn 5.1)
-            analytical_pressure = (25._fp - psys(1)%particles(k)%x(2))*rho0*abs(g)
-            psys(1)%particles(k)%rho = rho0*(analytical_pressure*7._fp/(rho0*psys(1)%particles(k)%c**2) + 1._fp)**(1._fp/7._fp)
+            psys(1)%particles(k)%rho = rho0 ! in the paper eqn 5.1 is used to initialize density, but doesn't seem to improve results.
             psys(1)%particles(k)%mass = rho0*dx*dx
             psys(1)%particles(k)%v(:) = 0._fp
         end do
     end do
 
-    ! init boundary particles
-    ! only need to initialize metadata and position as only position is used to calculate repulsive force
-    call psys(2)%init(n=464, name="boundary")
-    psys(2)%to_print_summary = .false.
-    k = 0
-    ! bottom layer and corners
-    do i = -1, nbx
-        k = k + 1
-        psys(2)%particles(k)%x(1) = (i + 0.5_fp)*dx
-        psys(2)%particles(k)%x(2) = -0.5_fp*dx
-    end do
-    ! top layer and corners
-    do i = -1, nbx
-        k = k + 1
-        psys(2)%particles(k)%x(1) = (i + 0.5_fp)*dx
-        psys(2)%particles(k)%x(2) = 40._fp + 0.5_fp*dx
-    end do
-    ! left wall
-    do j = 0, nby - 1
-        k = k + 1
-        psys(2)%particles(k)%x(1) = -0.5_fp*dx
-        psys(2)%particles(k)%x(2) = (j + 0.5_fp)*dx
-    end do
-    ! right wall
-    do j = 0, nby - 1
-        k = k + 1
-        psys(2)%particles(k)%x(1) = 75._fp + 0.5_fp*dx
-        psys(2)%particles(k)%x(2) = (j + 0.5_fp)*dx
-    end do
-    do i = 1, k
-        psys(2)%particles(i)%id = i
-        psys(2)%particles(i)%type = -1
-        psys(2)%particles(i)%rho = rho0
-        psys(2)%particles(i)%mass = rho0*dx*dx
-        psys(2)%particles(i)%v(:) = 0._fp
-        psys(2)%particles(i)%c = 10._fp*sqrt(2._fp*abs(g)*25._fp) ! 10*max_speed
-    end do
+    ! first generate boundary for setting up initial conditions where
+    ! fluid is confined in a box and damping is applied.
+    call generate_boundary(psys(2), 25._fp, 40._fp)! init interactions
 
-    ! init interactions
+    ! setup interactions between the fluid-fluid and fluid-boundary systems.
     self_sweeper%artvisc_alpha = 0.01_fp
     self_sweeper%artvisc_beta = 0._fp
     self_sweeper%h = 1.2_fp*dx
@@ -188,14 +146,33 @@ program main
     boundary_sweeper%h = 1.2_fp*dx
     boundary_sweeper%g = g
     shifter%epsilon = 0.5_fp
-    shifter%update_rhs = .true.
+    shifter%update_rhs = .true. ! ensure that rhs particles of fluid-fluid interaction are updated.
     call psys_interactions(1)%init(30, psys(1), sweeper=self_sweeper, shifter=shifter)
-    shifter%update_rhs = .false.
+    shifter%update_rhs = .false. ! ensure that rhs particles of fluid-boundary interaction aren't updated.
     call psys_interactions(2)%init(30, psys(1), psys(2), sweeper=boundary_sweeper, shifter=shifter)
 
     ! init kernel
     call kernel%init(2, 1.2_fp*dx)
 
+    ! start time-evolution with damping for setting up of initial conditions for fluid.
+    call leap_frog_time_integration( &
+        maxtimestep=6000, &
+        print_step=1000, &
+        save_step=1000, &
+        psystems=psys, &
+        interactions=psys_interactions, &
+        CFL=0.05_fp, &
+        kernel=kernel, &
+        output_path="/home/edwardy/test", &
+        output_prefix="damping", &
+        output_comp_level=4, &
+        damping_coef=390._fp & ! this should be enough to ensure damping_coef*dt ~= 0.05 (see comment at end of section 5 of paper).
+        )
+
+    ! re-initialize boundary conditions so that geometry matches the dambreak setup (without ramp).
+    call generate_boundary(psys(2), 75._fp, 40._fp)
+
+    ! start time-evolution what dambreak setup and without damping.
     call leap_frog_time_integration( &
         maxtimestep=100000, &
         print_step=1000, &
@@ -207,5 +184,62 @@ program main
         output_path="/home/edwardy/test", &
         output_comp_level=4 &
         )
+
+contains
+
+    subroutine generate_boundary(psys_boundary, extx, exty)
+
+        type(particle_system_t), intent(out):: psys_boundary
+        real(fp), intent(in):: extx, exty
+        integer:: i, k, nbx, nby
+
+        nbx = extx/dx
+        nby = exty/dx
+
+        call psys_boundary%init(2*(nbx + nby) + 4, name="boundary")
+        psys_boundary%to_print_summary = .false.
+        call psys_boundary%register_io%register_variable(psys_boundary%particles(1), "x", psys_boundary%particles(1)%x)
+        call psys_boundary%register_io%register_variable(psys_boundary%particles(1), "v", psys_boundary%particles(1)%v)
+        call psys_boundary%register_io%register_variable(psys_boundary%particles(1), "rho", psys_boundary%particles(1)%rho)
+        call psys_boundary%register_io%register_variable(psys_boundary%particles(1), "mass", psys_boundary%particles(1)%mass)
+        call psys_boundary%register_io%register_variable(psys_boundary%particles(1), "c", psys_boundary%particles(1)%c)
+        call psys_boundary%register_io%register_variable(psys_boundary%particles(1), "dvxdt", psys_boundary%particles(1)%dvxdt)
+        call psys_boundary%register_io%register_variable(psys_boundary%particles(1), "drhodt", psys_boundary%particles(1)%drhodt)
+
+        k = 0
+        ! bottom layer and corners
+        do i = -1, nbx
+            k = k + 1
+            psys_boundary%particles(k)%x(1) = (i + 0.5_fp)*dx
+            psys_boundary%particles(k)%x(2) = -0.5_fp*dx
+        end do
+        ! top layer and corners
+        do i = -1, nbx
+            k = k + 1
+            psys_boundary%particles(k)%x(1) = (i + 0.5_fp)*dx
+            psys_boundary%particles(k)%x(2) = exty + 0.5_fp*dx
+        end do
+        ! left wall
+        do j = 0, nby - 1
+            k = k + 1
+            psys_boundary%particles(k)%x(1) = -0.5_fp*dx
+            psys_boundary%particles(k)%x(2) = (j + 0.5_fp)*dx
+        end do
+        ! right wall
+        do j = 0, nby - 1
+            k = k + 1
+            psys_boundary%particles(k)%x(1) = extx + 0.5_fp*dx
+            psys_boundary%particles(k)%x(2) = (j + 0.5_fp)*dx
+        end do
+        do i = 1, k
+            psys_boundary%particles(i)%id = i
+            psys_boundary%particles(i)%type = -1
+            psys_boundary%particles(i)%rho = rho0
+            psys_boundary%particles(i)%mass = rho0*dx*dx
+            psys_boundary%particles(i)%v(:) = 0._fp
+            psys_boundary%particles(i)%c = 10._fp*sqrt(2._fp*abs(g)*25._fp) ! 10*max_speed
+        end do
+
+    end subroutine generate_boundary
 
 end program main

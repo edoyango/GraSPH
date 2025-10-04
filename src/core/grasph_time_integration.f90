@@ -30,7 +30,7 @@ contains
     !> @param output_prefix The filename prefix to use in the output files.
     !> @param output_comp_level The level of GZIP compression to use when writing the output HDF5 files.
     subroutine leap_frog_time_integration(maxtimestep, print_step, save_step, psystems, interactions, CFL, kernel, &
-                                          output_path, output_prefix, output_comp_level)
+                                          output_path, output_prefix, output_comp_level, damping_coef)
 
         integer, intent(in):: maxtimestep, print_step, save_step
         class(particle_system_t):: psystems(:)
@@ -40,6 +40,7 @@ contains
         character(*), intent(in):: output_path
         character(*), optional, intent(in):: output_prefix
         integer, optional, intent(in):: output_comp_level
+        real(fp), optional, intent(in):: damping_coef
         integer:: nparticle_sets, nparticle_interactions, itimestep, i, j, k
         real(fp):: dt, time, maxc
         type(system_timer_t):: timer
@@ -90,6 +91,11 @@ contains
             ! update particles to mid-timestep
             do i = 1, nparticle_sets
                 do j = 1, psystems(i)%register_v%nregistrations
+                    if (present(damping_coef) .and. trim(psystems(i)%register_v%names(j)) == "v") then
+                        do k = 1, psystems(i)%size
+                            psystems(i)%particles(k)%v(:) = (1._fp - 0.5_fp*damping_coef*dt)*psystems(i)%particles(k)%v(:)
+                        end do
+                    end if
                     do k = 1, psystems(i)%size
                         call psystems(i)%register_v%get(psystems(i)%particles(k), j, var_ptr, deriv_ptr)
                         var_ptr(:) = var_ptr(:) + 0.5_fp*dt*deriv_ptr(:)
@@ -119,6 +125,11 @@ contains
                         call psystems(i)%register_v%get(psystems(i)%particles(k), j, var_ptr, deriv_ptr)
                         var_ptr(:) = vars0(j, i)%p(:, k) + dt*deriv_ptr(:)
                     end do
+                    if (present(damping_coef) .and. trim(psystems(i)%register_v%names(j)) == "v") then
+                        do k = 1, psystems(i)%size
+                            psystems(i)%particles(k)%v(:) = (1._fp - damping_coef*dt)*psystems(i)%particles(k)%v(:)
+                        end do
+                    end if
                 end do
                 do j = 1, psystems(i)%register_x%nregistrations
                     do k = 1, psystems(i)%size
