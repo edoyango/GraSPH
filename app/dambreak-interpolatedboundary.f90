@@ -12,7 +12,6 @@ module grasph_monaghan1994_2
     implicit none
     ! parameters to describe geometry
     real(fp), parameter:: dx = 0.5_fp, g = -9.81_fp, rho0 = 1000._fp
-    integer, parameter:: nfx = 25._fp/dx, nfy = 25._fp/dx, nbx = 75._fp/dx, nby = 40._fp/dx
 
     ! define how fluid particles interact with boundary
     type, extends(base_sweeper_t):: boundary_update_sweeper_t
@@ -82,7 +81,7 @@ program main
     type(xsph_shifter_t):: shifter
     type(tait_eos_state_updater_t):: state_updater
     type(eos_particle_t):: ps_template
-    integer:: i, j, k, nlayer, nvirt
+    integer:: i, j, k, nlayer, nfx, nfy
 
     ! init kernel
     call kernel%init(2, 1.2_fp*dx)
@@ -111,6 +110,9 @@ program main
         error stop "Expected eos_particle_t for psys(1)%p."
     end select
 
+    nfx = 25._fp/dx
+    nfy = 25._fp/dx
+
     do i = 0, nfx - 1
         do j = 0, nfy - 1
             k = j*nfx + i + 1
@@ -128,63 +130,8 @@ program main
     ! init boundary particles
     ! only need to initialize metadata and position as only position is used to calculate repulsive force
     nlayer = ceiling(kernel%cutoff/dx)
-    nvirt = nlayer*2*(nbx + nby) + 4*nlayer*nlayer
-    call psys(2)%init(n=nvirt, name="boundary", state_updater=state_updater, particle_template=ps_template)
 
-    ! register variables for io
-    select type (p => psys(2)%particles)
-    class is (eos_particle_t)
-        call psys(2)%register_io%register_variable(p(1), "x", p(1)%x)
-        call psys(2)%register_io%register_variable(p(1), "v", p(1)%v)
-        call psys(2)%register_io%register_variable(p(1), "rho", p(1)%rho)
-        call psys(2)%register_io%register_variable(p(1), "mass", p(1)%mass)
-        call psys(2)%register_io%register_variable(p(1), "c", p(1)%c)
-        call psys(2)%register_io%register_variable(p(1), "dvxdt", p(1)%dvxdt)
-        call psys(2)%register_io%register_variable(p(1), "drhodt", p(1)%drhodt)
-        call psys(2)%register_io%register_variable(p(1), "p", p(1)%p)
-    class default
-        error stop "Expected eos_particle_t for psys(1)%p."
-    end select
-    k = 0
-    ! bottom layer and corners
-    do i = -nlayer, nbx + nlayer - 1
-        do j = 0, nlayer - 1
-            k = k + 1
-            psys(2)%particles(k)%x(1) = (i + 0.5_fp)*dx
-            psys(2)%particles(k)%x(2) = -(j + 0.5_fp)*dx
-        end do
-    end do
-    ! top layer and corners
-    do i = -nlayer, nbx + nlayer - 1
-        do j = 0, nlayer - 1
-            k = k + 1
-            psys(2)%particles(k)%x(1) = (i + 0.5_fp)*dx
-            psys(2)%particles(k)%x(2) = 40._fp + (j + 0.5_fp)*dx
-        end do
-    end do
-    ! left wall
-    do j = 0, nby - 1
-        do i = 0, nlayer - 1
-            k = k + 1
-            psys(2)%particles(k)%x(1) = -(i + 0.5_fp)*dx
-            psys(2)%particles(k)%x(2) = (j + 0.5_fp)*dx
-        end do
-    end do
-    ! right wall
-    do j = 0, nby - 1
-        do i = 0, nlayer - 1
-            k = k + 1
-            psys(2)%particles(k)%x(1) = 75._fp + (i + 0.5_fp)*dx
-            psys(2)%particles(k)%x(2) = (j + 0.5_fp)*dx
-        end do
-    end do
-    do i = 1, k
-        psys(2)%particles(i)%id = i
-        psys(2)%particles(i)%type = -1
-        psys(2)%particles(i)%rho = rho0
-        psys(2)%particles(i)%mass = rho0*dx*dx
-        psys(2)%particles(i)%c = 10._fp*sqrt(490.5_fp)
-    end do
+    call generate_boundary(psys(2), 25._fp, 40._fp)
 
     sweeper%artvisc_alpha = 0.01_fp
     sweeper%artvisc_beta = 0._fp
@@ -197,9 +144,28 @@ program main
 
     ! init interactions
     call psys_interactions(1)%init(30, psys(1), sweeper=sweeper, shifter=shifter)
-    sweeper%initialize = .false. ! second sweeper doesn't need to zero acceleation arrays
+    sweeper%initialize = .false. ! second sweeper doesn't need to zero acceleration arrays
     call psys_interactions(2)%init(30, psys(1), psys(2), prologue_sweeper=boundary_sweeper, sweeper=sweeper, shifter=shifter)
 
+    ! start time-evolution with damping for setting up of initial conditions for fluid.
+    call leap_frog_time_integration( &
+        maxtimestep=50000, &
+        print_step=1000, &
+        save_step=1000, &
+        psystems=psys, &
+        interactions=psys_interactions, &
+        CFL=0.05_fp, &
+        kernel=kernel, &
+        output_path="/home/edwardy/test", &
+        output_prefix="damping", &
+        output_comp_level=4, &
+        damping_coef=390._fp &
+        )
+
+    ! re-initialize boundary conditions so that geometry matches the dambreak setup (without ramp).
+    call generate_boundary(psys(2), 75._fp, 40._fp)
+
+    ! start time-evolution what dambreak setup and without damping.
     call leap_frog_time_integration( &
         maxtimestep=100000, &
         print_step=1000, &
@@ -211,5 +177,76 @@ program main
         output_path="/home/edwardy/test", &
         output_comp_level=4 &
         )
+
+contains
+
+    subroutine generate_boundary(psys_boundary, extx, exty)
+
+        type(particle_system_t), intent(out):: psys_boundary
+        real(fp), intent(in):: extx, exty
+        integer:: nbx, nby, nvirt
+
+        nbx = extx/dx
+        nby = exty/dx
+
+        nvirt = 2*nlayer*(nbx + nby) + 4*nlayer*nlayer
+
+        call psys_boundary%init(nvirt, name="boundary", state_updater=state_updater, particle_template=ps_template)
+
+        select type (p => psys_boundary%particles)
+        class is (eos_particle_t)
+
+            call psys_boundary%register_io%register_variable(p(1), "x", p(1)%x)
+            call psys_boundary%register_io%register_variable(p(1), "v", p(1)%v)
+            call psys_boundary%register_io%register_variable(p(1), "rho", p(1)%rho)
+            call psys_boundary%register_io%register_variable(p(1), "mass", p(1)%mass)
+            call psys_boundary%register_io%register_variable(p(1), "c", p(1)%c)
+            call psys_boundary%register_io%register_variable(p(1), "dvxdt", p(1)%dvxdt)
+            call psys_boundary%register_io%register_variable(p(1), "drhodt", p(1)%drhodt)
+            call psys_boundary%register_io%register_variable(p(1), "p", p(1)%p)
+        end select
+
+        k = 0
+        ! bottom layer and corners
+        do i = -nlayer, nbx + nlayer - 1
+            do j = 0, nlayer - 1
+                k = k + 1
+                psys(2)%particles(k)%x(1) = (i + 0.5_fp)*dx
+                psys(2)%particles(k)%x(2) = -(j + 0.5_fp)*dx
+            end do
+        end do
+        ! top layer and corners
+        do i = -nlayer, nbx + nlayer - 1
+            do j = 0, nlayer - 1
+                k = k + 1
+                psys(2)%particles(k)%x(1) = (i + 0.5_fp)*dx
+                psys(2)%particles(k)%x(2) = exty + (j + 0.5_fp)*dx
+            end do
+        end do
+        ! left wall
+        do j = 0, nby - 1
+            do i = 0, nlayer - 1
+                k = k + 1
+                psys(2)%particles(k)%x(1) = -(i + 0.5_fp)*dx
+                psys(2)%particles(k)%x(2) = (j + 0.5_fp)*dx
+            end do
+        end do
+        ! right wall
+        do j = 0, nby - 1
+            do i = 0, nlayer - 1
+                k = k + 1
+                psys(2)%particles(k)%x(1) = extx + (i + 0.5_fp)*dx
+                psys(2)%particles(k)%x(2) = (j + 0.5_fp)*dx
+            end do
+        end do
+        do i = 1, k
+            psys(2)%particles(i)%id = i
+            psys(2)%particles(i)%type = -1
+            psys(2)%particles(i)%rho = rho0
+            psys(2)%particles(i)%mass = rho0*dx*dx
+            psys(2)%particles(i)%c = 10._fp*sqrt(490.5_fp)
+        end do
+
+    end subroutine generate_boundary
 
 end program main
