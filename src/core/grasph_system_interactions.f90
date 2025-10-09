@@ -165,9 +165,20 @@ contains
         class(base_kernel_t), intent(in):: kernel
 
         if (self%is_pair_set) then
-            call cell_list_search(self%psys_lhs%particles, self%psys_rhs%particles, cutoff, kernel, self%pairs)
+            call cell_list_search( &
+                self%psys_lhs%particles(1:self%psys_lhs%size), &
+                self%psys_rhs%particles(1:self%psys_rhs%size), &
+                cutoff, &
+                kernel, &
+                self%pairs &
+                )
         else
-            call cell_list_search(self%psys_lhs%particles, cutoff, kernel, self%pairs)
+            call cell_list_search( &
+                self%psys_lhs%particles(1:self%psys_lhs%size), &
+                cutoff, &
+                kernel, &
+                self%pairs &
+                )
         end if
     end subroutine particle_interactions_find_pairs
 
