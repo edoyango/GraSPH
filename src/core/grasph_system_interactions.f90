@@ -26,6 +26,8 @@ module grasph_system_interactions_m
         logical:: initialized = .false.
         !> @brief Whether the system_interaction_t describes psys_lhs interaction with itself, or with psys_rhs.
         logical:: is_pair_set = .false.
+        !> @brief Overridable "strategy" class that performs timestep setup for the interaction.
+        class(base_sweeper_t), allocatable:: timestep_setuper
         !> @brief Overridable "strategy" class that performs sweep prologue.
         class(base_sweeper_t), allocatable:: prologue_sweeper
         !> @brief Overridable "strategy" class that performs sweep.
@@ -33,6 +35,8 @@ module grasph_system_interactions_m
         !> @brief Overridable "strategy" class that performs shift.
         class(base_shifter_t), allocatable:: shifter
     contains
+        !> @brief Called at start of every time-step for any special setup. E.g. creating ghost particles.
+        procedure:: do_timestep_setup
         !> @brief Updates particles' state that depend on interpolated information. E.g. Updating virtual particles' data, which
         !>        requires a sweep. Does so by using the prologue_sweeper's sweep method.
         procedure:: do_sweep_prologue
@@ -72,6 +76,21 @@ module grasph_system_interactions_m
     public:: system_interaction_t, base_sweeper_t, base_shifter_t
 
 contains
+
+    subroutine do_timestep_setup(self)
+        class(system_interaction_t), intent(inout):: self
+
+        ! check that timestep setuper has been allocated
+        if (.not. allocated(self%timestep_setuper)) error stop "timestep setuper not allocated in system_interaction_t."
+
+        ! pass in psys_rhs if associated
+        if (associated(self%psys_rhs)) then
+            call self%timestep_setuper%sweep(self%pairs, self%psys_lhs, self%psys_rhs)
+        else
+            call self%timestep_setuper%sweep(self%pairs, self%psys_lhs)
+        end if
+
+    end subroutine do_timestep_setup
 
     subroutine do_sweep_prologue(self)
         class(system_interaction_t), intent(inout):: self
@@ -190,12 +209,13 @@ contains
     !> @param prologue_sweeper The sweeper to use in the prologue sweep in this interaction.
     !> @param sweeper The sweeper to use in this interaction.
     !> @param shifter The shifter to use in this interaction.
-    subroutine particle_interactions_init(self, npairs_per_particle, psys_lhs, psys_rhs, prologue_sweeper, sweeper, shifter)
+    subroutine particle_interactions_init(self, npairs_per_particle, psys_lhs, psys_rhs, timestep_setuper, prologue_sweeper, &
+                                          sweeper, shifter)
         class(system_interaction_t), intent(out):: self
         integer, intent(in):: npairs_per_particle
         class(particle_system_t), target, intent(in):: psys_lhs
         class(particle_system_t), target, optional, intent(in):: psys_rhs
-        class(base_sweeper_t), optional, intent(in):: prologue_sweeper, sweeper
+        class(base_sweeper_t), optional, intent(in):: timestep_setuper, prologue_sweeper, sweeper
         class(base_shifter_t), optional, intent(in):: shifter
         type(base_sweeper_t):: tmp_base_sweeper
         type(base_shifter_t):: tmp_base_shifter
@@ -205,6 +225,12 @@ contains
             self%is_pair_set = .true.
         end if
         call self%pairs%init(psys_lhs%size, npairs_per_particle)
+
+        if (present(timestep_setuper)) then
+            allocate (self%timestep_setuper, source=timestep_setuper)
+        else
+            allocate (self%timestep_setuper, source=tmp_base_sweeper)
+        end if
 
         if (present(prologue_sweeper)) then
             allocate (self%prologue_sweeper, source=prologue_sweeper)

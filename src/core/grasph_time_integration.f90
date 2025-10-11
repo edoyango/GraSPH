@@ -64,6 +64,11 @@ contains
 
         do itimestep = 1, maxtimestep
 
+            ! perform any setup needed for each particle interaction e.g. create ghost particles
+            do i = 1, nparticle_interactions
+                call interactions(i)%do_timestep_setup
+            end do
+
             ! calculate timestep to use
             maxc = psystems(1)%particles(1)%c
             do i = 1, nparticle_sets
