@@ -4,7 +4,7 @@
 !> @date 2025-09-21
 module weakly_compressible_particles_m
 
-    use grasph_constants_m, only: fp
+    use grasph_constants_m, only: fp, ndims
     use grasph_particle_system_m, only: base_particle_t, particle_system_t, base_state_updater_t
 
     implicit none
@@ -14,6 +14,10 @@ module weakly_compressible_particles_m
     type, extends(base_particle_t):: eos_particle_t
         real(fp):: p
     end type eos_particle_t
+
+    type, extends(eos_particle_t):: eos_ghost_particle_t
+        class(eos_particle_t), pointer:: original
+    end type eos_ghost_particle_t
 
     type, extends(base_state_updater_t):: linear_eos_state_updater_t
         real(fp):: rho_ref
@@ -27,7 +31,13 @@ module weakly_compressible_particles_m
         procedure:: update_state => tait_eos_update_state
     end type tait_eos_state_updater_t
 
-    public:: eos_particle_t, linear_eos_state_updater_t, tait_eos_state_updater_t
+    type, extends(base_state_updater_t):: ghost_state_updater_t
+        real(fp):: surface_normal(ndims)
+    contains
+        procedure:: update_state => ghost_state_update
+    end type ghost_state_updater_t
+
+    public:: eos_particle_t, eos_ghost_particle_t, linear_eos_state_updater_t, tait_eos_state_updater_t, ghost_state_updater_t
 
 contains
 
@@ -73,5 +83,29 @@ contains
             error stop "eos_particle_t required"
         end select
     end subroutine tait_eos_update_state
+
+    subroutine ghost_state_update(self, ps, n, dt)
+        class(ghost_state_updater_t), intent(in):: self
+        integer, intent(in):: n
+        class(base_particle_t), intent(inout):: ps(n)
+        real(fp), optional, intent(in):: dt
+        integer:: i
+        real(fp):: projection(ndims)
+
+        select type (ps_ghost => ps)
+        class is (eos_ghost_particle_t)
+            do i = 1, n
+                projection(:) = dot_product(ps_ghost(i)%original%v(:), self%surface_normal(:))*self%surface_normal(:)
+                ps_ghost(i)%v(:) = ps_ghost(i)%original%v(:) - 2._fp*projection(:)
+                ps_ghost(i)%rho = ps_ghost(i)%original%rho
+                ps_ghost(i)%mass = ps_ghost(i)%original%mass
+                ps_ghost(i)%p = ps_ghost(i)%original%p
+                ps_ghost(i)%c = ps_ghost(i)%original%c
+            end do
+        class default
+            error stop "Expected self%particles to be eos_ghost_particle_t."
+        end select
+
+    end subroutine ghost_state_update
 
 end module weakly_compressible_particles_m

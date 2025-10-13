@@ -3,8 +3,8 @@ module grasph_dambreak_ghost_morris_boundary_m
     use grasph_constants_m, only: fp, ndims
     use grasph_particle_m, only: base_particle_t
     use grasph_particle_system_m, only: particle_system_t, base_state_updater_t
-    use weakly_compressible_particles_m, only: eos_particle_t
-    use weakly_compressible_interactions_m, only: fluid_sweeper_t
+    use weakly_compressible_particles_m, only: eos_particle_t, eos_ghost_particle_t, ghost_state_updater_t
+    use weakly_compressible_interactions_m, only: fluid_sweeper_t, ghost_timestep_setuper_t
     use grasph_system_interactions_m, only: base_sweeper_t
     use grasph_pair_interactions_m, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force, &
                                           repulsive_force
@@ -20,23 +20,6 @@ module grasph_dambreak_ghost_morris_boundary_m
     contains
         procedure:: sweep => boundary_update_sweep
     end type boundary_update_sweeper_t
-
-    type, extends(eos_particle_t):: eos_ghost_particle_t
-        class(eos_particle_t), pointer:: original
-    end type eos_ghost_particle_t
-
-    type, extends(base_sweeper_t):: ghost_timestep_setuper_t
-        real(fp):: cutoff
-        real(fp):: surface_normal(ndims), point(ndims)
-    contains
-        procedure:: sweep => ghost_timestep_setup_sweep
-    end type
-
-    type, extends(base_state_updater_t):: ghost_state_updater_t
-        real(fp):: surface_normal(ndims)
-    contains
-        procedure:: update_state => ghost_state_update
-    end type ghost_state_updater_t
 
 contains
 
@@ -78,72 +61,6 @@ contains
         end do
 
     end subroutine boundary_update_sweep
-
-    subroutine ghost_timestep_setup_sweep(self, pairs, psys_lhs, psys_rhs)
-        class(ghost_timestep_setuper_t), intent(in):: self
-        type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs
-        class(particle_system_t), optional, intent(inout):: psys_rhs
-        integer:: i
-        class(eos_particle_t), pointer:: ps_real(:)
-        class(eos_ghost_particle_t), pointer:: ps_ghost(:)
-        real(fp):: dx(ndims), dr
-
-        if (.not. present(psys_rhs)) error stop "Expected psys_rhs to be passed in."
-
-        select type (ps => psys_lhs%particles)
-        class is (eos_particle_t)
-            ps_real => ps
-        class default
-            error stop "Expected psys_lhs to be eos_particle_t."
-        end select
-
-        select type (ps => psys_rhs%particles)
-        class is (eos_ghost_particle_t)
-            ps_ghost => ps
-        class default
-            error stop "Expected psys_rhs to be eos_ghost_particle_t."
-        end select
-
-        psys_rhs%size = 0
-
-        do i = 1, psys_lhs%size
-            dr = dot_product(ps_real(i)%x(:) - self%point(:), self%surface_normal(:))
-            ! ghost particle if within cutoff and inside the modelled region.
-            if (abs(dr) <= self%cutoff .and. dr > 0._fp) then
-                psys_rhs%size = psys_rhs%size + 1
-                ps_ghost(psys_rhs%size)%id = psys_rhs%size
-                ps_ghost(psys_rhs%size)%original => ps_real(i)
-                ps_ghost(psys_rhs%size)%x(:) = ps_real(i)%x(:) - 2._fp*dr*self%surface_normal(:)
-            end if
-
-        end do
-
-    end subroutine ghost_timestep_setup_sweep
-
-    subroutine ghost_state_update(self, ps, n, dt)
-        class(ghost_state_updater_t), intent(in):: self
-        integer, intent(in):: n
-        class(base_particle_t), intent(inout):: ps(n)
-        real(fp), optional, intent(in):: dt
-        integer:: i
-        real(fp):: projection(ndims)
-
-        select type (ps_ghost => ps)
-        class is (eos_ghost_particle_t)
-            do i = 1, n
-                projection(:) = dot_product(ps_ghost(i)%original%v(:), self%surface_normal(:))*self%surface_normal(:)
-                ps_ghost(i)%v(:) = ps_ghost(i)%original%v(:) - 2._fp*projection(:)
-                ps_ghost(i)%rho = ps_ghost(i)%original%rho
-                ps_ghost(i)%mass = ps_ghost(i)%original%mass
-                ps_ghost(i)%p = ps_ghost(i)%original%p
-                ps_ghost(i)%c = ps_ghost(i)%original%c
-            end do
-        class default
-            error stop "Expected self%particles to be eos_ghost_particle_t."
-        end select
-
-    end subroutine ghost_state_update
 
 end module grasph_dambreak_ghost_morris_boundary_m
 
