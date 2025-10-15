@@ -58,6 +58,9 @@ module grasph_particle_system_m
         procedure:: read => base_read
         !> @brief A method that can be overriden to generate a string with particles' summary data to print during time-integration.
         procedure:: generate_summary => base_generate_summary
+        !> @brief Function that returns the next allocated index in self%particles. If there isn't enough space, self%particles
+        !>        is resized.
+        procedure:: safe_size_plus_1
     end type particle_system_t
 
     public:: base_particle_t, particle_system_t, base_state_updater_t, max_registrations
@@ -122,6 +125,28 @@ contains
         real(fp), intent(in), optional:: dt
         ! do nothing e.g. when using static repulsive boundaries that have no state
     end subroutine base_update_state
+
+    !> @brief Method that adds 1 to self%size and returns the result, but ensures that self%particles at the resultant index is
+    !>        allocated. However, the particle at the index is in an undefined state and should be updated manually.
+    !> @param self THe particle_system_t to add one to the size of.
+    integer function safe_size_plus_1(self)
+        class(particle_system_t), intent(inout):: self
+        class(base_particle_t), allocatable:: tmp_particle(:)
+        integer:: i
+
+        if (.not. (allocated(self%particles)) .or. size(self%particles) == 0) &
+            error stop "Cannot add to unallocated or zero-sized particles."
+
+        if (self%size == size(self%particles)) then
+            ! allocate tmp_particle to ensure it's same type as self%particles
+            allocate (tmp_particle(self%size), mold=self%particles)
+            self%particles = [self%particles, tmp_particle]
+        end if
+
+        self%size = self%size + 1
+        safe_size_plus_1 = self%size
+
+    end function safe_size_plus_1
 
     !> @brief Writes a system's particle data to HDF5 file.
     !> @param self The particle system to write.

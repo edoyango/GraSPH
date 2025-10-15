@@ -1,6 +1,7 @@
 module test_particles
 
     use grasph_constants_m, only: fp, ndims
+    use grasph_particle_m, only: base_particle_t
     use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_particles_m, only: eos_particle_t, linear_eos_state_updater_t
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
@@ -19,7 +20,8 @@ contains
 
         tests = test_list([ &
                           test("test_particles_init", test_particles_init), &
-                          test("test_linear_eos_wc_particles", test_linear_eos_wc_particles) &
+                          test("test_linear_eos_wc_particles", test_linear_eos_wc_particles), &
+                          test("test_update_del_methods", test_update_del_methods) &
                           ])
 
     end function tests
@@ -75,6 +77,26 @@ contains
         end do
 
     end subroutine test_linear_eos_wc_particles
+
+    subroutine test_update_del_methods()
+
+        type(particle_system_t):: psys
+        type(eos_particle_t):: eos_part
+        type(base_particle_t):: base_part
+        integer:: i, d
+        character:: dc
+
+        call psys%init(1, "test-particles", base_part)
+
+        call check(is_equal(psys%safe_size_plus_1(), 2), "safe_size_plus_1 didn't return size + 1.")
+        call check(is_equal(psys%size, 2), "safe_size_plus_1 didn't update size of psys.")
+        call check(is_equal(size(psys%particles), 2), "safe_size_plus_1 didn't allocate correct space for psys%particles.")
+
+        call check(is_equal(psys%safe_size_plus_1(), 3), "safe_size_plus_1 didn't return size + 1.")
+        call check(is_equal(psys%size, 3), "safe_size_plus_1 didn't update size of psys.")
+        call check(is_equal(size(psys%particles), 4), "safe_size_plus_1 didn't allocate correct space for psys%particles.")
+
+    end subroutine test_update_del_methods
 
 end module test_particles
 
