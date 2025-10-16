@@ -5,7 +5,7 @@
 module grasph_time_integration_m
 
     use grasph_constants_m, only: fp
-    use grasph_particle_system_m, only: particle_system_t, max_registrations
+    use grasph_particle_system_m, only: particle_system_t
     use grasph_system_interactions_m, only: system_interaction_t
     use grasph_kernels_m, only: base_kernel_t
     use grasph_misc_m, only: print_summary, system_timer_t
@@ -41,7 +41,7 @@ contains
         character(*), optional, intent(in):: output_prefix
         integer, optional, intent(in):: output_comp_level
         real(fp), optional, intent(in):: damping_coef
-        integer:: nparticle_sets, nparticle_interactions, itimestep, i, j, k
+        integer:: nparticle_sets, nparticle_interactions, itimestep, i, j, k, max_registrations
         real(fp):: dt, time, maxc
         type(system_timer_t):: timer
         type(array_pointer_container_t), allocatable:: vars0(:, :)
@@ -50,6 +50,10 @@ contains
         nparticle_sets = size(psystems)
         nparticle_interactions = size(interactions)
 
+        max_registrations = 0
+        do i = 1, nparticle_sets
+            max_registrations = max(psystems(i)%register_v%nregistrations, max_registrations)
+        end do
         allocate (vars0(max_registrations, nparticle_sets))
 
         do i = 1, nparticle_sets

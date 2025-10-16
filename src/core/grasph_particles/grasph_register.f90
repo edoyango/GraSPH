@@ -13,18 +13,18 @@ module grasph_register_m
     private
 
     !> @brief Max allowable registrations. Will be removed for a more dynamic approach.
-    integer, parameter:: max_registrations = 20
+    integer, parameter:: max_variable_name = 20
 
     !> @brief Registers particle's variables for access through pointer e.g. for dynamically selecting variables for IO.
     type variable_register_t
         !> @brief Number of variables currently registered.
         integer:: nregistrations = 0
         !> @brief Dimension of each variable registered.
-        integer:: dims(max_registrations)
+        integer, allocatable:: dims(:)
         !> @brief Name of variables registere. Used in IO.
-        character(20):: names(max_registrations)
+        character(max_variable_name), allocatable:: names(:)
         !> @brief Offset in memory of registered variables.
-        integer(c_intptr_t):: offsets(max_registrations)
+        integer(c_intptr_t), allocatable:: offsets(:)
     contains
         !> @brief Registers a scalar member of a particle e.g. density.
         procedure, private:: register_variable_vector
@@ -34,12 +34,14 @@ module grasph_register_m
         generic, public:: register_variable => register_variable_vector, register_variable_scalar
         !> @brief Associates pointer to a registered variable.
         procedure, public:: get_variable
+        !> @brief Utility to automatically resize internal arrays and return a "safe" last index.
+        procedure, private:: safe_size_plus_1 => variable_register_safe_size_plus_1
     end type variable_register_t
 
     !> @brief Registers a particle's varaible, along with its derivative.
     type, extends(variable_register_t):: variable_deriv_register_t
         !> @brief Offset in memory of registered derivative variables.
-        integer(c_intptr_t):: deriv_offsets(max_registrations)
+        integer(c_intptr_t), allocatable:: deriv_offsets(:)
     contains
         !> @brief Registers a scalar member of a particle and its derivative e.g. rho and drhodt.
         procedure, private:: register_variable_deriv_vector
@@ -49,9 +51,10 @@ module grasph_register_m
         generic, public:: register => register_variable_deriv_vector, register_variable_deriv_scalar
         !> @brief Associates pointers to a registered variable and its derivative.
         procedure, public:: get
+        procedure, private:: safe_size_plus_1 => deriv_register_safe_size_plus_1
     end type variable_deriv_register_t
 
-    public:: max_registrations, variable_register_t, variable_deriv_register_t
+    public:: variable_register_t, variable_deriv_register_t
 
 contains
 
@@ -89,19 +92,18 @@ contains
         character(*), intent(in):: name
         real(fp), target, intent(in):: member, member_deriv
         integer(c_intptr_t):: base_addr
-
-        if (self%nregistrations == max_registrations) error stop "Exceeded maximum variable registrations."
+        integer:: nregs
 
         base_addr = transfer(c_loc(base%id), base_addr)
 
-        self%nregistrations = self%nregistrations + 1
-        self%names(self%nregistrations) = name
-        self%offsets(self%nregistrations) = get_offset_(base_addr, member)
-        self%deriv_offsets(self%nregistrations) = get_offset_(base_addr, member_deriv)
-        self%dims(self%nregistrations) = 1
+        nregs = self%safe_size_plus_1()
+        self%names(nregs) = name
+        self%offsets(nregs) = get_offset_(base_addr, member)
+        self%deriv_offsets(nregs) = get_offset_(base_addr, member_deriv)
+        self%dims(nregs) = 1
 
-        if (self%offsets(self%nregistrations) >= sizeof(base)) error stop "Member is not a subset of base."
-        if (self%deriv_offsets(self%nregistrations) >= sizeof(base)) error stop "member_deriv is not a subset of base."
+        if (self%offsets(nregs) >= sizeof(base)) error stop "Member is not a subset of base."
+        if (self%deriv_offsets(nregs) >= sizeof(base)) error stop "member_deriv is not a subset of base."
 
     end subroutine register_variable_deriv_scalar
 
@@ -187,17 +189,16 @@ contains
         character(*), intent(in):: name
         real(fp), target, intent(in):: member
         integer(c_intptr_t):: base_addr
-
-        if (self%nregistrations == max_registrations) error stop "Exceeded maximum variable registrations."
+        integer:: nregs
 
         base_addr = transfer(c_loc(base%id), base_addr)
 
-        self%nregistrations = self%nregistrations + 1
-        self%names(self%nregistrations) = name
-        self%offsets(self%nregistrations) = get_offset_(base_addr, member)
-        self%dims(self%nregistrations) = 1
+        nregs = self%safe_size_plus_1()
+        self%names(nregs) = name
+        self%offsets(nregs) = get_offset_(base_addr, member)
+        self%dims(nregs) = 1
 
-        if (self%offsets(self%nregistrations) >= sizeof(base)) error stop "Member is not a subset of base."
+        if (self%offsets(nregs) >= sizeof(base)) error stop "Member is not a subset of base."
 
     end subroutine register_variable_scalar
 
@@ -218,5 +219,86 @@ contains
         call ptr_from_offset_(base_addr, self%offsets(idx), self%dims(idx), ptr)
 
     end subroutine get_variable
+
+    subroutine realloc_integer_r1_(arr, n)
+        integer, allocatable, intent(inout):: arr(:)
+        integer, intent(in):: n
+        integer, allocatable:: tmp_arr(:)
+
+        if (.not. allocated(arr)) then
+            allocate (arr(1))
+        else if (size(arr) == 0) then
+            deallocate (arr)
+            allocate (arr(1))
+        else if (size(arr) == n) then
+            call move_alloc(arr, tmp_arr)
+            allocate (arr(2*size(tmp_arr)))
+            arr(1:n) = tmp_arr(1:n)
+            deallocate (tmp_arr)
+        end if
+    end subroutine realloc_integer_r1_
+
+    subroutine realloc_character_r1_(arr, n)
+        character(max_variable_name), allocatable, intent(inout):: arr(:)
+        integer, intent(in):: n
+        character(max_variable_name), allocatable:: tmp_arr(:)
+
+        if (.not. allocated(arr)) then
+            allocate (arr(1))
+        else if (size(arr) == 0) then
+            deallocate (arr)
+            allocate (arr(1))
+        else if (size(arr) == n) then
+            call move_alloc(arr, tmp_arr)
+            allocate (arr(2*size(tmp_arr)))
+            arr(1:n) = tmp_arr(1:n)
+            deallocate (tmp_arr)
+        end if
+    end subroutine realloc_character_r1_
+
+    subroutine realloc_c_intptr_t_r1_(arr, n)
+        integer(c_intptr_t), allocatable, intent(inout):: arr(:)
+        integer, intent(in):: n
+        integer(c_intptr_t), allocatable:: tmp_arr(:)
+
+        if (.not. allocated(arr)) then
+            allocate (arr(1))
+        else if (size(arr) == 0) then
+            deallocate (arr)
+            allocate (arr(1))
+        else if (size(arr) == n) then
+            call move_alloc(arr, tmp_arr)
+            allocate (arr(2*size(tmp_arr)))
+            arr(1:n) = tmp_arr(1:n)
+            deallocate (tmp_arr)
+        end if
+    end subroutine realloc_c_intptr_t_r1_
+
+    function variable_register_safe_size_plus_1(self) result(new_size)
+        class(variable_register_t), intent(inout):: self
+        integer:: new_size
+
+        call realloc_integer_r1_(self%dims, self%nregistrations)
+        call realloc_character_r1_(self%names, self%nregistrations)
+        call realloc_c_intptr_t_r1_(self%offsets, self%nregistrations)
+
+        self%nregistrations = self%nregistrations + 1
+        new_size = self%nregistrations
+
+    end function variable_register_safe_size_plus_1
+
+    function deriv_register_safe_size_plus_1(self) result(new_size)
+        class(variable_deriv_register_t), intent(inout):: self
+        integer:: new_size
+
+        call realloc_integer_r1_(self%dims, self%nregistrations)
+        call realloc_character_r1_(self%names, self%nregistrations)
+        call realloc_c_intptr_t_r1_(self%offsets, self%nregistrations)
+        call realloc_c_intptr_t_r1_(self%deriv_offsets, self%nregistrations)
+
+        self%nregistrations = self%nregistrations + 1
+        new_size = self%nregistrations
+
+    end function deriv_register_safe_size_plus_1
 
 end module grasph_register_m

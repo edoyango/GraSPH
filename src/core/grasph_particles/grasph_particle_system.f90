@@ -8,7 +8,7 @@ module grasph_particle_system_m
     use grasph_constants_m, only: fp, ndims
     use grasph_particle_m, only: base_particle_t
     use grasph_common_m, only: array_pointer_container_t
-    use grasph_register_m, only: variable_register_t, variable_deriv_register_t, max_registrations
+    use grasph_register_m, only: variable_register_t, variable_deriv_register_t
 
     implicit none
     private
@@ -63,7 +63,7 @@ module grasph_particle_system_m
         procedure:: safe_size_plus_1
     end type particle_system_t
 
-    public:: base_particle_t, particle_system_t, base_state_updater_t, max_registrations
+    public:: base_particle_t, particle_system_t, base_state_updater_t
 
 contains
 
@@ -138,9 +138,9 @@ contains
             error stop "Cannot add to unallocated or zero-sized particles."
 
         if (self%size == size(self%particles)) then
-            ! allocate tmp_particle to ensure it's same type as self%particles
-            allocate (tmp_particle(self%size), mold=self%particles)
-            self%particles = [self%particles, tmp_particle]
+            ! allocate tmp_particle to ensure it's same type and size as self%particles
+            allocate (tmp_particle, mold=self%particles)
+            self%particles = [self%particles, tmp_particle] ! this doubles the space in self%particles
         end if
 
         self%size = self%size + 1
