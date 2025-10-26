@@ -37,7 +37,14 @@ module weakly_compressible_interactions_m
         procedure:: sweep => ghost_timestep_setup_sweep
     end type
 
-    public:: fluid_sweeper_t, ghost_timestep_setuper_t
+    ! define how fluid particles interact with boundary
+    type, extends(fluid_sweeper_t):: morris_boundary_sweeper_t
+        real(fp):: point(ndims), normal(ndims)
+    contains
+        procedure:: sweep => morris_boundary_sweep
+    end type morris_boundary_sweeper_t
+
+    public:: fluid_sweeper_t, ghost_timestep_setuper_t, morris_boundary_sweeper_t
 
 contains
 
@@ -198,5 +205,49 @@ contains
         end do
 
     end subroutine ghost_timestep_setup_sweep
+
+    subroutine morris_boundary_sweep(self, pairs, psys_lhs, psys_rhs)
+        class(morris_boundary_sweeper_t), intent(in):: self
+        type(particle_pairs_t), intent(in):: pairs
+        class(particle_system_t), intent(inout):: psys_lhs
+        class(particle_system_t), optional, intent(inout):: psys_rhs
+        integer:: i, j, k
+        class(eos_particle_t), pointer:: ps_fluid(:)
+        real(fp):: dummy_drhodt, dummy_dvxdt(ndims), vb(ndims), da, db
+
+        if (.not. present(psys_rhs)) then
+            error stop "Expected psys_rhs to be passed in."
+        end if
+
+        select type (ps => psys_lhs%particles)
+        class is (eos_particle_t)
+            ps_fluid => ps
+        class default
+            error stop "Expected psys_lhs%particles to be eos_particle_t."
+        end select
+
+        ! perform sweep
+        do k = 1, pairs%npairs_total
+            i = pairs%pair_ij(1, k)
+            j = pairs%pair_ij(2, k)
+            da = dot_product(ps_fluid(i)%x(:) - self%point(:), self%normal(:))
+            db = dot_product(psys_rhs%particles(j)%x(:) - self%point(:), self%normal(:))
+            vb(:) = -min(3._fp, abs(db/da))*ps_fluid(i)%v(:)
+            call artificial_viscosity_monaghan1994( &
+                ps_fluid(i)%x(:), psys_rhs%particles(j)%x(:), ps_fluid(i)%v(:), vb(:), ps_fluid(i)%rho, &
+                ps_fluid(i)%rho, self%h, self%h, ps_fluid(i)%c, ps_fluid(i)%c, ps_fluid(i)%mass, ps_fluid(i)%mass, &
+                ps_fluid(i)%dvxdt(:), dummy_dvxdt(:), pairs%dwdx(:, k), self%artvisc_alpha, self%artvisc_beta &
+                )
+            call isotropic_pressure_force( &
+                ps_fluid(i)%p, ps_fluid(i)%p, ps_fluid(i)%rho, ps_fluid(i)%rho, ps_fluid(i)%mass, ps_fluid(i)%mass, &
+                ps_fluid(i)%dvxdt(:), dummy_dvxdt(:), pairs%dwdx(:, k) &
+                )
+            call continuity_density( &
+                ps_fluid(i)%v(:), vb(:), ps_fluid(i)%mass, ps_fluid(i)%mass, &
+                ps_fluid(i)%drhodt, dummy_drhodt, pairs%dwdx(:, k) &
+                )
+        end do
+
+    end subroutine morris_boundary_sweep
 
 end module weakly_compressible_interactions_m

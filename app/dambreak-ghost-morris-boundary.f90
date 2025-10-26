@@ -4,7 +4,7 @@ module grasph_dambreak_ghost_morris_boundary_m
     use grasph_particle_m, only: base_particle_t
     use grasph_particle_system_m, only: particle_system_t, base_state_updater_t
     use weakly_compressible_particles_m, only: eos_particle_t, eos_ghost_particle_t, ghost_state_updater_t
-    use weakly_compressible_interactions_m, only: fluid_sweeper_t, ghost_timestep_setuper_t
+    use weakly_compressible_interactions_m, only: fluid_sweeper_t, ghost_timestep_setuper_t, morris_boundary_sweeper_t
     use grasph_system_interactions_m, only: base_sweeper_t
     use grasph_pair_interactions_m, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force, &
                                           repulsive_force
@@ -15,58 +15,7 @@ module grasph_dambreak_ghost_morris_boundary_m
     ! parameters to describe geometry
     real(fp), parameter:: dx = 0.5_fp, g = -9.81_fp, rho0 = 1000._fp
 
-    ! define how fluid particles interact with boundary
-    type, extends(fluid_sweeper_t):: morris_boundary_sweeper_t
-        real(fp):: x
-    contains
-        procedure:: sweep => morris_boundary_sweep
-    end type morris_boundary_sweeper_t
-
 contains
-
-    subroutine morris_boundary_sweep(self, pairs, psys_lhs, psys_rhs)
-        class(morris_boundary_sweeper_t), intent(in):: self
-        type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs
-        class(particle_system_t), optional, intent(inout):: psys_rhs
-        integer:: i, j, k
-        class(eos_particle_t), pointer:: ps_fluid(:)
-        real(fp):: dummy_drhodt, dummy_dvxdt(ndims), vb(ndims), da, db
-
-        if (.not. present(psys_rhs)) then
-            error stop "Expected psys_rhs to be passed in."
-        end if
-
-        select type (ps => psys_lhs%particles)
-        class is (eos_particle_t)
-            ps_fluid => ps
-        class default
-            error stop "Expected psys_lhs%particles to be eos_particle_t."
-        end select
-
-        ! perform sweep
-        do k = 1, pairs%npairs_total
-            i = pairs%pair_ij(1, k)
-            j = pairs%pair_ij(2, k)
-            da = abs(ps_fluid(i)%x(2) - self%x)
-            db = abs(psys_rhs%particles(j)%x(2) - self%x)
-            vb(:) = -min(3._fp, db/da)*ps_fluid(i)%v(:)
-            call artificial_viscosity_monaghan1994( &
-                ps_fluid(i)%x(:), psys_rhs%particles(j)%x(:), ps_fluid(i)%v(:), vb(:), ps_fluid(i)%rho, &
-                ps_fluid(i)%rho, self%h, self%h, ps_fluid(i)%c, ps_fluid(i)%c, ps_fluid(i)%mass, ps_fluid(i)%mass, &
-                ps_fluid(i)%dvxdt(:), dummy_dvxdt(:), pairs%dwdx(:, k), self%artvisc_alpha, self%artvisc_beta &
-                )
-            call isotropic_pressure_force( &
-                ps_fluid(i)%p, ps_fluid(i)%p, ps_fluid(i)%rho, ps_fluid(i)%rho, ps_fluid(i)%mass, ps_fluid(i)%mass, &
-                ps_fluid(i)%dvxdt(:), dummy_dvxdt(:), pairs%dwdx(:, k) &
-                )
-            call continuity_density( &
-                ps_fluid(i)%v(:), vb(:), ps_fluid(i)%mass, ps_fluid(i)%mass, &
-                ps_fluid(i)%drhodt, dummy_drhodt, pairs%dwdx(:, k) &
-                )
-        end do
-
-    end subroutine morris_boundary_sweep
 
 end module grasph_dambreak_ghost_morris_boundary_m
 
@@ -189,13 +138,15 @@ program main
     boundary_sweeper%artvisc_alpha = 0.01_fp
     boundary_sweeper%artvisc_beta = 0._fp
     boundary_sweeper%h = 1.2_fp*dx
-    boundary_sweeper%x = 0._fp
 
     ! init interactions
     call psys_interactions(1)%init(30, psys(1), sweeper=sweeper, shifter=shifter)
     sweeper%initialize = .false. ! second sweeper doesn't need to zero acceleration arrays
+    boundary_sweeper%point(:) = [0._fp, 0._fp]
+    boundary_sweeper%normal(:) = [0._fp, 1._fp]
     call psys_interactions(2)%init(30, psys(1), psys(2), sweeper=boundary_sweeper, shifter=shifter)
-    boundary_sweeper%x = 40._fp
+    boundary_sweeper%point(:) = [0._fp, 40._fp]
+    boundary_sweeper%normal(:) = [0._fp, -1._fp]
     call psys_interactions(3)%init(30, psys(1), psys(3), sweeper=boundary_sweeper, shifter=shifter)
     ghost_timestep_setuper%cutoff = kernel%cutoff
     ghost_timestep_setuper%surface_normal(:) = [1._fp, 0._fp]

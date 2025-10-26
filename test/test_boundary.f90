@@ -1,10 +1,12 @@
 module test_boundary
 
-    use grasph_constants_m, only: fp
+    use grasph_constants_m, only: fp, ndims
+    use grasph_particle_m, only: base_particle_t
     use grasph_particle_system_m, only: particle_system_t
     use grasph_system_interactions_m, only: system_interaction_t
     use weakly_compressible_particles_m, only: eos_particle_t, eos_ghost_particle_t
-    use weakly_compressible_interactions_m, only: ghost_timestep_setuper_t
+    use grasph_kernels_m, only: cubic_bspline_kernel_t
+    use weakly_compressible_interactions_m, only: ghost_timestep_setuper_t, morris_boundary_sweeper_t
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
     implicit none
@@ -17,13 +19,14 @@ contains
     type(test_list) function tests()
 
         tests = test_list([ &
-                          test("test_vertical_walls", test_vertical_walls), &
-                          test("test_diagonal_walls", test_diagonal_walls) &
+                          test("test_coaxial_ghost_walls", test_coaxial_ghost_walls), &
+                          test("test_diagonal_ghost_walls", test_diagonal_ghost_walls), &
+                          test("test_morris_walls", test_morris_walls) &
                           ])
 
     end function tests
 
-    subroutine test_vertical_walls()
+    subroutine test_coaxial_ghost_walls()
 
         type(eos_particle_t):: ps_template
         type(eos_ghost_particle_t):: ps_ghost_template
@@ -112,9 +115,9 @@ contains
         call check(is_close(psys_ghost%particles(2)%x(1), 5._fp), "2nd right-wall ghost particle x-coordinate incorrect.")
         call check(is_close(psys_ghost%particles(2)%x(2), 4._fp), "2nd right-wall ghost particle y-coordinate incorrect.")
 
-    end subroutine test_vertical_walls
+    end subroutine test_coaxial_ghost_walls
 
-    subroutine test_diagonal_walls()
+    subroutine test_diagonal_ghost_walls()
 
         type(eos_particle_t):: ps_template
         type(eos_ghost_particle_t):: ps_ghost_template
@@ -306,7 +309,213 @@ contains
         call check(is_close(psys_ghost%particles(3)%x(2), 4.5_fp, atol=1.d-14), &
                    "3rd bottom-right wall ghost particle y-coordinate incorrect.")
 
-    end subroutine test_diagonal_walls
+    end subroutine test_diagonal_ghost_walls
+
+    subroutine test_morris_walls()
+
+        type(particle_system_t):: fluid_psys, wall_psys
+        type(eos_particle_t):: fluid_template
+        type(system_interaction_t):: interaction
+        type(morris_boundary_sweeper_t):: sweeper
+        type(cubic_bspline_kernel_t):: kernel
+        integer:: i
+
+        ! position fluid particle
+        call fluid_psys%init(1, "fluid", fluid_template)
+        fluid_psys%particles(1)%x(:) = [(real(i, kind=fp)/10._fp, i=1, ndims)] ! [0.1, 0.2, 0.3]
+        fluid_psys%particles(1)%v(:) = [(2._fp*real(i, kind=fp), i=1, ndims)] ! [2, 4, 6]
+        fluid_psys%particles(1)%rho = 1000._fp
+        fluid_psys%particles(1)%mass = 10._fp
+        fluid_psys%particles(1)%c = 200._fp
+        select type (ps => fluid_psys%particles)
+        class is (eos_particle_t)
+            ps(1)%p = 5._fp
+        end select
+
+        ! position wall particles
+        call wall_psys%init(1, "wall")
+        wall_psys%particles(1)%x(:) = -fluid_psys%particles(1)%x(:) ! [-0.1, -0.2, -0.3]
+
+        call kernel%init(ndims, 1.2_fp)
+
+        ! test horizontal wall
+        sweeper%h = kernel%h
+        sweeper%artvisc_alpha = 0.1_fp
+        sweeper%artvisc_beta = 0.1_fp
+        sweeper%normal(:) = 0._fp
+        sweeper%normal(ndims) = 1._fp
+        sweeper%point(:) = 0._fp
+        call interaction%init(1, fluid_psys, wall_psys, sweeper=sweeper)
+
+        call run_check(interaction, kernel, 1._fp, sweeper, "")
+
+        ! move wall particle further away
+        wall_psys%particles(1)%x(:) = -2._fp*fluid_psys%particles(1)%x(:) ! [-0.2, -0.4, -0.6]
+
+        call run_check(interaction, kernel, expected_dbda=2._fp, sweeper=sweeper, &
+                       msg_suffix="after changing wall particle position.")
+
+        ! horizontal upper wall
+        fluid_psys%particles(1)%x(ndims) = 40._fp - fluid_psys%particles(1)%x(ndims)
+        wall_psys%particles(1)%x(:) = [(-real(i, kind=fp)/10._fp, i=1, ndims)]
+        wall_psys%particles(1)%x(ndims) = 40._fp - wall_psys%particles(1)%x(ndims)
+
+        sweeper%normal(ndims) = -sweeper%normal(ndims)
+        sweeper%point(ndims) = 40._fp
+
+        call interaction%init(1, fluid_psys, wall_psys, sweeper=sweeper)
+
+        call run_check(interaction, kernel, 1._fp, sweeper, "for horizontal upper wall.")
+
+        ! move wall particle further away
+        wall_psys%particles(1)%x(:) = [(-real(i, kind=fp)/5._fp, i=1, ndims)]
+        wall_psys%particles(1)%x(ndims) = 40._fp - wall_psys%particles(1)%x(ndims)
+
+        call run_check(interaction, kernel, 2._fp, sweeper, "for horizontal upper wall.")
+
+        ! vertical lower wall
+        fluid_psys%particles(1)%x(:) = [(real(i, kind=fp)/10._fp, i=1, ndims)]
+        wall_psys%particles(1)%x(:) = -fluid_psys%particles(1)%x(:)
+        sweeper%normal(:) = 0._fp
+        sweeper%normal(1) = 1._fp
+        sweeper%point(:) = 0._fp
+
+        call interaction%init(1, fluid_psys, wall_psys, sweeper=sweeper)
+
+        call run_check(interaction, kernel, 1._fp, sweeper, "for vertical lower wall.")
+
+        ! vertical upper wall
+        fluid_psys%particles(1)%x(:) = [(real(i, kind=fp)/10._fp, i=1, ndims)]
+        fluid_psys%particles(1)%x(ndims) = 40._fp - fluid_psys%particles(1)%x(ndims)
+        wall_psys%particles(1)%x(:) = [(real(i, kind=fp)/10._fp, i=1, ndims)]
+        wall_psys%particles(1)%x(ndims) = 40._fp + wall_psys%particles(1)%x(ndims)
+
+        sweeper%normal(:) = 0._fp
+        sweeper%normal(1) = 1._fp
+        sweeper%point(:) = 0._fp
+        sweeper%point(1) = 40._fp
+
+        call interaction%init(1, fluid_psys, wall_psys, sweeper=sweeper)
+
+        call run_check(interaction, kernel, 1._fp, sweeper, "for vertical upper wall.")
+
+        ! test angular wall
+        fluid_psys%particles(1)%x(:) = [(real(i, kind=fp)/10._fp, i=1, ndims)]
+        wall_psys%particles(1)%x(:) = -fluid_psys%particles(1)%x(:)
+        sweeper%normal(:) = 0._fp
+        sweeper%normal(1) = 2._fp/sqrt(5._fp)
+        sweeper%normal(2) = 1._fp/sqrt(5._fp)
+
+        sweeper%point(:) = 0._fp
+
+        call interaction%init(1, fluid_psys, wall_psys, sweeper=sweeper)
+
+        call run_check(interaction, kernel, 1._fp, sweeper, "for vertical upper wall.")
+
+        ! move wall particle a little
+        wall_psys%particles(1)%x(1) = 2._fp*wall_psys%particles(1)%x(1)
+
+        call run_check(interaction, kernel, 1.5_fp, sweeper, "for vertical upper wall, after moving wall.")
+
+    end subroutine test_morris_walls
+
+    subroutine run_check(interaction, kernel, expected_dbda, sweeper, msg_suffix)
+
+        use grasph_pair_interactions_m, only: continuity_density, artificial_viscosity_monaghan1994, isotropic_pressure_force
+
+        type(system_interaction_t), intent(inout):: interaction
+        type(cubic_bspline_kernel_t), intent(in):: kernel
+        real(fp), intent(in):: expected_dbda
+        class(morris_boundary_sweeper_t), intent(in):: sweeper
+        character(*), intent(in):: msg_suffix
+        class(eos_particle_t), pointer:: p_fluid
+        class(base_particle_t), pointer:: p_wall
+        real(fp):: w, dwdx(ndims), expected_wall_v(ndims), expected_wall_rho, expected_wall_mass, expected_wall_p, &
+                   expected_wall_c, expected_drhodt, expected_dvxdt(ndims), dummy_dvxdt(ndims), dummy_drhodt
+        integer:: d
+        character:: dc
+
+        if (.not. interaction%is_pair_set) error stop "Not pair set"
+        if (interaction%psys_lhs%size /= 1) error stop "Too many particles in psys_lhs"
+        if (interaction%psys_rhs%size /= 1) error stop "Too many particles in psys_rhs"
+
+        select type (ps => interaction%psys_lhs%particles)
+        class is (eos_particle_t)
+            p_fluid => ps(1)
+        class default
+            error stop "interaction%psys_lhs%particles is not class eos_particle_t"
+        end select
+        p_wall => interaction%psys_rhs%particles(1)
+
+        call kernel%values( &
+            p_fluid%x(:) - p_wall%x(:), &
+            w, dwdx &
+            )
+
+        expected_wall_v(:) = -expected_dbda*p_fluid%v(:)
+        expected_wall_rho = p_fluid%rho
+        expected_wall_mass = p_fluid%mass
+        expected_wall_p = p_fluid%p
+        expected_wall_c = p_fluid%c
+
+        p_fluid%drhodt = 0._fp
+        p_fluid%dvxdt(:) = 0._fp
+        expected_drhodt = 0._fp
+        expected_dvxdt(:) = 0._fp
+
+        call interaction%find_pairs(kernel%cutoff, kernel)
+
+        call check(is_equal(interaction%pairs%npairs_total, 1))
+        call interaction%do_sweep()
+
+        call continuity_density( &
+            p_fluid%v(:), &
+            expected_wall_v(:), &
+            p_fluid%mass, &
+            expected_wall_mass, &
+            expected_drhodt, &
+            dummy_drhodt, &
+            dwdx(:) &
+            )
+        call artificial_viscosity_monaghan1994( &
+            p_fluid%x, &
+            p_wall%x, &
+            p_fluid%v, &
+            expected_wall_v, &
+            p_fluid%rho, &
+            expected_wall_rho, &
+            kernel%h, &
+            kernel%h, &
+            p_fluid%c, &
+            expected_wall_c, &
+            p_fluid%mass, &
+            expected_wall_mass, &
+            expected_dvxdt(:), &
+            dummy_dvxdt(:), &
+            dwdx, &
+            sweeper%artvisc_alpha, &
+            sweeper%artvisc_beta &
+            )
+        call isotropic_pressure_force( &
+            p_fluid%p, &
+            expected_wall_p, &
+            p_fluid%rho, &
+            expected_wall_rho, &
+            p_fluid%mass, &
+            expected_wall_mass, &
+            expected_dvxdt, &
+            dummy_dvxdt, &
+            dwdx &
+            )
+
+        call check(is_close(expected_drhodt, p_fluid%drhodt), "Incorrect drhodt "//msg_suffix)
+
+        do d = 1, ndims
+            write (dc, "(I1)") d
+            call check(is_close(expected_dvxdt(d), p_fluid%dvxdt(d)), "Incorrect dvxdt for d="//dc//" "//msg_suffix)
+        end do
+
+    end subroutine run_check
 
 end module test_boundary
 
