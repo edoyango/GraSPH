@@ -14,7 +14,7 @@ module bui2008_viscous_stress_m
 
     implicit none
     ! parameters to describe geometry
-    real(fp), parameter:: dx = 0.004_fp, g = -9.81_fp, rho0 = 1850._fp
+    real(fp), parameter:: dx = 0.002_fp, g = -9.81_fp, rho0 = 1850._fp
 
 contains
 
@@ -73,8 +73,8 @@ program main
         error stop "Expected eos_viscous_stress_particle_t for psys(1)%p."
     end select
 
-    nfx = 0.4_fp/dx
-    nfy = 0.2_fp/dx
+    nfx = 0.2_fp/dx
+    nfy = 0.1_fp/dx
 
     do i = 0, nfx - 1
         do j = 0, nfy - 1
@@ -94,7 +94,7 @@ program main
     ! only need to initialize metadata and position as only position is used to calculate repulsive force
     nlayer = ceiling(kernel%cutoff/dx)
 
-    call generate_boundary(psys(2), 1._fp, .true.)
+    call generate_boundary(psys(2), 0.6_fp, .true.)
 
     ghost_state_updater%surface_normal(:) = [1._fp, 0._fp]
     call psys(3)%init(n=5000, name="ghost_boundary_left", particle_template=ghost_ps_template, state_updater=ghost_state_updater)
@@ -188,7 +188,7 @@ program main
         save_step=1000, &
         psystems=psys, &
         interactions=psys_interactions, &
-        CFL=0.01_fp, &
+        CFL=0.05_fp, &
         kernel=kernel, &
         output_path="/home/edwardy/test", &
         output_comp_level=4 &

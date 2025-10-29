@@ -11,7 +11,7 @@ module weakly_compressible_interactions_m
     use grasph_system_interactions_m, only: base_sweeper_t
     use grasph_pairs_m, only: particle_pairs_t
     use grasph_pair_interactions_m, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force, &
-                                          strain_rate, cauchy_stress_force
+                                          strain_rate, cauchy_stress_force, diffusion_density
 
     implicit none
 
@@ -457,6 +457,11 @@ contains
                         fluid_lhs(i)%v(:), fluid_rhs(j)%v(:), fluid_lhs(i)%mass, fluid_rhs(j)%mass, fluid_lhs(i)%drhodt, &
                         fluid_rhs(j)%drhodt, pairs%dwdx(:, k) &
                         )
+                    call diffusion_density( &
+                        fluid_lhs(i)%rho, fluid_rhs(j)%rho, fluid_lhs(i)%x(:), fluid_rhs(j)%x(:), fluid_lhs(i)%mass, &
+                        fluid_rhs(j)%mass, self%h, self%h, fluid_lhs(i)%c, fluid_rhs(j)%c, pairs%dwdx(:, k), fluid_lhs(i)%drhodt, &
+                        fluid_rhs(j)%drhodt &
+                        )
                 end do
             else ! sweep using both lhs and rhs, but updating only lhs
                 ! perform sweep
@@ -475,6 +480,11 @@ contains
                     call continuity_density( &
                         fluid_lhs(i)%v(:), fluid_rhs(j)%v(:), fluid_lhs(i)%mass, fluid_rhs(j)%mass, &
                         fluid_lhs(i)%drhodt, dummy_drhodt, pairs%dwdx(:, k) &
+                        )
+                    call diffusion_density( &
+                        fluid_lhs(i)%rho, fluid_rhs(j)%rho, fluid_lhs(i)%x(:), fluid_rhs(j)%x(:), fluid_lhs(i)%mass, &
+                        fluid_rhs(j)%mass, self%h, self%h, fluid_lhs(i)%c, fluid_rhs(j)%c, pairs%dwdx(:, k), fluid_lhs(i)%drhodt, &
+                        dummy_drhodt &
                         )
                 end do
             end if
@@ -497,6 +507,11 @@ contains
                 call continuity_density( &
                     fluid_lhs(i)%v(:), fluid_lhs(j)%v(:), fluid_lhs(i)%mass, fluid_lhs(j)%mass, &
                     fluid_lhs(i)%drhodt, fluid_lhs(j)%drhodt, pairs%dwdx(:, k) &
+                    )
+                call diffusion_density( &
+                    fluid_lhs(i)%rho, fluid_lhs(j)%rho, fluid_lhs(i)%x(:), fluid_lhs(j)%x(:), fluid_lhs(i)%mass, &
+                    fluid_lhs(j)%mass, self%h, self%h, fluid_lhs(i)%c, fluid_lhs(j)%c, pairs%dwdx(:, k), fluid_lhs(i)%drhodt, &
+                    fluid_lhs(j)%drhodt &
                     )
             end do
 

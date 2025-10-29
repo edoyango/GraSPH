@@ -166,4 +166,21 @@ contains
 
     end subroutine cauchy_stress_force
 
+    pure subroutine diffusion_density(rhoi, rhoj, xi, xj, massi, massj, hi, hj, ci, cj, dwdx, drhodti, drhodtj)
+        real(fp), intent(in):: rhoi, rhoj, xi(ndims), xj(ndims), massi, massj, hi, hj, ci, cj, dwdx(ndims)
+        real(fp), intent(inout):: drhodti, drhodtj
+        real(fp), parameter:: delta = 0.1_fp
+        real(fp):: mc, mh, psi, dx(ndims), drho, rr
+
+        mc = 0.5_fp*(ci + cj)
+        mh = 0.5_fp*(hi + hj)
+        dx(:) = xi(:) - xj(:)
+        rr = sum(dx(:)*dx(:))
+        drho = rhoi - rhoj
+        psi = 2._fp*delta*mc*mh*drho*dot_product(dx(:), dwdx(:))/rr
+        drhodti = drhodti + massj/rhoj*psi
+        drhodtj = drhodtj - massi/rhoi*psi
+
+    end subroutine diffusion_density
+
 end module grasph_pair_interactions_m
