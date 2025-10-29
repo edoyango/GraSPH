@@ -88,7 +88,7 @@ program main
 
     ! init fluid particles
     state_updater%rho_ref = rho0
-    call psys(1)%init(n=2500, name="fluid", state_updater=state_updater, particle_template=ps_template)
+    call psys(1)%init(n=2500, name="fluid", state_updater_1=state_updater, particle_template=ps_template)
 
     ! register variables for time-update
     call psys(1)%register_x%register(psys(1)%particles(1), "x", psys(1)%particles(1)%x, psys(1)%particles(1)%v)
@@ -191,7 +191,7 @@ contains
 
         nvirt = 2*nlayer*(nbx + nby) + 4*nlayer*nlayer
 
-        call psys_boundary%init(nvirt, name="boundary", state_updater=state_updater, particle_template=ps_template)
+        call psys_boundary%init(nvirt, name="boundary", state_updater_1=state_updater, particle_template=ps_template)
 
         select type (p => psys_boundary%particles)
         class is (eos_particle_t)

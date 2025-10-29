@@ -50,7 +50,7 @@ program main
     ! init fluid particles
     state_updater%rho_ref = rho0
     state_updater%friction_angle = 19.8_fp*pi/180._fp
-    call psys(1)%init(n=5000, name="soil", state_updater=state_updater, particle_template=ps_template)
+    call psys(1)%init(n=5000, name="soil", state_updater_2=state_updater, particle_template=ps_template)
 
     ! register variables for time-update
     call psys(1)%register_x%register(psys(1)%particles(1), "x", psys(1)%particles(1)%x, psys(1)%particles(1)%v)
@@ -97,7 +97,14 @@ program main
     call generate_boundary(psys(2), 0.6_fp, .true.)
 
     ghost_state_updater%surface_normal(:) = [1._fp, 0._fp]
-    call psys(3)%init(n=5000, name="ghost_boundary_left", particle_template=ghost_ps_template, state_updater=ghost_state_updater)
+    call psys(3)%init( &
+        n=5000, &
+        name="ghost_boundary_left", &
+        particle_template=ghost_ps_template, &
+        state_updater_1=ghost_state_updater, &
+        state_updater_2=ghost_state_updater &
+        )
+
     ! register variables for io
     select type (p => psys(3)%particles)
     class is (eos_viscous_stress_ghost_particle_t)

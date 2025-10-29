@@ -35,7 +35,7 @@ program main
     state_updater%rho_ref = rho0
 
     ! register variables for time-update
-    call psys(1)%init(n=1976, name="fluid", state_updater=state_updater, particle_template=ps_template)
+    call psys(1)%init(n=1976, name="fluid", state_updater_1=state_updater, particle_template=ps_template)
     call psys(1)%register_x%register(psys(1)%particles(1), "x", psys(1)%particles(1)%x, psys(1)%particles(1)%v)
     call psys(1)%register_v%register(psys(1)%particles(1), "v", psys(1)%particles(1)%v, psys(1)%particles(1)%dvxdt)
     call psys(1)%register_v%register(psys(1)%particles(1), "rho", psys(1)%particles(1)%rho, psys(1)%particles(1)%drhodt)

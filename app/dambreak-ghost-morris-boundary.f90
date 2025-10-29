@@ -48,7 +48,7 @@ program main
 
     ! init fluid particles
     state_updater%rho_ref = rho0
-    call psys(1)%init(n=2500, name="fluid", state_updater=state_updater, particle_template=ps_template)
+    call psys(1)%init(n=2500, name="fluid", state_updater_1=state_updater, particle_template=ps_template)
 
     ! register variables for time-update
     call psys(1)%register_x%register(psys(1)%particles(1), "x", psys(1)%particles(1)%x, psys(1)%particles(1)%v)
@@ -95,8 +95,8 @@ program main
     call generate_boundary(psys(3), 25._fp, .false.)
 
     ghost_state_updater%surface_normal(:) = [1._fp, 0._fp]
-    call psys(4)%init(n=2500, name="ghost_boundary_left", particle_template=ghost_ps_template, state_updater=ghost_state_updater)
-    call psys(5)%init(n=2500, name="ghost_boundary_right", particle_template=ghost_ps_template, state_updater=ghost_state_updater)
+    call psys(4)%init(n=2500, name="ghost_boundary_left", particle_template=ghost_ps_template, state_updater_1=ghost_state_updater)
+    call psys(5)%init(n=2500, name="ghost_boundary_right", particle_template=ghost_ps_template, state_updater_1=ghost_state_updater)
     ! register variables for io
     select type (p => psys(4)%particles)
     class is (eos_ghost_particle_t)

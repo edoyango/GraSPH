@@ -33,7 +33,8 @@ module grasph_particle_system_m
         !> @brief Name used in naming groups in output hdf5 file
         character(100):: name
         !> @brief Allocatable "strategy" class that performs particles' state update.
-        class(base_state_updater_t), allocatable:: state_updater
+        class(base_state_updater_t), allocatable:: state_updater_1
+        class(base_state_updater_t), allocatable:: state_updater_2
         !> @brief Register for variables to be updated only at full-timestep e.g. position (x).
         type(variable_deriv_register_t):: register_x
         !> @brief Register for variables to be updated at mid- and full-timestep e.g. velocity (v) and density (rho).
@@ -48,7 +49,8 @@ module grasph_particle_system_m
         !> @brief A method intended to be overriden when extended particles' state needs to be updated during time-integration.
         !>        Is called after any time-evolution has occurred, but before any sweeps are supposed to happen.
         !>        Does nothing in the particle_system_t instance.
-        procedure:: do_state_update
+        procedure:: do_state_update_1
+        procedure:: do_state_update_2
         !> @brief A method intended to be overriden when extended particles' have extra data that needs to be saved in the output
         !>        files. Different derived types should store their data in different groups
         !>        e.g. /\<name>/particle_system_t/..., and /\<name>/derived_particles/....
@@ -73,12 +75,12 @@ contains
     !> @param name A label to give the particles. Used to label output/terminal information.
     !> @param particle_template Template to use to define the type of particles.
     !> @param state_updater The state updater strategy class used to update the particles' time-independent state.
-    subroutine base_init(self, n, name, particle_template, state_updater)
+    subroutine base_init(self, n, name, particle_template, state_updater_1, state_updater_2)
         class(particle_system_t), intent(inout):: self
         integer, intent(in):: n
         character(*), intent(in):: name
         class(base_particle_t), optional, intent(in):: particle_template
-        class(base_state_updater_t), optional, intent(in):: state_updater
+        class(base_state_updater_t), optional, intent(in):: state_updater_1, state_updater_2
 
         if (self%initialized) call self%clear()
         if (present(particle_template)) then
@@ -87,10 +89,16 @@ contains
             allocate (self%particles(n))
         end if
 
-        if (present(state_updater)) then
-            allocate (self%state_updater, source=state_updater)
+        if (present(state_updater_1)) then
+            allocate (self%state_updater_1, source=state_updater_1)
         else
-            allocate (self%state_updater)
+            allocate (self%state_updater_1)
+        end if
+
+        if (present(state_updater_2)) then
+            allocate (self%state_updater_2, source=state_updater_2)
+        else
+            allocate (self%state_updater_2)
         end if
 
         self%initialized = .true.
@@ -105,13 +113,21 @@ contains
         class(particle_system_t), intent(out):: self
     end subroutine base_clear
 
-    subroutine do_state_update(self, dt)
+    subroutine do_state_update_1(self, dt)
         class(particle_system_t), intent(inout):: self
         real(fp), optional, intent(in):: dt
 
-        call self%state_updater%update_state(self%particles, self%size, dt)
+        call self%state_updater_1%update_state(self%particles, self%size, dt)
 
-    end subroutine do_state_update
+    end subroutine do_state_update_1
+
+    subroutine do_state_update_2(self, dt)
+        class(particle_system_t), intent(inout):: self
+        real(fp), optional, intent(in):: dt
+
+        call self%state_updater_2%update_state(self%particles, self%size, dt)
+
+    end subroutine do_state_update_2
 
     !> @brief A do-nothing placeholder subroutine used in time-integration. Extend this with particles' internal state update code e.g. updating pressure, stress.
     !> @param self Particles whose state is to be updated.
