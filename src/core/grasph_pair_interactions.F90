@@ -118,4 +118,52 @@ contains
         end if
     end subroutine repulsive_force
 
+    pure subroutine strain_rate(vi, vj, massi, massj, rhoi, rhoj, dwdx, strain_ratei, strain_ratej)
+
+        use weakly_compressible_particles_m, only: ntensor_elems_voigt
+
+        real(fp), intent(in):: vi(ndims), vj(ndims), massi, massj, rhoi, rhoj, dwdx(ndims)
+        real(fp), intent(inout):: strain_ratei(ntensor_elems_voigt), strain_ratej(ntensor_elems_voigt)
+        real(fp):: dv(ndims), sr(ntensor_elems_voigt)
+
+        dv(:) = vj(:) - vi(:)
+
+        sr(1:ndims) = dv(:)*dwdx(:)
+
+        ! xy
+        sr(ndims + 1) = 0.5_fp*(dv(1)*dwdx(2) + dv(2)*dwdx(1))
+#ifdef THREED
+        ! xz
+        sr(ndims + 2) = 0.5_fp*(dv(1)*dwdx(3) + dv(3)*dwdx(1))
+        ! yz
+        sr(ndims + 3) = 0.5_fp*(dv(2)*dwdx(3) + dv(3)*dwdx(2))
+#endif
+        strain_ratei(:) = strain_ratei(:) + massj/rhoj*sr(:)
+        strain_ratej(:) = strain_ratej(:) + massi/rhoi*sr(:)
+
+    end subroutine strain_rate
+
+    pure subroutine cauchy_stress_force(stressi, stressj, rhoi, rhoj, massi, massj, dvxdti, dvxdtj, dwdx)
+        use weakly_compressible_particles_m, only: ntensor_elems_voigt
+        real(fp), intent(in):: stressi(ntensor_elems_voigt), stressj(ntensor_elems_voigt), rhoi, rhoj, massi, massj, dwdx(ndims)
+        real(fp), intent(inout):: dvxdti(ndims), dvxdtj(ndims)
+        real(fp):: h(ndims)
+#ifdef THREED
+        h(1) = (stressi(1)*dwdx(1) + stressi(4)*dwdx(2) + stressi(5)*dwdx(3))/rhoi**2 + &
+               (stressj(1)*dwdx(1) + stressj(4)*dwdx(2) + stressj(5)*dwdx(3))/rhoj**2
+        h(2) = (stressi(4)*dwdx(1) + stressi(2)*dwdx(2) + stressi(6)*dwdx(3))/rhoi**2 + &
+               (stressj(4)*dwdx(1) + stressj(2)*dwdx(2) + stressj(6)*dwdx(3))/rhoj**2
+        h(3) = (stressi(5)*dwdx(1) + stressi(6)*dwdx(2) + stressi(3)*dwdx(3))/rhoi**2 + &
+               (stressj(5)*dwdx(1) + stressj(6)*dwdx(2) + stressj(3)*dwdx(3))/rhoj**2
+#else
+        h(1) = (stressi(1)*dwdx(1) + stressi(3)*dwdx(2))/rhoi**2 + &
+               (stressj(1)*dwdx(1) + stressj(3)*dwdx(2))/rhoj**2
+        h(2) = (stressi(3)*dwdx(1) + stressi(2)*dwdx(2))/rhoi**2 + &
+               (stressj(3)*dwdx(1) + stressj(2)*dwdx(2))/rhoj**2
+#endif
+        dvxdti(:) = dvxdti(:) + massj*h(:)
+        dvxdtj(:) = dvxdtj(:) - massi*h(:)
+
+    end subroutine cauchy_stress_force
+
 end module grasph_pair_interactions_m

@@ -58,7 +58,7 @@ contains
     !> @param n The number of LHS particles involved in the search.
     !> @param npairs_per_particle The maximum number of pairs each particle will have.
     !> @param ndims The number of dimensions of the problem.
-    pure subroutine particle_pairs_init(self, n, npairs_per_particle)
+    subroutine particle_pairs_init(self, n, npairs_per_particle)
 
         class(particle_pairs_t), intent(inout):: self
         integer, intent(in):: n, npairs_per_particle
@@ -70,6 +70,7 @@ contains
         if (self%initialized) deallocate (self%pair_ij, self%w, self%dwdx)
         allocate (self%pair_ij(2, n*npairs_per_particle))
         allocate (self%w(n*npairs_per_particle), self%dwdx(ndims, n*npairs_per_particle))
+        self%n = n
 
         self%initialized = .true.
 
@@ -81,7 +82,7 @@ contains
     !> @param cutoff The cutoff distance to find pairs of particles within.
     !> @param kernel The SPH kernel to calculate values and gradient values with.
     !> @param pairs The particle_pairs_t instance to populate with the search.
-    pure subroutine dsearch_self(ps, cutoff, kernel, pairs)
+    subroutine dsearch_self(ps, cutoff, kernel, pairs)
 
         type(particle_pairs_t), intent(inout):: pairs
         type(base_particle_t), intent(in):: ps(:)
@@ -116,7 +117,7 @@ contains
     !> @param cutoff The cutoff distance to find pairs of particles within.
     !> @param kernel The SPH kernel to calculate values and gradient values with.
     !> @param pairs The particle_pairs_t instance to populate with the search.
-    pure subroutine dsearch_other(ps_lhs, ps_rhs, cutoff, kernel, pairs)
+    subroutine dsearch_other(ps_lhs, ps_rhs, cutoff, kernel, pairs)
 
         type(particle_pairs_t), intent(inout):: pairs
         class(base_particle_t), intent(in):: ps_lhs(:), ps_rhs(:)
@@ -149,7 +150,7 @@ contains
     !> @param cutoff The cutoff distance to find pairs of particles within.
     !> @param kernel The SPH kernel to calculate values and gradient values with.
     !> @param pairs The particle_pairs_t instance to populate with the search.
-    pure subroutine cell_list_search_self(ps, cutoff, kernel, pairs)
+    subroutine cell_list_search_self(ps, cutoff, kernel, pairs)
 
         type(particle_pairs_t), intent(inout):: pairs
         class(base_particle_t), intent(in):: ps(:)
@@ -191,7 +192,7 @@ contains
     !> @param grid_idx The grid cells that each particle in the set belongs to.
     !> @param x The positions of the particles.
     !> @param pairs The particle_pairs_t instance to populate with the search.
-    pure subroutine grid_sweep_self(cutoff, kernel, ngridx, grid_idx, ps, pairs)
+    subroutine grid_sweep_self(cutoff, kernel, ngridx, grid_idx, ps, pairs)
 
         type(particle_pairs_t), intent(inout):: pairs
         real(fp), intent(in):: cutoff
@@ -319,7 +320,7 @@ contains
     !> @param cutoff The cutoff distance to find pairs of particles within.
     !> @param kernel The SPH kernel to calculate values and gradient values with.
     !> @param pairs The particle_pairs_t instance to populate with the search.
-    pure subroutine cell_list_search_other(ps_lhs, ps_rhs, cutoff, kernel, pairs)
+    subroutine cell_list_search_other(ps_lhs, ps_rhs, cutoff, kernel, pairs)
 
         type(particle_pairs_t), intent(inout):: pairs
         class(base_particle_t), intent(in):: ps_lhs(:), ps_rhs(:)
@@ -367,7 +368,7 @@ contains
     !> @param x_rhs The positions of the RHS particles.
     !> @param n_rhs The number of RHS particles.
     !> @param pairs The particle_pairs_t instance to populate with the search.
-    pure subroutine grid_sweep_other(cutoff, kernel, minextents, ngridx, grid_idx, ps_lhs, ps_rhs, pairs)
+    subroutine grid_sweep_other(cutoff, kernel, minextents, ngridx, grid_idx, ps_lhs, ps_rhs, pairs)
         type(particle_pairs_t), intent(inout):: pairs
         real(fp), intent(in):: minextents(ndims), cutoff
         class(base_kernel_t), intent(in):: kernel
@@ -452,7 +453,7 @@ contains
     !> @param kernel The SPH kernel to calculate values and gradient values with.
     !> @param pairs The particle_pairs_t instance to populate with the search.
     !> @param i the LHS particle index.
-    pure subroutine sweep_cell(cutoff, xi, n, ps_rhs, n_in_cell, p_in_cell, kernel, pairs, i)
+    subroutine sweep_cell(cutoff, xi, n, ps_rhs, n_in_cell, p_in_cell, kernel, pairs, i)
 
         integer, intent(in):: n, n_in_cell, p_in_cell(n_in_cell)
         class(base_particle_t), intent(in):: ps_rhs(n)

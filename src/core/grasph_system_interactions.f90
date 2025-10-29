@@ -224,6 +224,7 @@ contains
             self%psys_rhs => psys_rhs
             self%is_pair_set = .true.
         end if
+
         call self%pairs%init(psys_lhs%size, npairs_per_particle)
 
         if (present(timestep_setuper)) then
