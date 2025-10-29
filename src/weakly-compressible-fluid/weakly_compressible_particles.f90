@@ -12,7 +12,7 @@ module weakly_compressible_particles_m
     private
 
     type, extends(base_particle_t):: eos_particle_t
-        real(fp):: p
+        real(fp):: p = 0._fp
     end type eos_particle_t
 
     type, extends(eos_particle_t):: eos_ghost_particle_t
@@ -20,7 +20,7 @@ module weakly_compressible_particles_m
     end type eos_ghost_particle_t
 
     type, extends(base_state_updater_t):: linear_eos_state_updater_t
-        real(fp):: rho_ref
+        real(fp):: rho_ref = 0._fp
     contains
         procedure:: update_state => linear_eos_update_state
     end type linear_eos_state_updater_t
@@ -42,7 +42,7 @@ module weakly_compressible_particles_m
     integer, parameter:: ntensor_elems_voigt = ndims + ntensor_offaxis_elems
 
     type, extends(eos_particle_t):: eos_viscous_stress_particle_t
-        real(fp):: strain_rate(ntensor_elems_voigt), stress(ntensor_elems_voigt)
+        real(fp):: strain_rate(ntensor_elems_voigt) = 0._fp, stress(ntensor_elems_voigt) = 0._fp
     end type eos_viscous_stress_particle_t
 
     type, extends(eos_viscous_stress_particle_t):: eos_viscous_stress_ghost_particle_t

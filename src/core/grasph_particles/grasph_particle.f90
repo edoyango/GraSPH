@@ -13,23 +13,23 @@ module grasph_particle_m
     !> @brief base particle type.
     type:: base_particle_t
         !> @brief the ID of the particle.
-        integer:: id
+        integer:: id = 0
         !> @brief An integer indicating the "type" of the particle. Not currently used for anything and may be removed.
-        integer:: type
+        integer:: type = 0
         !> @brief The particle's position.
-        real(fp):: x(ndims)
+        real(fp):: x(ndims) = 0._fp
         !> @brief Lagrangian velocity of the particle.
-        real(fp):: v(ndims)
+        real(fp):: v(ndims) = 0._fp
         !> @brief The density of the particle.
-        real(fp):: rho
+        real(fp):: rho = 0._fp
         !> @brief The mass of the particle.
-        real(fp):: mass
+        real(fp):: mass = 0._fp
         !> @brief The local speed of sound associated with the particle.
-        real(fp):: c
+        real(fp):: c = 0._fp
         !> @brief The acceleration of the particle.
-        real(fp):: dvxdt(ndims)
+        real(fp):: dvxdt(ndims) = 0._fp
         !> @brief The density rate-of-change of the particle.
-        real(fp):: drhodt
+        real(fp):: drhodt = 0._fp
     end type base_particle_t
 
     public:: base_particle_t
