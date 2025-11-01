@@ -11,12 +11,13 @@ module weakly_compressible_interactions_m
     use grasph_system_interactions_m, only: base_sweeper_t
     use grasph_pairs_m, only: particle_pairs_t
     use grasph_pair_interactions_m, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force, &
-                                          strain_rate, cauchy_stress_force, diffusion_density
+                                          strain_rate, cauchy_stress_force, diffusion_density, repulsive_force
 
     implicit none
 
     private
 
+    !> @brief Sweeper describing interaction between systems of weakly compressible particles.
     type, extends(base_sweeper_t):: fluid_sweeper_t
         !> @brief Acceleration due to gravity (m/s)
         real(fp):: g = -9.81_fp
@@ -32,60 +33,106 @@ module weakly_compressible_interactions_m
         procedure:: sweep => fluid_sweep
     end type fluid_sweeper_t
 
-    type, extends(base_sweeper_t):: ghost_timestep_setuper_t
+    !> @brief Sweeper describing interaction between a fluid system and boundary using Lennard-Jones repulsive force only.
+    type, extends(fluid_sweeper_t):: fluid_boundary_sweeper_monaghan1994_t
+        !> @brief The interaction length of the lennard-jones repulsive force.
         real(fp):: cutoff
-        real(fp):: surface_normal(ndims), point(ndims)
     contains
+        !> @brief Calculate acceleration due to lennard-jones repulsive force and artificial viscosity.
+        procedure:: sweep => fluid_boundary_sweep_monaghan1994
+    end type fluid_boundary_sweeper_monaghan1994_t
+
+    !> @brief Sweeper describing how to update weakly compressible virtual boundary particles' velocity and density.
+    type, extends(base_sweeper_t):: boundary_update_sweeper_t
+    contains
+        !> @brief Calculate weakly compressible virtual boundary particles' velocity and density.
+        procedure:: sweep => boundary_update_sweep
+    end type boundary_update_sweeper_t
+
+    !> @brief Sweeper describing how to generate weakly compressible ghost particles at the start of the time-step.
+    type, extends(base_sweeper_t):: ghost_timestep_setuper_t
+        !> @brief The distance between the boundary face to mirror particles.
+        real(fp):: cutoff
+        !> @brief The normal to the face that particles should be mirrored on.
+        real(fp):: surface_normal(ndims)
+        !> @brief The point that the mirroring face passes through.
+        real(fp):: point(ndims)
+    contains
+        !> @brief Generates ghost particles based on the mirroring boundary and the RHS particles.
         procedure:: sweep => ghost_timestep_setup_sweep
     end type
 
-    ! define how fluid particles interact with boundary
+    !> @brief Sweeper describing the interaction between real (LHS) and virtual (RHS) weakly compressible particles using the morris
+    !>        boundary condition.
     type, extends(fluid_sweeper_t):: morris_boundary_sweeper_t
-        real(fp):: point(ndims), normal(ndims)
+        !> @brief The point that the boundary plane passes through.
+        real(fp):: point(ndims)
+        !> @brief The unit normal vector pointing towards the "real" domain.
+        real(fp):: normal(ndims)
     contains
+        !> @brief Calculates acceleration and density change of the LHS particles due to interaction with the morris boundary
+        !>       particles (RHS).
         procedure:: sweep => morris_boundary_sweep
     end type morris_boundary_sweeper_t
 
+    !> @brief Sweeper that calculates engineering strain rate between two particle systems.
     type, extends(base_sweeper_t):: strain_rate_sweeper_t
     contains
+        !> @brief Calculates engineering strain rate.
         procedure:: sweep => strain_rate_sweep
     end type strain_rate_sweeper_t
 
+    !> @brief Sweeper describing how to generate weakly compressible ghost particles with strain rate and cauchy stress tensors.
     type, extends(ghost_timestep_setuper_t):: eos_viscous_stress_ghost_timestep_setuper_t
     contains
+        !> @brief Generates ghost particles based on the mirroring boundary and the RHS particles.
         procedure:: sweep => eos_viscous_stress_ghost_timestep_setup_sweep
     end type eos_viscous_stress_ghost_timestep_setuper_t
 
+    !> @brief Sweeper describing interaction between systems of weakly compressible particles with cauchy stress tensors.
     type, extends(fluid_sweeper_t):: viscous_stress_fluid_sweeper_t
     contains
+        !> @brief Calculate density change and acceleration between weakly compressible particles with cauchy stress tensor.
         procedure:: sweep => viscous_stress_fluid_sweep
     end type viscous_stress_fluid_sweeper_t
 
+    !> @brief Sweeper describing the interaction between real (LHS) and virtual (RHS) weakly compressible articles (with cauchy
+    !>        stress tensor) using the morris boundary condition.
     type, extends(viscous_stress_fluid_sweeper_t):: eos_viscous_stress_morris_boundary_sweeper_t
-        real(fp):: point(ndims), normal(ndims)
+        !> @brief The point that the boundary plane passes through.
+        real(fp):: point(ndims)
+        !> @brief The unit normal vector pointing towards the "real" domain.
+        real(fp):: normal(ndims)
     contains
+        !> @brief Calculates acceleration and density change of the LHS particles due to interaction with the weakly compressible
+        !>       morris boundary particles with stress tensor (RHS).
         procedure:: sweep => viscous_stress_morris_boundary_sweep
     end type eos_viscous_stress_morris_boundary_sweeper_t
 
+    !> @brief Sweeper that describes how morris boundary particles contribute to the strain rate calculation of real particles.
     type, extends(strain_rate_sweeper_t):: strain_rate_morris_boundary_sweeper_t
-        real(fp):: point(ndims), normal(ndims)
+        !> @brief The point that the boundary plane passes through.
+        real(fp):: point(ndims)
+        !> @brief The unit normal vector pointing towards the "real" domain.
+        real(fp):: normal(ndims)
     contains
+        !> @brief Calculates Contribution of morris boundary particles (RHS) to real particles (LHS) strain rate.
         procedure:: sweep => strain_rate_morris_boundary_sweep
     end type strain_rate_morris_boundary_sweeper_t
 
-    public:: fluid_sweeper_t, ghost_timestep_setuper_t, morris_boundary_sweeper_t, strain_rate_sweeper_t, &
-             viscous_stress_fluid_sweeper_t, eos_viscous_stress_ghost_timestep_setuper_t, &
-             eos_viscous_stress_morris_boundary_sweeper_t, &
+    public:: fluid_sweeper_t, fluid_boundary_sweeper_monaghan1994_t, boundary_update_sweeper_t, ghost_timestep_setuper_t, &
+             morris_boundary_sweeper_t, strain_rate_sweeper_t, viscous_stress_fluid_sweeper_t, &
+             eos_viscous_stress_ghost_timestep_setuper_t, eos_viscous_stress_morris_boundary_sweeper_t, &
              strain_rate_morris_boundary_sweeper_t
 
 contains
 
-    !> @brief For a single set of weakly-compressible fluid particles, calculate acceleration and density rate-of-change due to
-    !>        isotropic pressure, artificial viscosity, and mass continuity.
+    !> @brief For either one or two weakly-compressible fluid particle systems, calculate acceleration and density rate-of-change
+    !>        due to isotropic pressure, artificial viscosity, and mass continuity.
     !> @param self The sweeper class holding artificial viscosity constants and gravity.
     !> @param pairs The class storing particle pair index information.
-    !> @param psys_lhs the LHS particles involved in the interactions.
-    !> @param psys_rhs Ths RHS particles involved in the interactions. Expecting not to be passed in.
+    !> @param psys_lhs the LHS weakly compressible particles involved in the interactions.
+    !> @param psys_rhs Ths RHS "                                                        ".
     subroutine fluid_sweep(self, pairs, psys_lhs, psys_rhs)
         class(fluid_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
@@ -196,6 +243,93 @@ contains
         end if
     end subroutine fluid_sweep
 
+    !> @brief For a weakly-compressible fluid particle system and a base particle system, calculate acceleration due to
+    !>        lennard-jones repulsive force and artificial viscosity.
+    !> @param self The sweeper class holding artificial viscosity constants.
+    !> @param pairs The class storing particle pair index information.
+    !> @param psys_lhs the real particles involved in the interactions.
+    !> @param psys_rhs The boundary particles involved in the interactions.
+    subroutine fluid_boundary_sweep_monaghan1994(self, pairs, psys_lhs, psys_rhs)
+        class(fluid_boundary_sweeper_monaghan1994_t), intent(in):: self
+        type(particle_pairs_t), intent(in):: pairs
+        class(particle_system_t), intent(inout):: psys_lhs
+        class(particle_system_t), optional, intent(inout):: psys_rhs
+        integer:: i, j, k
+        real(fp):: dummy_dvxdt(2)
+
+        if (.not. present(psys_rhs)) error stop "expected psys_rhs to be passed in."
+
+        do k = 1, pairs%npairs_total
+            i = pairs%pair_ij(1, k)
+            j = pairs%pair_ij(2, k)
+            ! apply boundary force with eqn 4.1.
+            call repulsive_force( &
+                self%cutoff, psys_lhs%particles(i)%c, psys_lhs%particles(i)%x(:), psys_rhs%particles(j)%x(:), &
+                psys_lhs%particles(i)%dvxdt(:) &
+                )
+            ! boundary particles included in artificial viscosity calculation (start of pg 402), but velocities of boundary
+            ! particles aren't updated.
+            call artificial_viscosity_monaghan1994( &
+                psys_lhs%particles(i)%x(:), psys_rhs%particles(j)%x(:), psys_lhs%particles(i)%v(:), psys_rhs%particles(j)%v(:), &
+                psys_lhs%particles(i)%rho, psys_rhs%particles(j)%rho, self%h, self%h, psys_lhs%particles(i)%c, &
+                psys_rhs%particles(j)%c, psys_lhs%particles(i)%mass, psys_rhs%particles(j)%mass, psys_lhs%particles(i)%dvxdt(:), &
+                dummy_dvxdt(:), pairs%dwdx(:, k), self%artvisc_alpha, self%artvisc_beta &
+                )
+        end do
+
+    end subroutine fluid_boundary_sweep_monaghan1994
+
+    !> @brief For two particle systems, calculate the LHS particles' density and velocity using kernel interpolation over the RHS
+    !>        particles' density and velocity.
+    !> @param self The sweeper class.
+    !> @param pairs The class storing particle pair index information.
+    !> @param psys_lhs the LHS particles whose velocity and density will be updated.
+    !> @param psys_rhs Ths RHS particles to calculate velocity and density from.
+    subroutine boundary_update_sweep(self, pairs, psys_lhs, psys_rhs)
+        class(boundary_update_sweeper_t), intent(in):: self
+        type(particle_pairs_t), intent(in):: pairs
+        class(particle_system_t), intent(inout):: psys_lhs
+        class(particle_system_t), optional, intent(inout):: psys_rhs
+        integer:: i, j, k
+        real(fp):: mw, vw
+        real(fp), allocatable:: wsum(:)
+
+        if (present(psys_rhs)) then
+            allocate (wsum(psys_rhs%size), source=0._fp)
+        else
+            error stop "Expected psys_rhs to be passed in."
+        end if
+
+        do i = 1, psys_rhs%size
+            psys_rhs%particles(i)%rho = 0._fp
+            psys_rhs%particles(i)%v(:) = 0._fp
+        end do
+
+        do k = 1, pairs%npairs_total
+            i = pairs%pair_ij(1, k)
+            j = pairs%pair_ij(2, k)
+            mw = psys_lhs%particles(i)%mass*pairs%w(k)
+            vw = mw/psys_lhs%particles(i)%rho
+            wsum(j) = wsum(j) + vw
+            psys_rhs%particles(j)%rho = psys_rhs%particles(j)%rho + mw
+            psys_rhs%particles(j)%v(:) = psys_rhs%particles(j)%v(:) + psys_lhs%particles(i)%v(:)*vw
+        end do
+
+        do j = 1, psys_rhs%size
+            if (wsum(j) > 0._fp) then
+                psys_rhs%particles(j)%v(:) = -psys_rhs%particles(j)%v(:)/wsum(j)
+                psys_rhs%particles(j)%rho = psys_rhs%particles(j)%rho/wsum(j)
+            end if
+        end do
+
+    end subroutine boundary_update_sweep
+
+    !> @brief For two weakly compressible particle systems, generate ghost particles in the LHS system, using information from the
+    !>        RHS system and a defined boundary.
+    !> @param self The sweeper class containing the plane boundary using a unit normal vector and point.
+    !> @param pairs The class storing particle pair index information.
+    !> @param psys_lhs the LHS ghost particle system where ghost particles will be generated.
+    !> @param psys_rhs Ths RHS particles to generate ghost particles from.
     subroutine ghost_timestep_setup_sweep(self, pairs, psys_lhs, psys_rhs)
         class(ghost_timestep_setuper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
@@ -238,6 +372,13 @@ contains
 
     end subroutine ghost_timestep_setup_sweep
 
+    !> @brief For a weakly compressible particle system and base particle system (aka boundary particles), calculate the
+    !>        contribution of the boundary particles to the acceleration and rate of change to the real particles using the morris
+    !>        boundary.
+    !> @param self The sweeper class holding artificial viscosity constants and boundary surface point and unit normal vector.
+    !> @param pairs The class storing particle pair index information.
+    !> @param psys_lhs the LHS weakly compressible particles involved in the interactions.
+    !> @param psys_rhs Ths RHS boundary particles involved in the interactions.
     subroutine morris_boundary_sweep(self, pairs, psys_lhs, psys_rhs)
         class(morris_boundary_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
@@ -282,6 +423,11 @@ contains
 
     end subroutine morris_boundary_sweep
 
+    !> @brief For either one or two particle systems, calculate strain rate.
+    !> @param self The sweeper class.
+    !> @param pairs The class storing particle pair index information.
+    !> @param psys_lhs the LHS particles involved in the interactions.
+    !> @param psys_rhs Ths RHS "                                    ".
     subroutine strain_rate_sweep(self, pairs, psys_lhs, psys_rhs)
 
         use weakly_compressible_particles_m, only: ntensor_elems_voigt
@@ -347,6 +493,12 @@ contains
 
     end subroutine strain_rate_sweep
 
+    !> @brief For two weakly compressible particle systems with stress tensor, generate ghost particles in the LHS system, using
+    !>        information from the RHS system and a defined boundary.
+    !> @param self The sweeper class containing the plane boundary using a unit normal vector and point.
+    !> @param pairs The class storing particle pair index information.
+    !> @param psys_lhs the LHS ghost particle system where ghost particles will be generated.
+    !> @param psys_rhs Ths RHS particles to generate ghost particles from.
     subroutine eos_viscous_stress_ghost_timestep_setup_sweep(self, pairs, psys_lhs, psys_rhs)
         class(eos_viscous_stress_ghost_timestep_setuper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
@@ -355,7 +507,7 @@ contains
         integer:: i
         class(eos_viscous_stress_particle_t), pointer:: ps_real(:)
         class(eos_viscous_stress_ghost_particle_t), pointer:: ps_ghost(:)
-        real(fp):: dx(ndims), dr
+        real(fp):: dr
 
         if (.not. present(psys_rhs)) error stop "Expected psys_rhs to be passed in."
 
@@ -389,12 +541,12 @@ contains
 
     end subroutine eos_viscous_stress_ghost_timestep_setup_sweep
 
-    !> @brief For a single set of weakly-compressible fluid particles, calculate acceleration and density rate-of-change due to
-    !>        isotropic pressure, artificial viscosity, and mass continuity.
+    !> @brief For either one or two weakly-compressible fluid particle systems with stress ensor, calculate acceleration and density
+    !>        rate-of-change due to cauchy stress, artificial viscosity, and mass continuity.
     !> @param self The sweeper class holding artificial viscosity constants and gravity.
     !> @param pairs The class storing particle pair index information.
-    !> @param psys_lhs the LHS particles involved in the interactions.
-    !> @param psys_rhs Ths RHS particles involved in the interactions. Expecting not to be passed in.
+    !> @param psys_lhs the LHS weakly compressible particles with stress tensor involved in the interactions.
+    !> @param psys_rhs Ths RHS "                                                                           ".
     subroutine viscous_stress_fluid_sweep(self, pairs, psys_lhs, psys_rhs)
         class(viscous_stress_fluid_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
@@ -518,6 +670,13 @@ contains
         end if
     end subroutine viscous_stress_fluid_sweep
 
+    !> @brief For a weakly compressible particle system with stress tensor and base particle system (aka boundary particles),
+    !>        calculate the contribution of the boundary particles to the acceleration and rate of change to the real particles
+    !>        using the morris boundary.
+    !> @param self The sweeper class holding artificial viscosity constants and boundary surface point and unit normal vector.
+    !> @param pairs The class storing particle pair index information.
+    !> @param psys_lhs the LHS weakly compressible particles with stress tensor involved in the interactions.
+    !> @param psys_rhs Ths RHS boundary particles involved in the interactions.
     subroutine viscous_stress_morris_boundary_sweep(self, pairs, psys_lhs, psys_rhs)
         class(eos_viscous_stress_morris_boundary_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
@@ -562,6 +721,12 @@ contains
 
     end subroutine viscous_stress_morris_boundary_sweep
 
+    !> @brief For two base particle systems, calculate the contribution of the boundary particles (RHS) to the strain rate of the
+    !>        real particles (LHS) using the morris boundary.
+    !> @param self The sweeper class holding boundary surface point and unit normal vector.
+    !> @param pairs The class storing particle pair index information.
+    !> @param psys_lhs the LHS particles involved in the interactions.
+    !> @param psys_rhs Ths RHS "                                    ".
     subroutine strain_rate_morris_boundary_sweep(self, pairs, psys_lhs, psys_rhs)
 
         use weakly_compressible_particles_m, only: ntensor_elems_voigt

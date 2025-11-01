@@ -3,96 +3,40 @@
 !>        Monaghan (1994) (https://doi.org/10.1006/jcph.1994.1034). The only known difference is that the Leap-Frog time-integration
 !>        is used here instead of the predictor-corrector scheme used in the paper.
 !> @author Edward Yang
-!> @date 2025/9/22
-
-module grasph_monaghan1994
+!> @date 2025-9-22
+program main
 
     use grasph_constants_m, only: fp
     use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_particles_m, only: eos_particle_t, tait_eos_state_updater_t
-    use grasph_pairs_m, only: particle_pairs_t
-    use grasph_system_interactions_m, only: base_sweeper_t
-    use weakly_compressible_interactions_m, only: fluid_sweeper_t
-    use grasph_pair_interactions_m, only: artificial_viscosity_monaghan1994, continuity_density, repulsive_force
+    use weakly_compressible_interactions_m, only: fluid_sweeper_t, fluid_boundary_sweeper_monaghan1994_t
+    use grasph_system_interactions_m, only: system_interaction_t
+    use grasph_time_integration_m, only: leap_frog_time_integration
+    use grasph_kernels_m, only: cubic_bspline_kernel_t
     use grasph_particle_shifting_m, only: xsph_shifter_t
 
     implicit none
     ! parameters to describe geometry
     real(fp), parameter:: dx = 0.5_fp, g = -9.81_fp, rho0 = 1000._fp
-
-    type, extends(base_sweeper_t):: fluid_boundary_sweeper_t
-        !> @brief Acceleration due to gravity (m/s)
-        real(fp):: g = -9.81_fp
-        !> @brief Alpha coefficient for artificial viscosity.
-        real(fp):: artvisc_alpha = 0.1_fp
-        !> @brief Beta coefficient for artificial viscosity.
-        real(fp):: artvisc_beta = 0.1_fp
-        !> @brief Smoothing length to use fo artificial viscosity.
-        real(fp):: h = 0._fp
-    contains
-        procedure:: sweep => fluid_boundary_sweep_new
-    end type fluid_boundary_sweeper_t
-
-contains
-
-    subroutine fluid_boundary_sweep_new(self, pairs, psys_lhs, psys_rhs)
-        class(fluid_boundary_sweeper_t), intent(in):: self
-        type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs
-        class(particle_system_t), optional, intent(inout):: psys_rhs
-        integer:: i, j, k
-        real(fp):: dummy_dvxdt(2)
-
-        if (.not. present(psys_rhs)) error stop "expected psys_rhs to be passed in."
-
-        do k = 1, pairs%npairs_total
-            i = pairs%pair_ij(1, k)
-            j = pairs%pair_ij(2, k)
-            ! apply boundary force with eqn 4.1.
-            call repulsive_force( &
-                dx, psys_lhs%particles(i)%c, psys_lhs%particles(i)%x(:), psys_rhs%particles(j)%x(:), &
-                psys_lhs%particles(i)%dvxdt(:) &
-                )
-            ! boundary particles included in artificial viscosity calculation (start of pg 402), but velocities of boundary
-            ! particles aren't updated.
-            call artificial_viscosity_monaghan1994( &
-                psys_lhs%particles(i)%x(:), psys_rhs%particles(j)%x(:), psys_lhs%particles(i)%v(:), psys_rhs%particles(j)%v(:), &
-                psys_lhs%particles(i)%rho, psys_rhs%particles(j)%rho, self%h, self%h, psys_lhs%particles(i)%c, &
-                psys_rhs%particles(j)%c, psys_lhs%particles(i)%mass, psys_rhs%particles(j)%mass, psys_lhs%particles(i)%dvxdt(:), &
-                dummy_dvxdt(:), pairs%dwdx(:, k), self%artvisc_alpha, self%artvisc_beta &
-                )
-        end do
-
-    end subroutine fluid_boundary_sweep_new
-
-end module grasph_monaghan1994
-
-program main
-
-    use grasph_monaghan1994
-
-    use grasph_particle_system_m, only: particle_system_t
-    use weakly_compressible_particles_m, only: tait_eos_state_updater_t
-    use grasph_system_interactions_m, only: system_interaction_t
-    use grasph_time_integration_m, only: leap_frog_time_integration
-    use grasph_kernels_m, only: cubic_bspline_kernel_t
-
-    implicit none
     type(particle_system_t):: psys(2)
     type(system_interaction_t):: psys_interactions(2)
     type(cubic_bspline_kernel_t):: kernel
     integer:: i, j, k
-    real(fp):: analytical_pressure
     type(fluid_sweeper_t):: self_sweeper
-    type(fluid_boundary_sweeper_t):: boundary_sweeper
+    type(fluid_boundary_sweeper_monaghan1994_t):: boundary_sweeper
     type(xsph_shifter_t):: shifter
     type(eos_particle_t):: ps_template
     type(tait_eos_state_updater_t):: state_updater
     integer:: nfx, nfy
 
     ! init fluid particles
-    state_updater%rho_ref = rho0
-    call psys(1)%init(n=2500, name="fluid", particle_template=ps_template, state_updater_1=state_updater)
+    state_updater%rho_ref = rho0 ! EOS only needs to know the reference density.
+    call psys(1)%init( &
+        n=2500, &
+        name="fluid", &
+        state_updater_1=state_updater, &
+        particle_template=ps_template &
+        )
 
     ! register variables for time-update
     call psys(1)%register_x%register(psys(1)%particles(1), "x", psys(1)%particles(1)%x, psys(1)%particles(1)%v)
@@ -115,8 +59,8 @@ program main
     end select
 
     ! number of fluid particles in the x/y direction
-    nfx = 25._fp/dx
-    nfy = 25._fp/dx
+    nfx = nint(25._fp/dx)
+    nfy = nint(25._fp/dx)
 
     do i = 0, nfx - 1
         do j = 0, nfy - 1
@@ -145,11 +89,24 @@ program main
     boundary_sweeper%artvisc_beta = 0._fp
     boundary_sweeper%h = 1.2_fp*dx
     boundary_sweeper%g = g
+    boundary_sweeper%cutoff = dx ! disance at which lennard-jones repulsive force applies
+    ! declare XSPH shifter params.
     shifter%epsilon = 0.5_fp
     shifter%update_rhs = .true. ! ensure that rhs particles of fluid-fluid interaction are updated.
-    call psys_interactions(1)%init(30, psys(1), sweeper=self_sweeper, shifter=shifter)
+    call psys_interactions(1)%init( &
+        npairs_per_particle=30, &
+        psys_lhs=psys(1), &
+        sweeper=self_sweeper, &
+        shifter=shifter &
+        )
     shifter%update_rhs = .false. ! ensure that rhs particles of fluid-boundary interaction aren't updated.
-    call psys_interactions(2)%init(30, psys(1), psys(2), sweeper=boundary_sweeper, shifter=shifter)
+    call psys_interactions(2)%init( &
+        npairs_per_particle=30, &
+        psys_lhs=psys(1), &
+        psys_rhs=psys(2), &
+        sweeper=boundary_sweeper, &
+        shifter=shifter &
+        )
 
     ! init kernel
     call kernel%init(2, 1.2_fp*dx)
@@ -187,14 +144,19 @@ program main
 
 contains
 
+    !> @brief Helper function to generate the walls used in the dambreak experiment. The corner of the walls will be at
+    !>        (0, 0), (extx, exty). Also registers the relevant variables for IO.
+    !> @param psys_boundary The particle system object to initialize with boundary particles.
+    !> @param extx The x-extent of the boundary.
+    !> @param exty The y-extent of the boundary.
     subroutine generate_boundary(psys_boundary, extx, exty)
 
         type(particle_system_t), intent(out):: psys_boundary
         real(fp), intent(in):: extx, exty
-        integer:: i, k, nbx, nby
+        integer:: nbx, nby
 
-        nbx = extx/dx
-        nby = exty/dx
+        nbx = nint(extx/dx)
+        nby = nint(exty/dx)
 
         call psys_boundary%init(2*(nbx + nby) + 4, name="boundary")
         psys_boundary%to_print_summary = .false.

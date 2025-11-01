@@ -10,7 +10,9 @@ module grasph_common_m
 
     public
 
+    !> @brief A type that contina a pointer to a 2d array.
     type array_pointer_container_t
+        !> @brief The 2d array pointer.
         real(fp), pointer:: p(:, :)
     end type array_pointer_container_t
 

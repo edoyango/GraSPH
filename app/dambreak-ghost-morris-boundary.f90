@@ -1,35 +1,24 @@
-module grasph_dambreak_ghost_morris_boundary_m
+!> @file dambreak-ghost-morris-boundary.f90
+!> @brief This program sets up and runs the classic dambreak experiment which consists of a 25m by 25m 2D block of water,
+!>        which is released to move round a box of size 75m by 40m. This version of the experiment uses ghost boundary particles to
+!>        enforce the free-slip condition at the vertical walls, and the morris boundary description to enforce the fully-fixed
+!>        condition at the horizontal walls.
+!> @author Edward Yang
+!> @date 2025-10-11
+program main
 
-    use grasph_constants_m, only: fp, ndims
-    use grasph_particle_m, only: base_particle_t
-    use grasph_particle_system_m, only: particle_system_t, base_state_updater_t
-    use weakly_compressible_particles_m, only: eos_particle_t, eos_ghost_particle_t, ghost_state_updater_t
-    use weakly_compressible_interactions_m, only: fluid_sweeper_t, ghost_timestep_setuper_t, morris_boundary_sweeper_t
-    use grasph_system_interactions_m, only: base_sweeper_t
-    use grasph_pair_interactions_m, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force, &
-                                          repulsive_force
-    use grasph_pairs_m, only: particle_pairs_t
+    use grasph_constants_m, only: fp
+    use grasph_particle_system_m, only: particle_system_t
+    use weakly_compressible_particles_m, only: tait_eos_state_updater_t, eos_particle_t, eos_ghost_particle_t, ghost_state_updater_t
+    use grasph_system_interactions_m, only: system_interaction_t
+    use grasph_time_integration_m, only: leap_frog_time_integration
+    use grasph_kernels_m, only: cubic_bspline_kernel_t
     use grasph_particle_shifting_m, only: xsph_shifter_t
+    use weakly_compressible_interactions_m, only: fluid_sweeper_t, ghost_timestep_setuper_t, morris_boundary_sweeper_t
 
     implicit none
     ! parameters to describe geometry
     real(fp), parameter:: dx = 0.5_fp, g = -9.81_fp, rho0 = 1000._fp
-
-contains
-
-end module grasph_dambreak_ghost_morris_boundary_m
-
-program main
-
-    use grasph_dambreak_ghost_morris_boundary_m
-
-    use grasph_particle_system_m, only: particle_system_t
-    use weakly_compressible_particles_m, only: tait_eos_state_updater_t, eos_particle_t
-    use grasph_system_interactions_m, only: system_interaction_t
-    use grasph_time_integration_m, only: leap_frog_time_integration
-    use grasph_kernels_m, only: cubic_bspline_kernel_t
-
-    implicit none
     type(particle_system_t):: psys(5)
     type(system_interaction_t):: psys_interactions(5)
     type(cubic_bspline_kernel_t):: kernel
@@ -47,8 +36,13 @@ program main
     call kernel%init(2, 1.2_fp*dx)
 
     ! init fluid particles
-    state_updater%rho_ref = rho0
-    call psys(1)%init(n=2500, name="fluid", state_updater_1=state_updater, particle_template=ps_template)
+    state_updater%rho_ref = rho0 ! EOS only needs to know the reference density.
+    call psys(1)%init( &
+        n=2500, &
+        name="fluid", &
+        state_updater_1=state_updater, &
+        particle_template=ps_template &
+        )
 
     ! register variables for time-update
     call psys(1)%register_x%register(psys(1)%particles(1), "x", psys(1)%particles(1)%x, psys(1)%particles(1)%v)
@@ -70,8 +64,8 @@ program main
         error stop "Expected eos_particle_t for psys(1)%p."
     end select
 
-    nfx = 25._fp/dx
-    nfy = 25._fp/dx
+    nfx = nint(25._fp/dx)
+    nfy = nint(25._fp/dx)
 
     do i = 0, nfx - 1
         do j = 0, nfy - 1
@@ -88,15 +82,28 @@ program main
     end do
 
     ! init boundary particles
-    ! only need to initialize metadata and position as only position is used to calculate repulsive force
+    ! only need to initialize metadata and position as only position is used to calculate repulsive force.
     nlayer = ceiling(kernel%cutoff/dx)
 
     call generate_boundary(psys(2), 25._fp, .true.)
     call generate_boundary(psys(3), 25._fp, .false.)
 
+    ! initialize ghost boundaries
     ghost_state_updater%surface_normal(:) = [1._fp, 0._fp]
-    call psys(4)%init(n=2500, name="ghost_boundary_left", particle_template=ghost_ps_template, state_updater_1=ghost_state_updater)
-    call psys(5)%init(n=2500, name="ghost_boundary_right", particle_template=ghost_ps_template, state_updater_1=ghost_state_updater)
+    call psys(4)%init( &
+        n=2500, & ! allocate 2500 particles of space. Realistically, only 240 is neeeded.
+        name="ghost_boundary_left", &
+        particle_template=ghost_ps_template, &
+        state_updater_1=ghost_state_updater &
+        )
+    ghost_state_updater%surface_normal(:) = [-1._fp, 0._fp] ! point normal leftward.
+    call psys(5)%init( &
+        n=2500, &
+        name="ghost_boundary_right", &
+        particle_template=ghost_ps_template, &
+        state_updater_1=ghost_state_updater &
+        )
+
     ! register variables for io
     select type (p => psys(4)%particles)
     class is (eos_ghost_particle_t)
@@ -126,35 +133,78 @@ program main
         error stop "Expected eos_ghost_particle_t for psys(4)%p."
     end select
 
+    ! declare params used for fluid-fluid system interactions.
     sweeper%artvisc_alpha = 0.01_fp
     sweeper%artvisc_beta = 0._fp
     sweeper%g = g
     sweeper%h = 1.2_fp*dx
-    sweeper%update_rhs = .false.
+    sweeper%update_rhs = .false. ! rhs particles are boundary.
 
-    shifter%epsilon = 0.5_fp
-    shifter%update_rhs = .false.
-
+    ! use same params for boundary sweeper.
     boundary_sweeper%artvisc_alpha = 0.01_fp
     boundary_sweeper%artvisc_beta = 0._fp
     boundary_sweeper%h = 1.2_fp*dx
+    ! update_rhs isn't used in this sweeper.
 
-    ! init interactions
-    call psys_interactions(1)%init(30, psys(1), sweeper=sweeper, shifter=shifter)
-    sweeper%initialize = .false. ! second sweeper doesn't need to zero acceleration arrays
+    ! declare XSPH shifter params.
+    shifter%epsilon = 0.5_fp
+    shifter%update_rhs = .false. ! rhs particles are boundary.
+
+    ! init interactions.
+    ! fluid self interaction.
+    call psys_interactions(1)%init( &
+        npairs_per_particle=30, & ! number of predicted interactions.
+        psys_lhs=psys(1), & ! fluid particle system interacting with itself.
+        sweeper=sweeper, & ! sweeper to describe interaction.
+        shifter=shifter & ! shifter to perform XSPH shifting.
+        )
+
+    ! interaction between fluid and bottom wall (morris boundary).
+    sweeper%initialize = .false. ! second sweeper doesn't need to zero acceleration arrays.
     boundary_sweeper%point(:) = [0._fp, 0._fp]
-    boundary_sweeper%normal(:) = [0._fp, 1._fp]
-    call psys_interactions(2)%init(30, psys(1), psys(2), sweeper=boundary_sweeper, shifter=shifter)
+    boundary_sweeper%normal(:) = [0._fp, 1._fp] ! normal pointing upward.
+    call psys_interactions(2)%init( &
+        npairs_per_particle=30, &
+        psys_lhs=psys(1), & ! fluid particle system.
+        psys_rhs=psys(2), & ! boundary that fluid is interacting with.
+        sweeper=boundary_sweeper, &
+        shifter=shifter &
+        )
+
+    ! interaction between fluid and top wall (morris boundary).
     boundary_sweeper%point(:) = [0._fp, 40._fp]
-    boundary_sweeper%normal(:) = [0._fp, -1._fp]
-    call psys_interactions(3)%init(30, psys(1), psys(3), sweeper=boundary_sweeper, shifter=shifter)
+    boundary_sweeper%normal(:) = [0._fp, -1._fp] ! normal pointing downward.
+    call psys_interactions(3)%init( &
+        npairs_per_particle=30, &
+        psys_lhs=psys(1), &
+        psys_rhs=psys(3), &
+        sweeper=boundary_sweeper, &
+        shifter=shifter &
+        )
+
+    ! interaction between fluid and left wall (ghost boundary).
     ghost_timestep_setuper%cutoff = kernel%cutoff
-    ghost_timestep_setuper%surface_normal(:) = [1._fp, 0._fp]
+    ghost_timestep_setuper%surface_normal(:) = [1._fp, 0._fp] ! normal pointing rightward.
     ghost_timestep_setuper%point(:) = [0._fp, 0._fp]
-    call psys_interactions(4)%init(30, psys(1), psys(4), timestep_setuper=ghost_timestep_setuper, sweeper=sweeper)
-    ghost_timestep_setuper%surface_normal(:) = [-1._fp, 0._fp]
-    ghost_timestep_setuper%point(:) = [25._fp, 0._fp]
-    call psys_interactions(5)%init(30, psys(1), psys(5), timestep_setuper=ghost_timestep_setuper, sweeper=sweeper)
+    call psys_interactions(4)%init( &
+        npairs_per_particle=30, &
+        psys_lhs=psys(1), &
+        psys_rhs=psys(4), &
+        timestep_setuper=ghost_timestep_setuper, &
+        sweeper=sweeper &
+        )
+
+    ! interaction between fluid and right wall (ghost boundary).
+    ! setuper cutoff already set.
+    ghost_timestep_setuper%surface_normal(:) = [-1._fp, 0._fp] ! normal pointing leftward.
+    ghost_timestep_setuper%point(:) = [25._fp, 0._fp] ! right wall passes through (25, 0) for density initialization step.
+    call psys_interactions(5)%init( &
+        npairs_per_particle=30, &
+        psys_lhs=psys(1), &
+        psys_rhs=psys(5), &
+        timestep_setuper=ghost_timestep_setuper, &
+        sweeper=sweeper &
+        )
 
     ! start time-evolution with damping for setting up of initial conditions for fluid.
     call leap_frog_time_integration( &
@@ -175,9 +225,16 @@ program main
     call generate_boundary(psys(2), 75._fp, .true.)
     call generate_boundary(psys(3), 75._fp, .false.)
 
+    ! re-initialize interaction describing fluid and right wall since the setuper requires changing.
     ghost_timestep_setuper%cutoff = kernel%cutoff
-    ghost_timestep_setuper%point(:) = [75._fp, 0._fp]
-    call psys_interactions(5)%init(30, psys(1), psys(5), timestep_setuper=ghost_timestep_setuper, sweeper=sweeper)
+    ghost_timestep_setuper%point(:) = [75._fp, 0._fp] ! update wall to pass through (75, 0) instead of (25, 0)
+    call psys_interactions(5)%init( &
+        npairs_per_particle=30, &
+        psys_lhs=psys(1), &
+        psys_rhs=psys(5), &
+        timestep_setuper=ghost_timestep_setuper, &
+        sweeper=sweeper &
+        )
 
     ! start time-evolution what dambreak setup and without damping.
     call leap_frog_time_integration( &
@@ -194,15 +251,19 @@ program main
 
 contains
 
+    !> @brief Helper subroutine to generate upper and lower boundaries used in this simulation. The boundary is generated between
+    !>        x = 0 and x = xext. Also registers the relevant variables for IO.
+    !> @param psys_boundary The particle system object to initialize with boundary particles.
+    !> @param extx The x-extent of the bottom boundary.
+    !> @param bottom Whether the boundary being generated should be the bottom (y = 0) boundary, or the top (y = 40) boundary.
     subroutine generate_boundary(psys_boundary, extx, bottom)
 
         type(particle_system_t), intent(out):: psys_boundary
         real(fp), intent(in):: extx
         logical, intent(in):: bottom
         integer:: nbx, nvirt
-        type(base_particle_t):: p
 
-        nbx = extx/dx
+        nbx = nint(extx/dx)
 
         nvirt = nlayer*nbx + 2*nlayer*nlayer
 
@@ -233,6 +294,7 @@ contains
             psys_boundary%particles(i)%type = -1
         end do
 
+        ! morris boundary particles don't have persistent properties, so besides position, other data isn't needed.
         psys_boundary%to_print_summary = .false.
         call psys_boundary%register_io%register_variable(psys_boundary%particles(1), "x", psys_boundary%particles(1)%x)
 

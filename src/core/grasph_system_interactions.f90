@@ -77,6 +77,9 @@ module grasph_system_interactions_m
 
 contains
 
+    !> @brief Executes setup at start of timestep that requires information from 2 particle systems e.g. generating ghost particle
+    !>        positions. Utilizes the timestep_setuper strategy member class.
+    !> @param self The system interaction with the two particle systems that need to be updated.
     subroutine do_timestep_setup(self)
         class(system_interaction_t), intent(inout):: self
 
@@ -92,6 +95,9 @@ contains
 
     end subroutine do_timestep_setup
 
+    !> @brief Executes sweep step prior to particle state setup. THis is for updating particle properties like virtual particles'
+    !>        velocity or density, or calculating strain rate. Uses the prologue_sweeper strategy member class.
+    !> @param self The system interaction to perform the sweep between.
     subroutine do_sweep_prologue(self)
         class(system_interaction_t), intent(inout):: self
 
@@ -107,6 +113,8 @@ contains
 
     end subroutine do_sweep_prologue
 
+    !> @brief Executes sweep step for calculating rate of changes e.g. motion or density. Uses the sweeper strategy member class.
+    !> @param self The system interaction to perfrom the sweep between.
     subroutine do_sweep(self)
         class(system_interaction_t), intent(inout):: self
 
@@ -122,6 +130,9 @@ contains
 
     end subroutine do_sweep
 
+    !> @brief Executes a sweep in the particle system to calculate properties required for shifting particles' positions.
+    !> @param self The system interaction to perfrom the sweep between.
+    !> @param dt The timestep size.
     subroutine do_shift(self, dt)
         class(system_interaction_t), intent(inout):: self
         real(fp), intent(in):: dt
@@ -167,11 +178,6 @@ contains
         class(particle_system_t), optional, intent(inout):: psys_rhs
         real(fp), intent(in):: dt
     end subroutine donothing_shift
-
-    !> @param self The particle interactions class which performing the sweep.
-    subroutine donothing_sweep_old(self)
-        class(system_interaction_t), intent(inout):: self
-    end subroutine donothing_sweep_old
 
     !> @brief The subroutine to find pairs of particles contained in system_interaction_t.
     !>        Adapts to whether the system_interaction_t instance is a pair set or not.

@@ -1,35 +1,21 @@
-module bui2008_viscous_stress_m
-
-    use grasph_constants_m, only: fp, ndims, pi
-    use grasph_particle_m, only: base_particle_t
-    use grasph_particle_system_m, only: particle_system_t
-    use weakly_compressible_particles_m, only: eos_viscous_stress_particle_t, eos_viscous_stress_ghost_particle_t, &
-                                               eos_viscous_stress_ghost_state_updater_t, eos_viscous_stress_ghost_state_updater_t, &
-                                               dp_visco_elastic_state_updater_t
-    use weakly_compressible_interactions_m, only: viscous_stress_fluid_sweeper_t, eos_viscous_stress_ghost_timestep_setuper_t, &
-                                                  eos_viscous_stress_morris_boundary_sweeper_t, &
-                                                  eos_viscous_stress_ghost_timestep_setuper_t, strain_rate_sweeper_t, &
-                                                  strain_rate_morris_boundary_sweeper_t
-    use grasph_pairs_m, only: particle_pairs_t
-
-    implicit none
-    ! parameters to describe geometry
-    real(fp), parameter:: dx = 0.002_fp, g = -9.81_fp, rho0 = 1850._fp
-
-contains
-
-end module bui2008_viscous_stress_m
-
 program main
 
-    use bui2008_viscous_stress_m
-
+    use grasph_constants_m, only: fp, pi
     use grasph_particle_system_m, only: particle_system_t
+    use weakly_compressible_particles_m, only: eos_viscous_stress_particle_t, eos_viscous_stress_ghost_particle_t, &
+                                               eos_viscous_stress_ghost_state_updater_t, dp_visco_elastic_state_updater_t
+    use weakly_compressible_interactions_m, only: viscous_stress_fluid_sweeper_t, eos_viscous_stress_ghost_timestep_setuper_t, &
+                                                  eos_viscous_stress_morris_boundary_sweeper_t, strain_rate_sweeper_t, &
+                                                  strain_rate_morris_boundary_sweeper_t
+
     use grasph_system_interactions_m, only: system_interaction_t
     use grasph_time_integration_m, only: leap_frog_time_integration
     use grasph_kernels_m, only: cubic_bspline_kernel_t
 
     implicit none
+    ! parameters to describe geometry
+    real(fp), parameter:: dx = 0.002_fp, g = -9.81_fp, rho0 = 1850._fp
+    real(fp), parameter:: soil_maxx = 0.2_fp, soil_maxy = 0.1_fp, boundary_maxx = 0.8_fp
     type(particle_system_t):: psys(3)
     type(system_interaction_t):: psys_interactions(3)
     type(cubic_bspline_kernel_t):: kernel
@@ -42,7 +28,7 @@ program main
     type(eos_viscous_stress_ghost_particle_t):: ghost_ps_template
     type(strain_rate_sweeper_t):: strain_rate_sweeper
     type(strain_rate_morris_boundary_sweeper_t):: strain_rate_boundary_sweeper
-    integer:: i, j, k, nlayer, nfx, nfy
+    integer:: i, j, k, nlayer, nvirt, nfx, nfy, nbx
 
     ! init kernel
     call kernel%init(2, 1.2_fp*dx)
@@ -73,8 +59,8 @@ program main
         error stop "Expected eos_viscous_stress_particle_t for psys(1)%p."
     end select
 
-    nfx = 0.2_fp/dx
-    nfy = 0.1_fp/dx
+    nfx = nint(soil_maxx/dx)
+    nfy = nint(soil_maxy/dx)
 
     do i = 0, nfx - 1
         do j = 0, nfy - 1
@@ -94,7 +80,25 @@ program main
     ! only need to initialize metadata and position as only position is used to calculate repulsive force
     nlayer = ceiling(kernel%cutoff/dx)
 
-    call generate_boundary(psys(2), 0.6_fp, .true.)
+    nbx = nint(boundary_maxx/dx)
+
+    nvirt = nlayer*nbx + nlayer*nlayer
+    ! bottom layer and corners
+    call psys(2)%init(nvirt, name="bottom_boundary", particle_template=ps_template)
+
+    k = 0
+    do i = -nlayer, nbx - 1
+        do j = 0, nlayer - 1
+            k = k + 1
+            psys(2)%particles(k)%x(1) = (i + 0.5_fp)*dx
+            psys(2)%particles(k)%x(2) = -(j + 0.5_fp)*dx
+            psys(2)%particles(k)%id = i
+            psys(2)%particles(k)%type = -1
+        end do
+    end do
+
+    psys(2)%to_print_summary = .false.
+    call psys(2)%register_io%register_variable(psys(2)%particles(1), "x", psys(2)%particles(1)%x)
 
     ghost_state_updater%surface_normal(:) = [1._fp, 0._fp]
     call psys(3)%init( &
@@ -144,6 +148,7 @@ program main
         )
     strain_rate_sweeper%initialize = .false.
     sweeper%initialize = .false. ! second sweeper doesn't need to zero acceleration arrays
+    boundary_sweeper%initialize = .false.
     boundary_sweeper%point(:) = [0._fp, 0._fp]
     boundary_sweeper%normal(:) = [0._fp, 1._fp]
     call psys_interactions(2)%init( &
@@ -165,86 +170,17 @@ program main
         sweeper=sweeper &
         )
 
-    ! start time-evolution with damping for setting up of initial conditions for fluid.
-    ! call leap_frog_time_integration( &
-    !     maxtimestep=50000, &
-    !     print_step=1000, &
-    !     save_step=1000, &
-    !     psystems=psys, &
-    !     interactions=psys_interactions, &
-    !     CFL=0.05_fp, &
-    !     kernel=kernel, &
-    !     output_path="/home/edwardy/test", &
-    !     output_prefix="damping", &
-    !     output_comp_level=4, &
-    !     damping_coef=390._fp &
-    !     )
-
-    ! re-initialize boundary conditions so that geometry matches the dambreak setup (without ramp).
-    ! call generate_boundary(psys(2), 75._fp, .true.)
-    ! call generate_boundary(psys(3), 75._fp, .false.)
-
-    ! ghost_timestep_setuper%cutoff = kernel%cutoff
-    ! ghost_timestep_setuper%point(:) = [75._fp, 0._fp]
-    ! call psys_interactions(5)%init(30, psys(1), psys(5), timestep_setuper=ghost_timestep_setuper, sweeper=sweeper)
-
     ! start time-evolution what dambreak setup and without damping.
     call leap_frog_time_integration( &
-        maxtimestep=100000, &
-        print_step=1000, &
+        maxtimestep=1, &
+        print_step=1, &
         save_step=1000, &
         psystems=psys, &
         interactions=psys_interactions, &
-        CFL=0.05_fp, &
+        CFL=0.1_fp, &
         kernel=kernel, &
         output_path="/home/edwardy/test", &
         output_comp_level=4 &
         )
-
-contains
-
-    subroutine generate_boundary(psys_boundary, extx, bottom)
-
-        type(particle_system_t), intent(out):: psys_boundary
-        real(fp), intent(in):: extx
-        logical, intent(in):: bottom
-        integer:: nbx, nvirt
-        type(eos_viscous_stress_particle_t):: p
-
-        nbx = extx/dx
-
-        nvirt = nlayer*nbx + 2*nlayer*nlayer
-
-        k = 0
-        if (bottom) then
-            ! bottom layer and corners
-            call psys_boundary%init(nvirt, name="bottom_boundary", particle_template=p)
-            do i = -nlayer, nbx + nlayer - 1
-                do j = 0, nlayer - 1
-                    k = k + 1
-                    psys_boundary%particles(k)%x(1) = (i + 0.5_fp)*dx
-                    psys_boundary%particles(k)%x(2) = -(j + 0.5_fp)*dx
-                end do
-            end do
-        else
-            ! top layer and corners
-            call psys_boundary%init(nvirt, name="top_boundary")
-            do i = -nlayer, nbx + nlayer - 1
-                do j = 0, nlayer - 1
-                    k = k + 1
-                    psys_boundary%particles(k)%x(1) = (i + 0.5_fp)*dx
-                    psys_boundary%particles(k)%x(2) = 40._fp + (j + 0.5_fp)*dx
-                end do
-            end do
-        end if
-        do i = 1, k
-            psys_boundary%particles(i)%id = i
-            psys_boundary%particles(i)%type = -1
-        end do
-
-        psys_boundary%to_print_summary = .false.
-        call psys_boundary%register_io%register_variable(psys_boundary%particles(1), "x", psys_boundary%particles(1)%x)
-
-    end subroutine generate_boundary
 
 end program main

@@ -3,7 +3,7 @@
 !>        Monaghan (1994) (https://doi.org/10.1006/jcph.1994.1034). The only known difference is that the Leap-Frog time-integration
 !>        is used here instead of the predictor-corrector scheme used in the paper.
 !> @author Edward Yang
-!> @date 2025/9/22
+!> @date 2025-9-22
 
 program main
 

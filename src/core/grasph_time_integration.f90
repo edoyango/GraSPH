@@ -29,6 +29,7 @@ contains
     !> @param output_path The directory to store saved data.
     !> @param output_prefix The filename prefix to use in the output files.
     !> @param output_comp_level The level of GZIP compression to use when writing the output HDF5 files.
+    !> @param damping_coef The strength of damping to apply during time stepping.
     subroutine leap_frog_time_integration(maxtimestep, print_step, save_step, psystems, interactions, CFL, kernel, &
                                           output_path, output_prefix, output_comp_level, damping_coef)
 

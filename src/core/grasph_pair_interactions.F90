@@ -118,6 +118,16 @@ contains
         end if
     end subroutine repulsive_force
 
+    !> @brief Calculates the engineering strain rate at each particles' position.
+    !> @param vi The LHS particle's velocity.
+    !> @param vj The RHS "                 ".
+    !> @param massi The LHS particle's mass.
+    !> @param massj The RHS "             ".
+    !> @param rhoi The LHS particle's density.
+    !> @param rhoj The RHS "                ".
+    !> @param dwdx The kernel gradient, relative to the LHS particle.
+    !> @param strain_ratei The LHS particle's strain rate.
+    !> @param strain_ratei The RHS "                    ".
     pure subroutine strain_rate(vi, vj, massi, massj, rhoi, rhoj, dwdx, strain_ratei, strain_ratej)
 
         use weakly_compressible_particles_m, only: ntensor_elems_voigt
@@ -143,6 +153,16 @@ contains
 
     end subroutine strain_rate
 
+    !> @brief Calculates the acceleration at each particle's position due to cauchy stress.
+    !> @param stressi The LHS particle's stress tensor (voigt notation).
+    !> @param stressj The RHs "                                       ".
+    !> @param rhoi The LHS particle's density.
+    !> @param rhoj The RHS "                ".
+    !> @param massi The LHS particle's mass.
+    !> @param massj The RHS "             ".
+    !> @param dvxdti The LHS particle's acceleration.
+    !> @param dvxdtj The RHS "                     ".
+    !> @param dwdx The kernel gradient, relative to the LHS particle.
     pure subroutine cauchy_stress_force(stressi, stressj, rhoi, rhoj, massi, massj, dvxdti, dvxdtj, dwdx)
         use weakly_compressible_particles_m, only: ntensor_elems_voigt
         real(fp), intent(in):: stressi(ntensor_elems_voigt), stressj(ntensor_elems_voigt), rhoi, rhoj, massi, massj, dwdx(ndims)
@@ -166,6 +186,20 @@ contains
 
     end subroutine cauchy_stress_force
 
+    !> @brief Calculates the contribution of density diffusion the rate of change of density.              ".
+    !> @param rhoi The LHS particle's density.
+    !> @param rhoj The RHS "                ".
+    !> @param xi The LHS particle's position.
+    !> @param xj The RHS "                 ".
+    !> @param massi The LHS particle's mass.
+    !> @param massj The RHS "             ".
+    !> @param hi The LHS particle's smoothing length.
+    !> @param hj The RHS "                         ".
+    !> @param ci The LHS particle's local speed of sound.
+    !> @param cj The RHS particle's "                  ".
+    !> @param dwdx The kernel gradient, relative to the LHS particle.
+    !> @param drhodti The LHS particle's density rate of change.
+    !> @param drhodtj The RHS "                               ".
     pure subroutine diffusion_density(rhoi, rhoj, xi, xj, massi, massj, hi, hj, ci, cj, dwdx, drhodti, drhodtj)
         real(fp), intent(in):: rhoi, rhoj, xi(ndims), xj(ndims), massi, massj, hi, hj, ci, cj, dwdx(ndims)
         real(fp), intent(inout):: drhodti, drhodtj

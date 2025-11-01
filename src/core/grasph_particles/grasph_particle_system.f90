@@ -148,7 +148,6 @@ contains
     integer function safe_size_plus_1(self)
         class(particle_system_t), intent(inout):: self
         class(base_particle_t), allocatable:: tmp_particle(:)
-        integer:: i
 
         if (.not. (allocated(self%particles)) .or. size(self%particles) == 0) &
             error stop "Cannot add to unallocated or zero-sized particles."
@@ -178,7 +177,7 @@ contains
         character(*), intent(in), optional:: prefix_in
         integer, intent(in), optional:: comp_level
         character(200):: filename_prefix, file_path, this_group
-        integer:: ierr, i, v
+        integer:: i, v
         type(hdf5_file):: h5f
         character(10):: ic
         integer, allocatable:: tmp_int(:)
@@ -312,7 +311,7 @@ contains
 
         class(particle_system_t), intent(in):: self
         character(len=:), allocatable, intent(out):: out_str
-        integer:: offset, d, i
+        integer:: offset, i
         integer, parameter:: line_length = 60, nlines = 5
         character(*), parameter:: format_str = "(4x, A, f12.5, A, I10)"
         real(fp):: minv, maxv, v

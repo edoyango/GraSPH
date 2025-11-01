@@ -11,16 +11,21 @@ module grasph_constants_m
     public
 
 #ifdef SINGLE_PRECISION
+    !> @brief The kind type parameter to use for floats (4-byte)
     integer, parameter:: fp = real32
 #else
+    !> @brief The kind type parameter to use for floats (8-byte)
     integer, parameter:: fp = real64
 #endif
 
+    !> @brief pi
     real(fp), parameter:: pi = 4._fp*atan(1._fp)
 
 #ifdef THREED
+    !> @brief The number of dimensions of the problem (3)
     integer, parameter:: ndims = 3
 #else
+    !> @brief The number of dimensions of the problem (2)
     integer, parameter:: ndims = 2
 #endif
 

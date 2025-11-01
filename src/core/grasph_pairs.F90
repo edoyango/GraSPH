@@ -199,7 +199,7 @@ contains
         class(base_particle_t), intent(in):: ps(:)
         class(base_kernel_t), intent(in):: kernel
         integer, intent(in):: ngridx(ndims), grid_idx(ndims, size(ps))
-        integer:: i, j, icell, jcell, jj, pic, n
+        integer:: i, j, icell, jcell, pic, n
         real(fp):: dx(ndims)
 
 #ifdef THREED
@@ -374,9 +374,9 @@ contains
         class(base_kernel_t), intent(in):: kernel
         class(base_particle_t), intent(in):: ps_lhs(:), ps_rhs(:)
         integer, intent(in):: ngridx(ndims), grid_idx(ndims, size(ps_rhs))
-        integer:: i, icell, jcell, kcell, this_cell(ndims), n_lhs, n_rhs
-        real(fp):: dx(ndims)
+        integer:: i, icell, jcell, this_cell(ndims), n_lhs, n_rhs
 #ifdef THREED
+        integer:: kcell
         integer, allocatable:: n_in_cell(:, :, :), p_in_cell(:, :, :, :)
 
         n_lhs = size(ps_lhs)

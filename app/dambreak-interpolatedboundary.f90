@@ -1,78 +1,24 @@
-module grasph_monaghan1994_2
+!> @file dambreak-interpolatedboundary.f90
+!> @brief This program sets up and runs the classic dambreak experiment which consists of a 25m by 25m 2D block of water,
+!>        which is released to move round a box of size 75m by 40m. This version of the experiment uses virtual particles to
+!>        enforce fully-fixed boundaries for all the walls. These virtual particles use kernel interpolation to enforice this
+!>        condition.
+!> @author Edward Yang
+!> @date 2025-09-23
+program main
 
     use grasph_constants_m, only: fp
     use grasph_particle_system_m, only: particle_system_t
-    use weakly_compressible_interactions_m, only: fluid_sweeper_t
-    use grasph_system_interactions_m, only: base_sweeper_t
-    use grasph_pair_interactions_m, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force, &
-                                          repulsive_force
-    use grasph_pairs_m, only: particle_pairs_t
+    use weakly_compressible_interactions_m, only: fluid_sweeper_t, boundary_update_sweeper_t
+    use weakly_compressible_particles_m, only: tait_eos_state_updater_t, eos_particle_t
+    use grasph_system_interactions_m, only: system_interaction_t
+    use grasph_time_integration_m, only: leap_frog_time_integration
+    use grasph_kernels_m, only: cubic_bspline_kernel_t
     use grasph_particle_shifting_m, only: xsph_shifter_t
 
     implicit none
     ! parameters to describe geometry
     real(fp), parameter:: dx = 0.5_fp, g = -9.81_fp, rho0 = 1000._fp
-
-    ! define how fluid particles interact with boundary
-    type, extends(base_sweeper_t):: boundary_update_sweeper_t
-    contains
-        procedure:: sweep => boundary_update_sweep
-    end type boundary_update_sweeper_t
-
-contains
-
-    subroutine boundary_update_sweep(self, pairs, psys_lhs, psys_rhs)
-        class(boundary_update_sweeper_t), intent(in):: self
-        type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs
-        class(particle_system_t), optional, intent(inout):: psys_rhs
-        integer:: i, j, k
-        real(fp):: mw, vw
-        real(fp), allocatable:: wsum(:)
-
-        if (present(psys_rhs)) then
-            allocate (wsum(psys_rhs%size), source=0._fp)
-        else
-            error stop "Expected psys_rhs to be passed in."
-        end if
-
-        do i = 1, psys_rhs%size
-            psys_rhs%particles(i)%rho = 0._fp
-            psys_rhs%particles(i)%v(:) = 0._fp
-        end do
-
-        do k = 1, pairs%npairs_total
-            i = pairs%pair_ij(1, k)
-            j = pairs%pair_ij(2, k)
-            mw = psys_lhs%particles(i)%mass*pairs%w(k)
-            vw = mw/psys_lhs%particles(i)%rho
-            wsum(j) = wsum(j) + vw
-            psys_rhs%particles(j)%rho = psys_rhs%particles(j)%rho + mw
-            psys_rhs%particles(j)%v(:) = psys_rhs%particles(j)%v(:) + psys_lhs%particles(i)%v(:)*vw
-        end do
-
-        do j = 1, psys_rhs%size
-            if (wsum(j) > 0._fp) then
-                psys_rhs%particles(j)%v(:) = -psys_rhs%particles(j)%v(:)/wsum(j)
-                psys_rhs%particles(j)%rho = psys_rhs%particles(j)%rho/wsum(j)
-            end if
-        end do
-
-    end subroutine boundary_update_sweep
-
-end module grasph_monaghan1994_2
-
-program main
-
-    use grasph_monaghan1994_2
-
-    use grasph_particle_system_m, only: particle_system_t
-    use weakly_compressible_particles_m, only: tait_eos_state_updater_t, eos_particle_t
-    use grasph_system_interactions_m, only: system_interaction_t
-    use grasph_time_integration_m, only: leap_frog_time_integration
-    use grasph_kernels_m, only: cubic_bspline_kernel_t
-
-    implicit none
     type(particle_system_t):: psys(2)
     type(system_interaction_t):: psys_interactions(2)
     type(cubic_bspline_kernel_t):: kernel
@@ -87,8 +33,13 @@ program main
     call kernel%init(2, 1.2_fp*dx)
 
     ! init fluid particles
-    state_updater%rho_ref = rho0
-    call psys(1)%init(n=2500, name="fluid", state_updater_1=state_updater, particle_template=ps_template)
+    state_updater%rho_ref = rho0 ! EOS only needs to know the reference density.
+    call psys(1)%init( &
+        n=2500, &
+        name="fluid", &
+        state_updater_1=state_updater, &
+        particle_template=ps_template &
+        )
 
     ! register variables for time-update
     call psys(1)%register_x%register(psys(1)%particles(1), "x", psys(1)%particles(1)%x, psys(1)%particles(1)%v)
@@ -110,8 +61,8 @@ program main
         error stop "Expected eos_particle_t for psys(1)%p."
     end select
 
-    nfx = 25._fp/dx
-    nfy = 25._fp/dx
+    nfx = nint(25._fp/dx)
+    nfy = nint(25._fp/dx)
 
     do i = 0, nfx - 1
         do j = 0, nfy - 1
@@ -127,25 +78,40 @@ program main
         end do
     end do
 
-    ! init boundary particles
-    ! only need to initialize metadata and position as only position is used to calculate repulsive force
+    ! init boundary particles.
+    ! only need to initialize metadata and position as only position is used to calculate repulsive force.
     nlayer = ceiling(kernel%cutoff/dx)
 
     call generate_boundary(psys(2), 25._fp, 40._fp)
 
+    ! declare params used for system interactions. This applies to interactions between both fluid and fluid, and fluid and
+    ! boundary.
     sweeper%artvisc_alpha = 0.01_fp
     sweeper%artvisc_beta = 0._fp
     sweeper%g = g
     sweeper%h = 1.2_fp*dx
-    sweeper%update_rhs = .false.
+    sweeper%update_rhs = .false. ! rhs particles are boundary.
 
+    ! declare XSPH shifter params.
     shifter%epsilon = 0.5_fp
     shifter%update_rhs = .false.
 
     ! init interactions
-    call psys_interactions(1)%init(30, psys(1), sweeper=sweeper, shifter=shifter)
+    call psys_interactions(1)%init( &
+        npairs_per_particle=30, &
+        psys_lhs=psys(1), &
+        sweeper=sweeper, &
+        shifter=shifter &
+        )
     sweeper%initialize = .false. ! second sweeper doesn't need to zero acceleration arrays
-    call psys_interactions(2)%init(30, psys(1), psys(2), prologue_sweeper=boundary_sweeper, sweeper=sweeper, shifter=shifter)
+    call psys_interactions(2)%init( &
+        npairs_per_particle=30, &
+        psys_lhs=psys(1), &
+        psys_rhs=psys(2), &
+        prologue_sweeper=boundary_sweeper, &
+        sweeper=sweeper, &
+        shifter=shifter &
+        )
 
     ! start time-evolution with damping for setting up of initial conditions for fluid.
     call leap_frog_time_integration( &
@@ -180,14 +146,19 @@ program main
 
 contains
 
+    !> @brief Helper function to generate the walls used in the dambreak experiment. The corner of the walls will be at
+    !>        (0, 0), (extx, exty). Also registers the relevant variables for IO.
+    !> @param psys_boundary The particle system object to initialize with boundary particles.
+    !> @param extx The x-extent of the boundary.
+    !> @param exty The y-extent of the boundary.
     subroutine generate_boundary(psys_boundary, extx, exty)
 
         type(particle_system_t), intent(out):: psys_boundary
         real(fp), intent(in):: extx, exty
         integer:: nbx, nby, nvirt
 
-        nbx = extx/dx
-        nby = exty/dx
+        nbx = nint(extx/dx)
+        nby = nint(exty/dx)
 
         nvirt = 2*nlayer*(nbx + nby) + 4*nlayer*nlayer
 
