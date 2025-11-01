@@ -13,8 +13,10 @@ module grasph_particle_system_m
     implicit none
     private
 
+    !> @brief State updater which does nothing when update_state method is called.
     type:: base_state_updater_t
     contains
+        !> @brief A do-nothing state updater.
         procedure:: update_state => base_update_state
     end type base_state_updater_t
 
@@ -32,8 +34,9 @@ module grasph_particle_system_m
         integer:: size = 0
         !> @brief Name used in naming groups in output hdf5 file
         character(100):: name
-        !> @brief Allocatable "strategy" class that performs particles' state update.
+        !> @brief Allocatable "strategy" class that performs particles' first state update.
         class(base_state_updater_t), allocatable:: state_updater_1
+        !> @brief Allocatable "strategy" class that performs particles' second state update.
         class(base_state_updater_t), allocatable:: state_updater_2
         !> @brief Register for variables to be updated only at full-timestep e.g. position (x).
         type(variable_deriv_register_t):: register_x
@@ -48,8 +51,9 @@ module grasph_particle_system_m
         procedure:: clear => base_clear
         !> @brief A method intended to be overriden when extended particles' state needs to be updated during time-integration.
         !>        Is called after any time-evolution has occurred, but before any sweeps are supposed to happen.
-        !>        Does nothing in the particle_system_t instance.
         procedure:: do_state_update_1
+        !> @brief A method intended to be overriden when extended particles' state needs to be updated during time-integration.
+        !>        Is called after the prologue sweep, but before the main sweep.
         procedure:: do_state_update_2
         !> @brief A method intended to be overriden when extended particles' have extra data that needs to be saved in the output
         !>        files. Different derived types should store their data in different groups
@@ -74,7 +78,10 @@ contains
     !> @param n The number of particles.
     !> @param name A label to give the particles. Used to label output/terminal information.
     !> @param particle_template Template to use to define the type of particles.
-    !> @param state_updater The state updater strategy class used to update the particles' time-independent state.
+    !> @param state_updater_1 The state updater strategy class used to update the particles' time-independent state.
+    !>        Is called before the prologue sweep.
+    !> @param state_updater_2 The state updater strategy class used to update the particles' time-independent state.
+    !>        Is called before the main sweep.
     subroutine base_init(self, n, name, particle_template, state_updater_1, state_updater_2)
         class(particle_system_t), intent(inout):: self
         integer, intent(in):: n

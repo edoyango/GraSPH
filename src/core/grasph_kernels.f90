@@ -38,6 +38,7 @@ module grasph_kernels_m
         !> @brief The kernel function interface.
         !> @param self The kernel class with required constants.
         !> @param q The distance value, normalized by smoothing length.
+        !> @return The kernel value.
         real(fp) pure function w_interface(self, q)
             import:: fp, base_kernel_t
             class(base_kernel_t), intent(in):: self

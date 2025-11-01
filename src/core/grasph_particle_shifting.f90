@@ -27,7 +27,6 @@ module grasph_particle_shifting_m
 contains
 
     !> @brief Updates i, j particles' positions with XSPH shifting.
-    !> @param ndims Number of spatial dimensions.
     !> @param xi Position of particle i [m].
     !> @param xj Position of particle j [m].
     !> @param vi Velocity of particle i [m].

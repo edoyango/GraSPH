@@ -22,7 +22,7 @@ contains
     !> @param maxtimestep The maximum number of time-steps to run the time-integration for.
     !> @param print_step The interval number of time-steps to update the terminal with run information.
     !> @param save_step The interval number of time-steps to save data to disk using particles' inbuilt dump method.
-    !> @param particles The list of particles who's state is being updated over time.
+    !> @param psystems The list of particle systems who's state is being updated over time.
     !> @param interactions The list of particle_pair_set objects which describe particles' relationship with one another.
     !> @param CFL The Courant-Freidrichs-Lewy coefficient for time-stepping.
     !> @param kernel The kernel to use.

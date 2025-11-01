@@ -81,8 +81,10 @@ module grasph_system_interactions_m
         end subroutine sweep_interface
     end interface
 
+    !> @brief A default sweeper which does nothing when the sweep method is called.
     type, extends(base_sweeper_t):: default_sweeper_t
     contains
+        !> @brief A sweep that does nothing.
         procedure:: sweep => donothing_sweep
     end type default_sweeper_t
 
@@ -127,7 +129,8 @@ contains
     end subroutine do_sweep_prologue
 
     !> @brief Executes sweep step for calculating rate of changes e.g. motion or density. Uses the sweeper strategy member class.
-    !> @param self The system interaction to perfrom the sweep between.
+    !> @param self The system interaction to perform the sweep between.
+    !> @param dt The time-step size.
     subroutine do_sweep(self, dt)
         class(system_interaction_t), intent(inout):: self
         real(fp), optional, intent(in):: dt
@@ -170,6 +173,7 @@ contains
     !> @param psys_lhs the LHS particles involved in the interactions.
     !> @param psys_rhs The RHS particles involved in the interactions. psys_rhs will not be passed in if not associated in the
     !>        owning system_interaction_t class.
+    !> @param dt The time-step size.
     subroutine donothing_sweep(self, pairs, psys_lhs, psys_rhs, dt)
         class(default_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
@@ -211,6 +215,8 @@ contains
     !> @param self The system_interaction_t instance to initialize.
     !> @param psys_lhs The LHS particles to be attached to the instance.
     !> @param psys_rhs The RHS particles to be attached to the instance.
+    !> @param timestep_setuper The strategy class that performs any setup needed at the start of the timestep - before the pair
+    !>        finding has occurred.
     !> @param prologue_sweeper The sweeper to use in the prologue sweep in this interaction.
     !> @param sweeper The sweeper to use in this interaction.
     !> @param shifter The shifter to use in this interaction.

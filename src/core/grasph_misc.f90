@@ -40,6 +40,7 @@ contains
     !> @param time_integration_scheme The name of the time-integration scheme used in the simulation.
     !> @param psystems The list of particle systems whose generate_summary methods to use.
     !> @param timer The system_timer_t object used to track time.
+    !> @param time The in-simulation elapsed time.
     subroutine print_summary(itimestep, time_integration_scheme, psystems, timer, time)
 
         integer, intent(in):: itimestep
@@ -94,8 +95,8 @@ contains
     end function stop_timer
 
     !> @brief Updates the interaction counter.
-    !> @param The timer object to update.
-    !> @param The number of interactions to increment by.
+    !> @param self The timer object to update.
+    !> @param ninteractions The number of interactions to increment by.
     subroutine update_interactions(self, ninteractions)
         class(system_timer_t), intent(inout):: self
         integer, intent(in):: ninteractions

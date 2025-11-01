@@ -133,6 +133,7 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the LHS weakly compressible particles involved in the interactions.
     !> @param psys_rhs Ths RHS "                                                        ".
+    !> @param dt The time-step size.
     subroutine fluid_sweep(self, pairs, psys_lhs, psys_rhs, dt)
         class(fluid_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
@@ -250,6 +251,7 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the real particles involved in the interactions.
     !> @param psys_rhs The boundary particles involved in the interactions.
+    !> @param dt The time-step size.
     subroutine fluid_boundary_sweep_monaghan1994(self, pairs, psys_lhs, psys_rhs, dt)
         class(fluid_boundary_sweeper_monaghan1994_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
@@ -287,6 +289,7 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the LHS particles whose velocity and density will be updated.
     !> @param psys_rhs Ths RHS particles to calculate velocity and density from.
+    !> @param dt The time-step size.
     subroutine boundary_update_sweep(self, pairs, psys_lhs, psys_rhs, dt)
         class(boundary_update_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
@@ -333,6 +336,7 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the LHS ghost particle system where ghost particles will be generated.
     !> @param psys_rhs Ths RHS particles to generate ghost particles from.
+    !> @param dt The time-step size.
     subroutine ghost_timestep_setup_sweep(self, pairs, psys_lhs, psys_rhs, dt)
         class(ghost_timestep_setuper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
@@ -383,6 +387,7 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the LHS weakly compressible particles involved in the interactions.
     !> @param psys_rhs Ths RHS boundary particles involved in the interactions.
+    !> @param dt The time-step size.
     subroutine morris_boundary_sweep(self, pairs, psys_lhs, psys_rhs, dt)
         class(morris_boundary_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
@@ -433,6 +438,7 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the LHS particles involved in the interactions.
     !> @param psys_rhs Ths RHS "                                    ".
+    !> @param dt The time-step size.
     subroutine strain_rate_sweep(self, pairs, psys_lhs, psys_rhs, dt)
 
         use weakly_compressible_particles_m, only: ntensor_elems_voigt
@@ -505,6 +511,7 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the LHS ghost particle system where ghost particles will be generated.
     !> @param psys_rhs Ths RHS particles to generate ghost particles from.
+    !> @param dt The time-step size.
     subroutine eos_viscous_stress_ghost_timestep_setup_sweep(self, pairs, psys_lhs, psys_rhs, dt)
         class(eos_viscous_stress_ghost_timestep_setuper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
@@ -554,6 +561,7 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the LHS weakly compressible particles with stress tensor involved in the interactions.
     !> @param psys_rhs Ths RHS "                                                                           ".
+    !> @param dt The time-step size.
     subroutine viscous_stress_fluid_sweep(self, pairs, psys_lhs, psys_rhs, dt)
         class(viscous_stress_fluid_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
@@ -685,6 +693,7 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the LHS weakly compressible particles with stress tensor involved in the interactions.
     !> @param psys_rhs Ths RHS boundary particles involved in the interactions.
+    !> @param dt The time-step size.
     subroutine viscous_stress_morris_boundary_sweep(self, pairs, psys_lhs, psys_rhs, dt)
         class(eos_viscous_stress_morris_boundary_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
@@ -736,6 +745,7 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the LHS particles involved in the interactions.
     !> @param psys_rhs Ths RHS "                                    ".
+    !> @param dt The time-step size.
     subroutine strain_rate_morris_boundary_sweep(self, pairs, psys_lhs, psys_rhs, dt)
 
         use weakly_compressible_particles_m, only: ntensor_elems_voigt

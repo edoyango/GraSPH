@@ -103,6 +103,7 @@ contains
     !>        density (rho), and reference density (rho_ref). Overrides particle system's state_update
     !>        subroutine.
     !> @param self The state updater holding reference density constant.
+    !> @param ps The particles who's pressure are to be updated.
     !> @param n The number of particles who's pressure needs updating.
     !> @param dt The input time-increment (unused - included to match the overriden method).
     subroutine linear_eos_update_state(self, ps, n, dt)
@@ -148,6 +149,7 @@ contains
     !> @brief Updates ghost particles' state using its original particles' properties and the boundary surface unit normal vector.
     !> @param self The state updater holding boundary surface normal.
     !> @param ps The particle system with ghost particles who's state is to be updated.
+    !> @param n Number of particles in ps.
     !> @param dt The input time-increment (unused - included to match the overriden method).
     subroutine ghost_state_update(self, ps, n, dt)
         class(ghost_state_updater_t), intent(in):: self
@@ -177,6 +179,7 @@ contains
     !> @brief yield criterion and linear equation of state.
     !> @param self The state updater holding reference density, friction angle, and cohesion.
     !> @param ps The particle system with particles who's stress is to be updated.
+    !> @param n Number of particles in ps.
     !> @param dt The input time-increment (unused - included to match the overriden method).
     subroutine dp_visco_elastic_state_update(self, ps, n, dt)
         class(dp_visco_elastic_state_updater_t), intent(in):: self
@@ -219,6 +222,7 @@ contains
     !> @brief Updates ghost particles' state using its original particles' properties and the boundary surface unit normal vector.
     !> @param self The state updater holding boundary surface normal.
     !> @param ps The particle system with ghost particles who's state is to be updated.
+    !> @param n Number of particles in ps.
     !> @param dt The input time-increment (unused - included to match the overriden method).
     subroutine eos_viscous_stress_ghost_state_update(self, ps, n, dt)
         class(eos_viscous_stress_ghost_state_updater_t), intent(in):: self
