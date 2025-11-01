@@ -33,7 +33,7 @@ module grasph_system_interactions_m
         !> @brief Overridable "strategy" class that performs sweep.
         class(base_sweeper_t), allocatable:: sweeper
         !> @brief Overridable "strategy" class that performs shift.
-        class(base_shifter_t), allocatable:: shifter
+        class(base_sweeper_t), allocatable:: shifter
     contains
         !> @brief Called at start of every time-step for any special setup. E.g. creating ghost particles.
         procedure:: do_timestep_setup
@@ -63,17 +63,7 @@ module grasph_system_interactions_m
         procedure:: sweep => donothing_sweep
     end type base_sweeper_t
 
-    !> @brief Base "strategy" class whose shift method is used to perform any particle shifting via position or velocity &
-    !>        adjustments.
-    type:: base_shifter_t
-        !> @brief Controls whether to update the RHS particles (if they're associated).
-        logical:: update_rhs = .true.
-    contains
-        !> @brief Perform particle shifting.
-        procedure:: shift => donothing_shift
-    end type base_shifter_t
-
-    public:: system_interaction_t, base_sweeper_t, base_shifter_t
+    public:: system_interaction_t, base_sweeper_t
 
 contains
 
@@ -115,17 +105,18 @@ contains
 
     !> @brief Executes sweep step for calculating rate of changes e.g. motion or density. Uses the sweeper strategy member class.
     !> @param self The system interaction to perfrom the sweep between.
-    subroutine do_sweep(self)
+    subroutine do_sweep(self, dt)
         class(system_interaction_t), intent(inout):: self
+        real(fp), optional, intent(in):: dt
 
         ! check that sweeper has been allocated
         if (.not. allocated(self%sweeper)) error stop "sweeper not allocated in system_interaction_t."
 
         ! pass in psys_rhs if associated
         if (associated(self%psys_rhs)) then
-            call self%sweeper%sweep(self%pairs, self%psys_lhs, self%psys_rhs)
+            call self%sweeper%sweep(self%pairs, self%psys_lhs, self%psys_rhs, dt=dt)
         else
-            call self%sweeper%sweep(self%pairs, self%psys_lhs)
+            call self%sweeper%sweep(self%pairs, self%psys_lhs, dt=dt)
         end if
 
     end subroutine do_sweep
@@ -142,9 +133,9 @@ contains
 
         ! pass in psys_rhs if associated
         if (associated(self%psys_rhs)) then
-            call self%shifter%shift(self%pairs, self%psys_lhs, self%psys_rhs, dt)
+            call self%shifter%sweep(self%pairs, self%psys_lhs, self%psys_rhs, dt)
         else
-            call self%shifter%shift(self%pairs, self%psys_lhs, dt=dt)
+            call self%shifter%sweep(self%pairs, self%psys_lhs, dt=dt)
         end if
 
     end subroutine do_shift
@@ -156,28 +147,13 @@ contains
     !> @param psys_lhs the LHS particles involved in the interactions.
     !> @param psys_rhs The RHS particles involved in the interactions. psys_rhs will not be passed in if not associated in the
     !>        owning system_interaction_t class.
-    subroutine donothing_sweep(self, pairs, psys_lhs, psys_rhs)
+    subroutine donothing_sweep(self, pairs, psys_lhs, psys_rhs, dt)
         class(base_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
+        real(fp), optional, intent(in):: dt
     end subroutine donothing_sweep
-
-    !> @brief A do-nothing placeholder subroutine. Intended to be overriden when particles are to be
-    !>        shifted at the end of a timestep.
-    !> @param self The shifter class. Used to access constants.
-    !> @param pairs The class storing particle pair index information.
-    !> @param psys_lhs the LHS particles involved in the interactions.
-    !> @param psys_rhs The RHS particles involved in the interactions. psys_rhs will not be passed in if not associated in the
-    !>        owning system_interaction_t class.
-    !> @param dt The time-step increment.
-    subroutine donothing_shift(self, pairs, psys_lhs, psys_rhs, dt)
-        class(base_shifter_t), intent(in):: self
-        type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs
-        class(particle_system_t), optional, intent(inout):: psys_rhs
-        real(fp), intent(in):: dt
-    end subroutine donothing_shift
 
     !> @brief The subroutine to find pairs of particles contained in system_interaction_t.
     !>        Adapts to whether the system_interaction_t instance is a pair set or not.
@@ -221,10 +197,8 @@ contains
         integer, intent(in):: npairs_per_particle
         class(particle_system_t), target, intent(in):: psys_lhs
         class(particle_system_t), target, optional, intent(in):: psys_rhs
-        class(base_sweeper_t), optional, intent(in):: timestep_setuper, prologue_sweeper, sweeper
-        class(base_shifter_t), optional, intent(in):: shifter
-        type(base_sweeper_t):: tmp_base_sweeper
-        type(base_shifter_t):: tmp_base_shifter
+        class(base_sweeper_t), optional, intent(in):: timestep_setuper, prologue_sweeper, sweeper, shifter
+        type(default_sweeper_t):: tmp_base_sweeper
         self%psys_lhs => psys_lhs
         if (present(psys_rhs)) then
             self%psys_rhs => psys_rhs
@@ -254,7 +228,7 @@ contains
         if (present(shifter)) then
             allocate (self%shifter, source=shifter)
         else
-            allocate (self%shifter, source=tmp_base_shifter)
+            allocate (self%shifter, source=tmp_base_sweeper)
         end if
     end subroutine particle_interactions_init
 

@@ -133,11 +133,12 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the LHS weakly compressible particles involved in the interactions.
     !> @param psys_rhs Ths RHS "                                                        ".
-    subroutine fluid_sweep(self, pairs, psys_lhs, psys_rhs)
+    subroutine fluid_sweep(self, pairs, psys_lhs, psys_rhs, dt)
         class(fluid_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
+        real(fp), optional, intent(in):: dt
         class(eos_particle_t), pointer:: fluid_lhs(:), fluid_rhs(:)
         integer:: i, j, k
         real(fp):: dummy_drhodt, dummy_dvxdt(ndims) ! dummy variables for when update_rhs is .false.
@@ -249,11 +250,12 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the real particles involved in the interactions.
     !> @param psys_rhs The boundary particles involved in the interactions.
-    subroutine fluid_boundary_sweep_monaghan1994(self, pairs, psys_lhs, psys_rhs)
+    subroutine fluid_boundary_sweep_monaghan1994(self, pairs, psys_lhs, psys_rhs, dt)
         class(fluid_boundary_sweeper_monaghan1994_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
+        real(fp), optional, intent(in):: dt
         integer:: i, j, k
         real(fp):: dummy_dvxdt(2)
 
@@ -285,11 +287,12 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the LHS particles whose velocity and density will be updated.
     !> @param psys_rhs Ths RHS particles to calculate velocity and density from.
-    subroutine boundary_update_sweep(self, pairs, psys_lhs, psys_rhs)
+    subroutine boundary_update_sweep(self, pairs, psys_lhs, psys_rhs, dt)
         class(boundary_update_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
+        real(fp), optional, intent(in):: dt
         integer:: i, j, k
         real(fp):: mw, vw
         real(fp), allocatable:: wsum(:)
@@ -330,11 +333,12 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the LHS ghost particle system where ghost particles will be generated.
     !> @param psys_rhs Ths RHS particles to generate ghost particles from.
-    subroutine ghost_timestep_setup_sweep(self, pairs, psys_lhs, psys_rhs)
+    subroutine ghost_timestep_setup_sweep(self, pairs, psys_lhs, psys_rhs, dt)
         class(ghost_timestep_setuper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
+        real(fp), optional, intent(in):: dt
         integer:: i
         class(eos_particle_t), pointer:: ps_real(:)
         class(eos_ghost_particle_t), pointer:: ps_ghost(:)
@@ -379,11 +383,12 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the LHS weakly compressible particles involved in the interactions.
     !> @param psys_rhs Ths RHS boundary particles involved in the interactions.
-    subroutine morris_boundary_sweep(self, pairs, psys_lhs, psys_rhs)
+    subroutine morris_boundary_sweep(self, pairs, psys_lhs, psys_rhs, dt)
         class(morris_boundary_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
+        real(fp), optional, intent(in):: dt
         integer:: i, j, k
         class(eos_particle_t), pointer:: ps_fluid(:)
         real(fp):: dummy_drhodt, dummy_dvxdt(ndims), vb(ndims), da, db
@@ -428,7 +433,7 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the LHS particles involved in the interactions.
     !> @param psys_rhs Ths RHS "                                    ".
-    subroutine strain_rate_sweep(self, pairs, psys_lhs, psys_rhs)
+    subroutine strain_rate_sweep(self, pairs, psys_lhs, psys_rhs, dt)
 
         use weakly_compressible_particles_m, only: ntensor_elems_voigt
 
@@ -436,6 +441,7 @@ contains
         type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
+        real(fp), optional, intent(in):: dt
         class(eos_viscous_stress_particle_t), pointer:: ps_lhs(:), ps_rhs(:)
         real(fp):: dummy_strain_rate(ntensor_elems_voigt)
         integer:: i, j, k
@@ -499,11 +505,12 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the LHS ghost particle system where ghost particles will be generated.
     !> @param psys_rhs Ths RHS particles to generate ghost particles from.
-    subroutine eos_viscous_stress_ghost_timestep_setup_sweep(self, pairs, psys_lhs, psys_rhs)
+    subroutine eos_viscous_stress_ghost_timestep_setup_sweep(self, pairs, psys_lhs, psys_rhs, dt)
         class(eos_viscous_stress_ghost_timestep_setuper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
+        real(fp), optional, intent(in):: dt
         integer:: i
         class(eos_viscous_stress_particle_t), pointer:: ps_real(:)
         class(eos_viscous_stress_ghost_particle_t), pointer:: ps_ghost(:)
@@ -547,12 +554,13 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the LHS weakly compressible particles with stress tensor involved in the interactions.
     !> @param psys_rhs Ths RHS "                                                                           ".
-    subroutine viscous_stress_fluid_sweep(self, pairs, psys_lhs, psys_rhs)
+    subroutine viscous_stress_fluid_sweep(self, pairs, psys_lhs, psys_rhs, dt)
         class(viscous_stress_fluid_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
         class(eos_viscous_stress_particle_t), pointer:: fluid_lhs(:), fluid_rhs(:)
+        real(fp), optional, intent(in):: dt
         integer:: i, j, k
         real(fp):: dummy_drhodt, dummy_dvxdt(ndims) ! dummy variables for when update_rhs is .false.
 
@@ -677,11 +685,12 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the LHS weakly compressible particles with stress tensor involved in the interactions.
     !> @param psys_rhs Ths RHS boundary particles involved in the interactions.
-    subroutine viscous_stress_morris_boundary_sweep(self, pairs, psys_lhs, psys_rhs)
+    subroutine viscous_stress_morris_boundary_sweep(self, pairs, psys_lhs, psys_rhs, dt)
         class(eos_viscous_stress_morris_boundary_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
+        real(fp), optional, intent(in):: dt
         integer:: i, j, k
         class(eos_viscous_stress_particle_t), pointer:: ps_fluid(:)
         real(fp):: dummy_drhodt, dummy_dvxdt(ndims), vb(ndims), da, db
@@ -727,7 +736,7 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the LHS particles involved in the interactions.
     !> @param psys_rhs Ths RHS "                                    ".
-    subroutine strain_rate_morris_boundary_sweep(self, pairs, psys_lhs, psys_rhs)
+    subroutine strain_rate_morris_boundary_sweep(self, pairs, psys_lhs, psys_rhs, dt)
 
         use weakly_compressible_particles_m, only: ntensor_elems_voigt
 
@@ -735,6 +744,7 @@ contains
         type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
+        real(fp), optional, intent(in):: dt
         class(eos_viscous_stress_particle_t), pointer:: ps_lhs(:)
         real(fp):: da, db, vb(ndims), dummy_strain_rate(ntensor_elems_voigt)
         integer:: i, j, k

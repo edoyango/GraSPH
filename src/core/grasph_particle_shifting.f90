@@ -5,7 +5,7 @@
 module grasph_particle_shifting_m
 
     use grasph_constants_m, only: fp, ndims
-    use grasph_system_interactions_m, only: base_shifter_t
+    use grasph_system_interactions_m, only: base_sweeper_t
     use grasph_pairs_m, only: particle_pairs_t
     use grasph_particle_system_m, only: particle_system_t
 
@@ -14,12 +14,12 @@ module grasph_particle_shifting_m
     private
 
     !> @brief XSPH shifter class.
-    type, extends(base_shifter_t):: xsph_shifter_t
+    type, extends(base_sweeper_t):: xsph_shifter_t
         !> @brief Coefficient controlling strength of shifting.
         real(fp):: epsilon = 0.5_fp
     contains
         !> @brief Performs XSPH particle shifting, as described in Monaghan 1994.
-        procedure:: shift => xsph_shift
+        procedure:: sweep => xsph_shift
     end type xsph_shifter_t
 
     public:: xsph_shifter_t
@@ -63,7 +63,7 @@ contains
         type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
-        real(fp), intent(in):: dt
+        real(fp), optional, intent(in):: dt
         integer:: i, j, k
         real(fp):: dummyx(ndims)
 

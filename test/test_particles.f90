@@ -56,14 +56,14 @@ contains
         character:: ic
 
         state_updater%rho_ref = 1._fp
-        call psys%init(n=5, name="test", particle_template=ps_template, state_updater=state_updater)
+        call psys%init(n=5, name="test", particle_template=ps_template, state_updater_2=state_updater)
 
         do i = 1, 5
             psys%particles(i)%rho = real(i, kind=fp)
             psys%particles(i)%c = 2._fp
         end do
 
-        call psys%do_state_update()
+        call psys%do_state_update_2()
 
         do i = 1, 5
             write (ic, "(I1)") i

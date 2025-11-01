@@ -32,11 +32,12 @@ contains
 
     end function tests
 
-    subroutine example_real_virt_sweep(self, pairs, psys_lhs, psys_rhs)
+    subroutine example_real_virt_sweep(self, pairs, psys_lhs, psys_rhs, dt)
         class(example_real_virt_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
+        real(fp), optional, intent(in):: dt
         integer:: i, j, k
         class(eos_particle_t), pointer:: ps_real(:), ps_virt(:)
 
