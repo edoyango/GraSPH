@@ -53,15 +53,38 @@ module grasph_system_interactions_m
     !> @brief Base "strategy" class whose sweep method is used to update time-evolving data's rate-of-change e.g. acceleration.
     !>        extensions of this class override the sweep to, for example, work with different particle types and implement
     !>        different physics.
-    type:: base_sweeper_t
+    type, abstract:: base_sweeper_t
         !> @brief Controls whether to update the RHS particles (if they're associated).
         logical:: update_rhs = .true.
         !> @brief Controls whether the sweep initializes particles' rate-of-change data.
         logical:: initialize = .true.
     contains
         !> @brief Update particles' rate-of-change data by sweeping through particle pairs.
-        procedure:: sweep => donothing_sweep
+        procedure(sweep_interface), deferred:: sweep
     end type base_sweeper_t
+
+    abstract interface
+        !> @brief Interface that describes the sweep method of the base_sweeper strategy class.
+        !> @param self The sweeper class. Used to access constants.
+        !> @param pairs The class storing particle pair index information.
+        !> @param psys_lhs the LHS particles involved in the interactions.
+        !> @param psys_rhs The RHS particles involved in the interactions. psys_rhs will not be passed in if not associated in the
+        !>        owning system_interaction_t class.
+        !> @param dt The timestep size.
+        subroutine sweep_interface(self, pairs, psys_lhs, psys_rhs, dt)
+            import:: base_sweeper_t, particle_pairs_t, particle_system_t, fp
+            class(base_sweeper_t), intent(in):: self
+            type(particle_pairs_t), intent(in):: pairs
+            class(particle_system_t), intent(inout):: psys_lhs
+            class(particle_system_t), optional, intent(inout):: psys_rhs
+            real(fp), optional, intent(in):: dt
+        end subroutine sweep_interface
+    end interface
+
+    type, extends(base_sweeper_t):: default_sweeper_t
+    contains
+        procedure:: sweep => donothing_sweep
+    end type default_sweeper_t
 
     public:: system_interaction_t, base_sweeper_t
 
@@ -148,7 +171,7 @@ contains
     !> @param psys_rhs The RHS particles involved in the interactions. psys_rhs will not be passed in if not associated in the
     !>        owning system_interaction_t class.
     subroutine donothing_sweep(self, pairs, psys_lhs, psys_rhs, dt)
-        class(base_sweeper_t), intent(in):: self
+        class(default_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
         class(particle_system_t), intent(inout):: psys_lhs
         class(particle_system_t), optional, intent(inout):: psys_rhs
