@@ -59,11 +59,23 @@ module grasph_system_interactions_m
         !> @brief Controls whether the sweep initializes particles' rate-of-change data.
         logical:: initialize = .true.
     contains
-        !> @brief Update particles' rate-of-change data by sweeping through particle pairs.
-        procedure(sweep_interface), deferred:: sweep
+        procedure(sweep_1system_interface), deferred:: sweep_1system
+        procedure(sweep_2system_interface), deferred:: sweep_2system
     end type base_sweeper_t
 
     abstract interface
+        !> @brief Interface that describes the sweep method of the base_sweeper strategy class.
+        !> @param self The sweeper class. Used to access constants.
+        !> @param pairs The class storing particle pair index information.
+        !> @param psys the particles involved in the interactions.
+        !> @param dt The timestep size.
+        subroutine sweep_1system_interface(self, pairs, psys, dt)
+            import:: base_sweeper_t, particle_pairs_t, particle_system_t, fp
+            class(base_sweeper_t), intent(in):: self
+            type(particle_pairs_t), intent(in):: pairs
+            class(particle_system_t), intent(inout):: psys
+            real(fp), optional, intent(in):: dt
+        end subroutine sweep_1system_interface
         !> @brief Interface that describes the sweep method of the base_sweeper strategy class.
         !> @param self The sweeper class. Used to access constants.
         !> @param pairs The class storing particle pair index information.
@@ -71,21 +83,22 @@ module grasph_system_interactions_m
         !> @param psys_rhs The RHS particles involved in the interactions. psys_rhs will not be passed in if not associated in the
         !>        owning system_interaction_t class.
         !> @param dt The timestep size.
-        subroutine sweep_interface(self, pairs, psys_lhs, psys_rhs, dt)
+        subroutine sweep_2system_interface(self, pairs, psys_lhs, psys_rhs, dt)
             import:: base_sweeper_t, particle_pairs_t, particle_system_t, fp
             class(base_sweeper_t), intent(in):: self
             type(particle_pairs_t), intent(in):: pairs
-            class(particle_system_t), intent(inout):: psys_lhs
-            class(particle_system_t), optional, intent(inout):: psys_rhs
+            class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
             real(fp), optional, intent(in):: dt
-        end subroutine sweep_interface
+        end subroutine sweep_2system_interface
     end interface
 
     !> @brief A default sweeper which does nothing when the sweep method is called.
     type, extends(base_sweeper_t):: default_sweeper_t
     contains
-        !> @brief A sweep that does nothing.
-        procedure:: sweep => donothing_sweep
+        !> @brief A sweep that does nothing with the input particle system.
+        procedure:: sweep_1system => donothing_sweep_1system
+        !> @brief A sweep that does nothing with the input particle systems.
+        procedure:: sweep_2system => donothing_sweep_2system
     end type default_sweeper_t
 
     public:: system_interaction_t, base_sweeper_t
@@ -103,9 +116,9 @@ contains
 
         ! pass in psys_rhs if associated
         if (associated(self%psys_rhs)) then
-            call self%timestep_setuper%sweep(self%pairs, self%psys_lhs, self%psys_rhs)
+            call self%timestep_setuper%sweep_2system(self%pairs, self%psys_lhs, self%psys_rhs)
         else
-            call self%timestep_setuper%sweep(self%pairs, self%psys_lhs)
+            call self%timestep_setuper%sweep_1system(self%pairs, self%psys_lhs)
         end if
 
     end subroutine do_timestep_setup
@@ -121,9 +134,9 @@ contains
 
         ! pass in psys_rhs if associated
         if (associated(self%psys_rhs)) then
-            call self%prologue_sweeper%sweep(self%pairs, self%psys_lhs, self%psys_rhs)
+            call self%prologue_sweeper%sweep_2system(self%pairs, self%psys_lhs, self%psys_rhs)
         else
-            call self%prologue_sweeper%sweep(self%pairs, self%psys_lhs)
+            call self%prologue_sweeper%sweep_1system(self%pairs, self%psys_lhs)
         end if
 
     end subroutine do_sweep_prologue
@@ -140,9 +153,9 @@ contains
 
         ! pass in psys_rhs if associated
         if (associated(self%psys_rhs)) then
-            call self%sweeper%sweep(self%pairs, self%psys_lhs, self%psys_rhs, dt=dt)
+            call self%sweeper%sweep_2system(self%pairs, self%psys_lhs, self%psys_rhs, dt=dt)
         else
-            call self%sweeper%sweep(self%pairs, self%psys_lhs, dt=dt)
+            call self%sweeper%sweep_1system(self%pairs, self%psys_lhs, dt=dt)
         end if
 
     end subroutine do_sweep
@@ -159,12 +172,24 @@ contains
 
         ! pass in psys_rhs if associated
         if (associated(self%psys_rhs)) then
-            call self%shifter%sweep(self%pairs, self%psys_lhs, self%psys_rhs, dt)
+            call self%shifter%sweep_2system(self%pairs, self%psys_lhs, self%psys_rhs, dt)
         else
-            call self%shifter%sweep(self%pairs, self%psys_lhs, dt=dt)
+            call self%shifter%sweep_1system(self%pairs, self%psys_lhs, dt=dt)
         end if
 
     end subroutine do_shift
+
+    !> @brief A do-nothing placeholder subroutine.
+    !> @param self The sweeper class. Used to access constants.
+    !> @param pairs The class storing particle pair index information.
+    !> @param psys the particles involved in the interactions.
+    !> @param dt The time-step size.
+    subroutine donothing_sweep_1system(self, pairs, psys, dt)
+        class(default_sweeper_t), intent(in):: self
+        type(particle_pairs_t), intent(in):: pairs
+        class(particle_system_t), intent(inout):: psys
+        real(fp), optional, intent(in):: dt
+    end subroutine donothing_sweep_1system
 
     !> @brief A do-nothing placeholder subroutine. Intended to be overriden when particles have
     !>        meaningful sweeps to perform.
@@ -174,13 +199,12 @@ contains
     !> @param psys_rhs The RHS particles involved in the interactions. psys_rhs will not be passed in if not associated in the
     !>        owning system_interaction_t class.
     !> @param dt The time-step size.
-    subroutine donothing_sweep(self, pairs, psys_lhs, psys_rhs, dt)
+    subroutine donothing_sweep_2system(self, pairs, psys_lhs, psys_rhs, dt)
         class(default_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs
-        class(particle_system_t), optional, intent(inout):: psys_rhs
+        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
         real(fp), optional, intent(in):: dt
-    end subroutine donothing_sweep
+    end subroutine donothing_sweep_2system
 
     !> @brief The subroutine to find pairs of particles contained in system_interaction_t.
     !>        Adapts to whether the system_interaction_t instance is a pair set or not.

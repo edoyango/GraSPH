@@ -18,7 +18,8 @@ module test_interactions
 
     type, extends(base_sweeper_t):: example_real_virt_sweeper_t
     contains
-        procedure:: sweep => example_real_virt_sweep
+        procedure:: sweep_1system => example_real_virt_sweep_1system
+        procedure:: sweep_2system => example_real_virt_sweep_2system
     end type example_real_virt_sweeper_t
 
 contains
@@ -32,11 +33,21 @@ contains
 
     end function tests
 
-    subroutine example_real_virt_sweep(self, pairs, psys_lhs, psys_rhs, dt)
+    subroutine example_real_virt_sweep_1system(self, pairs, psys, dt)
+
         class(example_real_virt_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs
-        class(particle_system_t), optional, intent(inout):: psys_rhs
+        class(particle_system_t), intent(inout):: psys
+        real(fp), optional, intent(in):: dt
+
+        error stop "Cannot perform sweep with only 1 particle system. Ensure that both psys_lhs and psys_rhs are associated."
+
+    end subroutine example_real_virt_sweep_1system
+
+    subroutine example_real_virt_sweep_2system(self, pairs, psys_lhs, psys_rhs, dt)
+        class(example_real_virt_sweeper_t), intent(in):: self
+        type(particle_pairs_t), intent(in):: pairs
+        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
         class(eos_particle_t), pointer:: ps_real(:), ps_virt(:)
@@ -63,7 +74,7 @@ contains
             ps_real(i)%p = ps_real(i)%p + ps_virt(j)%p
         end do
 
-    end subroutine example_real_virt_sweep
+    end subroutine example_real_virt_sweep_2system
 
     subroutine test_set_pair_setup()
 

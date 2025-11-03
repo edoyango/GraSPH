@@ -172,8 +172,8 @@ program main
 
     ! start time-evolution what dambreak setup and without damping.
     call leap_frog_time_integration( &
-        maxtimestep=1, &
-        print_step=1, &
+        maxtimestep=50000, &
+        print_step=1000, &
         save_step=1000, &
         psystems=psys, &
         interactions=psys_interactions, &

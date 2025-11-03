@@ -18,8 +18,10 @@ module grasph_particle_shifting_m
         !> @brief Coefficient controlling strength of shifting.
         real(fp):: epsilon = 0.5_fp
     contains
-        !> @brief Performs XSPH particle shifting, as described in Monaghan 1994.
-        procedure:: sweep => xsph_shift
+        !> @brief Performs XSPH particle shifting for one particle system, as described in Monaghan 1994.
+        procedure:: sweep_1system => xsph_shift_1system
+        !> @brief Performs XSPH particle shifting for two particle systems, as described in Monaghan 1994.
+        procedure:: sweep_2system => xsph_shift_2system
     end type xsph_shifter_t
 
     public:: xsph_shifter_t
@@ -50,46 +52,64 @@ contains
 
     end subroutine xsph_shift_ij
 
-    !> @brief Performs XSPH particle shifting, as described in Monaghan 1994.
+    !> @brief Performs XSPH particle shifting on particles within a single particle system, as described in Monaghan 1994.
+    !> @param self The shifter class. Used to access epsilon.
+    !> @param pairs The class storing particle pair index information.
+    !> @param psys the particles involved in the interactions.
+    !> @param dt The time-step increment.
+    subroutine xsph_shift_1system(self, pairs, psys, dt)
+        class(xsph_shifter_t), intent(in):: self
+        type(particle_pairs_t), intent(in):: pairs
+        class(particle_system_t), intent(inout):: psys
+        real(fp), optional, intent(in):: dt
+        integer:: i, j, k
+        real(fp):: dummyx(ndims)
+
+        do k = 1, pairs%npairs_total
+            i = pairs%pair_ij(1, k)
+            j = pairs%pair_ij(2, k)
+            call xsph_shift_ij( &
+                psys%particles(i)%x(:), psys%particles(j)%x(:), psys%particles(i)%v(:), psys%particles(j)%v(:), &
+                psys%particles(i)%rho, psys%particles(j)%rho, psys%particles(i)%mass, psys%particles(j)%mass, pairs%w(k), dt, &
+                self%epsilon &
+                )
+        end do
+
+    end subroutine xsph_shift_1system
+
+    !> @brief Performs XSPH particle shifting on particles within two particle systems, as described in Monaghan 1994.
     !> @param self The shifter class. Used to access epsilon.
     !> @param pairs The class storing particle pair index information.
     !> @param psys_lhs the LHS particles involved in the interactions.
     !> @param psys_rhs The RHS particles involved in the interactions. psys_rhs will not be passed in if not associated in the
     !>        owning particle_interactions class.
     !> @param dt The time-step increment.
-    subroutine xsph_shift(self, pairs, psys_lhs, psys_rhs, dt)
+    subroutine xsph_shift_2system(self, pairs, psys_lhs, psys_rhs, dt)
         class(xsph_shifter_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs
-        class(particle_system_t), optional, intent(inout):: psys_rhs
+        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
         real(fp):: dummyx(ndims)
 
-        if (present(psys_rhs)) then
-            do k = 1, pairs%npairs_total
-                i = pairs%pair_ij(1, k)
-                j = pairs%pair_ij(2, k)
-                if (self%update_rhs) then
-                    call xsph_shift_ij(psys_lhs%particles(i)%x(:), psys_rhs%particles(j)%x(:), psys_lhs%particles(i)%v(:), &
-                                       psys_rhs%particles(j)%v(:), psys_lhs%particles(i)%rho, psys_rhs%particles(j)%rho, &
-                                       psys_lhs%particles(i)%mass, psys_rhs%particles(j)%mass, pairs%w(k), dt, self%epsilon)
-                else
-                    call xsph_shift_ij(psys_lhs%particles(i)%x(:), dummyx, psys_lhs%particles(i)%v(:), psys_rhs%particles(j)%v(:), &
-                                       psys_lhs%particles(i)%rho, psys_rhs%particles(j)%rho, psys_lhs%particles(i)%mass, &
-                                       psys_rhs%particles(j)%mass, pairs%w(k), dt, self%epsilon)
-                end if
-            end do
-        else
-            do k = 1, pairs%npairs_total
-                i = pairs%pair_ij(1, k)
-                j = pairs%pair_ij(2, k)
-                call xsph_shift_ij(psys_lhs%particles(i)%x(:), psys_lhs%particles(j)%x(:), psys_lhs%particles(i)%v(:), &
-                                   psys_lhs%particles(j)%v(:), psys_lhs%particles(i)%rho, psys_lhs%particles(j)%rho, &
-                                   psys_lhs%particles(i)%mass, psys_lhs%particles(j)%mass, pairs%w(k), dt, self%epsilon)
-            end do
-        end if
+        do k = 1, pairs%npairs_total
+            i = pairs%pair_ij(1, k)
+            j = pairs%pair_ij(2, k)
+            if (self%update_rhs) then
+                call xsph_shift_ij( &
+                    psys_lhs%particles(i)%x(:), psys_rhs%particles(j)%x(:), psys_lhs%particles(i)%v(:), &
+                    psys_rhs%particles(j)%v(:), psys_lhs%particles(i)%rho, psys_rhs%particles(j)%rho, psys_lhs%particles(i)%mass, &
+                    psys_rhs%particles(j)%mass, pairs%w(k), dt, self%epsilon &
+                    )
+            else
+                call xsph_shift_ij( &
+                    psys_lhs%particles(i)%x(:), dummyx, psys_lhs%particles(i)%v(:), psys_rhs%particles(j)%v(:), &
+                    psys_lhs%particles(i)%rho, psys_rhs%particles(j)%rho, psys_lhs%particles(i)%mass, psys_rhs%particles(j)%mass, &
+                    pairs%w(k), dt, self%epsilon &
+                    )
+            end if
+        end do
 
-    end subroutine xsph_shift
+    end subroutine xsph_shift_2system
 
 end module grasph_particle_shifting_m
