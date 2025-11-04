@@ -34,6 +34,7 @@ module weakly_compressible_interactions_m
         !> @brief For two weakly-compressible fluid particle systems, calculate acceleration and density rate-of-change due to
         !>        isotropic pressure, artificial viscosity, and mass continuity.
         procedure:: sweep_2system => fluid_sweep_2system
+        procedure:: sweep_2system_norhsupdate => fluid_sweep_2system_norhsupdate
     end type fluid_sweeper_t
 
     !> @brief Sweeper describing interaction between a fluid system and boundary using Lennard-Jones repulsive force only.
@@ -45,6 +46,7 @@ module weakly_compressible_interactions_m
         procedure:: sweep_1system => fluid_boundary_sweep_monaghan1994_1system
         !> @brief Calculate acceleration due to lennard-jones repulsive force and artificial viscosity.
         procedure:: sweep_2system => fluid_boundary_sweep_monaghan1994_2system
+        procedure:: sweep_2system_norhsupdate => fluid_boundary_sweep_monaghan1994_2system
     end type fluid_boundary_sweeper_monaghan1994_t
 
     !> @brief Sweeper describing how to update weakly compressible virtual boundary particles' velocity and density.
@@ -54,6 +56,7 @@ module weakly_compressible_interactions_m
         procedure:: sweep_1system => boundary_update_sweep_1system
         !> @brief Calculate weakly compressible virtual boundary particles' velocity and density.
         procedure:: sweep_2system => boundary_update_sweep_2system
+        procedure:: sweep_2system_norhsupdate => boundary_update_sweep_2system
     end type boundary_update_sweeper_t
 
     !> @brief Sweeper describing how to generate weakly compressible ghost particles at the start of the time-step.
@@ -69,6 +72,7 @@ module weakly_compressible_interactions_m
         procedure:: sweep_1system => ghost_timestep_setup_sweep_1system
         !> @brief Generates ghost particles based on the mirroring boundary and the RHS particles.
         procedure:: sweep_2system => ghost_timestep_setup_sweep_2system
+        procedure:: sweep_2system_norhsupdate => ghost_timestep_setup_sweep_2system
     end type
 
     !> @brief Sweeper describing the interaction between real (LHS) and virtual (RHS) weakly compressible particles using the morris
@@ -84,6 +88,7 @@ module weakly_compressible_interactions_m
         !> @brief Calculates acceleration and density change of the LHS particles due to interaction with the morris boundary
         !>       particles (RHS).
         procedure:: sweep_2system => morris_boundary_sweep_2system
+        procedure:: sweep_2system_norhsupdate => morris_boundary_sweep_2system
     end type morris_boundary_sweeper_t
 
     !> @brief Sweeper that calculates engineering strain rate between two particle systems.
@@ -93,6 +98,7 @@ module weakly_compressible_interactions_m
         procedure:: sweep_1system => strain_rate_sweep_1system
         !> @brief Calculates engineering strain rate for 2 particle systems.
         procedure:: sweep_2system => strain_rate_sweep_2system
+        procedure:: sweep_2system_norhsupdate => strain_rate_sweep_2system_norhsupdate
     end type strain_rate_sweeper_t
 
     !> @brief Sweeper describing how to generate weakly compressible ghost particles with strain rate and cauchy stress tensors.
@@ -102,6 +108,7 @@ module weakly_compressible_interactions_m
         procedure:: sweep_1system => eos_viscous_stress_ghost_timestep_setup_sweep_1system
         !> @brief Generates ghost particles based on the mirroring boundary and the RHS particles.
         procedure:: sweep_2system => eos_viscous_stress_ghost_timestep_setup_sweep_2system
+        procedure:: sweep_2system_norhsupdate => eos_viscous_stress_ghost_timestep_setup_sweep_2system
     end type eos_viscous_stress_ghost_timestep_setuper_t
 
     !> @brief Sweeper describing interaction between systems of weakly compressible particles with cauchy stress tensors.
@@ -113,6 +120,7 @@ module weakly_compressible_interactions_m
         !> @brief For two particle systems with weakly compressible particles with cauchy stress tensor, calculate density change
         !>        and acceleration.
         procedure:: sweep_2system => viscous_stress_fluid_sweep_2system
+        procedure:: sweep_2system_norhsupdate => viscous_stress_fluid_sweep_2system_norhsupdate
     end type viscous_stress_fluid_sweeper_t
 
     !> @brief Sweeper describing the interaction between real (LHS) and virtual (RHS) weakly compressible articles (with cauchy
@@ -128,6 +136,7 @@ module weakly_compressible_interactions_m
         !> @brief Calculates acceleration and density change of the LHS particles due to interaction with the weakly compressible
         !>        morris boundary particles with stress tensor (RHS).
         procedure:: sweep_2system => viscous_stress_morris_boundary_sweep_2system
+        procedure:: sweep_2system_norhsupdate => viscous_stress_morris_boundary_sweep_2system
     end type eos_viscous_stress_morris_boundary_sweeper_t
 
     !> @brief Sweeper that describes how morris boundary particles contribute to the strain rate calculation of real particles.
@@ -141,6 +150,7 @@ module weakly_compressible_interactions_m
         procedure:: sweep_1system => strain_rate_morris_boundary_sweep_1system
         !> @brief Calculates Contribution of morris boundary particles (RHS) to real particles (LHS) strain rate.
         procedure:: sweep_2system => strain_rate_morris_boundary_sweep_2system
+        procedure:: sweep_2system_norhsupdate => strain_rate_morris_boundary_sweep_2system
     end type strain_rate_morris_boundary_sweeper_t
 
     public:: fluid_sweeper_t, fluid_boundary_sweeper_monaghan1994_t, boundary_update_sweeper_t, ghost_timestep_setuper_t, &
@@ -215,6 +225,72 @@ contains
         real(fp), optional, intent(in):: dt
         class(eos_particle_t), pointer:: fluid_lhs(:), fluid_rhs(:)
         integer:: i, j, k
+
+        ! point to lhs particlse for access to pressure member
+        select type (ps => psys_lhs%particles)
+        class is (eos_particle_t)
+            fluid_lhs => ps
+        class default
+            error stop "Invalid type for psys_lhs"
+        end select
+
+        ! point to rhs particlse for access to pressure member
+        select type (ps => psys_rhs%particles)
+        class is (eos_particle_t)
+            fluid_rhs => ps
+        class default
+            error stop "Invalid type for psys_rhs"
+        end select
+
+        ! intialize L/RHS acceleration and density rate-of-change arrays
+        if (self%initialize) then
+            do i = 1, size(fluid_lhs)
+                fluid_lhs(i)%dvxdt(:) = 0._fp
+                fluid_lhs(i)%dvxdt(ndims) = self%g
+                fluid_lhs(i)%drhodt = 0._fp
+            end do
+            do i = 1, size(fluid_rhs)
+                fluid_rhs(i)%dvxdt(:) = 0._fp
+                fluid_rhs(i)%dvxdt(ndims) = self%g
+                fluid_rhs(i)%drhodt = 0._fp
+            end do
+        end if
+
+        ! perform sweep
+        do k = 1, pairs%npairs_total
+            i = pairs%pair_ij(1, k)
+            j = pairs%pair_ij(2, k)
+            call artificial_viscosity_monaghan1994( &
+                fluid_lhs(i)%x(:), fluid_rhs(j)%x(:), fluid_lhs(i)%v(:), fluid_rhs(j)%v(:), fluid_lhs(i)%rho, &
+                fluid_rhs(j)%rho, self%h, self%h, fluid_lhs(i)%c, fluid_rhs(j)%c, fluid_lhs(i)%mass, fluid_rhs(j)%mass, &
+                fluid_lhs(i)%dvxdt(:), fluid_rhs(j)%dvxdt(:), pairs%dwdx(:, k), self%artvisc_alpha, self%artvisc_beta &
+                )
+            call isotropic_pressure_force( &
+                fluid_lhs(i)%p, fluid_rhs(j)%p, fluid_lhs(i)%rho, fluid_rhs(j)%rho, fluid_lhs(i)%mass, fluid_rhs(j)%mass, &
+                fluid_lhs(i)%dvxdt(:), fluid_rhs(j)%dvxdt(:), pairs%dwdx(:, k) &
+                )
+            call continuity_density( &
+                fluid_lhs(i)%v(:), fluid_rhs(j)%v(:), fluid_lhs(i)%mass, fluid_rhs(j)%mass, fluid_lhs(i)%drhodt, &
+                fluid_rhs(j)%drhodt, pairs%dwdx(:, k) &
+                )
+        end do
+
+    end subroutine fluid_sweep_2system
+
+    !> @brief For two weakly-compressible fluid particle systems, calculate acceleration and density rate-of-change
+    !>        due to isotropic pressure, artificial viscosity, and mass continuity.
+    !> @param self The sweeper class holding artificial viscosity constants and gravity.
+    !> @param pairs The class storing particle pair index information.
+    !> @param psys_lhs the LHS weakly compressible particles involved in the interactions.
+    !> @param psys_rhs Ths RHS "                                                        ".
+    !> @param dt The time-step size.
+    subroutine fluid_sweep_2system_norhsupdate(self, pairs, psys_lhs, psys_rhs, dt)
+        class(fluid_sweeper_t), intent(in):: self
+        type(particle_pairs_t), intent(in):: pairs
+        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        real(fp), optional, intent(in):: dt
+        class(eos_particle_t), pointer:: fluid_lhs(:), fluid_rhs(:)
+        integer:: i, j, k
         real(fp):: dummy_drhodt, dummy_dvxdt(ndims) ! dummy variables for when update_rhs is .false.
 
         ! point to lhs particlse for access to pressure member
@@ -241,58 +317,27 @@ contains
         class default
             error stop "Invalid type for psys_rhs"
         end select
-        if (self%update_rhs) then ! sweep using both lhs and rhs, and updating both
-            ! intialize RHS acceleration and density rate-of-change arrays
-            if (self%initialize) then
-                do i = 1, size(fluid_rhs)
-                    fluid_rhs(i)%dvxdt(:) = 0._fp
-                    fluid_rhs(i)%dvxdt(ndims) = self%g
-                    fluid_rhs(i)%drhodt = 0._fp
-                end do
-            end if
 
-            ! perform sweep
-            do k = 1, pairs%npairs_total
-                i = pairs%pair_ij(1, k)
-                j = pairs%pair_ij(2, k)
-                call artificial_viscosity_monaghan1994( &
-                    fluid_lhs(i)%x(:), fluid_rhs(j)%x(:), fluid_lhs(i)%v(:), fluid_rhs(j)%v(:), fluid_lhs(i)%rho, &
-                    fluid_rhs(j)%rho, self%h, self%h, fluid_lhs(i)%c, fluid_rhs(j)%c, fluid_lhs(i)%mass, fluid_rhs(j)%mass, &
-                    fluid_lhs(i)%dvxdt(:), fluid_rhs(j)%dvxdt(:), pairs%dwdx(:, k), self%artvisc_alpha, self%artvisc_beta &
-                    )
-                call isotropic_pressure_force( &
-                    fluid_lhs(i)%p, fluid_rhs(j)%p, fluid_lhs(i)%rho, fluid_rhs(j)%rho, fluid_lhs(i)%mass, fluid_rhs(j)%mass, &
-                    fluid_lhs(i)%dvxdt(:), fluid_rhs(j)%dvxdt(:), pairs%dwdx(:, k) &
-                    )
-                call continuity_density( &
-                    fluid_lhs(i)%v(:), fluid_rhs(j)%v(:), fluid_lhs(i)%mass, fluid_rhs(j)%mass, fluid_lhs(i)%drhodt, &
-                    fluid_rhs(j)%drhodt, pairs%dwdx(:, k) &
-                    )
-            end do
-        else ! sweep using both lhs and rhs, but updating only lhs
+        ! perform sweep
+        do k = 1, pairs%npairs_total
+            i = pairs%pair_ij(1, k)
+            j = pairs%pair_ij(2, k)
+            call artificial_viscosity_monaghan1994( &
+                fluid_lhs(i)%x(:), fluid_rhs(j)%x(:), fluid_lhs(i)%v(:), fluid_rhs(j)%v(:), fluid_lhs(i)%rho, &
+                fluid_rhs(j)%rho, self%h, self%h, fluid_lhs(i)%c, fluid_rhs(j)%c, fluid_lhs(i)%mass, fluid_rhs(j)%mass, &
+                fluid_lhs(i)%dvxdt(:), dummy_dvxdt(:), pairs%dwdx(:, k), self%artvisc_alpha, self%artvisc_beta &
+                )
+            call isotropic_pressure_force( &
+                fluid_lhs(i)%p, fluid_rhs(j)%p, fluid_lhs(i)%rho, fluid_rhs(j)%rho, fluid_lhs(i)%mass, fluid_rhs(j)%mass, &
+                fluid_lhs(i)%dvxdt(:), dummy_dvxdt(:), pairs%dwdx(:, k) &
+                )
+            call continuity_density( &
+                fluid_lhs(i)%v(:), fluid_rhs(j)%v(:), fluid_lhs(i)%mass, fluid_rhs(j)%mass, &
+                fluid_lhs(i)%drhodt, dummy_drhodt, pairs%dwdx(:, k) &
+                )
+        end do
 
-            ! perform sweep
-            do k = 1, pairs%npairs_total
-                i = pairs%pair_ij(1, k)
-                j = pairs%pair_ij(2, k)
-                call artificial_viscosity_monaghan1994( &
-                    fluid_lhs(i)%x(:), fluid_rhs(j)%x(:), fluid_lhs(i)%v(:), fluid_rhs(j)%v(:), fluid_lhs(i)%rho, &
-                    fluid_rhs(j)%rho, self%h, self%h, fluid_lhs(i)%c, fluid_rhs(j)%c, fluid_lhs(i)%mass, fluid_rhs(j)%mass, &
-                    fluid_lhs(i)%dvxdt(:), dummy_dvxdt(:), pairs%dwdx(:, k), self%artvisc_alpha, self%artvisc_beta &
-                    )
-                call isotropic_pressure_force( &
-                    fluid_lhs(i)%p, fluid_rhs(j)%p, fluid_lhs(i)%rho, fluid_rhs(j)%rho, fluid_lhs(i)%mass, fluid_rhs(j)%mass, &
-                    fluid_lhs(i)%dvxdt(:), dummy_dvxdt(:), pairs%dwdx(:, k) &
-                    )
-                call continuity_density( &
-                    fluid_lhs(i)%v(:), fluid_rhs(j)%v(:), fluid_lhs(i)%mass, fluid_rhs(j)%mass, &
-                    fluid_lhs(i)%drhodt, dummy_drhodt, pairs%dwdx(:, k) &
-                    )
-            end do
-
-        end if
-
-    end subroutine fluid_sweep_2system
+    end subroutine fluid_sweep_2system_norhsupdate
 
     !> @brief Produces an error since boundary update cannot occur with only one set of particles.
     !> @param self The sweeper class.
@@ -594,6 +639,58 @@ contains
             error stop "Expected psys_lhs%particles class to be eos_viscous_stress_particle_t."
         end select
 
+        select type (ps => psys_rhs%particles)
+        class is (eos_viscous_stress_particle_t)
+            ps_rhs => ps
+        class default
+            error stop "Expected psys_rhs%particles class to be eos_viscous_stress_particle_t."
+        end select
+
+        if (self%initialize) then
+            do i = 1, psys_lhs%size
+                ps_lhs(i)%strain_rate(:) = 0._fp
+            end do
+            do i = 1, psys_rhs%size
+                ps_rhs(i)%strain_rate(:) = 0._fp
+            end do
+        end if
+
+        do k = 1, pairs%npairs_total
+            i = pairs%pair_ij(1, k)
+            j = pairs%pair_ij(2, k)
+            call strain_rate( &
+                ps_lhs(i)%v(:), ps_rhs(j)%v(:), ps_lhs(i)%mass, ps_rhs(j)%mass, ps_lhs(i)%rho, ps_rhs(j)%rho, &
+                pairs%dwdx(:, k), ps_lhs(i)%strain_rate(:), ps_rhs(j)%strain_rate(:) &
+                )
+        end do
+
+    end subroutine strain_rate_sweep_2system
+
+    !> @brief For either one or two particle systems, calculate strain rate.
+    !> @param self The sweeper class.
+    !> @param pairs The class storing particle pair index information.
+    !> @param psys_lhs the LHS particles involved in the interactions.
+    !> @param psys_rhs Ths RHS "                                    ".
+    !> @param dt The time-step size.
+    subroutine strain_rate_sweep_2system_norhsupdate(self, pairs, psys_lhs, psys_rhs, dt)
+
+        use weakly_compressible_particles_m, only: ntensor_elems_voigt
+
+        class(strain_rate_sweeper_t), intent(in):: self
+        type(particle_pairs_t), intent(in):: pairs
+        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        real(fp), optional, intent(in):: dt
+        class(eos_viscous_stress_particle_t), pointer:: ps_lhs(:), ps_rhs(:)
+        real(fp):: dummy_strain_rate(ntensor_elems_voigt)
+        integer:: i, j, k
+
+        select type (ps => psys_lhs%particles)
+        class is (eos_viscous_stress_particle_t)
+            ps_lhs => ps
+        class default
+            error stop "Expected psys_lhs%particles class to be eos_viscous_stress_particle_t."
+        end select
+
         if (self%initialize) then
             do i = 1, psys_lhs%size
                 ps_lhs(i)%strain_rate(:) = 0._fp
@@ -606,27 +703,17 @@ contains
         class default
             error stop "Expected psys_rhs%particles class to be eos_viscous_stress_particle_t."
         end select
-        if (self%update_rhs) then
-            do k = 1, pairs%npairs_total
-                i = pairs%pair_ij(1, k)
-                j = pairs%pair_ij(2, k)
-                call strain_rate( &
-                    ps_lhs(i)%v(:), ps_rhs(j)%v(:), ps_lhs(i)%mass, ps_rhs(j)%mass, ps_lhs(i)%rho, ps_rhs(j)%rho, &
-                    pairs%dwdx(:, k), ps_lhs(i)%strain_rate(:), ps_rhs(j)%strain_rate(:) &
-                    )
-            end do
-        else
-            do k = 1, pairs%npairs_total
-                i = pairs%pair_ij(1, k)
-                j = pairs%pair_ij(2, k)
-                call strain_rate( &
-                    ps_lhs(i)%v(:), ps_rhs(j)%v(:), ps_lhs(i)%mass, ps_rhs(j)%mass, ps_lhs(i)%rho, ps_rhs(j)%rho, &
-                    pairs%dwdx(:, k), ps_lhs(i)%strain_rate(:), dummy_strain_rate(:) &
-                    )
-            end do
-        end if
 
-    end subroutine strain_rate_sweep_2system
+        do k = 1, pairs%npairs_total
+            i = pairs%pair_ij(1, k)
+            j = pairs%pair_ij(2, k)
+            call strain_rate( &
+                ps_lhs(i)%v(:), ps_rhs(j)%v(:), ps_lhs(i)%mass, ps_rhs(j)%mass, ps_lhs(i)%rho, ps_rhs(j)%rho, &
+                pairs%dwdx(:, k), ps_lhs(i)%strain_rate(:), dummy_strain_rate(:) &
+                )
+        end do
+
+    end subroutine strain_rate_sweep_2system_norhsupdate
 
     !> @brief Produces an error since ghost particle system setup requires interaction with a "real" particle system.
     !> @param self The sweeper class containing the plane boundary using a unit normal vector and point.
@@ -760,6 +847,77 @@ contains
         class(eos_viscous_stress_particle_t), pointer:: fluid_lhs(:), fluid_rhs(:)
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
+
+        ! point to lhs particlse for access to pressure member
+        select type (ps => psys_lhs%particles)
+        class is (eos_viscous_stress_particle_t)
+            fluid_lhs => ps
+        class default
+            error stop "Invalid type for psys_lhs"
+        end select
+
+        ! point to rhs particlse for access to pressure member
+        select type (ps => psys_rhs%particles)
+        class is (eos_viscous_stress_particle_t)
+            fluid_rhs => ps
+        class default
+            error stop "Invalid type for psys_rhs"
+        end select
+
+        ! intialize L/RHS acceleration and density rate-of-change arrays
+        if (self%initialize) then
+            do i = 1, psys_lhs%size
+                fluid_lhs(i)%dvxdt(:) = 0._fp
+                fluid_lhs(i)%dvxdt(ndims) = self%g
+                fluid_lhs(i)%drhodt = 0._fp
+            end do
+            do i = 1, size(fluid_rhs)
+                fluid_rhs(i)%dvxdt(:) = 0._fp
+                fluid_rhs(i)%dvxdt(ndims) = self%g
+                fluid_rhs(i)%drhodt = 0._fp
+            end do
+        end if
+
+        ! perform sweep
+        do k = 1, pairs%npairs_total
+            i = pairs%pair_ij(1, k)
+            j = pairs%pair_ij(2, k)
+            call artificial_viscosity_monaghan1994( &
+                fluid_lhs(i)%x(:), fluid_rhs(j)%x(:), fluid_lhs(i)%v(:), fluid_rhs(j)%v(:), fluid_lhs(i)%rho, &
+                fluid_rhs(j)%rho, self%h, self%h, fluid_lhs(i)%c, fluid_rhs(j)%c, fluid_lhs(i)%mass, fluid_rhs(j)%mass, &
+                fluid_lhs(i)%dvxdt(:), fluid_rhs(j)%dvxdt(:), pairs%dwdx(:, k), self%artvisc_alpha, self%artvisc_beta &
+                )
+            call cauchy_stress_force( &
+                fluid_lhs(i)%stress, fluid_rhs(j)%stress, fluid_lhs(i)%rho, fluid_rhs(j)%rho, fluid_lhs(i)%mass, &
+                fluid_rhs(j)%mass, fluid_lhs(i)%dvxdt(:), fluid_rhs(j)%dvxdt(:), pairs%dwdx(:, k) &
+                )
+            call continuity_density( &
+                fluid_lhs(i)%v(:), fluid_rhs(j)%v(:), fluid_lhs(i)%mass, fluid_rhs(j)%mass, fluid_lhs(i)%drhodt, &
+                fluid_rhs(j)%drhodt, pairs%dwdx(:, k) &
+                )
+            call diffusion_density( &
+                fluid_lhs(i)%rho, fluid_rhs(j)%rho, fluid_lhs(i)%x(:), fluid_rhs(j)%x(:), fluid_lhs(i)%mass, &
+                fluid_rhs(j)%mass, self%h, self%h, fluid_lhs(i)%c, fluid_rhs(j)%c, pairs%dwdx(:, k), fluid_lhs(i)%drhodt, &
+                fluid_rhs(j)%drhodt &
+                )
+        end do
+
+    end subroutine viscous_stress_fluid_sweep_2system
+
+    !> @brief For two weakly-compressible fluid particle systems with stress tensor, calculate acceleration and density
+    !>        rate-of-change due to cauchy stress, artificial viscosity, mass continuity, and density diffusion.
+    !> @param self The sweeper class holding artificial viscosity constants and gravity.
+    !> @param pairs The class storing particle pair index information.
+    !> @param psys_lhs the LHS weakly compressible particles with stress tensor involved in the interactions.
+    !> @param psys_rhs Ths RHS "                                                                           ".
+    !> @param dt The time-step size.
+    subroutine viscous_stress_fluid_sweep_2system_norhsupdate(self, pairs, psys_lhs, psys_rhs, dt)
+        class(viscous_stress_fluid_sweeper_t), intent(in):: self
+        type(particle_pairs_t), intent(in):: pairs
+        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        class(eos_viscous_stress_particle_t), pointer:: fluid_lhs(:), fluid_rhs(:)
+        real(fp), optional, intent(in):: dt
+        integer:: i, j, k
         real(fp):: dummy_drhodt, dummy_dvxdt(ndims) ! dummy variables for when update_rhs is .false.
 
         ! point to lhs particlse for access to pressure member
@@ -787,66 +945,31 @@ contains
             end do
         end if
 
-        if (self%update_rhs) then ! sweep using both lhs and rhs, and updating both
-            ! intialize RHS acceleration and density rate-of-change arrays
-            if (self%initialize) then
-                do i = 1, size(fluid_rhs)
-                    fluid_rhs(i)%dvxdt(:) = 0._fp
-                    fluid_rhs(i)%dvxdt(ndims) = self%g
-                    fluid_rhs(i)%drhodt = 0._fp
-                end do
-            end if
+        ! perform sweep
+        do k = 1, pairs%npairs_total
+            i = pairs%pair_ij(1, k)
+            j = pairs%pair_ij(2, k)
+            call artificial_viscosity_monaghan1994( &
+                fluid_lhs(i)%x(:), fluid_rhs(j)%x(:), fluid_lhs(i)%v(:), fluid_rhs(j)%v(:), fluid_lhs(i)%rho, &
+                fluid_rhs(j)%rho, self%h, self%h, fluid_lhs(i)%c, fluid_rhs(j)%c, fluid_lhs(i)%mass, fluid_rhs(j)%mass, &
+                fluid_lhs(i)%dvxdt(:), dummy_dvxdt(:), pairs%dwdx(:, k), self%artvisc_alpha, self%artvisc_beta &
+                )
+            call cauchy_stress_force( &
+                fluid_lhs(i)%stress, fluid_rhs(j)%stress, fluid_lhs(i)%rho, fluid_rhs(j)%rho, fluid_lhs(i)%mass, &
+                fluid_rhs(j)%mass, fluid_lhs(i)%dvxdt(:), dummy_dvxdt(:), pairs%dwdx(:, k) &
+                )
+            call continuity_density( &
+                fluid_lhs(i)%v(:), fluid_rhs(j)%v(:), fluid_lhs(i)%mass, fluid_rhs(j)%mass, &
+                fluid_lhs(i)%drhodt, dummy_drhodt, pairs%dwdx(:, k) &
+                )
+            call diffusion_density( &
+                fluid_lhs(i)%rho, fluid_rhs(j)%rho, fluid_lhs(i)%x(:), fluid_rhs(j)%x(:), fluid_lhs(i)%mass, &
+                fluid_rhs(j)%mass, self%h, self%h, fluid_lhs(i)%c, fluid_rhs(j)%c, pairs%dwdx(:, k), fluid_lhs(i)%drhodt, &
+                dummy_drhodt &
+                )
+        end do
 
-            ! perform sweep
-            do k = 1, pairs%npairs_total
-                i = pairs%pair_ij(1, k)
-                j = pairs%pair_ij(2, k)
-                call artificial_viscosity_monaghan1994( &
-                    fluid_lhs(i)%x(:), fluid_rhs(j)%x(:), fluid_lhs(i)%v(:), fluid_rhs(j)%v(:), fluid_lhs(i)%rho, &
-                    fluid_rhs(j)%rho, self%h, self%h, fluid_lhs(i)%c, fluid_rhs(j)%c, fluid_lhs(i)%mass, fluid_rhs(j)%mass, &
-                    fluid_lhs(i)%dvxdt(:), fluid_rhs(j)%dvxdt(:), pairs%dwdx(:, k), self%artvisc_alpha, self%artvisc_beta &
-                    )
-                call cauchy_stress_force( &
-                    fluid_lhs(i)%stress, fluid_rhs(j)%stress, fluid_lhs(i)%rho, fluid_rhs(j)%rho, fluid_lhs(i)%mass, &
-                    fluid_rhs(j)%mass, fluid_lhs(i)%dvxdt(:), fluid_rhs(j)%dvxdt(:), pairs%dwdx(:, k) &
-                    )
-                call continuity_density( &
-                    fluid_lhs(i)%v(:), fluid_rhs(j)%v(:), fluid_lhs(i)%mass, fluid_rhs(j)%mass, fluid_lhs(i)%drhodt, &
-                    fluid_rhs(j)%drhodt, pairs%dwdx(:, k) &
-                    )
-                call diffusion_density( &
-                    fluid_lhs(i)%rho, fluid_rhs(j)%rho, fluid_lhs(i)%x(:), fluid_rhs(j)%x(:), fluid_lhs(i)%mass, &
-                    fluid_rhs(j)%mass, self%h, self%h, fluid_lhs(i)%c, fluid_rhs(j)%c, pairs%dwdx(:, k), fluid_lhs(i)%drhodt, &
-                    fluid_rhs(j)%drhodt &
-                    )
-            end do
-        else ! sweep using both lhs and rhs, but updating only lhs
-            ! perform sweep
-            do k = 1, pairs%npairs_total
-                i = pairs%pair_ij(1, k)
-                j = pairs%pair_ij(2, k)
-                call artificial_viscosity_monaghan1994( &
-                    fluid_lhs(i)%x(:), fluid_rhs(j)%x(:), fluid_lhs(i)%v(:), fluid_rhs(j)%v(:), fluid_lhs(i)%rho, &
-                    fluid_rhs(j)%rho, self%h, self%h, fluid_lhs(i)%c, fluid_rhs(j)%c, fluid_lhs(i)%mass, fluid_rhs(j)%mass, &
-                    fluid_lhs(i)%dvxdt(:), dummy_dvxdt(:), pairs%dwdx(:, k), self%artvisc_alpha, self%artvisc_beta &
-                    )
-                call cauchy_stress_force( &
-                    fluid_lhs(i)%stress, fluid_rhs(j)%stress, fluid_lhs(i)%rho, fluid_rhs(j)%rho, fluid_lhs(i)%mass, &
-                    fluid_rhs(j)%mass, fluid_lhs(i)%dvxdt(:), dummy_dvxdt(:), pairs%dwdx(:, k) &
-                    )
-                call continuity_density( &
-                    fluid_lhs(i)%v(:), fluid_rhs(j)%v(:), fluid_lhs(i)%mass, fluid_rhs(j)%mass, &
-                    fluid_lhs(i)%drhodt, dummy_drhodt, pairs%dwdx(:, k) &
-                    )
-                call diffusion_density( &
-                    fluid_lhs(i)%rho, fluid_rhs(j)%rho, fluid_lhs(i)%x(:), fluid_rhs(j)%x(:), fluid_lhs(i)%mass, &
-                    fluid_rhs(j)%mass, self%h, self%h, fluid_lhs(i)%c, fluid_rhs(j)%c, pairs%dwdx(:, k), fluid_lhs(i)%drhodt, &
-                    dummy_drhodt &
-                    )
-            end do
-        end if
-
-    end subroutine viscous_stress_fluid_sweep_2system
+    end subroutine viscous_stress_fluid_sweep_2system_norhsupdate
 
     !> @brief For a weakly compressible particle system with stress tensor and base particle system (aka boundary particles),
     !>        calculate the contribution of the boundary particles to the acceleration and rate of change to the real particles

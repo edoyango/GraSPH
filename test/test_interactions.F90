@@ -20,6 +20,7 @@ module test_interactions
     contains
         procedure:: sweep_1system => example_real_virt_sweep_1system
         procedure:: sweep_2system => example_real_virt_sweep_2system
+        procedure:: sweep_2system_norhsupdate => example_real_virt_sweep_2system
     end type example_real_virt_sweeper_t
 
 contains

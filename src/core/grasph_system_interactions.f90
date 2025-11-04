@@ -61,6 +61,7 @@ module grasph_system_interactions_m
     contains
         procedure(sweep_1system_interface), deferred:: sweep_1system
         procedure(sweep_2system_interface), deferred:: sweep_2system
+        procedure(sweep_2system_interface), deferred:: sweep_2system_norhsupdate
     end type base_sweeper_t
 
     abstract interface
@@ -99,6 +100,8 @@ module grasph_system_interactions_m
         procedure:: sweep_1system => donothing_sweep_1system
         !> @brief A sweep that does nothing with the input particle systems.
         procedure:: sweep_2system => donothing_sweep_2system
+        !> @brief A sweep that does nothing with the input particle systems.
+        procedure:: sweep_2system_norhsupdate => donothing_sweep_2system
     end type default_sweeper_t
 
     public:: system_interaction_t, base_sweeper_t
@@ -116,7 +119,11 @@ contains
 
         ! pass in psys_rhs if associated
         if (associated(self%psys_rhs)) then
-            call self%timestep_setuper%sweep_2system(self%pairs, self%psys_lhs, self%psys_rhs)
+            if (self%timestep_setuper%update_rhs) then
+                call self%timestep_setuper%sweep_2system(self%pairs, self%psys_lhs, self%psys_rhs)
+            else
+                call self%timestep_setuper%sweep_2system_norhsupdate(self%pairs, self%psys_lhs, self%psys_rhs)
+            end if
         else
             call self%timestep_setuper%sweep_1system(self%pairs, self%psys_lhs)
         end if
@@ -134,7 +141,11 @@ contains
 
         ! pass in psys_rhs if associated
         if (associated(self%psys_rhs)) then
-            call self%prologue_sweeper%sweep_2system(self%pairs, self%psys_lhs, self%psys_rhs)
+            if (self%prologue_sweeper%update_rhs) then
+                call self%prologue_sweeper%sweep_2system(self%pairs, self%psys_lhs, self%psys_rhs)
+            else
+                call self%prologue_sweeper%sweep_2system_norhsupdate(self%pairs, self%psys_lhs, self%psys_rhs)
+            end if
         else
             call self%prologue_sweeper%sweep_1system(self%pairs, self%psys_lhs)
         end if
@@ -153,7 +164,11 @@ contains
 
         ! pass in psys_rhs if associated
         if (associated(self%psys_rhs)) then
-            call self%sweeper%sweep_2system(self%pairs, self%psys_lhs, self%psys_rhs, dt=dt)
+            if (self%sweeper%update_rhs) then
+                call self%sweeper%sweep_2system(self%pairs, self%psys_lhs, self%psys_rhs, dt=dt)
+            else
+                call self%sweeper%sweep_2system_norhsupdate(self%pairs, self%psys_lhs, self%psys_rhs, dt=dt)
+            end if
         else
             call self%sweeper%sweep_1system(self%pairs, self%psys_lhs, dt=dt)
         end if
@@ -172,7 +187,11 @@ contains
 
         ! pass in psys_rhs if associated
         if (associated(self%psys_rhs)) then
-            call self%shifter%sweep_2system(self%pairs, self%psys_lhs, self%psys_rhs, dt)
+            if (self%shifter%update_rhs) then
+                call self%shifter%sweep_2system(self%pairs, self%psys_lhs, self%psys_rhs, dt)
+            else
+                call self%shifter%sweep_2system_norhsupdate(self%pairs, self%psys_lhs, self%psys_rhs, dt)
+            end if
         else
             call self%shifter%sweep_1system(self%pairs, self%psys_lhs, dt=dt)
         end if
