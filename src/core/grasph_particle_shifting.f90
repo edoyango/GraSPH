@@ -4,7 +4,7 @@
 !> @date 2025-09-22
 module grasph_particle_shifting_m
 
-    use grasph_constants_m, only: fp, ndims
+    use grasph_constants_m, only: fp, ndims, max_name_len
     use grasph_system_interactions_m, only: base_sweeper_t
     use grasph_pairs_m, only: particle_pairs_t
     use grasph_particle_system_m, only: particle_system_t
@@ -24,6 +24,7 @@ module grasph_particle_shifting_m
         procedure:: sweep_2system => xsph_shift_2system
         !> @brief Performs XSPH particle shifting for two particle systems, as described in Monaghan 1994.
         procedure:: sweep_2system_norhsupdate => xsph_shift_2system_norhsupdate
+        procedure, nopass:: name => xsph_shifter_name
     end type xsph_shifter_t
 
     public:: xsph_shifter_t
@@ -131,5 +132,9 @@ contains
         end do
 
     end subroutine xsph_shift_2system_norhsupdate
+
+    pure character(max_name_len) function xsph_shifter_name()
+        xsph_shifter_name = "xsph_shifter_t"
+    end function xsph_shifter_name
 
 end module grasph_particle_shifting_m

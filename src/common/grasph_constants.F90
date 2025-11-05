@@ -29,4 +29,6 @@ module grasph_constants_m
     integer, parameter:: ndims = 2
 #endif
 
+    integer, parameter:: max_name_len = 30
+
 end module grasph_constants_m

@@ -4,7 +4,7 @@
 !> @date 2025-06-09
 module grasph_system_interactions_m
 
-    use grasph_constants_m, only: fp
+    use grasph_constants_m, only: fp, max_name_len
     use grasph_particle_system_m, only: particle_system_t
     use grasph_pairs_m, only: particle_pairs_t, cell_list_search
     use grasph_kernels_m, only: base_kernel_t
@@ -59,38 +59,17 @@ module grasph_system_interactions_m
         !> @brief Controls whether the sweep initializes particles' rate-of-change data.
         logical:: initialize = .true.
     contains
-        procedure(sweep_1system_interface), deferred:: sweep_1system
-        procedure(sweep_2system_interface), deferred:: sweep_2system
-        procedure(sweep_2system_interface), deferred:: sweep_2system_norhsupdate
+        procedure:: sweep_1system => notimplemented_sweep_1system
+        procedure:: sweep_2system => notimplemented_sweep_2system
+        procedure:: sweep_2system_norhsupdate => notimplemented_sweep_2system_norhsupdate
+        procedure(sweeper_name), deferred, nopass:: name
     end type base_sweeper_t
 
     abstract interface
-        !> @brief Interface that describes the sweep method of the base_sweeper strategy class.
-        !> @param self The sweeper class. Used to access constants.
-        !> @param pairs The class storing particle pair index information.
-        !> @param psys the particles involved in the interactions.
-        !> @param dt The timestep size.
-        subroutine sweep_1system_interface(self, pairs, psys, dt)
-            import:: base_sweeper_t, particle_pairs_t, particle_system_t, fp
-            class(base_sweeper_t), intent(in):: self
-            type(particle_pairs_t), intent(in):: pairs
-            class(particle_system_t), intent(inout):: psys
-            real(fp), optional, intent(in):: dt
-        end subroutine sweep_1system_interface
-        !> @brief Interface that describes the sweep method of the base_sweeper strategy class.
-        !> @param self The sweeper class. Used to access constants.
-        !> @param pairs The class storing particle pair index information.
-        !> @param psys_lhs the LHS particles involved in the interactions.
-        !> @param psys_rhs The RHS particles involved in the interactions. psys_rhs will not be passed in if not associated in the
-        !>        owning system_interaction_t class.
-        !> @param dt The timestep size.
-        subroutine sweep_2system_interface(self, pairs, psys_lhs, psys_rhs, dt)
-            import:: base_sweeper_t, particle_pairs_t, particle_system_t, fp
-            class(base_sweeper_t), intent(in):: self
-            type(particle_pairs_t), intent(in):: pairs
-            class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
-            real(fp), optional, intent(in):: dt
-        end subroutine sweep_2system_interface
+        pure function sweeper_name() result(name)
+            import:: max_name_len
+            character(max_name_len):: name
+        end function sweeper_name
     end interface
 
     !> @brief A default sweeper which does nothing when the sweep method is called.
@@ -102,6 +81,7 @@ module grasph_system_interactions_m
         procedure:: sweep_2system => donothing_sweep_2system
         !> @brief A sweep that does nothing with the input particle systems.
         procedure:: sweep_2system_norhsupdate => donothing_sweep_2system
+        procedure, nopass:: name => default_sweeper_name
     end type default_sweeper_t
 
     public:: system_interaction_t, base_sweeper_t
@@ -303,5 +283,52 @@ contains
             allocate (self%shifter, source=tmp_base_sweeper)
         end if
     end subroutine particle_interactions_init
+
+    pure character(max_name_len) function default_sweeper_name()
+        default_sweeper_name = "default_sweeper_t"
+    end function default_sweeper_name
+
+    subroutine notimplemented_sweep_1system(self, pairs, psys, dt)
+
+        class(base_sweeper_t), intent(in):: self
+        type(particle_pairs_t), intent(in):: pairs
+        class(particle_system_t), intent(inout):: psys
+        real(fp), optional, intent(in):: dt
+        character(1000):: msg
+
+        msg = "Sweeper, "//trim(self%name())//", does not have a sweep method defined for only 1 particle system."
+        error stop trim(msg)
+
+    end subroutine notimplemented_sweep_1system
+
+    subroutine notimplemented_sweep_2system(self, pairs, psys_lhs, psys_rhs, dt)
+
+        class(base_sweeper_t), intent(in):: self
+        type(particle_pairs_t), intent(in):: pairs
+        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        real(fp), optional, intent(in):: dt
+        character(1000):: msg
+
+        msg = "Sweeper, "//trim(self%name())//", does not have a sweep method defined for 2 particle systems - "// &
+              "updating both systems."
+
+        error stop trim(msg)
+
+    end subroutine notimplemented_sweep_2system
+
+    subroutine notimplemented_sweep_2system_norhsupdate(self, pairs, psys_lhs, psys_rhs, dt)
+
+        class(base_sweeper_t), intent(in):: self
+        type(particle_pairs_t), intent(in):: pairs
+        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        real(fp), optional, intent(in):: dt
+        character(1000):: msg
+
+        msg = "Sweeper, "//trim(self%name())//", does not have a sweep method defined for 2 particle systems - "// &
+              "updating only LHS system."
+
+        error stop trim(msg)
+
+    end subroutine notimplemented_sweep_2system_norhsupdate
 
 end module grasph_system_interactions_m

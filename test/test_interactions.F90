@@ -1,6 +1,6 @@
 module test_interactions
 
-    use grasph_constants_m, only: fp
+    use grasph_constants_m, only: fp, max_name_len
     use grasph_kernels_m, only: base_kernel_t, cubic_bspline_kernel_t
     use grasph_pairs_m, only: particle_pairs_t, cell_list_search
     use grasph_particle_system_m, only: particle_system_t
@@ -21,6 +21,7 @@ module test_interactions
         procedure:: sweep_1system => example_real_virt_sweep_1system
         procedure:: sweep_2system => example_real_virt_sweep_2system
         procedure:: sweep_2system_norhsupdate => example_real_virt_sweep_2system
+        procedure, nopass:: name => example_sweeper_name
     end type example_real_virt_sweeper_t
 
 contains
@@ -33,6 +34,10 @@ contains
                           ])
 
     end function tests
+
+    pure character(max_name_len) function example_sweeper_name()
+        example_sweeper_name = "example_sweeper_t"
+    end function example_sweeper_name
 
     subroutine example_real_virt_sweep_1system(self, pairs, psys, dt)
 
