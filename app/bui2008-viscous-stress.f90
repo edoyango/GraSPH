@@ -8,7 +8,7 @@ program main
                                                   eos_viscous_stress_morris_boundary_sweeper_t, strain_rate_sweeper_t, &
                                                   strain_rate_morris_boundary_sweeper_t
 
-    use grasph_system_interactions_m, only: system_interaction_t
+    use grasph_system_interactions_m, only: system_interaction_t, sweeper_container_t
     use grasph_time_integration_m, only: leap_frog_time_integration
     use grasph_kernels_m, only: cubic_bspline_kernel_t
 
@@ -28,6 +28,7 @@ program main
     type(eos_viscous_stress_ghost_particle_t):: ghost_ps_template
     type(strain_rate_sweeper_t):: strain_rate_sweeper
     type(strain_rate_morris_boundary_sweeper_t):: strain_rate_boundary_sweeper
+    type(sweeper_container_t):: soil_soil_sweepers(2), soil_ghost_sweepers(2), soil_virtual_sweepers(2)
     integer:: i, j, k, nlayer, nvirt, nfx, nfy, nbx
 
     ! init kernel
@@ -140,34 +141,37 @@ program main
     boundary_sweeper%h = 1.2_fp*dx
 
     ! init interactions
+    allocate (soil_soil_sweepers(1)%sweeper, source=strain_rate_sweeper)
+    allocate (soil_soil_sweepers(2)%sweeper, source=sweeper)
     call psys_interactions(1)%init( &
         30, &
         psys(1), &
-        prologue_sweeper=strain_rate_sweeper, &
-        sweeper=sweeper &
+        sweepers=soil_soil_sweepers &
         )
     strain_rate_sweeper%initialize = .false.
     sweeper%initialize = .false. ! second sweeper doesn't need to zero acceleration arrays
     boundary_sweeper%initialize = .false.
     boundary_sweeper%point(:) = [0._fp, 0._fp]
     boundary_sweeper%normal(:) = [0._fp, 1._fp]
+    allocate (soil_virtual_sweepers(1)%sweeper, source=strain_rate_boundary_sweeper)
+    allocate (soil_virtual_sweepers(2)%sweeper, source=boundary_sweeper)
     call psys_interactions(2)%init( &
         30, &
         psys(1), &
         psys(2), &
-        prologue_sweeper=strain_rate_boundary_sweeper, &
-        sweeper=boundary_sweeper &
+        sweepers=soil_virtual_sweepers &
         )
     ghost_timestep_setuper%cutoff = kernel%cutoff
     ghost_timestep_setuper%surface_normal(:) = [1._fp, 0._fp]
     ghost_timestep_setuper%point(:) = [0._fp, 0._fp]
+    allocate (soil_ghost_sweepers(1)%sweeper, source=strain_rate_sweeper)
+    allocate (soil_ghost_sweepers(2)%sweeper, source=sweeper)
     call psys_interactions(3)%init( &
         30, &
         psys(1), &
         psys(3), &
-        prologue_sweeper=strain_rate_sweeper, &
         timestep_setuper=ghost_timestep_setuper, &
-        sweeper=sweeper &
+        sweepers=soil_ghost_sweepers &
         )
 
     ! start time-evolution what dambreak setup and without damping.

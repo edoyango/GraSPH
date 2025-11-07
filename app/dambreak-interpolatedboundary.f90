@@ -11,7 +11,7 @@ program main
     use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_interactions_m, only: fluid_sweeper_t, boundary_update_sweeper_t
     use weakly_compressible_particles_m, only: tait_eos_state_updater_t, eos_particle_t
-    use grasph_system_interactions_m, only: system_interaction_t
+    use grasph_system_interactions_m, only: system_interaction_t, default_sweeper_t, sweeper_container_t
     use grasph_time_integration_m, only: leap_frog_time_integration
     use grasph_kernels_m, only: cubic_bspline_kernel_t
     use grasph_particle_shifting_m, only: xsph_shifter_t
@@ -27,6 +27,8 @@ program main
     type(xsph_shifter_t):: shifter
     type(tait_eos_state_updater_t):: state_updater
     type(eos_particle_t):: ps_template
+    type(default_sweeper_t):: donothing_sweeper
+    type(sweeper_container_t):: fluid_fluid_sweepers(2), fluid_boundary_sweepers(2)
     integer:: i, j, k, nlayer, nfx, nfy
 
     ! init kernel
@@ -97,19 +99,22 @@ program main
     shifter%update_rhs = .false.
 
     ! init interactions
+    allocate (fluid_fluid_sweepers(1)%sweeper, source=donothing_sweeper)
+    allocate (fluid_fluid_sweepers(2)%sweeper, source=sweeper)
     call psys_interactions(1)%init( &
         npairs_per_particle=30, &
         psys_lhs=psys(1), &
-        sweeper=sweeper, &
+        sweepers=fluid_fluid_sweepers, &
         shifter=shifter &
         )
     sweeper%initialize = .false. ! second sweeper doesn't need to zero acceleration arrays
+    allocate (fluid_boundary_sweepers(1)%sweeper, source=boundary_sweeper)
+    allocate (fluid_boundary_sweepers(2)%sweeper, source=sweeper)
     call psys_interactions(2)%init( &
         npairs_per_particle=30, &
         psys_lhs=psys(1), &
         psys_rhs=psys(2), &
-        prologue_sweeper=boundary_sweeper, &
-        sweeper=sweeper, &
+        sweepers=fluid_boundary_sweepers, &
         shifter=shifter &
         )
 

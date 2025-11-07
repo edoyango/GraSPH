@@ -10,7 +10,7 @@ program main
     use grasph_constants_m, only: fp
     use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_particles_m, only: tait_eos_state_updater_t, eos_particle_t, eos_ghost_particle_t, ghost_state_updater_t
-    use grasph_system_interactions_m, only: system_interaction_t
+    use grasph_system_interactions_m, only: system_interaction_t, default_sweeper_t, sweeper_container_t
     use grasph_time_integration_m, only: leap_frog_time_integration
     use grasph_kernels_m, only: cubic_bspline_kernel_t
     use grasph_particle_shifting_m, only: xsph_shifter_t
@@ -30,6 +30,9 @@ program main
     type(ghost_state_updater_t):: ghost_state_updater
     type(ghost_timestep_setuper_t):: ghost_timestep_setuper
     type(eos_ghost_particle_t):: ghost_ps_template
+    type(default_sweeper_t):: donothing_sweeper
+    type(sweeper_container_t):: fluid_fluid_sweepers(2), fluid_left_wall_sweepers(2), fluid_right_wall_sweepers(2), &
+                                fluid_bot_wall_sweepers(2), fluid_top_wall_sweepers(2)
     integer:: i, j, k, nlayer, nfx, nfy
 
     ! init kernel
@@ -152,10 +155,12 @@ program main
 
     ! init interactions.
     ! fluid self interaction.
+    allocate (fluid_fluid_sweepers(1)%sweeper, source=donothing_sweeper)
+    allocate (fluid_fluid_sweepers(2)%sweeper, source=sweeper)
     call psys_interactions(1)%init( &
         npairs_per_particle=30, & ! number of predicted interactions.
         psys_lhs=psys(1), & ! fluid particle system interacting with itself.
-        sweeper=sweeper, & ! sweeper to describe interaction.
+        sweepers=fluid_fluid_sweepers, & ! sweeper to describe interaction.
         shifter=shifter & ! shifter to perform XSPH shifting.
         )
 
@@ -163,22 +168,26 @@ program main
     sweeper%initialize = .false. ! second sweeper doesn't need to zero acceleration arrays.
     boundary_sweeper%point(:) = [0._fp, 0._fp]
     boundary_sweeper%normal(:) = [0._fp, 1._fp] ! normal pointing upward.
+    allocate (fluid_bot_wall_sweepers(1)%sweeper, source=donothing_sweeper)
+    allocate (fluid_bot_wall_sweepers(2)%sweeper, source=boundary_sweeper)
     call psys_interactions(2)%init( &
         npairs_per_particle=30, &
         psys_lhs=psys(1), & ! fluid particle system.
         psys_rhs=psys(2), & ! boundary that fluid is interacting with.
-        sweeper=boundary_sweeper, &
+        sweepers=fluid_bot_wall_sweepers, &
         shifter=shifter &
         )
 
     ! interaction between fluid and top wall (morris boundary).
     boundary_sweeper%point(:) = [0._fp, 40._fp]
     boundary_sweeper%normal(:) = [0._fp, -1._fp] ! normal pointing downward.
+    allocate (fluid_top_wall_sweepers(1)%sweeper, source=donothing_sweeper)
+    allocate (fluid_top_wall_sweepers(2)%sweeper, source=boundary_sweeper)
     call psys_interactions(3)%init( &
         npairs_per_particle=30, &
         psys_lhs=psys(1), &
         psys_rhs=psys(3), &
-        sweeper=boundary_sweeper, &
+        sweepers=fluid_top_wall_sweepers, &
         shifter=shifter &
         )
 
@@ -186,24 +195,28 @@ program main
     ghost_timestep_setuper%cutoff = kernel%cutoff
     ghost_timestep_setuper%surface_normal(:) = [1._fp, 0._fp] ! normal pointing rightward.
     ghost_timestep_setuper%point(:) = [0._fp, 0._fp]
+    allocate (fluid_left_wall_sweepers(1)%sweeper, source=donothing_sweeper)
+    allocate (fluid_left_wall_sweepers(2)%sweeper, source=sweeper)
     call psys_interactions(4)%init( &
         npairs_per_particle=30, &
         psys_lhs=psys(1), &
         psys_rhs=psys(4), &
         timestep_setuper=ghost_timestep_setuper, &
-        sweeper=sweeper &
+        sweepers=fluid_left_wall_sweepers &
         )
 
     ! interaction between fluid and right wall (ghost boundary).
     ! setuper cutoff already set.
     ghost_timestep_setuper%surface_normal(:) = [-1._fp, 0._fp] ! normal pointing leftward.
     ghost_timestep_setuper%point(:) = [25._fp, 0._fp] ! right wall passes through (25, 0) for density initialization step.
+    allocate (fluid_right_wall_sweepers(1)%sweeper, source=donothing_sweeper)
+    allocate (fluid_right_wall_sweepers(2)%sweeper, source=sweeper)
     call psys_interactions(5)%init( &
         npairs_per_particle=30, &
         psys_lhs=psys(1), &
         psys_rhs=psys(5), &
         timestep_setuper=ghost_timestep_setuper, &
-        sweeper=sweeper &
+        sweepers=fluid_right_wall_sweepers &
         )
 
     ! start time-evolution with damping for setting up of initial conditions for fluid.
@@ -233,7 +246,7 @@ program main
         psys_lhs=psys(1), &
         psys_rhs=psys(5), &
         timestep_setuper=ghost_timestep_setuper, &
-        sweeper=sweeper &
+        sweepers=fluid_right_wall_sweepers &
         )
 
     ! start time-evolution what dambreak setup and without damping.

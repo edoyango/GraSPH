@@ -11,7 +11,7 @@ program main
     use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_particles_m, only: tait_eos_state_updater_t, eos_particle_t
     use weakly_compressible_interactions_m, only: fluid_sweeper_t
-    use grasph_system_interactions_m, only: system_interaction_t
+    use grasph_system_interactions_m, only: system_interaction_t, sweeper_container_t, default_sweeper_t
     use grasph_time_integration_m, only: leap_frog_time_integration
     use grasph_kernels_m, only: cubic_bspline_kernel_t
     use grasph_particle_shifting_m, only: xsph_shifter_t
@@ -29,6 +29,8 @@ program main
     type(xsph_shifter_t):: shifter
     type(tait_eos_state_updater_t):: state_updater
     type(eos_particle_t):: ps_template
+    type(sweeper_container_t):: sweepers(2)
+    type(default_sweeper_t):: donothing_sweeper
     real(fp):: x, y
 
     ! init fluid particles
@@ -84,7 +86,9 @@ program main
     sweeper%g = g
     shifter%epsilon = 0.5_fp
     shifter%update_rhs = .true.
-    call psys_interactions(1)%init(30, psys(1), sweeper=sweeper, shifter=shifter)
+    allocate (sweepers(1)%sweeper, source=donothing_sweeper)
+    allocate (sweepers(2)%sweeper, source=sweeper)
+    call psys_interactions(1)%init(30, psys(1), sweepers=sweepers, shifter=shifter)
 
     ! init kernel
     call kernel%init(2, 1.2_fp*dx)

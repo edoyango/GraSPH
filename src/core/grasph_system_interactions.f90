@@ -13,43 +13,6 @@ module grasph_system_interactions_m
 
     private
 
-    !> @brief Manages the interaction between a particle_system_t and itself or between two particle_system_t instances.
-    type:: system_interaction_t
-        !> @brief Pointer to LHS particle system involved in the interaction.
-        class(particle_system_t), pointer:: psys_lhs
-        !> @brief Pointer to RHS particles involved in the interaction.
-        class(particle_system_t), pointer:: psys_rhs
-        !> @brief The pairs of particles found either in psys_lhs or between psys_lhs and psys_rhs (depends on whether
-        !>        psys_rhs was passed to initializer).
-        type(particle_pairs_t):: pairs
-        !> @brief Whether system_interaction_t has been initialized.
-        logical:: initialized = .false.
-        !> @brief Whether the system_interaction_t describes psys_lhs interaction with itself, or with psys_rhs.
-        logical:: is_pair_set = .false.
-        !> @brief Overridable "strategy" class that performs timestep setup for the interaction.
-        class(base_sweeper_t), allocatable:: timestep_setuper
-        !> @brief Overridable "strategy" class that performs sweep prologue.
-        class(base_sweeper_t), allocatable:: prologue_sweeper
-        !> @brief Overridable "strategy" class that performs sweep.
-        class(base_sweeper_t), allocatable:: sweeper
-        !> @brief Overridable "strategy" class that performs shift.
-        class(base_sweeper_t), allocatable:: shifter
-    contains
-        !> @brief Called at start of every time-step for any special setup. E.g. creating ghost particles.
-        procedure:: do_timestep_setup
-        !> @brief Updates particles' state that depend on interpolated information. E.g. Updating virtual particles' data, which
-        !>        requires a sweep. Does so by using the prologue_sweeper's sweep method.
-        procedure:: do_sweep_prologue
-        !> @brief Calculates time-evolving data's rate-of-change e.g. acceleration. Does so by using the sweeper's sweep method.
-        procedure:: do_sweep
-        !> @brief Performs any particle shifting via position or velocity adjustments. Does so by using the shifter's shift method.
-        procedure:: do_shift
-        !> @brief If is_pair_set is .true., calculates pairs within psys_lhs, else pairs between psys_lhs and psys_rhs.
-        procedure:: find_pairs => particle_interactions_find_pairs
-        !> @brief Initializes data (pointers, pairs, and strategy classes).
-        procedure:: init => particle_interactions_init
-    end type system_interaction_t
-
     !> @brief Base "strategy" class whose sweep method is used to update time-evolving data's rate-of-change e.g. acceleration.
     !>        extensions of this class override the sweep to, for example, work with different particle types and implement
     !>        different physics.
@@ -65,13 +28,6 @@ module grasph_system_interactions_m
         procedure(sweeper_name), deferred, nopass:: name
     end type base_sweeper_t
 
-    abstract interface
-        pure function sweeper_name() result(name)
-            import:: max_name_len
-            character(max_name_len):: name
-        end function sweeper_name
-    end interface
-
     !> @brief A default sweeper which does nothing when the sweep method is called.
     type, extends(base_sweeper_t):: default_sweeper_t
     contains
@@ -84,7 +40,50 @@ module grasph_system_interactions_m
         procedure, nopass:: name => default_sweeper_name
     end type default_sweeper_t
 
-    public:: system_interaction_t, base_sweeper_t
+    type:: sweeper_container_t
+        class(base_sweeper_t), allocatable:: sweeper
+    end type sweeper_container_t
+
+    !> @brief Manages the interaction between a particle_system_t and itself or between two particle_system_t instances.
+    type:: system_interaction_t
+        !> @brief Pointer to LHS particle system involved in the interaction.
+        class(particle_system_t), pointer:: psys_lhs
+        !> @brief Pointer to RHS particles involved in the interaction.
+        class(particle_system_t), pointer:: psys_rhs
+        !> @brief The pairs of particles found either in psys_lhs or between psys_lhs and psys_rhs (depends on whether
+        !>        psys_rhs was passed to initializer).
+        type(particle_pairs_t):: pairs
+        !> @brief Whether system_interaction_t has been initialized.
+        logical:: initialized = .false.
+        !> @brief Whether the system_interaction_t describes psys_lhs interaction with itself, or with psys_rhs.
+        logical:: is_pair_set = .false.
+        !> @brief Overridable "strategy" class that performs timestep setup for the interaction.
+        class(base_sweeper_t), allocatable:: timestep_setuper
+        !> @brief Overridable "strategy" class that performs sweep.
+        type(sweeper_container_t), allocatable:: sweepers(:)
+        !> @brief Overridable "strategy" class that performs shift.
+        class(base_sweeper_t), allocatable:: shifter
+    contains
+        !> @brief Called at start of every time-step for any special setup. E.g. creating ghost particles.
+        procedure:: do_timestep_setup
+        !> @brief Calculates time-evolving data's rate-of-change e.g. acceleration. Does so by using the sweeper's sweep method.
+        procedure:: do_sweep
+        !> @brief Performs any particle shifting via position or velocity adjustments. Does so by using the shifter's shift method.
+        procedure:: do_shift
+        !> @brief If is_pair_set is .true., calculates pairs within psys_lhs, else pairs between psys_lhs and psys_rhs.
+        procedure:: find_pairs => particle_interactions_find_pairs
+        !> @brief Initializes data (pointers, pairs, and strategy classes).
+        procedure:: init => particle_interactions_init
+    end type system_interaction_t
+
+    abstract interface
+        pure function sweeper_name() result(name)
+            import:: max_name_len
+            character(max_name_len):: name
+        end function sweeper_name
+    end interface
+
+    public:: system_interaction_t, base_sweeper_t, sweeper_container_t, default_sweeper_t
 
 contains
 
@@ -113,44 +112,27 @@ contains
     !> @brief Executes sweep step prior to particle state setup. THis is for updating particle properties like virtual particles'
     !>        velocity or density, or calculating strain rate. Uses the prologue_sweeper strategy member class.
     !> @param self The system interaction to perform the sweep between.
-    subroutine do_sweep_prologue(self)
+    !> @param i Index of the sweeper to use.
+    subroutine do_sweep(self, i)
         class(system_interaction_t), intent(inout):: self
+        integer, intent(in):: i
+        character(2):: ic
 
-        ! check that prologue_sweeper has been allocated
-        if (.not. allocated(self%prologue_sweeper)) error stop "prologue sweeper not allocated in system_interaction_t."
-
-        ! pass in psys_rhs if associated
-        if (associated(self%psys_rhs)) then
-            if (self%prologue_sweeper%update_rhs) then
-                call self%prologue_sweeper%sweep_2system(self%pairs, self%psys_lhs, self%psys_rhs)
-            else
-                call self%prologue_sweeper%sweep_2system_norhsupdate(self%pairs, self%psys_lhs, self%psys_rhs)
-            end if
-        else
-            call self%prologue_sweeper%sweep_1system(self%pairs, self%psys_lhs)
+        ! check that sweeper i has been allocated
+        if (.not. allocated(self%sweepers(i)%sweeper)) then
+            write (ic, "(I2)") i
+            error stop "Sweeper "//ic//" not allocated in system_interaction_t."
         end if
 
-    end subroutine do_sweep_prologue
-
-    !> @brief Executes sweep step for calculating rate of changes e.g. motion or density. Uses the sweeper strategy member class.
-    !> @param self The system interaction to perform the sweep between.
-    !> @param dt The time-step size.
-    subroutine do_sweep(self, dt)
-        class(system_interaction_t), intent(inout):: self
-        real(fp), optional, intent(in):: dt
-
-        ! check that sweeper has been allocated
-        if (.not. allocated(self%sweeper)) error stop "sweeper not allocated in system_interaction_t."
-
         ! pass in psys_rhs if associated
         if (associated(self%psys_rhs)) then
-            if (self%sweeper%update_rhs) then
-                call self%sweeper%sweep_2system(self%pairs, self%psys_lhs, self%psys_rhs, dt=dt)
+            if (self%sweepers(i)%sweeper%update_rhs) then
+                call self%sweepers(i)%sweeper%sweep_2system(self%pairs, self%psys_lhs, self%psys_rhs)
             else
-                call self%sweeper%sweep_2system_norhsupdate(self%pairs, self%psys_lhs, self%psys_rhs, dt=dt)
+                call self%sweepers(i)%sweeper%sweep_2system_norhsupdate(self%pairs, self%psys_lhs, self%psys_rhs)
             end if
         else
-            call self%sweeper%sweep_1system(self%pairs, self%psys_lhs, dt=dt)
+            call self%sweepers(i)%sweeper%sweep_1system(self%pairs, self%psys_lhs)
         end if
 
     end subroutine do_sweep
@@ -243,13 +225,13 @@ contains
     !> @param prologue_sweeper The sweeper to use in the prologue sweep in this interaction.
     !> @param sweeper The sweeper to use in this interaction.
     !> @param shifter The shifter to use in this interaction.
-    subroutine particle_interactions_init(self, npairs_per_particle, psys_lhs, psys_rhs, timestep_setuper, prologue_sweeper, &
-                                          sweeper, shifter)
+    subroutine particle_interactions_init(self, npairs_per_particle, psys_lhs, psys_rhs, timestep_setuper, sweepers, shifter)
         class(system_interaction_t), intent(out):: self
         integer, intent(in):: npairs_per_particle
         class(particle_system_t), target, intent(in):: psys_lhs
         class(particle_system_t), target, optional, intent(in):: psys_rhs
-        class(base_sweeper_t), optional, intent(in):: timestep_setuper, prologue_sweeper, sweeper, shifter
+        class(base_sweeper_t), optional, intent(in):: timestep_setuper, shifter
+        type(sweeper_container_t), intent(in):: sweepers(:)
         type(default_sweeper_t):: tmp_base_sweeper
         self%psys_lhs => psys_lhs
         if (present(psys_rhs)) then
@@ -265,17 +247,7 @@ contains
             allocate (self%timestep_setuper, source=tmp_base_sweeper)
         end if
 
-        if (present(prologue_sweeper)) then
-            allocate (self%prologue_sweeper, source=prologue_sweeper)
-        else
-            allocate (self%prologue_sweeper, source=tmp_base_sweeper)
-        end if
-
-        if (present(sweeper)) then
-            allocate (self%sweeper, source=sweeper)
-        else
-            allocate (self%sweeper, source=tmp_base_sweeper)
-        end if
+        allocate (self%sweepers, source=sweepers)
 
         if (present(shifter)) then
             allocate (self%shifter, source=shifter)

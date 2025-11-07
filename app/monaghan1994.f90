@@ -10,7 +10,7 @@ program main
     use grasph_particle_system_m, only: particle_system_t
     use weakly_compressible_particles_m, only: eos_particle_t, tait_eos_state_updater_t
     use weakly_compressible_interactions_m, only: fluid_sweeper_t, fluid_boundary_sweeper_monaghan1994_t
-    use grasph_system_interactions_m, only: system_interaction_t
+    use grasph_system_interactions_m, only: system_interaction_t, sweeper_container_t, default_sweeper_t
     use grasph_time_integration_m, only: leap_frog_time_integration
     use grasph_kernels_m, only: cubic_bspline_kernel_t
     use grasph_particle_shifting_m, only: xsph_shifter_t
@@ -27,6 +27,8 @@ program main
     type(xsph_shifter_t):: shifter
     type(eos_particle_t):: ps_template
     type(tait_eos_state_updater_t):: state_updater
+    type(sweeper_container_t):: fluid_fluid_sweepers(2), fluid_boundary_sweepers(2)
+    type(default_sweeper_t):: donothing_sweeper
     integer:: nfx, nfy
 
     ! init fluid particles
@@ -93,18 +95,22 @@ program main
     ! declare XSPH shifter params.
     shifter%epsilon = 0.5_fp
     shifter%update_rhs = .true. ! ensure that rhs particles of fluid-fluid interaction are updated.
+    allocate (fluid_fluid_sweepers(1)%sweeper, source=donothing_sweeper)
+    allocate (fluid_fluid_sweepers(2)%sweeper, source=self_sweeper)
     call psys_interactions(1)%init( &
         npairs_per_particle=30, &
         psys_lhs=psys(1), &
-        sweeper=self_sweeper, &
+        sweepers=fluid_boundary_sweepers, &
         shifter=shifter &
         )
     shifter%update_rhs = .false. ! ensure that rhs particles of fluid-boundary interaction aren't updated.
+    allocate (fluid_boundary_sweepers(1)%sweeper, source=donothing_sweeper)
+    allocate (fluid_boundary_sweepers(2)%sweeper, source=boundary_sweeper)
     call psys_interactions(2)%init( &
         npairs_per_particle=30, &
         psys_lhs=psys(1), &
         psys_rhs=psys(2), &
-        sweeper=boundary_sweeper, &
+        sweepers=fluid_boundary_sweepers, &
         shifter=shifter &
         )
 

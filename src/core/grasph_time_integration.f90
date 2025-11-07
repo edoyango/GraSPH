@@ -119,7 +119,7 @@ contains
 
             ! perform pre-sweep prologue e.g. to update boundary particles' state
             do i = 1, nparticle_interactions
-                call interactions(i)%do_sweep_prologue
+                call interactions(i)%do_sweep(1)
             end do
 
             ! Update particle state e.g. pressure/stress
@@ -129,7 +129,7 @@ contains
 
             ! perform actual sweep i.e., calculate acceleration, density change etc.
             do i = 1, nparticle_interactions
-                call interactions(i)%do_sweep
+                call interactions(i)%do_sweep(2)
             end do
 
             ! update states to full-timestep
