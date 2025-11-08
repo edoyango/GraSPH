@@ -31,9 +31,9 @@ program main
     type(ghost_timestep_setuper_t):: ghost_timestep_setuper
     type(eos_ghost_particle_t):: ghost_ps_template
     type(default_sweeper_t):: donothing_sweeper
-    type(sweeper_container_t):: fluid_fluid_sweepers(2), fluid_left_wall_sweepers(2), fluid_right_wall_sweepers(2), &
-                                fluid_bot_wall_sweepers(2), fluid_top_wall_sweepers(2)
-    type(state_updater_container_t):: fluid_state_updaters(2), left_wall_state_updaters(2), right_wall_state_updaters(2)
+    type(sweeper_container_t):: fluid_fluid_sweepers(1), fluid_left_wall_sweepers(1), fluid_right_wall_sweepers(1), &
+                                fluid_bot_wall_sweepers(1), fluid_top_wall_sweepers(1)
+    type(state_updater_container_t):: fluid_state_updaters(1), left_wall_state_updaters(1), right_wall_state_updaters(1)
     integer:: i, j, k, nlayer, nfx, nfy
 
     ! init kernel
@@ -41,8 +41,7 @@ program main
 
     ! init fluid particles
     state_updater%rho_ref = rho0 ! EOS only needs to know the reference density.
-    allocate (fluid_state_updaters(1)%updater)
-    allocate (fluid_state_updaters(2)%updater, source=state_updater)
+    allocate (fluid_state_updaters(1)%updater, source=state_updater)
     call psys(1)%init( &
         n=2500, &
         name="fluid", &
@@ -96,8 +95,7 @@ program main
 
     ! initialize ghost boundaries
     ghost_state_updater%surface_normal(:) = [1._fp, 0._fp]
-    allocate (left_wall_state_updaters(1)%updater)
-    allocate (left_wall_state_updaters(2)%updater, source=ghost_state_updater)
+    allocate (left_wall_state_updaters(1)%updater, source=ghost_state_updater)
     call psys(4)%init( &
         n=2500, & ! allocate 2500 particles of space. Realistically, only 240 is neeeded.
         name="ghost_boundary_left", &
@@ -105,8 +103,7 @@ program main
         state_updaters=left_wall_state_updaters &
         )
     ghost_state_updater%surface_normal(:) = [-1._fp, 0._fp] ! point normal leftward.
-    allocate (right_wall_state_updaters(1)%updater)
-    allocate (right_wall_state_updaters(2)%updater, source=ghost_state_updater)
+    allocate (right_wall_state_updaters(1)%updater, source=ghost_state_updater)
     call psys(5)%init( &
         n=2500, &
         name="ghost_boundary_right", &
@@ -162,8 +159,7 @@ program main
 
     ! init interactions.
     ! fluid self interaction.
-    allocate (fluid_fluid_sweepers(1)%sweeper, source=donothing_sweeper)
-    allocate (fluid_fluid_sweepers(2)%sweeper, source=sweeper)
+    allocate (fluid_fluid_sweepers(1)%sweeper, source=sweeper)
     call psys_interactions(1)%init( &
         npairs_per_particle=30, & ! number of predicted interactions.
         psys_lhs=psys(1), & ! fluid particle system interacting with itself.
@@ -175,8 +171,7 @@ program main
     sweeper%initialize = .false. ! second sweeper doesn't need to zero acceleration arrays.
     boundary_sweeper%point(:) = [0._fp, 0._fp]
     boundary_sweeper%normal(:) = [0._fp, 1._fp] ! normal pointing upward.
-    allocate (fluid_bot_wall_sweepers(1)%sweeper, source=donothing_sweeper)
-    allocate (fluid_bot_wall_sweepers(2)%sweeper, source=boundary_sweeper)
+    allocate (fluid_bot_wall_sweepers(1)%sweeper, source=boundary_sweeper)
     call psys_interactions(2)%init( &
         npairs_per_particle=30, &
         psys_lhs=psys(1), & ! fluid particle system.
@@ -188,8 +183,7 @@ program main
     ! interaction between fluid and top wall (morris boundary).
     boundary_sweeper%point(:) = [0._fp, 40._fp]
     boundary_sweeper%normal(:) = [0._fp, -1._fp] ! normal pointing downward.
-    allocate (fluid_top_wall_sweepers(1)%sweeper, source=donothing_sweeper)
-    allocate (fluid_top_wall_sweepers(2)%sweeper, source=boundary_sweeper)
+    allocate (fluid_top_wall_sweepers(1)%sweeper, source=boundary_sweeper)
     call psys_interactions(3)%init( &
         npairs_per_particle=30, &
         psys_lhs=psys(1), &
@@ -202,8 +196,7 @@ program main
     ghost_timestep_setuper%cutoff = kernel%cutoff
     ghost_timestep_setuper%surface_normal(:) = [1._fp, 0._fp] ! normal pointing rightward.
     ghost_timestep_setuper%point(:) = [0._fp, 0._fp]
-    allocate (fluid_left_wall_sweepers(1)%sweeper, source=donothing_sweeper)
-    allocate (fluid_left_wall_sweepers(2)%sweeper, source=sweeper)
+    allocate (fluid_left_wall_sweepers(1)%sweeper, source=sweeper)
     call psys_interactions(4)%init( &
         npairs_per_particle=30, &
         psys_lhs=psys(1), &
@@ -216,8 +209,7 @@ program main
     ! setuper cutoff already set.
     ghost_timestep_setuper%surface_normal(:) = [-1._fp, 0._fp] ! normal pointing leftward.
     ghost_timestep_setuper%point(:) = [25._fp, 0._fp] ! right wall passes through (25, 0) for density initialization step.
-    allocate (fluid_right_wall_sweepers(1)%sweeper, source=donothing_sweeper)
-    allocate (fluid_right_wall_sweepers(2)%sweeper, source=sweeper)
+    allocate (fluid_right_wall_sweepers(1)%sweeper, source=sweeper)
     call psys_interactions(5)%init( &
         npairs_per_particle=30, &
         psys_lhs=psys(1), &
@@ -282,14 +274,13 @@ contains
         real(fp), intent(in):: extx
         logical, intent(in):: bottom
         integer:: nbx, nvirt
-        type(state_updater_container_t):: wall_state_updaters(2)
+        type(state_updater_container_t):: wall_state_updaters(1)
 
         nbx = nint(extx/dx)
 
         nvirt = nlayer*nbx + 2*nlayer*nlayer
 
         allocate (wall_state_updaters(1)%updater)
-        allocate (wall_state_updaters(2)%updater)
 
         k = 0
         if (bottom) then

@@ -27,15 +27,14 @@ program main
     type(xsph_shifter_t):: shifter
     type(eos_particle_t):: ps_template
     type(tait_eos_state_updater_t):: state_updater
-    type(sweeper_container_t):: fluid_fluid_sweepers(2), fluid_boundary_sweepers(2)
+    type(sweeper_container_t):: fluid_fluid_sweepers(1), fluid_boundary_sweepers(1)
     type(default_sweeper_t):: donothing_sweeper
-    type(state_updater_container_t):: fluid_state_updaters(2)
+    type(state_updater_container_t):: fluid_state_updaters(1)
     integer:: nfx, nfy
 
     ! init fluid particles
     state_updater%rho_ref = rho0 ! EOS only needs to know the reference density.
-    allocate (fluid_state_updaters(1)%updater)
-    allocate (fluid_state_updaters(2)%updater, source=state_updater)
+    allocate (fluid_state_updaters(1)%updater, source=state_updater)
     call psys(1)%init( &
         n=2500, &
         name="fluid", &
@@ -98,8 +97,7 @@ program main
     ! declare XSPH shifter params.
     shifter%epsilon = 0.5_fp
     shifter%update_rhs = .true. ! ensure that rhs particles of fluid-fluid interaction are updated.
-    allocate (fluid_fluid_sweepers(1)%sweeper, source=donothing_sweeper)
-    allocate (fluid_fluid_sweepers(2)%sweeper, source=self_sweeper)
+    allocate (fluid_fluid_sweepers(1)%sweeper, source=self_sweeper)
     call psys_interactions(1)%init( &
         npairs_per_particle=30, &
         psys_lhs=psys(1), &
@@ -107,8 +105,7 @@ program main
         shifter=shifter &
         )
     shifter%update_rhs = .false. ! ensure that rhs particles of fluid-boundary interaction aren't updated.
-    allocate (fluid_boundary_sweepers(1)%sweeper, source=donothing_sweeper)
-    allocate (fluid_boundary_sweepers(2)%sweeper, source=boundary_sweeper)
+    allocate (fluid_boundary_sweepers(1)%sweeper, source=boundary_sweeper)
     call psys_interactions(2)%init( &
         npairs_per_particle=30, &
         psys_lhs=psys(1), &
@@ -163,13 +160,12 @@ contains
         type(particle_system_t), intent(out):: psys_boundary
         real(fp), intent(in):: extx, exty
         integer:: nbx, nby
-        type(state_updater_container_t):: boundary_state_updaters(2)
+        type(state_updater_container_t):: boundary_state_updaters(1)
 
         nbx = nint(extx/dx)
         nby = nint(exty/dx)
 
         allocate (boundary_state_updaters(1)%updater)
-        allocate (boundary_state_updaters(2)%updater)
         call psys_boundary%init(2*(nbx + nby) + 4, name="boundary", state_updaters=boundary_state_updaters)
         psys_boundary%to_print_summary = .false.
         call psys_boundary%register_io%register_variable(psys_boundary%particles(1), "x", psys_boundary%particles(1)%x)

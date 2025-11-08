@@ -29,17 +29,16 @@ program main
     type(xsph_shifter_t):: shifter
     type(tait_eos_state_updater_t):: state_updater
     type(eos_particle_t):: ps_template
-    type(sweeper_container_t):: sweepers(2)
+    type(sweeper_container_t):: sweepers(1)
     type(default_sweeper_t):: donothing_sweeper
-    type(state_updater_container_t):: state_updaters(2)
+    type(state_updater_container_t):: state_updaters(1)
     real(fp):: x, y
 
     ! init fluid particles
     state_updater%rho_ref = rho0
 
     ! register variables for time-update
-    allocate (state_updaters(1)%updater)
-    allocate (state_updaters(2)%updater, source=state_updater)
+    allocate (state_updaters(1)%updater, source=state_updater)
     call psys(1)%init(n=1976, name="fluid", state_updaters=state_updaters, particle_template=ps_template)
     call psys(1)%register_x%register(psys(1)%particles(1), "x", psys(1)%particles(1)%x, psys(1)%particles(1)%v)
     call psys(1)%register_v%register(psys(1)%particles(1), "v", psys(1)%particles(1)%v, psys(1)%particles(1)%dvxdt)
@@ -89,8 +88,7 @@ program main
     sweeper%g = g
     shifter%epsilon = 0.5_fp
     shifter%update_rhs = .true.
-    allocate (sweepers(1)%sweeper, source=donothing_sweeper)
-    allocate (sweepers(2)%sweeper, source=sweeper)
+    allocate (sweepers(1)%sweeper, source=sweeper)
     call psys_interactions(1)%init(30, psys(1), sweepers=sweepers, shifter=shifter)
 
     ! init kernel

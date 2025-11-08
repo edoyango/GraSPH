@@ -42,11 +42,13 @@ contains
         character(*), optional, intent(in):: output_prefix
         integer, optional, intent(in):: output_comp_level
         real(fp), optional, intent(in):: damping_coef
-        integer:: nparticle_sets, nparticle_interactions, itimestep, i, j, k, max_registrations
+        integer:: nparticle_sets, nparticle_interactions, itimestep, i, j, k, max_registrations, n_sweep_updates, istage
         real(fp):: dt, time, maxc
         type(system_timer_t):: timer
         type(array_pointer_container_t), allocatable:: vars0(:, :)
         real(fp), pointer:: var_ptr(:), deriv_ptr(:)
+
+        n_sweep_updates = count_sweeps_and_updates(psystems, interactions)
 
         nparticle_sets = size(psystems)
         nparticle_interactions = size(interactions)
@@ -113,23 +115,13 @@ contains
                 end do
             end do
 
-            do i = 1, nparticle_sets
-                call psystems(i)%do_state_update(1, 0.5_fp*dt)
-            end do
-
-            ! perform pre-sweep prologue e.g. to update boundary particles' state
-            do i = 1, nparticle_interactions
-                call interactions(i)%do_sweep(1)
-            end do
-
-            ! Update particle state e.g. pressure/stress
-            do i = 1, nparticle_sets
-                call psystems(i)%do_state_update(2, 0.5_fp*dt)
-            end do
-
-            ! perform actual sweep i.e., calculate acceleration, density change etc.
-            do i = 1, nparticle_interactions
-                call interactions(i)%do_sweep(2)
+            do istage = 1, n_sweep_updates
+                do i = 1, nparticle_sets
+                    call psystems(i)%do_state_update(istage, 0.5_fp*dt)
+                end do
+                do i = 1, nparticle_interactions
+                    call interactions(i)%do_sweep(istage)
+                end do
             end do
 
             ! update states to full-timestep
@@ -182,5 +174,28 @@ contains
         deallocate (vars0)
 
     end subroutine leap_frog_time_integration
+
+    !> @brief Ensures the count of 'system interaction sweepers' matches the count of 'particle system state updaters'.
+    !>        A particle system may have 0 zero state updaters.
+    integer function count_sweeps_and_updates(psystems, sinteractions)
+        type(particle_system_t), intent(in):: psystems(:)
+        type(system_interaction_t), intent(in):: sinteractions(:)
+        integer:: i, nsweeps, nupdates
+
+        nsweeps = size(sinteractions(1)%sweepers)
+
+        do i = 2, size(sinteractions)
+            if (nsweeps /= size(sinteractions(i)%sweepers)) error stop "Not all interactions have same number of sweepers."
+        end do
+
+        do i = 1, size(psystems)
+            nupdates = size(psystems(i)%state_updaters)
+            if (nupdates > 0 .and. nupdates /= nsweeps) &
+                error stop "Number of state updaters in particle systems don't match number of sweeps."
+        end do
+
+        count_sweeps_and_updates = nsweeps
+
+    end function count_sweeps_and_updates
 
 end module grasph_time_integration_m

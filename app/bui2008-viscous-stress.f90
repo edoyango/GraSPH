@@ -108,6 +108,7 @@ program main
 
     ghost_state_updater%surface_normal(:) = [1._fp, 0._fp]
     allocate (ghost_state_updaters(1)%updater, source=ghost_state_updater)
+    ! second ghost updater because real particles' stress is updated in second stage.
     allocate (ghost_state_updaters(2)%updater, source=ghost_state_updater)
     call psys(3)%init( &
         n=5000, &
