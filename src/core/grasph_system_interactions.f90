@@ -22,25 +22,29 @@ module grasph_system_interactions_m
         !> @brief Controls whether the sweep initializes particles' rate-of-change data.
         logical:: initialize = .true.
     contains
+        !> @brief Procedure for when only psys_lhs is associated. Default produces runtime error.
         procedure:: sweep_1system => notimplemented_sweep_1system
+        !> @brief Procedure for when both psys_lhs and psys_rhs are associated. Default produces runtime error.
         procedure:: sweep_2system => notimplemented_sweep_2system
+        !> @brief Procedure for when both psys_lhs and psys_rhs are associated, but psys_rhs is not updated. Called when
+        !>        update_rhs == .false..
         procedure:: sweep_2system_norhsupdate => notimplemented_sweep_2system_norhsupdate
+        !> @brief Function to get the name of this sweeper. Mainly intended for error messages.
         procedure(sweeper_name), deferred, nopass:: name
     end type base_sweeper_t
 
     !> @brief A default sweeper which does nothing when the sweep method is called.
     type, extends(base_sweeper_t):: default_sweeper_t
     contains
-        !> @brief A sweep that does nothing with the input particle system.
         procedure:: sweep_1system => donothing_sweep_1system
-        !> @brief A sweep that does nothing with the input particle systems.
         procedure:: sweep_2system => donothing_sweep_2system
-        !> @brief A sweep that does nothing with the input particle systems.
         procedure:: sweep_2system_norhsupdate => donothing_sweep_2system
         procedure, nopass:: name => default_sweeper_name
     end type default_sweeper_t
 
+    !> @brief Container storing sweepers for dynamic allocation of list of sweepers.
     type:: sweeper_container_t
+        !> @brief The dynamic sweeper
         class(base_sweeper_t), allocatable:: sweeper
     end type sweeper_container_t
 
@@ -77,6 +81,8 @@ module grasph_system_interactions_m
     end type system_interaction_t
 
     abstract interface
+        !> @brief Returns the name of the owning class.
+        !> @return The name of the owning class.
         pure function sweeper_name() result(name)
             import:: max_name_len
             character(max_name_len):: name
@@ -222,8 +228,7 @@ contains
     !> @param psys_rhs The RHS particles to be attached to the instance.
     !> @param timestep_setuper The strategy class that performs any setup needed at the start of the timestep - before the pair
     !>        finding has occurred.
-    !> @param prologue_sweeper The sweeper to use in the prologue sweep in this interaction.
-    !> @param sweeper The sweeper to use in this interaction.
+    !> @param sweepers The list of sweepers to use in this interaction.
     !> @param shifter The shifter to use in this interaction.
     subroutine particle_interactions_init(self, npairs_per_particle, psys_lhs, psys_rhs, timestep_setuper, sweepers, shifter)
         class(system_interaction_t), intent(out):: self

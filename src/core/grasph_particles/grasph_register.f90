@@ -36,6 +36,7 @@ module grasph_register_m
         procedure, public:: get_variable
         !> @brief Utility to automatically resize internal arrays and return a "safe" last index.
         procedure, private:: safe_size_plus_1 => variable_register_safe_size_plus_1
+        !> @brief Given a variable name, deregisters that variable from the register.
         procedure, public:: deregister => deregister_variable
     end type variable_register_t
 
@@ -52,7 +53,9 @@ module grasph_register_m
         generic, public:: register => register_variable_deriv_vector, register_variable_deriv_scalar
         !> @brief Associates pointers to a registered variable and its derivative.
         procedure, public:: get
+        !> @brief Utility to automatically resize internal arrays and return a "safe" last index.
         procedure, private:: safe_size_plus_1 => deriv_register_safe_size_plus_1
+        !> @brief Given a variable name, deregisters that variable and its derivative from the register.
         procedure, public:: deregister => deregister_variable_deriv
     end type variable_deriv_register_t
 
@@ -204,6 +207,9 @@ contains
 
     end subroutine register_variable_scalar
 
+    !> @brief Given a variable name, deregister that variable from the register.
+    !> @param self The register to deregister the variable from.
+    !> @param name The name of the variable to deregister.
     subroutine deregister_variable(self, name)
         class(variable_register_t), intent(inout):: self
         character(*), intent(in):: name
@@ -221,6 +227,9 @@ contains
         self%nregistrations = n_new_regs
     end subroutine deregister_variable
 
+    !> @brief Given a variable name, deregister that variable and its derivative from the register.
+    !> @param self The register to deregister the variable and derivative from.
+    !> @param name The name of the variable to deregister.
     subroutine deregister_variable_deriv(self, name)
         class(variable_deriv_register_t), intent(inout):: self
         character(*), intent(in):: name

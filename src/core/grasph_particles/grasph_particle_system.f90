@@ -20,7 +20,9 @@ module grasph_particle_system_m
         procedure:: update_state => base_update_state
     end type base_state_updater_t
 
+    !> @brief Container storing state updaters for dynamic allocation of list of updaters.
     type:: state_updater_container_t
+        !> @brief The dynamic updater.
         class(base_state_updater_t), allocatable:: updater
     end type state_updater_container_t
 
@@ -77,10 +79,8 @@ contains
     !> @param n The number of particles.
     !> @param name A label to give the particles. Used to label output/terminal information.
     !> @param particle_template Template to use to define the type of particles.
-    !> @param state_updater_1 The state updater strategy class used to update the particles' time-independent state.
-    !>        Is called before the prologue sweep.
-    !> @param state_updater_2 The state updater strategy class used to update the particles' time-independent state.
-    !>        Is called before the main sweep.
+    !> @param state_updaters The list of updaters to be used for this particle system. Each state update is called before the
+    !>        corresponding sweeper with the same index.
     subroutine base_init(self, n, name, particle_template, state_updaters)
         class(particle_system_t), intent(inout):: self
         integer, intent(in):: n

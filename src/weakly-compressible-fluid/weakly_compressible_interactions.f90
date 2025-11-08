@@ -28,11 +28,7 @@ module weakly_compressible_interactions_m
         !> @brief Smoothing length to use fo artificial viscosity.
         real(fp):: h = 0._fp
     contains
-        !> @brief For a single weakly-compressible fluid particle system, calculate acceleration and density rate-of-change due to
-        !>        isotropic pressure, artificial viscosity, and mass continuity.
         procedure:: sweep_1system => fluid_sweep_1system
-        !> @brief For two weakly-compressible fluid particle systems, calculate acceleration and density rate-of-change due to
-        !>        isotropic pressure, artificial viscosity, and mass continuity.
         procedure:: sweep_2system => fluid_sweep_2system
         procedure:: sweep_2system_norhsupdate => fluid_sweep_2system_norhsupdate
         procedure, nopass:: name => fluid_sweeper_name
@@ -43,7 +39,6 @@ module weakly_compressible_interactions_m
         !> @brief The interaction length of the lennard-jones repulsive force.
         real(fp):: cutoff
     contains
-        !> @brief Calculate acceleration due to lennard-jones repulsive force and artificial viscosity.
         procedure:: sweep_2system => fluid_boundary_sweep_monaghan1994_2system
         procedure:: sweep_2system_norhsupdate => fluid_boundary_sweep_monaghan1994_2system
         procedure, nopass:: name => fluid_boundary_sweeper_monaghan1994_name
@@ -52,7 +47,6 @@ module weakly_compressible_interactions_m
     !> @brief Sweeper describing how to update weakly compressible virtual boundary particles' velocity and density.
     type, extends(base_sweeper_t):: boundary_update_sweeper_t
     contains
-        !> @brief Calculate weakly compressible virtual boundary particles' velocity and density.
         procedure:: sweep_2system => boundary_update_sweep_2system
         procedure:: sweep_2system_norhsupdate => boundary_update_sweep_2system
         procedure, nopass:: name => boundary_update_sweeper_name
@@ -67,7 +61,6 @@ module weakly_compressible_interactions_m
         !> @brief The point that the mirroring face passes through.
         real(fp):: point(ndims)
     contains
-        !> @brief Generates ghost particles based on the mirroring boundary and the RHS particles.
         procedure:: sweep_2system => ghost_timestep_setup_sweep_2system
         procedure:: sweep_2system_norhsupdate => ghost_timestep_setup_sweep_2system
         procedure, nopass:: name => ghost_timestep_setuper_name
@@ -81,8 +74,6 @@ module weakly_compressible_interactions_m
         !> @brief The unit normal vector pointing towards the "real" domain.
         real(fp):: normal(ndims)
     contains
-        !> @brief Calculates acceleration and density change of the LHS particles due to interaction with the morris boundary
-        !>       particles (RHS).
         procedure:: sweep_2system => morris_boundary_sweep_2system
         procedure:: sweep_2system_norhsupdate => morris_boundary_sweep_2system
         procedure, nopass:: name => morris_boundary_sweeper_name
@@ -91,9 +82,7 @@ module weakly_compressible_interactions_m
     !> @brief Sweeper that calculates engineering strain rate between two particle systems.
     type, extends(base_sweeper_t):: strain_rate_sweeper_t
     contains
-        !> @brief Calculates engineering strain rate for 1 particle system.
         procedure:: sweep_1system => strain_rate_sweep_1system
-        !> @brief Calculates engineering strain rate for 2 particle systems.
         procedure:: sweep_2system => strain_rate_sweep_2system
         procedure:: sweep_2system_norhsupdate => strain_rate_sweep_2system_norhsupdate
         procedure, nopass:: name => strain_rate_sweeper_name
@@ -111,11 +100,7 @@ module weakly_compressible_interactions_m
     !> @brief Sweeper describing interaction between systems of weakly compressible particles with cauchy stress tensors.
     type, extends(fluid_sweeper_t):: viscous_stress_fluid_sweeper_t
     contains
-        !> @brief For one particle system with weakly compressible particles with cauchy stress tensor, calculate density change and
-        !>        acceleration.
         procedure:: sweep_1system => viscous_stress_fluid_sweep_1system
-        !> @brief For two particle systems with weakly compressible particles with cauchy stress tensor, calculate density change
-        !>        and acceleration.
         procedure:: sweep_2system => viscous_stress_fluid_sweep_2system
         procedure:: sweep_2system_norhsupdate => viscous_stress_fluid_sweep_2system_norhsupdate
         procedure, nopass:: name => viscous_stress_fluid_sweeper_name
@@ -129,8 +114,6 @@ module weakly_compressible_interactions_m
         !> @brief The unit normal vector pointing towards the "real" domain.
         real(fp):: normal(ndims)
     contains
-        !> @brief Calculates acceleration and density change of the LHS particles due to interaction with the weakly compressible
-        !>        morris boundary particles with stress tensor (RHS).
         procedure:: sweep_2system => viscous_stress_morris_boundary_sweep_2system
         procedure:: sweep_2system_norhsupdate => viscous_stress_morris_boundary_sweep_2system
         procedure, nopass:: name => viscous_stress_morris_boundary_sweeper_name
@@ -143,7 +126,6 @@ module weakly_compressible_interactions_m
         !> @brief The unit normal vector pointing towards the "real" domain.
         real(fp):: normal(ndims)
     contains
-        !> @brief Calculates Contribution of morris boundary particles (RHS) to real particles (LHS) strain rate.
         procedure:: sweep_2system => strain_rate_morris_boundary_sweep_2system
         procedure:: sweep_2system_norhsupdate => strain_rate_morris_boundary_sweep_2system
         procedure, nopass:: name => strain_rate_morris_boundary_sweeper_name
@@ -510,8 +492,7 @@ contains
     !> @brief For either one or two particle systems, calculate strain rate.
     !> @param self The sweeper class.
     !> @param pairs The class storing particle pair index information.
-    !> @param psys_lhs the LHS particles involved in the interactions.
-    !> @param psys_rhs Ths RHS "                                    ".
+    !> @param psys The particle system involved in the interactions.
     !> @param dt The time-step size.
     subroutine strain_rate_sweep_1system(self, pairs, psys, dt)
 
