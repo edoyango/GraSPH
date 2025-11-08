@@ -160,13 +160,11 @@ contains
         type(particle_system_t), intent(out):: psys_boundary
         real(fp), intent(in):: extx, exty
         integer:: nbx, nby
-        type(state_updater_container_t):: boundary_state_updaters(1)
 
         nbx = nint(extx/dx)
         nby = nint(exty/dx)
 
-        allocate (boundary_state_updaters(1)%updater)
-        call psys_boundary%init(2*(nbx + nby) + 4, name="boundary", state_updaters=boundary_state_updaters)
+        call psys_boundary%init(2*(nbx + nby) + 4, name="boundary")
         psys_boundary%to_print_summary = .false.
         call psys_boundary%register_io%register_variable(psys_boundary%particles(1), "x", psys_boundary%particles(1)%x)
         call psys_boundary%register_io%register_variable(psys_boundary%particles(1), "v", psys_boundary%particles(1)%v)

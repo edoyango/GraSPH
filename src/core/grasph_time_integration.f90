@@ -117,7 +117,8 @@ contains
 
             do istage = 1, n_sweep_updates
                 do i = 1, nparticle_sets
-                    call psystems(i)%do_state_update(istage, 0.5_fp*dt)
+                    if (allocated(psystems(i)%state_updaters) .and. size(psystems(i)%state_updaters) > 0) &
+                        call psystems(i)%do_state_update(istage, 0.5_fp*dt)
                 end do
                 do i = 1, nparticle_interactions
                     call interactions(i)%do_sweep(istage)
@@ -176,7 +177,7 @@ contains
     end subroutine leap_frog_time_integration
 
     !> @brief Ensures the count of 'system interaction sweepers' matches the count of 'particle system state updaters'.
-    !>        A particle system may have 0 zero state updaters.
+    !>        A particle system may have 0 zero state updaters (i.e. unallocated or allocated and size 0).
     integer function count_sweeps_and_updates(psystems, sinteractions)
         type(particle_system_t), intent(in):: psystems(:)
         type(system_interaction_t), intent(in):: sinteractions(:)
@@ -189,9 +190,11 @@ contains
         end do
 
         do i = 1, size(psystems)
-            nupdates = size(psystems(i)%state_updaters)
-            if (nupdates > 0 .and. nupdates /= nsweeps) &
-                error stop "Number of state updaters in particle systems don't match number of sweeps."
+            if (allocated(psystems(i)%state_updaters)) then
+                nupdates = size(psystems(i)%state_updaters)
+                if (nupdates > 0 .and. nupdates /= nsweeps) &
+                    error stop "Number of state updaters in particle systems don't match number of sweeps."
+            end if
         end do
 
         count_sweeps_and_updates = nsweeps

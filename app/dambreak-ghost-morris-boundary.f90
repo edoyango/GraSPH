@@ -274,18 +274,15 @@ contains
         real(fp), intent(in):: extx
         logical, intent(in):: bottom
         integer:: nbx, nvirt
-        type(state_updater_container_t):: wall_state_updaters(1)
 
         nbx = nint(extx/dx)
 
         nvirt = nlayer*nbx + 2*nlayer*nlayer
 
-        allocate (wall_state_updaters(1)%updater)
-
         k = 0
         if (bottom) then
             ! bottom layer and corners
-            call psys_boundary%init(nvirt, name="bottom_boundary", state_updaters=wall_state_updaters)
+            call psys_boundary%init(nvirt, name="bottom_boundary")
             do i = -nlayer, nbx + nlayer - 1
                 do j = 0, nlayer - 1
                     k = k + 1
@@ -295,7 +292,7 @@ contains
             end do
         else
             ! top layer and corners
-            call psys_boundary%init(nvirt, name="top_boundary", state_updaters=wall_state_updaters)
+            call psys_boundary%init(nvirt, name="top_boundary")
             do i = -nlayer, nbx + nlayer - 1
                 do j = 0, nlayer - 1
                     k = k + 1

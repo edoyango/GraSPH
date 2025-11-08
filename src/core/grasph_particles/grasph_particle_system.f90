@@ -97,8 +97,6 @@ contains
 
         if (present(state_updaters)) then
             allocate (self%state_updaters, source=state_updaters)
-        else
-            allocate (self%state_updaters(1)) ! default state updater applies to all state update steps
         end if
 
         self%initialized = .true.

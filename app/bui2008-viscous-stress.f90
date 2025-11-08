@@ -88,9 +88,7 @@ program main
 
     nvirt = nlayer*nbx + nlayer*nlayer
     ! bottom layer and corners
-    allocate (virtual_state_updaters(1)%updater)
-    allocate (virtual_state_updaters(2)%updater)
-    call psys(2)%init(nvirt, name="bottom_boundary", particle_template=ps_template, state_updaters=virtual_state_updaters)
+    call psys(2)%init(nvirt, name="bottom_boundary", particle_template=ps_template)
 
     k = 0
     do i = -nlayer, nbx - 1
