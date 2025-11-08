@@ -8,7 +8,7 @@
 program main
 
     use grasph_constants_m, only: fp, pi
-    use grasph_particle_system_m, only: particle_system_t
+    use grasph_particle_system_m, only: particle_system_t, state_updater_container_t
     use weakly_compressible_particles_m, only: tait_eos_state_updater_t, eos_particle_t
     use weakly_compressible_interactions_m, only: fluid_sweeper_t
     use grasph_system_interactions_m, only: system_interaction_t, sweeper_container_t, default_sweeper_t
@@ -31,13 +31,16 @@ program main
     type(eos_particle_t):: ps_template
     type(sweeper_container_t):: sweepers(2)
     type(default_sweeper_t):: donothing_sweeper
+    type(state_updater_container_t):: state_updaters(2)
     real(fp):: x, y
 
     ! init fluid particles
     state_updater%rho_ref = rho0
 
     ! register variables for time-update
-    call psys(1)%init(n=1976, name="fluid", state_updater_1=state_updater, particle_template=ps_template)
+    allocate (state_updaters(1)%updater)
+    allocate (state_updaters(2)%updater, source=state_updater)
+    call psys(1)%init(n=1976, name="fluid", state_updaters=state_updaters, particle_template=ps_template)
     call psys(1)%register_x%register(psys(1)%particles(1), "x", psys(1)%particles(1)%x, psys(1)%particles(1)%v)
     call psys(1)%register_v%register(psys(1)%particles(1), "v", psys(1)%particles(1)%v, psys(1)%particles(1)%dvxdt)
     call psys(1)%register_v%register(psys(1)%particles(1), "rho", psys(1)%particles(1)%rho, psys(1)%particles(1)%drhodt)

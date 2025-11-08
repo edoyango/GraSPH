@@ -8,7 +8,7 @@
 program main
 
     use grasph_constants_m, only: fp
-    use grasph_particle_system_m, only: particle_system_t
+    use grasph_particle_system_m, only: particle_system_t, base_state_updater_t, state_updater_container_t
     use weakly_compressible_particles_m, only: tait_eos_state_updater_t, eos_particle_t, eos_ghost_particle_t, ghost_state_updater_t
     use grasph_system_interactions_m, only: system_interaction_t, default_sweeper_t, sweeper_container_t
     use grasph_time_integration_m, only: leap_frog_time_integration
@@ -33,6 +33,7 @@ program main
     type(default_sweeper_t):: donothing_sweeper
     type(sweeper_container_t):: fluid_fluid_sweepers(2), fluid_left_wall_sweepers(2), fluid_right_wall_sweepers(2), &
                                 fluid_bot_wall_sweepers(2), fluid_top_wall_sweepers(2)
+    type(state_updater_container_t):: fluid_state_updaters(2), left_wall_state_updaters(2), right_wall_state_updaters(2)
     integer:: i, j, k, nlayer, nfx, nfy
 
     ! init kernel
@@ -40,10 +41,12 @@ program main
 
     ! init fluid particles
     state_updater%rho_ref = rho0 ! EOS only needs to know the reference density.
+    allocate (fluid_state_updaters(1)%updater)
+    allocate (fluid_state_updaters(2)%updater, source=state_updater)
     call psys(1)%init( &
         n=2500, &
         name="fluid", &
-        state_updater_1=state_updater, &
+        state_updaters=fluid_state_updaters, &
         particle_template=ps_template &
         )
 
@@ -93,18 +96,22 @@ program main
 
     ! initialize ghost boundaries
     ghost_state_updater%surface_normal(:) = [1._fp, 0._fp]
+    allocate (left_wall_state_updaters(1)%updater)
+    allocate (left_wall_state_updaters(2)%updater, source=ghost_state_updater)
     call psys(4)%init( &
         n=2500, & ! allocate 2500 particles of space. Realistically, only 240 is neeeded.
         name="ghost_boundary_left", &
         particle_template=ghost_ps_template, &
-        state_updater_1=ghost_state_updater &
+        state_updaters=left_wall_state_updaters &
         )
     ghost_state_updater%surface_normal(:) = [-1._fp, 0._fp] ! point normal leftward.
+    allocate (right_wall_state_updaters(1)%updater)
+    allocate (right_wall_state_updaters(2)%updater, source=ghost_state_updater)
     call psys(5)%init( &
         n=2500, &
         name="ghost_boundary_right", &
         particle_template=ghost_ps_template, &
-        state_updater_1=ghost_state_updater &
+        state_updaters=right_wall_state_updaters &
         )
 
     ! register variables for io
@@ -275,15 +282,19 @@ contains
         real(fp), intent(in):: extx
         logical, intent(in):: bottom
         integer:: nbx, nvirt
+        type(state_updater_container_t):: wall_state_updaters(2)
 
         nbx = nint(extx/dx)
 
         nvirt = nlayer*nbx + 2*nlayer*nlayer
 
+        allocate (wall_state_updaters(1)%updater)
+        allocate (wall_state_updaters(2)%updater)
+
         k = 0
         if (bottom) then
             ! bottom layer and corners
-            call psys_boundary%init(nvirt, name="bottom_boundary")
+            call psys_boundary%init(nvirt, name="bottom_boundary", state_updaters=wall_state_updaters)
             do i = -nlayer, nbx + nlayer - 1
                 do j = 0, nlayer - 1
                     k = k + 1
@@ -293,7 +304,7 @@ contains
             end do
         else
             ! top layer and corners
-            call psys_boundary%init(nvirt, name="top_boundary")
+            call psys_boundary%init(nvirt, name="top_boundary", state_updaters=wall_state_updaters)
             do i = -nlayer, nbx + nlayer - 1
                 do j = 0, nlayer - 1
                     k = k + 1

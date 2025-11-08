@@ -1,7 +1,7 @@
 program main
 
     use grasph_constants_m, only: fp, pi
-    use grasph_particle_system_m, only: particle_system_t
+    use grasph_particle_system_m, only: particle_system_t, state_updater_container_t
     use weakly_compressible_particles_m, only: eos_viscous_stress_particle_t, eos_viscous_stress_ghost_particle_t, &
                                                eos_viscous_stress_ghost_state_updater_t, dp_visco_elastic_state_updater_t
     use weakly_compressible_interactions_m, only: viscous_stress_fluid_sweeper_t, eos_viscous_stress_ghost_timestep_setuper_t, &
@@ -29,6 +29,7 @@ program main
     type(strain_rate_sweeper_t):: strain_rate_sweeper
     type(strain_rate_morris_boundary_sweeper_t):: strain_rate_boundary_sweeper
     type(sweeper_container_t):: soil_soil_sweepers(2), soil_ghost_sweepers(2), soil_virtual_sweepers(2)
+    type(state_updater_container_t):: soil_state_updaters(2), ghost_state_updaters(2), virtual_state_updaters(2)
     integer:: i, j, k, nlayer, nvirt, nfx, nfy, nbx
 
     ! init kernel
@@ -37,7 +38,9 @@ program main
     ! init fluid particles
     state_updater%rho_ref = rho0
     state_updater%friction_angle = 19.8_fp*pi/180._fp
-    call psys(1)%init(n=5000, name="soil", state_updater_2=state_updater, particle_template=ps_template)
+    allocate (soil_state_updaters(1)%updater)
+    allocate (soil_state_updaters(2)%updater, source=state_updater)
+    call psys(1)%init(n=5000, name="soil", state_updaters=soil_state_updaters, particle_template=ps_template)
 
     ! register variables for time-update
     call psys(1)%register_x%register(psys(1)%particles(1), "x", psys(1)%particles(1)%x, psys(1)%particles(1)%v)
@@ -85,7 +88,9 @@ program main
 
     nvirt = nlayer*nbx + nlayer*nlayer
     ! bottom layer and corners
-    call psys(2)%init(nvirt, name="bottom_boundary", particle_template=ps_template)
+    allocate (virtual_state_updaters(1)%updater)
+    allocate (virtual_state_updaters(2)%updater)
+    call psys(2)%init(nvirt, name="bottom_boundary", particle_template=ps_template, state_updaters=virtual_state_updaters)
 
     k = 0
     do i = -nlayer, nbx - 1
@@ -102,12 +107,13 @@ program main
     call psys(2)%register_io%register_variable(psys(2)%particles(1), "x", psys(2)%particles(1)%x)
 
     ghost_state_updater%surface_normal(:) = [1._fp, 0._fp]
+    allocate (ghost_state_updaters(1)%updater, source=ghost_state_updater)
+    allocate (ghost_state_updaters(2)%updater, source=ghost_state_updater)
     call psys(3)%init( &
         n=5000, &
         name="ghost_boundary_left", &
         particle_template=ghost_ps_template, &
-        state_updater_1=ghost_state_updater, &
-        state_updater_2=ghost_state_updater &
+        state_updaters=ghost_state_updaters &
         )
 
     ! register variables for io

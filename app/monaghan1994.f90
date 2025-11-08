@@ -7,7 +7,7 @@
 program main
 
     use grasph_constants_m, only: fp
-    use grasph_particle_system_m, only: particle_system_t
+    use grasph_particle_system_m, only: particle_system_t, state_updater_container_t
     use weakly_compressible_particles_m, only: eos_particle_t, tait_eos_state_updater_t
     use weakly_compressible_interactions_m, only: fluid_sweeper_t, fluid_boundary_sweeper_monaghan1994_t
     use grasph_system_interactions_m, only: system_interaction_t, sweeper_container_t, default_sweeper_t
@@ -29,14 +29,17 @@ program main
     type(tait_eos_state_updater_t):: state_updater
     type(sweeper_container_t):: fluid_fluid_sweepers(2), fluid_boundary_sweepers(2)
     type(default_sweeper_t):: donothing_sweeper
+    type(state_updater_container_t):: fluid_state_updaters(2)
     integer:: nfx, nfy
 
     ! init fluid particles
     state_updater%rho_ref = rho0 ! EOS only needs to know the reference density.
+    allocate (fluid_state_updaters(1)%updater)
+    allocate (fluid_state_updaters(2)%updater, source=state_updater)
     call psys(1)%init( &
         n=2500, &
         name="fluid", &
-        state_updater_1=state_updater, &
+        state_updaters=fluid_state_updaters, &
         particle_template=ps_template &
         )
 
@@ -100,7 +103,7 @@ program main
     call psys_interactions(1)%init( &
         npairs_per_particle=30, &
         psys_lhs=psys(1), &
-        sweepers=fluid_boundary_sweepers, &
+        sweepers=fluid_fluid_sweepers, &
         shifter=shifter &
         )
     shifter%update_rhs = .false. ! ensure that rhs particles of fluid-boundary interaction aren't updated.
@@ -160,11 +163,14 @@ contains
         type(particle_system_t), intent(out):: psys_boundary
         real(fp), intent(in):: extx, exty
         integer:: nbx, nby
+        type(state_updater_container_t):: boundary_state_updaters(2)
 
         nbx = nint(extx/dx)
         nby = nint(exty/dx)
 
-        call psys_boundary%init(2*(nbx + nby) + 4, name="boundary")
+        allocate (boundary_state_updaters(1)%updater)
+        allocate (boundary_state_updaters(2)%updater)
+        call psys_boundary%init(2*(nbx + nby) + 4, name="boundary", state_updaters=boundary_state_updaters)
         psys_boundary%to_print_summary = .false.
         call psys_boundary%register_io%register_variable(psys_boundary%particles(1), "x", psys_boundary%particles(1)%x)
         call psys_boundary%register_io%register_variable(psys_boundary%particles(1), "v", psys_boundary%particles(1)%v)

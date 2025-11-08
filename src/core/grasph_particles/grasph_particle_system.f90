@@ -20,6 +20,10 @@ module grasph_particle_system_m
         procedure:: update_state => base_update_state
     end type base_state_updater_t
 
+    type:: state_updater_container_t
+        class(base_state_updater_t), allocatable:: updater
+    end type state_updater_container_t
+
     !> @brief Manages a group of particles that behave similarly.
     type:: particle_system_t
         !> @brief The particles that comprise the system.
@@ -35,9 +39,7 @@ module grasph_particle_system_m
         !> @brief Name used in naming groups in output hdf5 file
         character(100):: name
         !> @brief Allocatable "strategy" class that performs particles' first state update.
-        class(base_state_updater_t), allocatable:: state_updater_1
-        !> @brief Allocatable "strategy" class that performs particles' second state update.
-        class(base_state_updater_t), allocatable:: state_updater_2
+        class(state_updater_container_t), allocatable:: state_updaters(:)
         !> @brief Register for variables to be updated only at full-timestep e.g. position (x).
         type(variable_deriv_register_t):: register_x
         !> @brief Register for variables to be updated at mid- and full-timestep e.g. velocity (v) and density (rho).
@@ -51,10 +53,7 @@ module grasph_particle_system_m
         procedure:: clear => base_clear
         !> @brief A method intended to be overriden when extended particles' state needs to be updated during time-integration.
         !>        Is called after any time-evolution has occurred, but before any sweeps are supposed to happen.
-        procedure:: do_state_update_1
-        !> @brief A method intended to be overriden when extended particles' state needs to be updated during time-integration.
-        !>        Is called after the prologue sweep, but before the main sweep.
-        procedure:: do_state_update_2
+        procedure:: do_state_update
         !> @brief A method intended to be overriden when extended particles' have extra data that needs to be saved in the output
         !>        files. Different derived types should store their data in different groups
         !>        e.g. /\<name>/particle_system_t/..., and /\<name>/derived_particles/....
@@ -69,7 +68,7 @@ module grasph_particle_system_m
         procedure:: safe_size_plus_1
     end type particle_system_t
 
-    public:: base_particle_t, particle_system_t, base_state_updater_t
+    public:: base_particle_t, particle_system_t, base_state_updater_t, state_updater_container_t
 
 contains
 
@@ -82,12 +81,12 @@ contains
     !>        Is called before the prologue sweep.
     !> @param state_updater_2 The state updater strategy class used to update the particles' time-independent state.
     !>        Is called before the main sweep.
-    subroutine base_init(self, n, name, particle_template, state_updater_1, state_updater_2)
+    subroutine base_init(self, n, name, particle_template, state_updaters)
         class(particle_system_t), intent(inout):: self
         integer, intent(in):: n
         character(*), intent(in):: name
         class(base_particle_t), optional, intent(in):: particle_template
-        class(base_state_updater_t), optional, intent(in):: state_updater_1, state_updater_2
+        class(state_updater_container_t), optional, intent(in):: state_updaters(:)
 
         if (self%initialized) call self%clear()
         if (present(particle_template)) then
@@ -96,16 +95,10 @@ contains
             allocate (self%particles(n))
         end if
 
-        if (present(state_updater_1)) then
-            allocate (self%state_updater_1, source=state_updater_1)
+        if (present(state_updaters)) then
+            allocate (self%state_updaters, source=state_updaters)
         else
-            allocate (self%state_updater_1)
-        end if
-
-        if (present(state_updater_2)) then
-            allocate (self%state_updater_2, source=state_updater_2)
-        else
-            allocate (self%state_updater_2)
+            allocate (self%state_updaters(1)) ! default state updater applies to all state update steps
         end if
 
         self%initialized = .true.
@@ -120,21 +113,15 @@ contains
         class(particle_system_t), intent(out):: self
     end subroutine base_clear
 
-    subroutine do_state_update_1(self, dt)
+    subroutine do_state_update(self, i, dt)
         class(particle_system_t), intent(inout):: self
+        integer, intent(in):: i
         real(fp), optional, intent(in):: dt
+        integer:: ii
 
-        call self%state_updater_1%update_state(self%particles, self%size, dt)
+        call self%state_updaters(i)%updater%update_state(self%particles, self%size, dt)
 
-    end subroutine do_state_update_1
-
-    subroutine do_state_update_2(self, dt)
-        class(particle_system_t), intent(inout):: self
-        real(fp), optional, intent(in):: dt
-
-        call self%state_updater_2%update_state(self%particles, self%size, dt)
-
-    end subroutine do_state_update_2
+    end subroutine do_state_update
 
     !> @brief A do-nothing placeholder subroutine used in time-integration. Extend this with particles' internal state update code e.g. updating pressure, stress.
     !> @param self Particles whose state is to be updated.
