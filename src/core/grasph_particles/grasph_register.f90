@@ -36,6 +36,7 @@ module grasph_register_m
         procedure, public:: get_variable
         !> @brief Utility to automatically resize internal arrays and return a "safe" last index.
         procedure, private:: safe_size_plus_1 => variable_register_safe_size_plus_1
+        procedure, public:: deregister => deregister_variable
     end type variable_register_t
 
     !> @brief Registers a particle's varaible, along with its derivative.
@@ -52,6 +53,7 @@ module grasph_register_m
         !> @brief Associates pointers to a registered variable and its derivative.
         procedure, public:: get
         procedure, private:: safe_size_plus_1 => deriv_register_safe_size_plus_1
+        procedure, public:: deregister => deregister_variable_deriv
     end type variable_deriv_register_t
 
     public:: variable_register_t, variable_deriv_register_t
@@ -201,6 +203,41 @@ contains
         if (self%offsets(nregs) >= sizeof(base)) error stop "Member is not a subset of base."
 
     end subroutine register_variable_scalar
+
+    subroutine deregister_variable(self, name)
+        class(variable_register_t), intent(inout):: self
+        character(*), intent(in):: name
+        logical:: match(self%nregistrations)
+        integer:: n_old_regs, n_new_regs
+
+        n_old_regs = self%nregistrations
+        match(:) = self%names(1:n_old_regs) /= name
+
+        n_new_regs = count(match)
+
+        self%dims(1:n_new_regs) = pack(self%dims(1:n_old_regs), match(:))
+        self%offsets(1:n_new_regs) = pack(self%offsets(1:n_old_regs), match(:))
+        self%names(1:n_new_regs) = pack(self%names(1:n_old_regs), match(:))
+        self%nregistrations = n_new_regs
+    end subroutine deregister_variable
+
+    subroutine deregister_variable_deriv(self, name)
+        class(variable_deriv_register_t), intent(inout):: self
+        character(*), intent(in):: name
+        logical:: match(self%nregistrations)
+        integer:: n_old_regs, n_new_regs
+
+        n_old_regs = self%nregistrations
+        match(:) = self%names(1:n_old_regs) /= name
+
+        n_new_regs = count(match)
+
+        self%dims(1:n_new_regs) = pack(self%dims(1:n_old_regs), match(:))
+        self%offsets(1:n_new_regs) = pack(self%offsets(1:n_old_regs), match(:))
+        self%names(1:n_new_regs) = pack(self%names(1:n_old_regs), match(:))
+        self%deriv_offsets(1:n_new_regs) = pack(self%deriv_offsets(1:n_old_regs), match(:))
+        self%nregistrations = n_new_regs
+    end subroutine deregister_variable_deriv
 
     !> @brief Associates ptr to a registered variable.
     !> @param self The register.

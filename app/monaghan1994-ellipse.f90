@@ -47,13 +47,6 @@ program main
     ! register variables for io
     select type (p => psys(1)%particles)
     class is (eos_particle_t)
-        call psys(1)%register_io%register_variable(p(1), "x", p(1)%x)
-        call psys(1)%register_io%register_variable(p(1), "v", p(1)%v)
-        call psys(1)%register_io%register_variable(p(1), "rho", p(1)%rho)
-        call psys(1)%register_io%register_variable(p(1), "mass", p(1)%mass)
-        call psys(1)%register_io%register_variable(p(1), "c", p(1)%c)
-        call psys(1)%register_io%register_variable(p(1), "dvxdt", p(1)%dvxdt)
-        call psys(1)%register_io%register_variable(p(1), "drhodt", p(1)%drhodt)
         call psys(1)%register_io%register_variable(p(1), "p", p(1)%p)
     class default
         error stop "Expected eos_particle_t for psys(1)%p."

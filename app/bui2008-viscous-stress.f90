@@ -50,13 +50,6 @@ program main
     ! register variables for io
     select type (p => psys(1)%particles)
     class is (eos_viscous_stress_particle_t)
-        call psys(1)%register_io%register_variable(p(1), "x", p(1)%x)
-        call psys(1)%register_io%register_variable(p(1), "v", p(1)%v)
-        call psys(1)%register_io%register_variable(p(1), "rho", p(1)%rho)
-        call psys(1)%register_io%register_variable(p(1), "mass", p(1)%mass)
-        call psys(1)%register_io%register_variable(p(1), "c", p(1)%c)
-        call psys(1)%register_io%register_variable(p(1), "dvxdt", p(1)%dvxdt)
-        call psys(1)%register_io%register_variable(p(1), "drhodt", p(1)%drhodt)
         call psys(1)%register_io%register_variable(p(1), "p", p(1)%p)
         call psys(1)%register_io%register_variable(p(1), "stress", p(1)%stress)
     class default
@@ -89,6 +82,13 @@ program main
     nvirt = nlayer*nbx + nlayer*nlayer
     ! bottom layer and corners
     call psys(2)%init(nvirt, name="bottom_boundary", particle_template=ps_template)
+    ! deregister most variables from IO for boundary
+    call psys(2)%register_io%deregister("v")
+    call psys(2)%register_io%deregister("rho")
+    call psys(2)%register_io%deregister("mass")
+    call psys(2)%register_io%deregister("c")
+    call psys(2)%register_io%deregister("dvxdt")
+    call psys(2)%register_io%deregister("drhodt")
 
     k = 0
     do i = -nlayer, nbx - 1
@@ -102,7 +102,6 @@ program main
     end do
 
     psys(2)%to_print_summary = .false.
-    call psys(2)%register_io%register_variable(psys(2)%particles(1), "x", psys(2)%particles(1)%x)
 
     ghost_state_updater%surface_normal(:) = [1._fp, 0._fp]
     allocate (ghost_state_updaters(1)%updater, source=ghost_state_updater)
@@ -118,18 +117,14 @@ program main
     ! register variables for io
     select type (p => psys(3)%particles)
     class is (eos_viscous_stress_ghost_particle_t)
-        call psys(3)%register_io%register_variable(p(1), "x", p(1)%x)
-        call psys(3)%register_io%register_variable(p(1), "v", p(1)%v)
-        call psys(3)%register_io%register_variable(p(1), "rho", p(1)%rho)
-        call psys(3)%register_io%register_variable(p(1), "mass", p(1)%mass)
-        call psys(3)%register_io%register_variable(p(1), "c", p(1)%c)
-        call psys(3)%register_io%register_variable(p(1), "dvxdt", p(1)%dvxdt)
-        call psys(3)%register_io%register_variable(p(1), "drhodt", p(1)%drhodt)
         call psys(3)%register_io%register_variable(p(1), "p", p(1)%p)
         call psys(3)%register_io%register_variable(p(1), "stress", p(1)%stress)
     class default
         error stop "Expected eos_ghost_particle_t for psys(4)%p."
     end select
+    ! deregister rate-of-change arrays from IO
+    call psys(3)%register_io%deregister("dvxdt")
+    call psys(3)%register_io%deregister("drhodt")
 
     strain_rate_sweeper%update_rhs = .false.
     strain_rate_boundary_sweeper%point(:) = 0._fp

@@ -50,13 +50,6 @@ program main
     ! register variables for io
     select type (p => psys(1)%particles)
     class is (eos_particle_t)
-        call psys(1)%register_io%register_variable(p(1), "x", p(1)%x)
-        call psys(1)%register_io%register_variable(p(1), "v", p(1)%v)
-        call psys(1)%register_io%register_variable(p(1), "rho", p(1)%rho)
-        call psys(1)%register_io%register_variable(p(1), "mass", p(1)%mass)
-        call psys(1)%register_io%register_variable(p(1), "c", p(1)%c)
-        call psys(1)%register_io%register_variable(p(1), "dvxdt", p(1)%dvxdt)
-        call psys(1)%register_io%register_variable(p(1), "drhodt", p(1)%drhodt)
         call psys(1)%register_io%register_variable(p(1), "p", p(1)%p)
     class default
         error stop "Expected eos_particle_t for psys(1)%p."
@@ -165,14 +158,15 @@ contains
         nby = nint(exty/dx)
 
         call psys_boundary%init(2*(nbx + nby) + 4, name="boundary")
+
+        ! turn off most IO
         psys_boundary%to_print_summary = .false.
-        call psys_boundary%register_io%register_variable(psys_boundary%particles(1), "x", psys_boundary%particles(1)%x)
-        call psys_boundary%register_io%register_variable(psys_boundary%particles(1), "v", psys_boundary%particles(1)%v)
-        call psys_boundary%register_io%register_variable(psys_boundary%particles(1), "rho", psys_boundary%particles(1)%rho)
-        call psys_boundary%register_io%register_variable(psys_boundary%particles(1), "mass", psys_boundary%particles(1)%mass)
-        call psys_boundary%register_io%register_variable(psys_boundary%particles(1), "c", psys_boundary%particles(1)%c)
-        call psys_boundary%register_io%register_variable(psys_boundary%particles(1), "dvxdt", psys_boundary%particles(1)%dvxdt)
-        call psys_boundary%register_io%register_variable(psys_boundary%particles(1), "drhodt", psys_boundary%particles(1)%drhodt)
+        call psys_boundary%register_io%deregister("v")
+        call psys_boundary%register_io%deregister("rho")
+        call psys_boundary%register_io%deregister("mass")
+        call psys_boundary%register_io%deregister("c")
+        call psys_boundary%register_io%deregister("dvxdt")
+        call psys_boundary%register_io%deregister("drhodt")
 
         k = 0
         ! bottom layer and corners

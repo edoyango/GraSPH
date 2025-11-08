@@ -57,13 +57,6 @@ program main
     ! register variables for io
     select type (p => psys(1)%particles)
     class is (eos_particle_t)
-        call psys(1)%register_io%register_variable(p(1), "x", p(1)%x)
-        call psys(1)%register_io%register_variable(p(1), "v", p(1)%v)
-        call psys(1)%register_io%register_variable(p(1), "rho", p(1)%rho)
-        call psys(1)%register_io%register_variable(p(1), "mass", p(1)%mass)
-        call psys(1)%register_io%register_variable(p(1), "c", p(1)%c)
-        call psys(1)%register_io%register_variable(p(1), "dvxdt", p(1)%dvxdt)
-        call psys(1)%register_io%register_variable(p(1), "drhodt", p(1)%drhodt)
         call psys(1)%register_io%register_variable(p(1), "p", p(1)%p)
     class default
         error stop "Expected eos_particle_t for psys(1)%p."
@@ -114,13 +107,6 @@ program main
     ! register variables for io
     select type (p => psys(4)%particles)
     class is (eos_ghost_particle_t)
-        call psys(4)%register_io%register_variable(p(1), "x", p(1)%x)
-        call psys(4)%register_io%register_variable(p(1), "v", p(1)%v)
-        call psys(4)%register_io%register_variable(p(1), "rho", p(1)%rho)
-        call psys(4)%register_io%register_variable(p(1), "mass", p(1)%mass)
-        call psys(4)%register_io%register_variable(p(1), "c", p(1)%c)
-        call psys(4)%register_io%register_variable(p(1), "dvxdt", p(1)%dvxdt)
-        call psys(4)%register_io%register_variable(p(1), "drhodt", p(1)%drhodt)
         call psys(4)%register_io%register_variable(p(1), "p", p(1)%p)
     class default
         error stop "Expected eos_ghost_particle_t for psys(4)%p."
@@ -128,13 +114,6 @@ program main
 
     select type (p => psys(4)%particles)
     class is (eos_ghost_particle_t)
-        call psys(5)%register_io%register_variable(p(1), "x", p(1)%x)
-        call psys(5)%register_io%register_variable(p(1), "v", p(1)%v)
-        call psys(5)%register_io%register_variable(p(1), "rho", p(1)%rho)
-        call psys(5)%register_io%register_variable(p(1), "mass", p(1)%mass)
-        call psys(5)%register_io%register_variable(p(1), "c", p(1)%c)
-        call psys(5)%register_io%register_variable(p(1), "dvxdt", p(1)%dvxdt)
-        call psys(5)%register_io%register_variable(p(1), "drhodt", p(1)%drhodt)
         call psys(5)%register_io%register_variable(p(1), "p", p(1)%p)
     class default
         error stop "Expected eos_ghost_particle_t for psys(4)%p."
@@ -308,7 +287,14 @@ contains
 
         ! morris boundary particles don't have persistent properties, so besides position, other data isn't needed.
         psys_boundary%to_print_summary = .false.
-        call psys_boundary%register_io%register_variable(psys_boundary%particles(1), "x", psys_boundary%particles(1)%x)
+
+        ! deregister most variables from IO for boundary
+        call psys_boundary%register_io%deregister("v")
+        call psys_boundary%register_io%deregister("rho")
+        call psys_boundary%register_io%deregister("mass")
+        call psys_boundary%register_io%deregister("c")
+        call psys_boundary%register_io%deregister("dvxdt")
+        call psys_boundary%register_io%deregister("drhodt")
 
     end subroutine generate_boundary
 

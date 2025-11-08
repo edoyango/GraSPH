@@ -103,6 +103,16 @@ contains
         self%size = n
         self%ndims = ndims
         self%name = name
+
+        ! add default IO registrations
+        call self%register_io%register_variable(self%particles(1), "x", self%particles(1)%x)
+        call self%register_io%register_variable(self%particles(1), "v", self%particles(1)%v)
+        call self%register_io%register_variable(self%particles(1), "rho", self%particles(1)%rho)
+        call self%register_io%register_variable(self%particles(1), "mass", self%particles(1)%mass)
+        call self%register_io%register_variable(self%particles(1), "c", self%particles(1)%c)
+        call self%register_io%register_variable(self%particles(1), "dvxdt", self%particles(1)%dvxdt)
+        call self%register_io%register_variable(self%particles(1), "drhodt", self%particles(1)%drhodt)
+
     end subroutine base_init
 
     !> @brief Deallocates internal arrays of self and sets state to uninitialized
