@@ -2,7 +2,7 @@ program main
 
     use grasph_constants_m, only: fp, pi
     use grasph_particle_system_m, only: particle_system_t, state_updater_container_t
-    use weakly_compressible_particles_m, only: eos_viscous_stress_particle_t, eos_viscous_stress_ghost_particle_t, &
+    use weakly_compressible_particles_m, only: eos_viscous_stress_particles_t, eos_viscous_stress_ghost_particles_t, &
                                                eos_viscous_stress_ghost_state_updater_t, dp_visco_elastic_state_updater_t
     use weakly_compressible_interactions_m, only: viscous_stress_fluid_sweeper_t, eos_viscous_stress_ghost_timestep_setuper_t, &
                                                   eos_viscous_stress_morris_boundary_sweeper_t, strain_rate_sweeper_t, &
@@ -22,10 +22,10 @@ program main
     type(viscous_stress_fluid_sweeper_t):: sweeper
     type(eos_viscous_stress_morris_boundary_sweeper_t):: boundary_sweeper
     type(dp_visco_elastic_state_updater_t):: state_updater
-    type(eos_viscous_stress_particle_t):: ps_template
+    type(eos_viscous_stress_particles_t):: ps_template
     type(eos_viscous_stress_ghost_state_updater_t):: ghost_state_updater
     type(eos_viscous_stress_ghost_timestep_setuper_t):: ghost_timestep_setuper
-    type(eos_viscous_stress_ghost_particle_t):: ghost_ps_template
+    type(eos_viscous_stress_ghost_particles_t):: ghost_ps_template
     type(strain_rate_sweeper_t):: strain_rate_sweeper
     type(strain_rate_morris_boundary_sweeper_t):: strain_rate_boundary_sweeper
     type(sweeper_container_t):: soil_soil_sweepers(2), soil_ghost_sweepers(2), soil_virtual_sweepers(2)
@@ -43,17 +43,17 @@ program main
     call psys(1)%init(n=5000, name="soil", state_updaters=soil_state_updaters, particle_template=ps_template)
 
     ! register variables for time-update
-    call psys(1)%register_x%register(psys(1)%particles(1), "x", psys(1)%particles(1)%x, psys(1)%particles(1)%v)
-    call psys(1)%register_v%register(psys(1)%particles(1), "v", psys(1)%particles(1)%v, psys(1)%particles(1)%dvxdt)
-    call psys(1)%register_v%register(psys(1)%particles(1), "rho", psys(1)%particles(1)%rho, psys(1)%particles(1)%drhodt)
+    call psys(1)%register_x%register("x", psys(1)%particles%x, psys(1)%particles%v)
+    call psys(1)%register_v%register("v", psys(1)%particles%v, psys(1)%particles%dvxdt)
+    call psys(1)%register_v%register("rho", psys(1)%particles%rho, psys(1)%particles%drhodt)
 
     ! register variables for io
     select type (p => psys(1)%particles)
-    class is (eos_viscous_stress_particle_t)
-        call psys(1)%register_io%register_variable(p(1), "p", p(1)%p)
-        call psys(1)%register_io%register_variable(p(1), "stress", p(1)%stress)
+    class is (eos_viscous_stress_particles_t)
+        call psys(1)%register_io%register_variable("p", p%p)
+        call psys(1)%register_io%register_variable("stress", p%stress)
     class default
-        error stop "Expected eos_viscous_stress_particle_t for psys(1)%p."
+        error stop "Expected eos_viscous_stress_particles_t for psys(1)%p."
     end select
 
     nfx = nint(soil_maxx/dx)
@@ -62,14 +62,14 @@ program main
     do i = 0, nfx - 1
         do j = 0, nfy - 1
             k = j*nfx + i + 1
-            psys(1)%particles(k)%id = k
-            psys(1)%particles(k)%type = 1 ! not sure if type is needed anymore
-            psys(1)%particles(k)%x(1) = (i + 0.5_fp)*dx
-            psys(1)%particles(k)%x(2) = (j + 0.5_fp)*dx
-            psys(1)%particles(k)%rho = rho0
-            psys(1)%particles(k)%mass = rho0*dx*dx
-            psys(1)%particles(k)%c = 20._fp
-            psys(1)%particles(k)%v(:) = 0._fp
+            psys(1)%particles%id(k) = k
+            psys(1)%particles%type(k) = 1 ! not sure if type is needed anymore
+            psys(1)%particles%x(1, k) = (i + 0.5_fp)*dx
+            psys(1)%particles%x(2, k) = (j + 0.5_fp)*dx
+            psys(1)%particles%rho(k) = rho0
+            psys(1)%particles%mass(k) = rho0*dx*dx
+            psys(1)%particles%c(k) = 20._fp
+            psys(1)%particles%v(:, k) = 0._fp
         end do
     end do
 
@@ -94,10 +94,10 @@ program main
     do i = -nlayer, nbx - 1
         do j = 0, nlayer - 1
             k = k + 1
-            psys(2)%particles(k)%x(1) = (i + 0.5_fp)*dx
-            psys(2)%particles(k)%x(2) = -(j + 0.5_fp)*dx
-            psys(2)%particles(k)%id = i
-            psys(2)%particles(k)%type = -1
+            psys(2)%particles%x(1, k) = (i + 0.5_fp)*dx
+            psys(2)%particles%x(2, k) = -(j + 0.5_fp)*dx
+            psys(2)%particles%id(k) = i
+            psys(2)%particles%type(k) = -1
         end do
     end do
 
@@ -116,9 +116,9 @@ program main
 
     ! register variables for io
     select type (p => psys(3)%particles)
-    class is (eos_viscous_stress_ghost_particle_t)
-        call psys(3)%register_io%register_variable(p(1), "p", p(1)%p)
-        call psys(3)%register_io%register_variable(p(1), "stress", p(1)%stress)
+    class is (eos_viscous_stress_ghost_particles_t)
+        call psys(3)%register_io%register_variable("p", p%p)
+        call psys(3)%register_io%register_variable("stress", p%stress)
     class default
         error stop "Expected eos_ghost_particle_t for psys(4)%p."
     end select
@@ -148,9 +148,9 @@ program main
         psys(1), &
         sweepers=soil_soil_sweepers &
         )
-    strain_rate_sweeper%initialize = .false.
-    sweeper%initialize = .false. ! second sweeper doesn't need to zero acceleration arrays
-    boundary_sweeper%initialize = .false.
+    strain_rate_sweeper%initialise = .false.
+    sweeper%initialise = .false. ! second sweeper doesn't need to zero acceleration arrays
+    boundary_sweeper%initialise = .false.
     boundary_sweeper%point(:) = [0._fp, 0._fp]
     boundary_sweeper%normal(:) = [0._fp, 1._fp]
     allocate (soil_virtual_sweepers(1)%sweeper, source=strain_rate_boundary_sweeper)

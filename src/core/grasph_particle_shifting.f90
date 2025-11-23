@@ -5,6 +5,7 @@
 module grasph_particle_shifting_m
 
     use grasph_constants_m, only: fp, ndims, max_name_len
+    use grasph_particle_m, only: base_particles_t
     use grasph_system_interactions_m, only: base_sweeper_t
     use grasph_pairs_m, only: particle_pairs_t
     use grasph_particle_system_m, only: particle_system_t
@@ -60,10 +61,10 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys the particles involved in the interactions.
     !> @param dt The time-step increment.
-    subroutine xsph_shift_1system(self, pairs, psys, dt)
+    subroutine xsph_shift_1system(self, pairs, ps, dt)
         class(xsph_shifter_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys
+        class(base_particles_t), intent(inout):: ps
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
         real(fp):: dummyx(ndims)
@@ -72,8 +73,7 @@ contains
             i = pairs%pair_ij(1, k)
             j = pairs%pair_ij(2, k)
             call xsph_shift_ij( &
-                psys%particles(i)%x(:), psys%particles(j)%x(:), psys%particles(i)%v(:), psys%particles(j)%v(:), &
-                psys%particles(i)%rho, psys%particles(j)%rho, psys%particles(i)%mass, psys%particles(j)%mass, pairs%w(k), dt, &
+                ps%x(:, i), ps%x(:, j), ps%v(:, i), ps%v(:, j), ps%rho(i), ps%rho(j), ps%mass(i), ps%mass(j), pairs%w(k), dt, &
                 self%epsilon &
                 )
         end do
@@ -87,10 +87,10 @@ contains
     !> @param psys_rhs The RHS particles involved in the interactions. psys_rhs will not be passed in if not associated in the
     !>        owning particle_interactions class.
     !> @param dt The time-step increment.
-    subroutine xsph_shift_2system(self, pairs, psys_lhs, psys_rhs, dt)
+    subroutine xsph_shift_2system(self, pairs, ps_lhs, ps_rhs, dt)
         class(xsph_shifter_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        class(base_particles_t), intent(inout):: ps_lhs, ps_rhs
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
 
@@ -98,9 +98,8 @@ contains
             i = pairs%pair_ij(1, k)
             j = pairs%pair_ij(2, k)
             call xsph_shift_ij( &
-                psys_lhs%particles(i)%x(:), psys_rhs%particles(j)%x(:), psys_lhs%particles(i)%v(:), &
-                psys_rhs%particles(j)%v(:), psys_lhs%particles(i)%rho, psys_rhs%particles(j)%rho, psys_lhs%particles(i)%mass, &
-                psys_rhs%particles(j)%mass, pairs%w(k), dt, self%epsilon &
+                ps_lhs%x(:, i), ps_rhs%x(:, j), ps_lhs%v(:, i), ps_rhs%v(:, j), ps_lhs%rho(i), ps_rhs%rho(j), ps_lhs%mass(i), &
+                ps_rhs%mass(j), pairs%w(k), dt, self%epsilon &
                 )
         end do
 
@@ -113,10 +112,10 @@ contains
     !> @param psys_rhs The RHS particles involved in the interactions. psys_rhs will not be passed in if not associated in the
     !>        owning particle_interactions class.
     !> @param dt The time-step increment.
-    subroutine xsph_shift_2system_norhsupdate(self, pairs, psys_lhs, psys_rhs, dt)
+    subroutine xsph_shift_2system_norhsupdate(self, pairs, ps_lhs, ps_rhs, dt)
         class(xsph_shifter_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        class(base_particles_t), intent(inout):: ps_lhs, ps_rhs
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
         real(fp):: dummyx(ndims)
@@ -125,9 +124,8 @@ contains
             i = pairs%pair_ij(1, k)
             j = pairs%pair_ij(2, k)
             call xsph_shift_ij( &
-                psys_lhs%particles(i)%x(:), dummyx, psys_lhs%particles(i)%v(:), psys_rhs%particles(j)%v(:), &
-                psys_lhs%particles(i)%rho, psys_rhs%particles(j)%rho, psys_lhs%particles(i)%mass, psys_rhs%particles(j)%mass, &
-                pairs%w(k), dt, self%epsilon &
+                ps_lhs%x(:, i), dummyx, ps_lhs%v(:, i), ps_rhs%v(:, j), ps_lhs%rho(i), ps_rhs%rho(j), ps_lhs%mass(i), &
+                ps_rhs%mass(j), pairs%w(k), dt, self%epsilon &
                 )
         end do
 

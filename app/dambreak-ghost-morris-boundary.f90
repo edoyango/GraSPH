@@ -9,7 +9,8 @@ program main
 
     use grasph_constants_m, only: fp
     use grasph_particle_system_m, only: particle_system_t, base_state_updater_t, state_updater_container_t
-    use weakly_compressible_particles_m, only: tait_eos_state_updater_t, eos_particle_t, eos_ghost_particle_t, ghost_state_updater_t
+    use weakly_compressible_particles_m, only: tait_eos_state_updater_t, eos_particles_t, eos_ghost_particles_t, &
+                                               ghost_state_updater_t
     use grasph_system_interactions_m, only: system_interaction_t, default_sweeper_t, sweeper_container_t
     use grasph_time_integration_m, only: leap_frog_time_integration
     use grasph_kernels_m, only: cubic_bspline_kernel_t
@@ -26,10 +27,10 @@ program main
     type(morris_boundary_sweeper_t):: boundary_sweeper
     type(xsph_shifter_t):: shifter
     type(tait_eos_state_updater_t):: state_updater
-    type(eos_particle_t):: ps_template
+    type(eos_particles_t):: ps_template
     type(ghost_state_updater_t):: ghost_state_updater
     type(ghost_timestep_setuper_t):: ghost_timestep_setuper
-    type(eos_ghost_particle_t):: ghost_ps_template
+    type(eos_ghost_particles_t):: ghost_ps_template
     type(default_sweeper_t):: donothing_sweeper
     type(sweeper_container_t):: fluid_fluid_sweepers(1), fluid_left_wall_sweepers(1), fluid_right_wall_sweepers(1), &
                                 fluid_bot_wall_sweepers(1), fluid_top_wall_sweepers(1)
@@ -50,16 +51,16 @@ program main
         )
 
     ! register variables for time-update
-    call psys(1)%register_x%register(psys(1)%particles(1), "x", psys(1)%particles(1)%x, psys(1)%particles(1)%v)
-    call psys(1)%register_v%register(psys(1)%particles(1), "v", psys(1)%particles(1)%v, psys(1)%particles(1)%dvxdt)
-    call psys(1)%register_v%register(psys(1)%particles(1), "rho", psys(1)%particles(1)%rho, psys(1)%particles(1)%drhodt)
+    call psys(1)%register_x%register("x", psys(1)%particles%x, psys(1)%particles%v)
+    call psys(1)%register_v%register("v", psys(1)%particles%v, psys(1)%particles%dvxdt)
+    call psys(1)%register_v%register("rho", psys(1)%particles%rho, psys(1)%particles%drhodt)
 
     ! register variables for io
     select type (p => psys(1)%particles)
-    class is (eos_particle_t)
-        call psys(1)%register_io%register_variable(p(1), "p", p(1)%p)
+    class is (eos_particles_t)
+        call psys(1)%register_io%register_variable("p", p%p)
     class default
-        error stop "Expected eos_particle_t for psys(1)%p."
+        error stop "Expected eos_particles_t for psys(1)%p."
     end select
 
     nfx = nint(25._fp/dx)
@@ -68,14 +69,14 @@ program main
     do i = 0, nfx - 1
         do j = 0, nfy - 1
             k = j*nfx + i + 1
-            psys(1)%particles(k)%id = k
-            psys(1)%particles(k)%type = 1 ! not sure if type is needed anymore
-            psys(1)%particles(k)%x(1) = (i + 0.5_fp)*dx
-            psys(1)%particles(k)%x(2) = (j + 0.5_fp)*dx
-            psys(1)%particles(k)%rho = rho0
-            psys(1)%particles(k)%mass = rho0*dx*dx
-            psys(1)%particles(k)%c = 10._fp*sqrt(490.5_fp) ! 10*sqrt(2gH)
-            psys(1)%particles(k)%v(:) = 0._fp
+            psys(1)%particles%id(k) = k
+            psys(1)%particles%type(k) = 1 ! not sure if type is needed anymore
+            psys(1)%particles%x(1, k) = (i + 0.5_fp)*dx
+            psys(1)%particles%x(2, k) = (j + 0.5_fp)*dx
+            psys(1)%particles%rho(k) = rho0
+            psys(1)%particles%mass(k) = rho0*dx*dx
+            psys(1)%particles%c(k) = 10._fp*sqrt(490.5_fp) ! 10*sqrt(2gH)
+            psys(1)%particles%v(:, k) = 0._fp
         end do
     end do
 
@@ -106,17 +107,17 @@ program main
 
     ! register variables for io
     select type (p => psys(4)%particles)
-    class is (eos_ghost_particle_t)
-        call psys(4)%register_io%register_variable(p(1), "p", p(1)%p)
+    class is (eos_ghost_particles_t)
+        call psys(4)%register_io%register_variable("p", p%p)
     class default
-        error stop "Expected eos_ghost_particle_t for psys(4)%p."
+        error stop "Expected eos_ghost_particles_t for psys(4)%p."
     end select
 
     select type (p => psys(4)%particles)
-    class is (eos_ghost_particle_t)
-        call psys(5)%register_io%register_variable(p(1), "p", p(1)%p)
+    class is (eos_ghost_particles_t)
+        call psys(5)%register_io%register_variable("p", p%p)
     class default
-        error stop "Expected eos_ghost_particle_t for psys(4)%p."
+        error stop "Expected eos_ghost_particles_t for psys(4)%p."
     end select
 
     ! declare params used for fluid-fluid system interactions.
@@ -147,7 +148,7 @@ program main
         )
 
     ! interaction between fluid and bottom wall (morris boundary).
-    sweeper%initialize = .false. ! second sweeper doesn't need to zero acceleration arrays.
+    sweeper%initialise = .false. ! second sweeper doesn't need to zero acceleration arrays.
     boundary_sweeper%point(:) = [0._fp, 0._fp]
     boundary_sweeper%normal(:) = [0._fp, 1._fp] ! normal pointing upward.
     allocate (fluid_bot_wall_sweepers(1)%sweeper, source=boundary_sweeper)
@@ -265,8 +266,8 @@ contains
             do i = -nlayer, nbx + nlayer - 1
                 do j = 0, nlayer - 1
                     k = k + 1
-                    psys_boundary%particles(k)%x(1) = (i + 0.5_fp)*dx
-                    psys_boundary%particles(k)%x(2) = -(j + 0.5_fp)*dx
+                    psys_boundary%particles%x(1, k) = (i + 0.5_fp)*dx
+                    psys_boundary%particles%x(2, k) = -(j + 0.5_fp)*dx
                 end do
             end do
         else
@@ -275,14 +276,14 @@ contains
             do i = -nlayer, nbx + nlayer - 1
                 do j = 0, nlayer - 1
                     k = k + 1
-                    psys_boundary%particles(k)%x(1) = (i + 0.5_fp)*dx
-                    psys_boundary%particles(k)%x(2) = 40._fp + (j + 0.5_fp)*dx
+                    psys_boundary%particles%x(1, k) = (i + 0.5_fp)*dx
+                    psys_boundary%particles%x(2, k) = 40._fp + (j + 0.5_fp)*dx
                 end do
             end do
         end if
         do i = 1, k
-            psys_boundary%particles(i)%id = i
-            psys_boundary%particles(i)%type = -1
+            psys_boundary%particles%id(i) = i
+            psys_boundary%particles%type(i) = -1
         end do
 
         ! morris boundary particles don't have persistent properties, so besides position, other data isn't needed.

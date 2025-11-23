@@ -8,7 +8,7 @@ program main
 
     use grasph_constants_m, only: fp
     use grasph_particle_system_m, only: particle_system_t, state_updater_container_t
-    use weakly_compressible_particles_m, only: eos_particle_t, tait_eos_state_updater_t
+    use weakly_compressible_particles_m, only: eos_particles_t, tait_eos_state_updater_t
     use weakly_compressible_interactions_m, only: fluid_sweeper_t, fluid_boundary_sweeper_monaghan1994_t
     use grasph_system_interactions_m, only: system_interaction_t, sweeper_container_t, default_sweeper_t
     use grasph_time_integration_m, only: leap_frog_time_integration
@@ -25,7 +25,7 @@ program main
     type(fluid_sweeper_t):: self_sweeper
     type(fluid_boundary_sweeper_monaghan1994_t):: boundary_sweeper
     type(xsph_shifter_t):: shifter
-    type(eos_particle_t):: ps_template
+    type(eos_particles_t):: ps_template
     type(tait_eos_state_updater_t):: state_updater
     type(sweeper_container_t):: fluid_fluid_sweepers(1), fluid_boundary_sweepers(1)
     type(default_sweeper_t):: donothing_sweeper
@@ -43,16 +43,16 @@ program main
         )
 
     ! register variables for time-update
-    call psys(1)%register_x%register(psys(1)%particles(1), "x", psys(1)%particles(1)%x, psys(1)%particles(1)%v)
-    call psys(1)%register_v%register(psys(1)%particles(1), "v", psys(1)%particles(1)%v, psys(1)%particles(1)%dvxdt)
-    call psys(1)%register_v%register(psys(1)%particles(1), "rho", psys(1)%particles(1)%rho, psys(1)%particles(1)%drhodt)
+    call psys(1)%register_x%register("x", psys(1)%particles%x, psys(1)%particles%v)
+    call psys(1)%register_v%register("v", psys(1)%particles%v, psys(1)%particles%dvxdt)
+    call psys(1)%register_v%register("rho", psys(1)%particles%rho, psys(1)%particles%drhodt)
 
     ! register variables for io
     select type (p => psys(1)%particles)
-    class is (eos_particle_t)
-        call psys(1)%register_io%register_variable(p(1), "p", p(1)%p)
+    class is (eos_particles_t)
+        call psys(1)%register_io%register_variable("p", p%p)
     class default
-        error stop "Expected eos_particle_t for psys(1)%p."
+        error stop "Expected eos_particles_t for psys(1)%p."
     end select
 
     ! number of fluid particles in the x/y direction
@@ -62,14 +62,14 @@ program main
     do i = 0, nfx - 1
         do j = 0, nfy - 1
             k = j*nfx + i + 1
-            psys(1)%particles(k)%id = k
-            psys(1)%particles(k)%type = 1 ! not sure if type is needed anymore
-            psys(1)%particles(k)%x(1) = (i + 0.5_fp)*dx
-            psys(1)%particles(k)%x(2) = (j + 0.5_fp)*dx
-            psys(1)%particles(k)%c = 10._fp*sqrt(2._fp*abs(g)*25._fp) ! 10*sqrt(2gH) eqn 3.3
-            psys(1)%particles(k)%rho = rho0 ! in the paper eqn 5.1 is used to initialize density, but doesn't seem to improve results.
-            psys(1)%particles(k)%mass = rho0*dx*dx
-            psys(1)%particles(k)%v(:) = 0._fp
+            psys(1)%particles%id(k) = k
+            psys(1)%particles%type(k) = 1 ! not sure if type is needed anymore
+            psys(1)%particles%x(1, k) = (i + 0.5_fp)*dx
+            psys(1)%particles%x(2, k) = (j + 0.5_fp)*dx
+            psys(1)%particles%c(k) = 10._fp*sqrt(2._fp*abs(g)*25._fp) ! 10*sqrt(2gH) eqn 3.3
+            psys(1)%particles%rho(k) = rho0 ! in the paper eqn 5.1 is used to initialize density, but doesn't seem to improve results.
+            psys(1)%particles%mass(k) = rho0*dx*dx
+            psys(1)%particles%v(:, k) = 0._fp
         end do
     end do
 
@@ -172,34 +172,34 @@ contains
         ! bottom layer and corners
         do i = -1, nbx
             k = k + 1
-            psys_boundary%particles(k)%x(1) = (i + 0.5_fp)*dx
-            psys_boundary%particles(k)%x(2) = -0.5_fp*dx
+            psys_boundary%particles%x(1, k) = (i + 0.5_fp)*dx
+            psys_boundary%particles%x(2, k) = -0.5_fp*dx
         end do
         ! top layer and corners
         do i = -1, nbx
             k = k + 1
-            psys_boundary%particles(k)%x(1) = (i + 0.5_fp)*dx
-            psys_boundary%particles(k)%x(2) = exty + 0.5_fp*dx
+            psys_boundary%particles%x(1, k) = (i + 0.5_fp)*dx
+            psys_boundary%particles%x(2, k) = exty + 0.5_fp*dx
         end do
         ! left wall
         do j = 0, nby - 1
             k = k + 1
-            psys_boundary%particles(k)%x(1) = -0.5_fp*dx
-            psys_boundary%particles(k)%x(2) = (j + 0.5_fp)*dx
+            psys_boundary%particles%x(1, k) = -0.5_fp*dx
+            psys_boundary%particles%x(2, k) = (j + 0.5_fp)*dx
         end do
         ! right wall
         do j = 0, nby - 1
             k = k + 1
-            psys_boundary%particles(k)%x(1) = extx + 0.5_fp*dx
-            psys_boundary%particles(k)%x(2) = (j + 0.5_fp)*dx
+            psys_boundary%particles%x(1, k) = extx + 0.5_fp*dx
+            psys_boundary%particles%x(2, k) = (j + 0.5_fp)*dx
         end do
         do i = 1, k
-            psys_boundary%particles(i)%id = i
-            psys_boundary%particles(i)%type = -1
-            psys_boundary%particles(i)%rho = rho0
-            psys_boundary%particles(i)%mass = rho0*dx*dx
-            psys_boundary%particles(i)%v(:) = 0._fp
-            psys_boundary%particles(i)%c = 10._fp*sqrt(2._fp*abs(g)*25._fp) ! 10*max_speed
+            psys_boundary%particles%id(i) = i
+            psys_boundary%particles%type(i) = -1
+            psys_boundary%particles%rho(i) = rho0
+            psys_boundary%particles%mass(i) = rho0*dx*dx
+            psys_boundary%particles%v(:, i) = 0._fp
+            psys_boundary%particles%c(i) = 10._fp*sqrt(2._fp*abs(g)*25._fp) ! 10*max_speed
         end do
 
     end subroutine generate_boundary

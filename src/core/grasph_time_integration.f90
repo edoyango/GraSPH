@@ -61,7 +61,11 @@ contains
 
         do i = 1, nparticle_sets
             do j = 1, psystems(i)%register_v%nregistrations
-                allocate (vars0(j, i)%p(psystems(i)%register_v%dims(j), psystems(i)%size))
+                if (psystems(i)%register_v%dims(j) > 1) then
+                    allocate (vars0(j, i)%p(psystems(i)%register_v%dims(j), psystems(i)%size()))
+                else
+                    allocate (vars0(j, i)%p(psystems(i)%size(), 1))
+                end if
             end do
         end do
 
@@ -77,10 +81,10 @@ contains
             end do
 
             ! calculate timestep to use
-            maxc = psystems(1)%particles(1)%c
+            maxc = psystems(1)%particles%c(1)
             do i = 1, nparticle_sets
-                do j = 1, psystems(i)%size
-                    maxc = max(maxc, psystems(i)%particles(j)%c)
+                do j = 1, psystems(i)%size()
+                    maxc = max(maxc, psystems(i)%particles%c(j))
                 end do
             end do
             dt = CFL*kernel%h/maxc
@@ -88,10 +92,7 @@ contains
             ! save data at start of timestep for each particles
             do i = 1, nparticle_sets
                 do j = 1, psystems(i)%register_v%nregistrations
-                    do k = 1, psystems(i)%size
-                        call psystems(i)%register_v%get(psystems(i)%particles(k), j, var_ptr, deriv_ptr)
-                        vars0(j, i)%p(:, k) = var_ptr(:)
-                    end do
+                    vars0(j, i)%p(:, :) = psystems(i)%register_v%variables(j)%p(:, :)
                 end do
             end do
 
@@ -104,14 +105,10 @@ contains
             do i = 1, nparticle_sets
                 do j = 1, psystems(i)%register_v%nregistrations
                     if (present(damping_coef) .and. trim(psystems(i)%register_v%names(j)) == "v") then
-                        do k = 1, psystems(i)%size
-                            psystems(i)%particles(k)%v(:) = (1._fp - 0.5_fp*damping_coef*dt)*psystems(i)%particles(k)%v(:)
-                        end do
+                        psystems(i)%particles%v(:, :) = (1._fp - 0.5_fp*damping_coef*dt)*psystems(i)%particles%v(:, :)
                     end if
-                    do k = 1, psystems(i)%size
-                        call psystems(i)%register_v%get(psystems(i)%particles(k), j, var_ptr, deriv_ptr)
-                        var_ptr(:) = var_ptr(:) + 0.5_fp*dt*deriv_ptr(:)
-                    end do
+                    psystems(i)%register_v%variables(j)%p(:, :) = psystems(i)%register_v%variables(j)%p(:, :) + &
+                                                                  0.5_fp*dt*psystems(i)%register_v%derivatives(j)%p(:, :)
                 end do
             end do
 
@@ -128,21 +125,17 @@ contains
             ! update states to full-timestep
             do i = 1, nparticle_sets
                 do j = 1, psystems(i)%register_v%nregistrations
-                    do k = 1, psystems(i)%size
-                        call psystems(i)%register_v%get(psystems(i)%particles(k), j, var_ptr, deriv_ptr)
-                        var_ptr(:) = vars0(j, i)%p(:, k) + dt*deriv_ptr(:)
-                    end do
+
+                    psystems(i)%register_v%variables(j)%p(:, :) = vars0(j, i)%p(:, :) + &
+                                                                  dt*psystems(i)%register_v%derivatives(j)%p(:, :)
+
                     if (present(damping_coef) .and. trim(psystems(i)%register_v%names(j)) == "v") then
-                        do k = 1, psystems(i)%size
-                            psystems(i)%particles(k)%v(:) = (1._fp - damping_coef*dt)*psystems(i)%particles(k)%v(:)
-                        end do
+                        psystems(i)%particles%v(:, :) = (1._fp - damping_coef*dt)*psystems(i)%particles%v(:, :)
                     end if
                 end do
                 do j = 1, psystems(i)%register_x%nregistrations
-                    do k = 1, psystems(i)%size
-                        call psystems(i)%register_x%get(psystems(i)%particles(k), j, var_ptr, deriv_ptr)
-                        var_ptr(:) = var_ptr(:) + dt*deriv_ptr(:)
-                    end do
+                    psystems(i)%register_x%variables(j)%p(:, :) = psystems(i)%register_x%variables(j)%p(:, :) + &
+                                                                  dt*psystems(i)%register_x%derivatives(j)%p(:, :)
                 end do
             end do
 

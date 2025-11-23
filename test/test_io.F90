@@ -2,7 +2,7 @@ module test_io
 
     use grasph_constants_m, only: fp, ndims
     use grasph_particle_system_m, only: particle_system_t
-    use weakly_compressible_particles_m, only: eos_particle_t
+    use weakly_compressible_particles_m, only: eos_particles_t
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
     implicit none
@@ -33,37 +33,37 @@ contains
 
         do i = 1, 10
             do d = 1, ndims
-                psys%particles(i)%x(d) = (i - 1)*ndims + d
-                psys%particles(i)%v(d) = ndims*10 + (i - 1)*ndims + d
-                psys%particles(i)%dvxdt(d) = ndims*10*2 + 30 + (i - 1)*ndims + d
+                psys%particles%x(d, i) = (i - 1)*ndims + d
+                psys%particles%v(d, i) = ndims*10 + (i - 1)*ndims + d
+                psys%particles%dvxdt(d, i) = ndims*10*2 + 30 + (i - 1)*ndims + d
             end do
-            psys%particles(i)%rho = ndims*10*2 + i
-            psys%particles(i)%mass = ndims*10*2 + 10 + i
-            psys%particles(i)%c = ndims*10*2 + 20 + i
-            psys%particles(i)%drhodt = ndims*10*3 + 30 + i
-            psys%particles(i)%id = ndims*10*4 + 50 + i
-            psys%particles(i)%type = ndims*10*4 + 60 + i
+            psys%particles%rho(i) = ndims*10*2 + i
+            psys%particles%mass(i) = ndims*10*2 + 10 + i
+            psys%particles%c(i) = ndims*10*2 + 20 + i
+            psys%particles%drhodt(i) = ndims*10*3 + 30 + i
+            psys%particles%id(i) = ndims*10*4 + 50 + i
+            psys%particles%type(i) = ndims*10*4 + 60 + i
         end do
 
-        call psys%register_io%register_variable(psys%particles(1), "x", psys%particles(1)%x)
-        call psys%register_io%register_variable(psys%particles(1), "v", psys%particles(1)%v)
-        call psys%register_io%register_variable(psys%particles(1), "rho", psys%particles(1)%rho)
-        call psys%register_io%register_variable(psys%particles(1), "mass", psys%particles(1)%mass)
-        call psys%register_io%register_variable(psys%particles(1), "c", psys%particles(1)%c)
-        call psys%register_io%register_variable(psys%particles(1), "dvxdt", psys%particles(1)%dvxdt)
-        call psys%register_io%register_variable(psys%particles(1), "drhodt", psys%particles(1)%drhodt)
+        call psys%register_io%register_variable("x", psys%particles%x)
+        call psys%register_io%register_variable("v", psys%particles%v)
+        call psys%register_io%register_variable("rho", psys%particles%rho)
+        call psys%register_io%register_variable("mass", psys%particles%mass)
+        call psys%register_io%register_variable("c", psys%particles%c)
+        call psys%register_io%register_variable("dvxdt", psys%particles%dvxdt)
+        call psys%register_io%register_variable("drhodt", psys%particles%drhodt)
 
         call psys%dump(1, "/tmp")
 
         call psys2%init(10, name)
 
-        call psys2%register_io%register_variable(psys2%particles(1), "x", psys2%particles(1)%x)
-        call psys2%register_io%register_variable(psys2%particles(1), "v", psys2%particles(1)%v)
-        call psys2%register_io%register_variable(psys2%particles(1), "rho", psys2%particles(1)%rho)
-        call psys2%register_io%register_variable(psys2%particles(1), "mass", psys2%particles(1)%mass)
-        call psys2%register_io%register_variable(psys2%particles(1), "c", psys2%particles(1)%c)
-        call psys2%register_io%register_variable(psys2%particles(1), "dvxdt", psys2%particles(1)%dvxdt)
-        call psys2%register_io%register_variable(psys2%particles(1), "drhodt", psys2%particles(1)%drhodt)
+        call psys2%register_io%register_variable("x", psys2%particles%x)
+        call psys2%register_io%register_variable("v", psys2%particles%v)
+        call psys2%register_io%register_variable("rho", psys2%particles%rho)
+        call psys2%register_io%register_variable("mass", psys2%particles%mass)
+        call psys2%register_io%register_variable("c", psys2%particles%c)
+        call psys2%register_io%register_variable("dvxdt", psys2%particles%dvxdt)
+        call psys2%register_io%register_variable("drhodt", psys2%particles%drhodt)
 
         call psys2%read("/tmp/grasph_particles_0000000001.h5", name)
 
@@ -71,17 +71,17 @@ contains
             write (ic, "(I2)") i
             do d = 1, ndims
                 write (dc, "(I1)") d
-                call check(is_close(psys%particles(i)%x(d), psys2%particles(i)%x(d)), "Incorrect x for dim "//dc//", particle "//ic)
-                call check(is_close(psys%particles(i)%v(d), psys2%particles(i)%v(d)), "Incorrect v for dim "//dc//", particle "//ic)
-                call check(is_close(psys%particles(i)%dvxdt(d), psys2%particles(i)%dvxdt(d)), "Incorrect dvxdt for dim "//dc// &
+                call check(is_close(psys%particles%x(d, i), psys2%particles%x(d, i)), "Incorrect x for dim "//dc//", particle "//ic)
+                call check(is_close(psys%particles%v(d, i), psys2%particles%v(d, i)), "Incorrect v for dim "//dc//", particle "//ic)
+                call check(is_close(psys%particles%dvxdt(d, i), psys2%particles%dvxdt(d, i)), "Incorrect dvxdt for dim "//dc// &
                            ", particle "//ic)
             end do
-            call check(is_equal(psys%particles(i)%id, psys2%particles(i)%id), "Incorrect id for particle "//ic)
-            call check(is_equal(psys%particles(i)%type, psys2%particles(i)%type), "Incorrect type for particle "//ic)
-            call check(is_close(psys%particles(i)%rho, psys2%particles(i)%rho), "Incorrect rho for particle "//ic)
-            call check(is_close(psys%particles(i)%mass, psys2%particles(i)%mass), "Incorrect mass for particle "//ic)
-            call check(is_close(psys%particles(i)%c, psys2%particles(i)%c), "Incorrect c for particle "//ic)
-            call check(is_close(psys%particles(i)%drhodt, psys2%particles(i)%drhodt), "Incorrect drhodt for particle "//ic)
+            call check(is_equal(psys%particles%id(i), psys2%particles%id(i)), "Incorrect id for particle "//ic)
+            call check(is_equal(psys%particles%type(i), psys2%particles%type(i)), "Incorrect type for particle "//ic)
+            call check(is_close(psys%particles%rho(i), psys2%particles%rho(i)), "Incorrect rho for particle "//ic)
+            call check(is_close(psys%particles%mass(i), psys2%particles%mass(i)), "Incorrect mass for particle "//ic)
+            call check(is_close(psys%particles%c(i), psys2%particles%c(i)), "Incorrect c for particle "//ic)
+            call check(is_close(psys%particles%drhodt(i), psys2%particles%drhodt(i)), "Incorrect drhodt for particle "//ic)
         end do
 
     end subroutine test_base_dump
@@ -92,40 +92,40 @@ contains
         integer:: i, d
         character(2):: ic
         character:: dc
-        type(eos_particle_t), pointer:: ps_lhs(:), ps_rhs(:)
-        type(eos_particle_t):: ps_template
+        type(eos_particles_t), pointer:: ps_lhs, ps_rhs
+        type(eos_particles_t):: ps_template
         character(*), parameter:: name = "test_wcp_particles"
 
         call psys%init(n=10, name=name, particle_template=ps_template)
 
         select type (psf => psys%particles)
-        class is (eos_particle_t)
+        class is (eos_particles_t)
             ps_lhs => psf
-            call psys%register_io%register_variable(psf(1), "x", psf(1)%x)
-            call psys%register_io%register_variable(psf(1), "v", psf(1)%v)
-            call psys%register_io%register_variable(psf(1), "rho", psf(1)%rho)
-            call psys%register_io%register_variable(psf(1), "mass", psf(1)%mass)
-            call psys%register_io%register_variable(psf(1), "c", psf(1)%c)
-            call psys%register_io%register_variable(psf(1), "dvxdt", psf(1)%dvxdt)
-            call psys%register_io%register_variable(psf(1), "drhodt", psf(1)%drhodt)
-            call psys%register_io%register_variable(psf(1), "p", psf(1)%p)
+            call psys%register_io%register_variable("x", psf%x)
+            call psys%register_io%register_variable("v", psf%v)
+            call psys%register_io%register_variable("rho", psf%rho)
+            call psys%register_io%register_variable("mass", psf%mass)
+            call psys%register_io%register_variable("c", psf%c)
+            call psys%register_io%register_variable("dvxdt", psf%dvxdt)
+            call psys%register_io%register_variable("drhodt", psf%drhodt)
+            call psys%register_io%register_variable("p", psf%p)
         class default
-            error stop "Expected eos_particle_t for psys%particles."
+            error stop "Expected eos_particles_t for psys%particles."
         end select
 
         do i = 1, 10
             do d = 1, ndims
-                psys%particles(i)%x(d) = (i - 1)*ndims + d
-                psys%particles(i)%v(d) = ndims*10 + (i - 1)*ndims + d
-                psys%particles(i)%dvxdt(d) = ndims*10*2 + 30 + (i - 1)*ndims + d
+                psys%particles%x(d, i) = (i - 1)*ndims + d
+                psys%particles%v(d, i) = ndims*10 + (i - 1)*ndims + d
+                psys%particles%dvxdt(d, i) = ndims*10*2 + 30 + (i - 1)*ndims + d
             end do
-            psys%particles(i)%rho = ndims*10*2 + i
-            psys%particles(i)%mass = ndims*10*2 + 10 + i
-            psys%particles(i)%c = ndims*10*2 + 20 + i
-            psys%particles(i)%drhodt = ndims*10*3 + 30 + i
-            psys%particles(i)%id = ndims*10*4 + 50 + i
-            psys%particles(i)%type = ndims*10*4 + 60 + i
-            ps_lhs(i)%p = ndims*10*4 + 70 + i
+            psys%particles%rho(i) = ndims*10*2 + i
+            psys%particles%mass(i) = ndims*10*2 + 10 + i
+            psys%particles%c(i) = ndims*10*2 + 20 + i
+            psys%particles%drhodt(i) = ndims*10*3 + 30 + i
+            psys%particles%id(i) = ndims*10*4 + 50 + i
+            psys%particles%type(i) = ndims*10*4 + 60 + i
+            ps_lhs%p(i) = ndims*10*4 + 70 + i
         end do
 
         call psys%dump(1, "/tmp")
@@ -133,18 +133,18 @@ contains
         call psys2%init(n=10, name=name, particle_template=ps_template)
 
         select type (psf => psys2%particles)
-        class is (eos_particle_t)
+        class is (eos_particles_t)
             ps_rhs => psf
-            call psys2%register_io%register_variable(psf(1), "x", psf(1)%x)
-            call psys2%register_io%register_variable(psf(1), "v", psf(1)%v)
-            call psys2%register_io%register_variable(psf(1), "rho", psf(1)%rho)
-            call psys2%register_io%register_variable(psf(1), "mass", psf(1)%mass)
-            call psys2%register_io%register_variable(psf(1), "c", psf(1)%c)
-            call psys2%register_io%register_variable(psf(1), "dvxdt", psf(1)%dvxdt)
-            call psys2%register_io%register_variable(psf(1), "drhodt", psf(1)%drhodt)
-            call psys2%register_io%register_variable(psf(1), "p", psf(1)%p)
+            call psys2%register_io%register_variable("x", psf%x)
+            call psys2%register_io%register_variable("v", psf%v)
+            call psys2%register_io%register_variable("rho", psf%rho)
+            call psys2%register_io%register_variable("mass", psf%mass)
+            call psys2%register_io%register_variable("c", psf%c)
+            call psys2%register_io%register_variable("dvxdt", psf%dvxdt)
+            call psys2%register_io%register_variable("drhodt", psf%drhodt)
+            call psys2%register_io%register_variable("p", psf%p)
         class default
-            error stop "Expected eos_particle_t for psys2%particles."
+            error stop "Expected eos_particles_t for psys2%particles."
         end select
 
         call psys2%read("/tmp/grasph_particles_0000000001.h5", name)
@@ -153,18 +153,18 @@ contains
             write (ic, "(I2)") i
             do d = 1, ndims
                 write (dc, "(I1)") d
-                call check(is_close(psys%particles(i)%x(d), psys2%particles(i)%x(d)), "Incorrect x for dim "//dc//", particle "//ic)
-                call check(is_close(psys%particles(i)%v(d), psys2%particles(i)%v(d)), "Incorrect v for dim "//dc//", particle "//ic)
-                call check(is_close(psys%particles(i)%dvxdt(d), psys2%particles(i)%dvxdt(d)), "Incorrect dvxdt for dim "//dc// &
+                call check(is_close(psys%particles%x(d, i), psys2%particles%x(d, i)), "Incorrect x for dim "//dc//", particle "//ic)
+                call check(is_close(psys%particles%v(d, i), psys2%particles%v(d, i)), "Incorrect v for dim "//dc//", particle "//ic)
+                call check(is_close(psys%particles%dvxdt(d, i), psys2%particles%dvxdt(d, i)), "Incorrect dvxdt for dim "//dc// &
                            ", particle "//ic)
             end do
-            call check(is_equal(psys%particles(i)%id, psys2%particles(i)%id), "Incorrect id for particle "//ic)
-            call check(is_equal(psys%particles(i)%type, psys2%particles(i)%type), "Incorrect type for particle "//ic)
-            call check(is_close(psys%particles(i)%rho, psys2%particles(i)%rho), "Incorrect rho for particle "//ic)
-            call check(is_close(psys%particles(i)%mass, psys2%particles(i)%mass), "Incorrect mass for particle "//ic)
-            call check(is_close(psys%particles(i)%c, psys2%particles(i)%c), "Incorrect c for particle "//ic)
-            call check(is_close(psys%particles(i)%drhodt, psys2%particles(i)%drhodt), "Incorrect drhodt for particle "//ic)
-            call check(is_close(ps_lhs(i)%p, ps_rhs(i)%p), "Incorrect p for particle "//ic)
+            call check(is_equal(psys%particles%id(i), psys2%particles%id(i)), "Incorrect id for particle "//ic)
+            call check(is_equal(psys%particles%type(i), psys2%particles%type(i)), "Incorrect type for particle "//ic)
+            call check(is_close(psys%particles%rho(i), psys2%particles%rho(i)), "Incorrect rho for particle "//ic)
+            call check(is_close(psys%particles%mass(i), psys2%particles%mass(i)), "Incorrect mass for particle "//ic)
+            call check(is_close(psys%particles%c(i), psys2%particles%c(i)), "Incorrect c for particle "//ic)
+            call check(is_close(psys%particles%drhodt(i), psys2%particles%drhodt(i)), "Incorrect drhodt for particle "//ic)
+            call check(is_close(ps_lhs%p(i), ps_rhs%p(i)), "Incorrect p for particle "//ic)
         end do
 
     end subroutine test_wcp_dump

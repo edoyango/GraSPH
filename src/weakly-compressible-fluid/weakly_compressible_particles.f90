@@ -5,23 +5,30 @@
 module weakly_compressible_particles_m
 
     use grasph_constants_m, only: fp, ndims, pi
-    use grasph_particle_system_m, only: base_particle_t, particle_system_t, base_state_updater_t
+    use grasph_particle_m, only: base_particles_t, base_particles_init, base_particles_deallocate
+    use grasph_particle_system_m, only: particle_system_t, base_state_updater_t
 
     implicit none
 
     private
 
     !> @brief Weakly compressible particle type.
-    type, extends(base_particle_t):: eos_particle_t
+    type, extends(base_particles_t):: eos_particles_t
         !> @brief Pressure
-        real(fp):: p = 0._fp
-    end type eos_particle_t
+        real(fp), allocatable:: p(:)
+    contains
+        procedure:: init => eos_particles_init
+        procedure:: deallocate => eos_particles_deallocate
+    end type eos_particles_t
 
     !> @brief Weakly compressible ghost particle type.
-    type, extends(eos_particle_t):: eos_ghost_particle_t
-        !> @brief The pointer to the particle which this ghost particle is based on.
-        class(eos_particle_t), pointer:: original
-    end type eos_ghost_particle_t
+    type, extends(eos_particles_t):: eos_ghost_particles_t
+        class(eos_particles_t), pointer:: ps_original => null()
+        integer, allocatable:: idx_original(:)
+    contains
+        procedure:: init => eos_ghost_particles_init
+        procedure:: deallocate => eos_ghost_particles_deallocate
+    end type eos_ghost_particles_t
 
     !> @brief State updater for eos particles using linear state equation.
     type, extends(base_state_updater_t):: linear_eos_state_updater_t
@@ -58,18 +65,24 @@ module weakly_compressible_particles_m
     integer, parameter:: ntensor_elems_voigt = ndims + ntensor_offaxis_elems
 
     !> @brief Weakly compressible particle type with stress and strain rate tensors in voigt notation.
-    type, extends(eos_particle_t):: eos_viscous_stress_particle_t
+    type, extends(eos_particles_t):: eos_viscous_stress_particles_t
         !> @brief Strain rate tensor.
-        real(fp):: strain_rate(ntensor_elems_voigt) = 0._fp
+        real(fp), allocatable:: strain_rate(:, :)
         !> @brief Cauchy stress tensor.
-        real(fp):: stress(ntensor_elems_voigt) = 0._fp
-    end type eos_viscous_stress_particle_t
+        real(fp), allocatable:: stress(:, :)
+    contains
+        procedure:: init => eos_viscous_stress_particles_init
+        procedure:: deallocate => eos_viscous_stress_particles_deallocate
+    end type eos_viscous_stress_particles_t
 
     !> @brief Weakly compressible ghost particle type with stress and strain rate tensors in voigt notation.
-    type, extends(eos_viscous_stress_particle_t):: eos_viscous_stress_ghost_particle_t
-        !> @brief The pointer to the particle which this ghost particle is based on.
-        class(eos_viscous_stress_particle_t), pointer:: original
-    end type eos_viscous_stress_ghost_particle_t
+    type, extends(eos_viscous_stress_particles_t):: eos_viscous_stress_ghost_particles_t
+        class(eos_viscous_stress_particles_t), pointer:: ps_original
+        integer, allocatable:: idx_original(:)
+    contains
+        procedure:: init => eos_viscous_stress_ghost_particles_init
+        procedure:: deallocate => eos_viscous_stress_ghost_particles_deallocate
+    end type eos_viscous_stress_ghost_particles_t
 
     !> @brief Stress and pressure state updater using visco-plasticity with Drucker-Prager-like yield criterion, and linear equation
     !>        of state.
@@ -93,11 +106,69 @@ module weakly_compressible_particles_m
         procedure:: update_state => eos_viscous_stress_ghost_state_update
     end type eos_viscous_stress_ghost_state_updater_t
 
-    public:: eos_particle_t, eos_ghost_particle_t, linear_eos_state_updater_t, tait_eos_state_updater_t, ghost_state_updater_t, &
-             eos_viscous_stress_particle_t, dp_visco_elastic_state_updater_t, eos_viscous_stress_ghost_particle_t, &
+    public:: eos_particles_t, eos_ghost_particles_t, linear_eos_state_updater_t, tait_eos_state_updater_t, ghost_state_updater_t, &
+             eos_viscous_stress_particles_t, dp_visco_elastic_state_updater_t, eos_viscous_stress_ghost_particles_t, &
              eos_viscous_stress_ghost_state_updater_t, ntensor_elems_voigt
 
 contains
+
+    subroutine eos_particles_deallocate(self)
+        class(eos_particles_t), intent(inout):: self
+        call base_particles_deallocate(self)
+        if (allocated(self%p)) deallocate (self%p)
+    end subroutine eos_particles_deallocate
+
+    subroutine eos_particles_init(self, n)
+        class(eos_particles_t), intent(inout):: self
+        integer, intent(in):: n
+        call self%deallocate()
+        call base_particles_init(self, n)
+        allocate (self%p(n), source=0._fp)
+    end subroutine eos_particles_init
+
+    subroutine eos_ghost_particles_deallocate(self)
+        class(eos_ghost_particles_t), intent(inout):: self
+        call eos_particles_deallocate(self)
+        self%ps_original => null()
+        if (allocated(self%idx_original)) deallocate (self%idx_original)
+    end subroutine eos_ghost_particles_deallocate
+
+    subroutine eos_ghost_particles_init(self, n)
+        class(eos_ghost_particles_t), intent(inout):: self
+        integer, intent(in):: n
+        call self%deallocate()
+        call eos_particles_init(self, n)
+        allocate (self%idx_original(n), source=0)
+    end subroutine eos_ghost_particles_init
+
+    subroutine eos_viscous_stress_particles_deallocate(self)
+        class(eos_viscous_stress_particles_t), intent(inout):: self
+        call eos_particles_deallocate(self)
+        if (allocated(self%strain_rate)) deallocate (self%strain_rate)
+        if (allocated(self%stress)) deallocate (self%stress)
+    end subroutine eos_viscous_stress_particles_deallocate
+
+    subroutine eos_viscous_stress_particles_init(self, n)
+        class(eos_viscous_stress_particles_t), intent(inout):: self
+        integer, intent(in):: n
+        call eos_particles_init(self, n)
+        allocate (self%strain_rate(ntensor_elems_voigt, n), source=0._fp)
+        allocate (self%stress(ntensor_elems_voigt, n), source=0._fp)
+    end subroutine eos_viscous_stress_particles_init
+
+    subroutine eos_viscous_stress_ghost_particles_deallocate(self)
+        class(eos_viscous_stress_ghost_particles_t), intent(inout):: self
+        call eos_viscous_stress_particles_deallocate(self)
+        self%ps_original => null()
+        if (allocated(self%idx_original)) deallocate (self%idx_original)
+    end subroutine eos_viscous_stress_ghost_particles_deallocate
+
+    subroutine eos_viscous_stress_ghost_particles_init(self, n)
+        class(eos_viscous_stress_ghost_particles_t), intent(inout):: self
+        integer, intent(in):: n
+        call eos_viscous_stress_particles_init(self, n)
+        allocate (self%idx_original(n), source=0)
+    end subroutine eos_viscous_stress_ghost_particles_init
 
     !> @brief The linear state equation to update stress using the particles' speed of sound (c),
     !>        density (rho), and reference density (rho_ref). Overrides particle system's state_update
@@ -106,19 +177,18 @@ contains
     !> @param ps The particles who's pressure are to be updated.
     !> @param n The number of particles who's pressure needs updating.
     !> @param dt The input time-increment (unused - included to match the overriden method).
-    subroutine linear_eos_update_state(self, ps, n, dt)
+    subroutine linear_eos_update_state(self, ps, dt)
         class(linear_eos_state_updater_t), intent(in):: self
-        integer, intent(in):: n
-        class(base_particle_t), intent(inout):: ps(n)
+        class(base_particles_t), intent(inout):: ps
         real(fp), intent(in), optional:: dt
         integer:: i
         select type (ps_eos => ps)
-        class is (eos_particle_t)
-            do i = 1, n
-                ps_eos(i)%p = ps_eos(i)%c**2*(ps_eos(i)%rho - self%rho_ref)
+        class is (eos_particles_t)
+            do i = 1, ps%size
+                ps_eos%p(i) = ps_eos%c(i)**2*(ps_eos%rho(i) - self%rho_ref)
             end do
         class default
-            error stop "eos_particle_t required"
+            error stop "eos_particles_t required"
         end select
     end subroutine linear_eos_update_state
 
@@ -129,20 +199,19 @@ contains
     !> @param ps The particle system with particles who's pressure is to be updated.
     !> @param n The number of particles who's state needs updating.
     !> @param dt The input time-increment (unused - included to match the overriden method).
-    subroutine tait_eos_update_state(self, ps, n, dt)
+    subroutine tait_eos_update_state(self, ps, dt)
         class(tait_eos_state_updater_t), intent(in):: self
-        integer, intent(in):: n
-        class(base_particle_t), intent(inout):: ps(n)
+        class(base_particles_t), intent(inout):: ps
         real(fp), intent(in), optional:: dt
         integer:: i
         select type (ps_eos => ps)
-        class is (eos_particle_t)
-            do i = 1, n
-                ps_eos(i)%p = self%rho_ref*ps_eos(i)%c*ps_eos(i)%c/real(self%gamma, kind=fp)* &
-                              ((ps_eos(i)%rho/self%rho_ref)**self%gamma - 1._fp)
+        class is (eos_particles_t)
+            do i = 1, ps%size
+                ps_eos%p(i) = self%rho_ref*ps_eos%c(i)**2/real(self%gamma, kind=fp)* &
+                              ((ps_eos%rho(i)/self%rho_ref)**self%gamma - 1._fp)
             end do
         class default
-            error stop "eos_particle_t required"
+            error stop "eos_particles_t required"
         end select
     end subroutine tait_eos_update_state
 
@@ -151,26 +220,27 @@ contains
     !> @param ps The particle system with ghost particles who's state is to be updated.
     !> @param n Number of particles in ps.
     !> @param dt The input time-increment (unused - included to match the overriden method).
-    subroutine ghost_state_update(self, ps, n, dt)
+    subroutine ghost_state_update(self, ps, dt)
         class(ghost_state_updater_t), intent(in):: self
-        integer, intent(in):: n
-        class(base_particle_t), intent(inout):: ps(n)
+        class(base_particles_t), intent(inout):: ps
         real(fp), optional, intent(in):: dt
-        integer:: i
-        real(fp):: projection(ndims)
+        integer:: i, i_original
+        real(fp):: projection(ndims), v_original(ndims)
 
         select type (ps_ghost => ps)
-        class is (eos_ghost_particle_t)
-            do i = 1, n
-                projection(:) = dot_product(ps_ghost(i)%original%v(:), self%surface_normal(:))*self%surface_normal(:)
-                ps_ghost(i)%v(:) = ps_ghost(i)%original%v(:) - 2._fp*projection(:)
-                ps_ghost(i)%rho = ps_ghost(i)%original%rho
-                ps_ghost(i)%mass = ps_ghost(i)%original%mass
-                ps_ghost(i)%p = ps_ghost(i)%original%p
-                ps_ghost(i)%c = ps_ghost(i)%original%c
+        class is (eos_ghost_particles_t)
+            do i = 1, ps%size
+                i_original = ps_ghost%idx_original(i)
+                v_original(:) = ps_ghost%ps_original%v(:, i_original)
+                projection(:) = dot_product(v_original, self%surface_normal(:))*self%surface_normal(:)
+                ps_ghost%v(:, i) = v_original(:) - 2._fp*projection(:)
+                ps_ghost%rho(i) = ps_ghost%ps_original%rho(i_original)
+                ps_ghost%mass(i) = ps_ghost%ps_original%mass(i_original)
+                ps_ghost%c(i) = ps_ghost%ps_original%c(i_original)
+                ps_ghost%p(i) = ps_ghost%ps_original%p(i_original)
             end do
         class default
-            error stop "Expected self%particles to be eos_ghost_particle_t."
+            error stop "Expected self%particles to be eos_ghost_particles_t."
         end select
 
     end subroutine ghost_state_update
@@ -181,40 +251,39 @@ contains
     !> @param ps The particle system with particles who's stress is to be updated.
     !> @param n Number of particles in ps.
     !> @param dt The input time-increment (unused - included to match the overriden method).
-    subroutine dp_visco_elastic_state_update(self, ps, n, dt)
+    subroutine dp_visco_elastic_state_update(self, ps, dt)
         class(dp_visco_elastic_state_updater_t), intent(in):: self
-        integer, intent(in):: n
-        class(base_particle_t), intent(inout):: ps(n)
+        class(base_particles_t), intent(inout):: ps
         real(fp), intent(in), optional:: dt
         integer:: i, d
         real(fp):: mag_strain_rate
-        class(eos_viscous_stress_particle_t), pointer:: ps_ve(:)
+        class(eos_viscous_stress_particles_t), pointer:: ps_ve
 
         select type (ps => ps)
-        class is (eos_viscous_stress_particle_t)
+        class is (eos_viscous_stress_particles_t)
             ps_ve => ps
         class default
-            error stop "ps is required to be eos_viscous_stress_particle_t"
+            error stop "ps is required to be eos_viscous_stress_particles_t"
         end select
 
         ! first calculate pressure component of stress tensor
-        call linear_eos_update_state(self, ps_ve, n, dt)
+        call linear_eos_update_state(self, ps_ve, dt)
 
-        do i = 1, n
+        do i = 1, ps%size
             ! calculate second invariant of deformation rate tensor.
             mag_strain_rate = 0._fp
             do d = 1, ndims
-                mag_strain_rate = mag_strain_rate + ps_ve(i)%strain_rate(d)**2
+                mag_strain_rate = mag_strain_rate + ps_ve%strain_rate(d, i)**2
             end do
             do d = 1, ntensor_offaxis_elems
-                mag_strain_rate = mag_strain_rate + 2._fp*ps_ve(i)%strain_rate(ndims + d)**2
+                mag_strain_rate = mag_strain_rate + 2._fp*ps_ve%strain_rate(ndims + d, i)**2
             end do
             mag_strain_rate = max(sqrt(mag_strain_rate), tiny(1._fp)) ! tiny(1) to make sure non-zero
 
             ! viscous stress with yield criterion
-            ps_ve(i)%stress(:) = (self%cohesion + tan(self%friction_angle)*ps_ve(i)%p)/mag_strain_rate*ps_ve(i)%strain_rate(:)
+            ps_ve%stress(:, i) = (self%cohesion + tan(self%friction_angle)*ps_ve%p(i))/mag_strain_rate*ps_ve%strain_rate(:, i)
             ! minus pressure along principal components.
-            ps_ve(i)%stress(1:ndims) = ps_ve(i)%stress(1:ndims) - ps_ve(i)%p
+            ps_ve%stress(1:ndims, i) = ps_ve%stress(1:ndims, i) - ps_ve%p(i)
         end do
 
     end subroutine dp_visco_elastic_state_update
@@ -224,27 +293,28 @@ contains
     !> @param ps The particle system with ghost particles who's state is to be updated.
     !> @param n Number of particles in ps.
     !> @param dt The input time-increment (unused - included to match the overriden method).
-    subroutine eos_viscous_stress_ghost_state_update(self, ps, n, dt)
+    subroutine eos_viscous_stress_ghost_state_update(self, ps, dt)
         class(eos_viscous_stress_ghost_state_updater_t), intent(in):: self
-        integer, intent(in):: n
-        class(base_particle_t), intent(inout):: ps(n)
+        class(base_particles_t), intent(inout):: ps
         real(fp), optional, intent(in):: dt
-        integer:: i
-        real(fp):: projection(ndims)
+        integer:: i, i_original
+        real(fp):: projection(ndims), v_original(ndims)
 
         select type (ps_ghost => ps)
-        class is (eos_viscous_stress_ghost_particle_t)
-            do i = 1, n
-                projection(:) = dot_product(ps_ghost(i)%original%v(:), self%surface_normal(:))*self%surface_normal(:)
-                ps_ghost(i)%v(:) = ps_ghost(i)%original%v(:) - 2._fp*projection(:)
-                ps_ghost(i)%rho = ps_ghost(i)%original%rho
-                ps_ghost(i)%mass = ps_ghost(i)%original%mass
-                ps_ghost(i)%p = ps_ghost(i)%original%p
-                ps_ghost(i)%c = ps_ghost(i)%original%c
-                ps_ghost(i)%stress(:) = ps_ghost(i)%original%stress(:)
+        class is (eos_viscous_stress_ghost_particles_t)
+            do i = 1, ps%size
+                i_original = ps_ghost%idx_original(i)
+                v_original = ps_ghost%ps_original%v(:, i_original)
+                projection(:) = dot_product(v_original(:), self%surface_normal(:))*self%surface_normal(:)
+                ps_ghost%v(:, i) = v_original(:) - 2._fp*projection(:)
+                ps_ghost%rho(i) = ps_ghost%ps_original%rho(i_original)
+                ps_ghost%mass(i) = ps_ghost%ps_original%mass(i_original)
+                ps_ghost%p(i) = ps_ghost%ps_original%p(i_original)
+                ps_ghost%c(i) = ps_ghost%ps_original%c(i_original)
+                ps_ghost%stress(:, i) = ps_ghost%ps_original%stress(:, i_original)
             end do
         class default
-            error stop "Expected self%particles to be eos_viscous_stress_ghost_particle_t."
+            error stop "Expected self%particles to be eos_viscous_stress_ghost_particles_t."
         end select
 
     end subroutine eos_viscous_stress_ghost_state_update

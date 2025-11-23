@@ -9,7 +9,7 @@ program main
 
     use grasph_constants_m, only: fp, pi
     use grasph_particle_system_m, only: particle_system_t, state_updater_container_t
-    use weakly_compressible_particles_m, only: tait_eos_state_updater_t, eos_particle_t
+    use weakly_compressible_particles_m, only: tait_eos_state_updater_t, eos_particles_t
     use weakly_compressible_interactions_m, only: fluid_sweeper_t
     use grasph_system_interactions_m, only: system_interaction_t, sweeper_container_t, default_sweeper_t
     use grasph_time_integration_m, only: leap_frog_time_integration
@@ -28,7 +28,7 @@ program main
     type(fluid_sweeper_t):: sweeper
     type(xsph_shifter_t):: shifter
     type(tait_eos_state_updater_t):: state_updater
-    type(eos_particle_t):: ps_template
+    type(eos_particles_t):: ps_template
     type(sweeper_container_t):: sweepers(1)
     type(default_sweeper_t):: donothing_sweeper
     type(state_updater_container_t):: state_updaters(1)
@@ -40,16 +40,16 @@ program main
     ! register variables for time-update
     allocate (state_updaters(1)%updater, source=state_updater)
     call psys(1)%init(n=1976, name="fluid", state_updaters=state_updaters, particle_template=ps_template)
-    call psys(1)%register_x%register(psys(1)%particles(1), "x", psys(1)%particles(1)%x, psys(1)%particles(1)%v)
-    call psys(1)%register_v%register(psys(1)%particles(1), "v", psys(1)%particles(1)%v, psys(1)%particles(1)%dvxdt)
-    call psys(1)%register_v%register(psys(1)%particles(1), "rho", psys(1)%particles(1)%rho, psys(1)%particles(1)%drhodt)
+    call psys(1)%register_x%register("x", psys(1)%particles%x, psys(1)%particles%v)
+    call psys(1)%register_v%register("v", psys(1)%particles%v, psys(1)%particles%dvxdt)
+    call psys(1)%register_v%register("rho", psys(1)%particles%rho, psys(1)%particles%drhodt)
 
     ! register variables for io
     select type (p => psys(1)%particles)
-    class is (eos_particle_t)
-        call psys(1)%register_io%register_variable(p(1), "p", p(1)%p)
+    class is (eos_particles_t)
+        call psys(1)%register_io%register_variable("p", p%p)
     class default
-        error stop "Expected eos_particle_t for psys(1)%p."
+        error stop "Expected eos_particles_t for psys(1)%p."
     end select
 
     ! initialize geometry
@@ -61,15 +61,15 @@ program main
             y = -1._fp + (j + 0.5_fp)*dx
             if (x*x + y*y < 1._fp) then
                 k = k + 1
-                psys(1)%particles(k)%id = k
-                psys(1)%particles(k)%type = 1
-                psys(1)%particles(k)%x(1) = x
-                psys(1)%particles(k)%x(2) = y
-                psys(1)%particles(k)%c = 1400._fp
-                psys(1)%particles(k)%rho = rho0
-                psys(1)%particles(k)%mass = pi*rho0/1976
-                psys(1)%particles(k)%v(1) = -100._fp*x
-                psys(1)%particles(k)%v(2) = 100._fp*y
+                psys(1)%particles%id(k) = k
+                psys(1)%particles%type(k) = 1
+                psys(1)%particles%x(1, k) = x
+                psys(1)%particles%x(2, k) = y
+                psys(1)%particles%c(k) = 1400._fp
+                psys(1)%particles%rho(k) = rho0
+                psys(1)%particles%mass(k) = pi*rho0/1976
+                psys(1)%particles%v(1, k) = -100._fp*x
+                psys(1)%particles%v(2, k) = 100._fp*y
             end if
         end do
     end do

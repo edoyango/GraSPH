@@ -6,7 +6,7 @@ module grasph_particle_system_m
 
     use iso_fortran_env, only: error_unit
     use grasph_constants_m, only: fp, ndims
-    use grasph_particle_m, only: base_particle_t
+    use grasph_particle_m, only: base_particles_t
     use grasph_common_m, only: array_pointer_container_t
     use grasph_register_m, only: variable_register_t, variable_deriv_register_t
 
@@ -29,15 +29,13 @@ module grasph_particle_system_m
     !> @brief Manages a group of particles that behave similarly.
     type:: particle_system_t
         !> @brief The particles that comprise the system.
-        class(base_particle_t), allocatable:: particles(:)
+        class(base_particles_t), allocatable:: particles
         !> @brief Whether the system have been initialized.
-        logical:: initialized = .false.
+        logical, private:: initialised_ = .false.
         !> @brief Whether to print information when generate_summary is called.
         logical:: to_print_summary = .true.
         !> @brief Number of spatial dimensions
         integer:: ndims = ndims
-        !> @brief Number of particles.
-        integer:: size = 0
         !> @brief Name used in naming groups in output hdf5 file
         character(100):: name
         !> @brief Allocatable "strategy" class that performs particles' first state update.
@@ -67,12 +65,23 @@ module grasph_particle_system_m
         procedure:: generate_summary => base_generate_summary
         !> @brief Function that returns the next allocated index in self%particles. If there isn't enough space, self%particles
         !>        is resized.
-        procedure:: safe_size_plus_1
+        ! procedure:: safe_size_plus_1
+        procedure:: size => psystem_size
+        procedure:: initialised
     end type particle_system_t
 
-    public:: base_particle_t, particle_system_t, base_state_updater_t, state_updater_container_t
+    public:: base_particles_t, particle_system_t, base_state_updater_t, state_updater_container_t
 
 contains
+
+    pure integer function psystem_size(self)
+        class(particle_system_t), intent(in):: self
+        if (allocated(self%particles)) then
+            psystem_size = self%particles%size
+        else
+            psystem_size = 0
+        end if
+    end function psystem_size
 
     !> @brief Initializes particle_system_t' internal arrays.
     !> @param self The particle system to initialize.
@@ -85,33 +94,34 @@ contains
         class(particle_system_t), intent(inout):: self
         integer, intent(in):: n
         character(*), intent(in):: name
-        class(base_particle_t), optional, intent(in):: particle_template
+        class(base_particles_t), optional, intent(in):: particle_template
         class(state_updater_container_t), optional, intent(in):: state_updaters(:)
 
-        if (self%initialized) call self%clear()
+        if (self%initialised_) call self%clear()
         if (present(particle_template)) then
-            allocate (self%particles(n), source=particle_template)
+            allocate (self%particles, source=particle_template)
         else
-            allocate (self%particles(n))
+            allocate (self%particles)
         end if
+
+        call self%particles%init(n)
 
         if (present(state_updaters)) then
             allocate (self%state_updaters, source=state_updaters)
         end if
 
-        self%initialized = .true.
-        self%size = n
         self%ndims = ndims
         self%name = name
+        self%initialised_ = .true.
 
         ! add default IO registrations
-        call self%register_io%register_variable(self%particles(1), "x", self%particles(1)%x)
-        call self%register_io%register_variable(self%particles(1), "v", self%particles(1)%v)
-        call self%register_io%register_variable(self%particles(1), "rho", self%particles(1)%rho)
-        call self%register_io%register_variable(self%particles(1), "mass", self%particles(1)%mass)
-        call self%register_io%register_variable(self%particles(1), "c", self%particles(1)%c)
-        call self%register_io%register_variable(self%particles(1), "dvxdt", self%particles(1)%dvxdt)
-        call self%register_io%register_variable(self%particles(1), "drhodt", self%particles(1)%drhodt)
+        call self%register_io%register_variable("x", self%particles%x)
+        call self%register_io%register_variable("v", self%particles%v)
+        call self%register_io%register_variable("rho", self%particles%rho)
+        call self%register_io%register_variable("mass", self%particles%mass)
+        call self%register_io%register_variable("c", self%particles%c)
+        call self%register_io%register_variable("dvxdt", self%particles%dvxdt)
+        call self%register_io%register_variable("drhodt", self%particles%drhodt)
 
     end subroutine base_init
 
@@ -127,7 +137,7 @@ contains
         real(fp), optional, intent(in):: dt
         integer:: ii
 
-        call self%state_updaters(i)%updater%update_state(self%particles, self%size, dt)
+        call self%state_updaters(i)%updater%update_state(self%particles, dt)
 
     end subroutine do_state_update
 
@@ -136,34 +146,33 @@ contains
     !> @param ps Particles whose state is to be updated.
     !> @param n Number of particles in ps.
     !> @param dt A time-increment which may be used to update particles' state.
-    subroutine base_update_state(self, ps, n, dt)
+    subroutine base_update_state(self, ps, dt)
         class(base_state_updater_t), intent(in):: self
-        integer, intent(in):: n
-        class(base_particle_t), intent(inout):: ps(n)
+        class(base_particles_t), intent(inout):: ps
         real(fp), intent(in), optional:: dt
         ! do nothing e.g. when using static repulsive boundaries that have no state
     end subroutine base_update_state
 
-    !> @brief Method that adds 1 to self%size and returns the result, but ensures that self%particles at the resultant index is
-    !>        allocated. However, the particle at the index is in an undefined state and should be updated manually.
-    !> @param self THe particle_system_t to add one to the size of.
-    integer function safe_size_plus_1(self)
-        class(particle_system_t), intent(inout):: self
-        class(base_particle_t), allocatable:: tmp_particle(:)
+    ! !> @brief Method that adds 1 to self%size and returns the result, but ensures that self%particles at the resultant index is
+    ! !>        allocated. However, the particle at the index is in an undefined state and should be updated manually.
+    ! !> @param self THe particle_system_t to add one to the size of.
+    ! integer function safe_size_plus_1(self)
+    !     class(particle_system_t), intent(inout):: self
+    !     class(base_particle_t), allocatable:: tmp_particle(:)
 
-        if (.not. (allocated(self%particles)) .or. size(self%particles) == 0) &
-            error stop "Cannot add to unallocated or zero-sized particles."
+    !     if (.not. (allocated(self%particles)) .or. size(self%particles) == 0) &
+    !         error stop "Cannot add to unallocated or zero-sized particles."
 
-        if (self%size == size(self%particles)) then
-            ! allocate tmp_particle to ensure it's same type and size as self%particles
-            allocate (tmp_particle, mold=self%particles)
-            self%particles = [self%particles, tmp_particle] ! this doubles the space in self%particles
-        end if
+    !     if (self%size == size(self%particles)) then
+    !         ! allocate tmp_particle to ensure it's same type and size as self%particles
+    !         allocate (tmp_particle, mold=self%particles)
+    !         self%particles = [self%particles, tmp_particle] ! this doubles the space in self%particles
+    !     end if
 
-        self%size = self%size + 1
-        safe_size_plus_1 = self%size
+    !     self%size = self%size + 1
+    !     safe_size_plus_1 = self%size
 
-    end function safe_size_plus_1
+    ! end function safe_size_plus_1
 
     !> @brief Writes a system's particle data to HDF5 file.
     !> @param self The particle system to write.
@@ -179,12 +188,9 @@ contains
         character(*), intent(in), optional:: prefix_in
         integer, intent(in), optional:: comp_level
         character(200):: filename_prefix, file_path, this_group
-        integer:: i, v
+        integer:: i, v, n
         type(hdf5_file):: h5f
         character(10):: ic
-        integer, allocatable:: tmp_int(:)
-        real(fp), allocatable:: tmp_real(:, :)
-        real(fp), pointer:: ptr(:)
 
         if (present(prefix_in)) then
             filename_prefix = prefix_in
@@ -196,34 +202,23 @@ contains
         file_path = path//"/"//trim(filename_prefix)//"_"//ic//".h5"
         this_group = "/"//trim(self%name)//"/"
 
+        n = self%size()
         call h5f%open(file_path, action="a", comp_lvl=comp_level)
-        call h5f%write("/"//trim(self%name)//"/n", self%size)
-        call h5f%write("/"//trim(self%name)//"/ndims", self%ndims)
-        allocate (tmp_int(self%size))
-        do i = 1, self%size
-            tmp_int(i) = self%particles(i)%id
-        end do
-        call h5f%write(trim(this_group)//"id", tmp_int)
-        do i = 1, self%size
-            tmp_int(i) = self%particles(i)%type
-        end do
-        call h5f%write(trim(this_group)//"type", tmp_int)
+        call h5f%write(trim(this_group)//"n", n)
+        call h5f%write(trim(this_group)//"ndims", self%ndims)
+        call h5f%write(trim(this_group)//"id", self%particles%id(1:self%size()))
+        call h5f%write(trim(this_group)//"type", self%particles%type(1:self%size()))
         do v = 1, self%register_io%nregistrations
-            if (allocated(tmp_real)) deallocate (tmp_real)
             if (self%register_io%dims(v) == 1) then
-                allocate (tmp_real(self%size, 1))
-                do i = 1, self%size
-                    call self%register_io%get_variable(self%particles(i), v, ptr)
-                    tmp_real(i, 1) = ptr(1)
-                end do
-                call h5f%write(trim(this_group)//trim(self%register_io%names(v)), tmp_real(:, 1))
+                call h5f%write( &
+                    trim(this_group)//trim(self%register_io%names(v)), &
+                    self%register_io%variables(v)%p(:, 1) &
+                    )
             else
-                allocate (tmp_real(self%register_io%dims(v), self%size))
-                do i = 1, self%size
-                    call self%register_io%get_variable(self%particles(i), v, ptr)
-                    tmp_real(:, i) = ptr(:)
-                end do
-                call h5f%write(trim(this_group)//trim(self%register_io%names(v)), tmp_real)
+                call h5f%write( &
+                    trim(this_group)//trim(self%register_io%names(v)), &
+                    self%register_io%variables(v)%p &
+                    )
             end if
         end do
         call h5f%close()
@@ -242,10 +237,7 @@ contains
         character(250):: arr_path
         integer:: d, n, i, v, nrank
         type(hdf5_file):: h5f
-        integer, allocatable:: tmp_int(:)
         integer(hsize_t), allocatable:: dims(:)
-        real(fp), allocatable:: tmp_real(:, :)
-        real(fp), pointer:: ptr(:)
         character(2):: nc_dim_arr, nc_dim_h5
 
         this_group = "/"//trim(name)//"/"
@@ -254,19 +246,12 @@ contains
         call h5f%read("/"//trim(name)//"/n", n)
         call h5f%read("/"//trim(name)//"/ndims", d)
         if (d /= ndims) error stop "Input HDF5 file dimensions don't match code dimensions."
-        allocate (tmp_int(n))
-        call h5f%read(trim(this_group)//"id", tmp_int)
-        do i = 1, n
-            self%particles(i)%id = tmp_int(i)
-        end do
-        call h5f%read(trim(this_group)//"type", tmp_int)
-        do i = 1, n
-            self%particles(i)%type = tmp_int(i)
-        end do
-        deallocate (tmp_int)
+        call h5f%read(trim(this_group)//"id", self%particles%id)
+        call h5f%read(trim(this_group)//"type", self%particles%type)
 
         ! iterate over registered variables
         do v = 1, self%register_io%nregistrations
+
             ! name of array in hdf5 file
             arr_path = trim(this_group)//trim(self%register_io%names(v))
 
@@ -278,12 +263,7 @@ contains
             if (nrank == 1) then
                 if (self%register_io%dims(v) /= 1) &
                     error stop "Expected rank 1 array for "//trim(arr_path)//"in input HDF5 file, "//file_path//"."
-                allocate (tmp_real(n, 1))
-                call h5f%read(arr_path, tmp_real(:, 1))
-                do i = 1, n
-                    call self%register_io%get_variable(self%particles(i), v, ptr)
-                    ptr(1) = tmp_real(i, 1)
-                end do
+                call h5f%read(arr_path, self%register_io%variables(v)%p(:, 1))
             elseif (nrank == 2) then
                 if (self%register_io%dims(v) /= dims(1)) then
                     write (nc_dim_arr, "(I2)") self%register_io%dims(v)
@@ -291,16 +271,10 @@ contains
                     error stop "Expected dim 1 of "//trim(arr_path)//"in input HDF5 file to be "//trim(nc_dim_arr)// &
                         ", but found "//trim(nc_dim_h5)//"."
                 end if
-                allocate (tmp_real(self%register_io%dims(v), n))
-                call h5f%read(arr_path, tmp_real)
-                do i = 1, n
-                    call self%register_io%get_variable(self%particles(i), v, ptr)
-                    ptr(:) = tmp_real(:, i)
-                end do
+                call h5f%read(arr_path, self%register_io%variables(v)%p)
             else
                 error stop "HDF5 array must be either rank 1 or 2."
             end if
-            deallocate (tmp_real)
         end do
         call h5f%close()
 
@@ -323,10 +297,10 @@ contains
         offset = 0
 
         ! save max accel
-        maxv = sum(self%particles(1)%dvxdt(:)**2)
+        maxv = sum(self%particles%dvxdt(:, 1)**2)
         maxi = 1
-        do i = 2, self%size
-            v = sum(self%particles(i)%dvxdt(:)**2)
+        do i = 2, self%size()
+            v = sum(self%particles%dvxdt(:, i)**2)
             if (v > maxv) then
                 maxv = v
                 maxi = i
@@ -337,10 +311,10 @@ contains
         write (out_str(offset:offset), "(A1)") new_line("a")
 
         ! save max vel
-        maxv = sum(self%particles(1)%v(:)**2)
+        maxv = sum(self%particles%v(:, 1)**2)
         maxi = 1
-        do i = 2, self%size
-            v = sum(self%particles(i)%v(:)**2)
+        do i = 2, self%size()
+            v = sum(self%particles%v(:, i)**2)
             if (v > maxv) then
                 maxv = v
                 maxi = i
@@ -351,17 +325,17 @@ contains
         write (out_str(offset:offset), "(A1)") new_line("a")
 
         ! save min/max rho
-        maxv = self%particles(1)%rho
-        minv = self%particles(1)%rho
+        maxv = self%particles%rho(1)
+        minv = self%particles%rho(1)
         maxi = 1
         mini = 1
-        do i = 2, self%size
-            if (self%particles(i)%rho > maxv) then
-                maxv = self%particles(i)%rho
+        do i = 2, self%size()
+            if (self%particles%rho(i) > maxv) then
+                maxv = self%particles%rho(i)
                 maxi = i
             end if
-            if (self%particles(i)%rho < minv) then
-                minv = self%particles(i)%rho
+            if (self%particles%rho(i) < minv) then
+                minv = self%particles%rho(i)
                 mini = i
             end if
         end do
@@ -374,18 +348,23 @@ contains
         offset = offset + line_length
         write (out_str(offset:offset), "(A1)") new_line("a")
 
-        maxv = abs(self%particles(1)%drhodt)
+        maxv = abs(self%particles%drhodt(1))
         maxi = 1
-        do i = 2, self%size
-            v = abs(self%particles(i)%drhodt)
+        do i = 2, self%size()
+            v = abs(self%particles%drhodt(i))
             if (v > maxv) then
                 maxv = v
                 maxi = i
             end if
         end do
-        write (out_str(offset + 1:offset + line_length), format_str) "max(|drhodt|) of ", self%particles(maxi)%drhodt, &
+        write (out_str(offset + 1:offset + line_length), format_str) "max(|drhodt|) of ", self%particles%drhodt(maxi), &
             " at particle ", maxi
 
     end subroutine base_generate_summary
+
+    pure logical function initialised(self)
+        class(particle_system_t), intent(in):: self
+        initialised = self%initialised_
+    end function initialised
 
 end module grasph_particle_system_m

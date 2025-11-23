@@ -5,6 +5,7 @@
 module grasph_system_interactions_m
 
     use grasph_constants_m, only: fp, max_name_len
+    use grasph_particle_m, only: base_particles_t
     use grasph_particle_system_m, only: particle_system_t
     use grasph_pairs_m, only: particle_pairs_t, cell_list_search
     use grasph_kernels_m, only: base_kernel_t
@@ -20,7 +21,7 @@ module grasph_system_interactions_m
         !> @brief Controls whether to update the RHS particles (if they're associated).
         logical:: update_rhs = .true.
         !> @brief Controls whether the sweep initializes particles' rate-of-change data.
-        logical:: initialize = .true.
+        logical:: initialise = .true.
     contains
         !> @brief Procedure for when only psys_lhs is associated. Default produces runtime error.
         procedure:: sweep_1system => notimplemented_sweep_1system
@@ -105,12 +106,23 @@ contains
         ! pass in psys_rhs if associated
         if (associated(self%psys_rhs)) then
             if (self%timestep_setuper%update_rhs) then
-                call self%timestep_setuper%sweep_2system(self%pairs, self%psys_lhs, self%psys_rhs)
+                call self%timestep_setuper%sweep_2system( &
+                    self%pairs, &
+                    self%psys_lhs%particles, &
+                    self%psys_rhs%particles &
+                    )
             else
-                call self%timestep_setuper%sweep_2system_norhsupdate(self%pairs, self%psys_lhs, self%psys_rhs)
+                call self%timestep_setuper%sweep_2system_norhsupdate( &
+                    self%pairs, &
+                    self%psys_lhs%particles, &
+                    self%psys_rhs%particles &
+                    )
             end if
         else
-            call self%timestep_setuper%sweep_1system(self%pairs, self%psys_lhs)
+            call self%timestep_setuper%sweep_1system( &
+                self%pairs, &
+                self%psys_lhs%particles &
+                )
         end if
 
     end subroutine do_timestep_setup
@@ -133,12 +145,23 @@ contains
         ! pass in psys_rhs if associated
         if (associated(self%psys_rhs)) then
             if (self%sweepers(i)%sweeper%update_rhs) then
-                call self%sweepers(i)%sweeper%sweep_2system(self%pairs, self%psys_lhs, self%psys_rhs)
+                call self%sweepers(i)%sweeper%sweep_2system( &
+                    self%pairs, &
+                    self%psys_lhs%particles, &
+                    self%psys_rhs%particles &
+                    )
             else
-                call self%sweepers(i)%sweeper%sweep_2system_norhsupdate(self%pairs, self%psys_lhs, self%psys_rhs)
+                call self%sweepers(i)%sweeper%sweep_2system_norhsupdate( &
+                    self%pairs, &
+                    self%psys_lhs%particles, &
+                    self%psys_rhs%particles &
+                    )
             end if
         else
-            call self%sweepers(i)%sweeper%sweep_1system(self%pairs, self%psys_lhs)
+            call self%sweepers(i)%sweeper%sweep_1system( &
+                self%pairs, &
+                self%psys_lhs%particles &
+                )
         end if
 
     end subroutine do_sweep
@@ -156,12 +179,26 @@ contains
         ! pass in psys_rhs if associated
         if (associated(self%psys_rhs)) then
             if (self%shifter%update_rhs) then
-                call self%shifter%sweep_2system(self%pairs, self%psys_lhs, self%psys_rhs, dt)
+                call self%shifter%sweep_2system( &
+                    self%pairs, &
+                    self%psys_lhs%particles, &
+                    self%psys_rhs%particles, &
+                    dt &
+                    )
             else
-                call self%shifter%sweep_2system_norhsupdate(self%pairs, self%psys_lhs, self%psys_rhs, dt)
+                call self%shifter%sweep_2system_norhsupdate( &
+                    self%pairs, &
+                    self%psys_lhs%particles, &
+                    self%psys_rhs%particles, &
+                    dt &
+                    )
             end if
         else
-            call self%shifter%sweep_1system(self%pairs, self%psys_lhs, dt=dt)
+            call self%shifter%sweep_1system( &
+                self%pairs, &
+                self%psys_lhs%particles, &
+                dt=dt &
+                )
         end if
 
     end subroutine do_shift
@@ -171,10 +208,10 @@ contains
     !> @param pairs The class storing particle pair index information.
     !> @param psys the particles involved in the interactions.
     !> @param dt The time-step size.
-    subroutine donothing_sweep_1system(self, pairs, psys, dt)
+    subroutine donothing_sweep_1system(self, pairs, ps, dt)
         class(default_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys
+        class(base_particles_t), intent(inout):: ps
         real(fp), optional, intent(in):: dt
     end subroutine donothing_sweep_1system
 
@@ -186,10 +223,10 @@ contains
     !> @param psys_rhs The RHS particles involved in the interactions. psys_rhs will not be passed in if not associated in the
     !>        owning system_interaction_t class.
     !> @param dt The time-step size.
-    subroutine donothing_sweep_2system(self, pairs, psys_lhs, psys_rhs, dt)
+    subroutine donothing_sweep_2system(self, pairs, ps_lhs, ps_rhs, dt)
         class(default_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        class(base_particles_t), intent(inout):: ps_lhs, ps_rhs
         real(fp), optional, intent(in):: dt
     end subroutine donothing_sweep_2system
 
@@ -205,15 +242,18 @@ contains
 
         if (self%is_pair_set) then
             call cell_list_search( &
-                self%psys_lhs%particles(1:self%psys_lhs%size), &
-                self%psys_rhs%particles(1:self%psys_rhs%size), &
+                self%psys_lhs%size(), &
+                self%psys_lhs%particles%x(:, 1:self%psys_lhs%size()), &
+                self%psys_rhs%size(), &
+                self%psys_rhs%particles%x(:, 1:self%psys_rhs%size()), &
                 cutoff, &
                 kernel, &
                 self%pairs &
                 )
         else
             call cell_list_search( &
-                self%psys_lhs%particles(1:self%psys_lhs%size), &
+                self%psys_lhs%size(), &
+                self%psys_lhs%particles%x(:, 1:self%psys_lhs%size()), &
                 cutoff, &
                 kernel, &
                 self%pairs &
@@ -244,7 +284,7 @@ contains
             self%is_pair_set = .true.
         end if
 
-        call self%pairs%init(psys_lhs%size, npairs_per_particle)
+        call self%pairs%init(psys_lhs%size(), npairs_per_particle)
 
         if (present(timestep_setuper)) then
             allocate (self%timestep_setuper, source=timestep_setuper)
@@ -265,11 +305,11 @@ contains
         default_sweeper_name = "default_sweeper_t"
     end function default_sweeper_name
 
-    subroutine notimplemented_sweep_1system(self, pairs, psys, dt)
+    subroutine notimplemented_sweep_1system(self, pairs, ps, dt)
 
         class(base_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys
+        class(base_particles_t), intent(inout):: ps
         real(fp), optional, intent(in):: dt
         character(1000):: msg
 
@@ -278,11 +318,11 @@ contains
 
     end subroutine notimplemented_sweep_1system
 
-    subroutine notimplemented_sweep_2system(self, pairs, psys_lhs, psys_rhs, dt)
+    subroutine notimplemented_sweep_2system(self, pairs, ps_lhs, ps_rhs, dt)
 
         class(base_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        class(base_particles_t), intent(inout):: ps_lhs, ps_rhs
         real(fp), optional, intent(in):: dt
         character(1000):: msg
 
@@ -293,11 +333,11 @@ contains
 
     end subroutine notimplemented_sweep_2system
 
-    subroutine notimplemented_sweep_2system_norhsupdate(self, pairs, psys_lhs, psys_rhs, dt)
+    subroutine notimplemented_sweep_2system_norhsupdate(self, pairs, ps_lhs, ps_rhs, dt)
 
         class(base_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        class(base_particles_t), intent(inout):: ps_lhs, ps_rhs
         real(fp), optional, intent(in):: dt
         character(1000):: msg
 
