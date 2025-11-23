@@ -4,7 +4,7 @@
 !> @date 2025-10-02
 module grasph_particle_m
 
-    use grasph_constants_m, only: fp, ndims
+    use grasph_constants_m, only: fp, ndims, ntensor_elems_voigt
 
     implicit none
 
@@ -30,6 +30,14 @@ module grasph_particle_m
         real(fp):: dvxdt(ndims) = 0._fp
         !> @brief The density rate-of-change of the particle.
         real(fp):: drhodt = 0._fp
+        !> @brief Pressure
+        real(fp):: p = 0._fp
+        !> @brief Strain rate tensor.
+        real(fp):: strain_rate(ntensor_elems_voigt) = 0._fp
+        !> @brief Cauchy stress tensor.
+        real(fp):: stress(ntensor_elems_voigt) = 0._fp
+        !> @brief The pointer to the particle which this ghost particle is based on.
+        class(base_particle_t), pointer:: original
     end type base_particle_t
 
     public:: base_particle_t

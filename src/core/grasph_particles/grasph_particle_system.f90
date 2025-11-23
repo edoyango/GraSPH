@@ -29,7 +29,7 @@ module grasph_particle_system_m
     !> @brief Manages a group of particles that behave similarly.
     type:: particle_system_t
         !> @brief The particles that comprise the system.
-        class(base_particle_t), allocatable:: particles(:)
+        type(base_particle_t), allocatable:: particles(:)
         !> @brief Whether the system have been initialized.
         logical:: initialized = .false.
         !> @brief Whether to print information when generate_summary is called.
@@ -85,7 +85,7 @@ contains
         class(particle_system_t), intent(inout):: self
         integer, intent(in):: n
         character(*), intent(in):: name
-        class(base_particle_t), optional, intent(in):: particle_template
+        type(base_particle_t), optional, intent(in):: particle_template
         class(state_updater_container_t), optional, intent(in):: state_updaters(:)
 
         if (self%initialized) call self%clear()
@@ -112,6 +112,9 @@ contains
         call self%register_io%register_variable(self%particles(1), "c", self%particles(1)%c)
         call self%register_io%register_variable(self%particles(1), "dvxdt", self%particles(1)%dvxdt)
         call self%register_io%register_variable(self%particles(1), "drhodt", self%particles(1)%drhodt)
+        call self%register_io%register_variable(self%particles(1), "p", self%particles(1)%p)
+        call self%register_io%register_variable(self%particles(1), "strain_rate", self%particles(1)%strain_rate)
+        call self%register_io%register_variable(self%particles(1), "stress", self%particles(1)%stress)
 
     end subroutine base_init
 
@@ -139,7 +142,7 @@ contains
     subroutine base_update_state(self, ps, n, dt)
         class(base_state_updater_t), intent(in):: self
         integer, intent(in):: n
-        class(base_particle_t), intent(inout):: ps(n)
+        type(base_particle_t), intent(inout):: ps(n)
         real(fp), intent(in), optional:: dt
         ! do nothing e.g. when using static repulsive boundaries that have no state
     end subroutine base_update_state
@@ -149,14 +152,14 @@ contains
     !> @param self THe particle_system_t to add one to the size of.
     integer function safe_size_plus_1(self)
         class(particle_system_t), intent(inout):: self
-        class(base_particle_t), allocatable:: tmp_particle(:)
+        type(base_particle_t), allocatable:: tmp_particle(:)
 
         if (.not. (allocated(self%particles)) .or. size(self%particles) == 0) &
             error stop "Cannot add to unallocated or zero-sized particles."
 
         if (self%size == size(self%particles)) then
             ! allocate tmp_particle to ensure it's same type and size as self%particles
-            allocate (tmp_particle, mold=self%particles)
+            allocate (tmp_particle, source=self%particles)
             self%particles = [self%particles, tmp_particle] ! this doubles the space in self%particles
         end if
 

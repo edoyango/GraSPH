@@ -9,7 +9,7 @@ program main
 
     use grasph_constants_m, only: fp, pi
     use grasph_particle_system_m, only: particle_system_t, state_updater_container_t
-    use weakly_compressible_particles_m, only: tait_eos_state_updater_t, eos_particle_t
+    use weakly_compressible_particles_m, only: tait_eos_state_updater_t
     use weakly_compressible_interactions_m, only: fluid_sweeper_t
     use grasph_system_interactions_m, only: system_interaction_t, sweeper_container_t, default_sweeper_t
     use grasph_time_integration_m, only: leap_frog_time_integration
@@ -28,7 +28,6 @@ program main
     type(fluid_sweeper_t):: sweeper
     type(xsph_shifter_t):: shifter
     type(tait_eos_state_updater_t):: state_updater
-    type(eos_particle_t):: ps_template
     type(sweeper_container_t):: sweepers(1)
     type(default_sweeper_t):: donothing_sweeper
     type(state_updater_container_t):: state_updaters(1)
@@ -39,18 +38,10 @@ program main
 
     ! register variables for time-update
     allocate (state_updaters(1)%updater, source=state_updater)
-    call psys(1)%init(n=1976, name="fluid", state_updaters=state_updaters, particle_template=ps_template)
+    call psys(1)%init(n=1976, name="fluid", state_updaters=state_updaters)
     call psys(1)%register_x%register(psys(1)%particles(1), "x", psys(1)%particles(1)%x, psys(1)%particles(1)%v)
     call psys(1)%register_v%register(psys(1)%particles(1), "v", psys(1)%particles(1)%v, psys(1)%particles(1)%dvxdt)
     call psys(1)%register_v%register(psys(1)%particles(1), "rho", psys(1)%particles(1)%rho, psys(1)%particles(1)%drhodt)
-
-    ! register variables for io
-    select type (p => psys(1)%particles)
-    class is (eos_particle_t)
-        call psys(1)%register_io%register_variable(p(1), "p", p(1)%p)
-    class default
-        error stop "Expected eos_particle_t for psys(1)%p."
-    end select
 
     ! initialize geometry
     ! generate particles in a grid and save only the ones within the 1 radius circle
@@ -70,6 +61,7 @@ program main
                 psys(1)%particles(k)%mass = pi*rho0/1976
                 psys(1)%particles(k)%v(1) = -100._fp*x
                 psys(1)%particles(k)%v(2) = 100._fp*y
+                psys(1)%particles(k)%p = 0._fp
             end if
         end do
     end do

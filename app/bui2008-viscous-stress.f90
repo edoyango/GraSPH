@@ -2,8 +2,7 @@ program main
 
     use grasph_constants_m, only: fp, pi
     use grasph_particle_system_m, only: particle_system_t, state_updater_container_t
-    use weakly_compressible_particles_m, only: eos_viscous_stress_particle_t, eos_viscous_stress_ghost_particle_t, &
-                                               eos_viscous_stress_ghost_state_updater_t, dp_visco_elastic_state_updater_t
+    use weakly_compressible_particles_m, only: eos_viscous_stress_ghost_state_updater_t, dp_visco_elastic_state_updater_t
     use weakly_compressible_interactions_m, only: viscous_stress_fluid_sweeper_t, eos_viscous_stress_ghost_timestep_setuper_t, &
                                                   eos_viscous_stress_morris_boundary_sweeper_t, strain_rate_sweeper_t, &
                                                   strain_rate_morris_boundary_sweeper_t
@@ -22,10 +21,8 @@ program main
     type(viscous_stress_fluid_sweeper_t):: sweeper
     type(eos_viscous_stress_morris_boundary_sweeper_t):: boundary_sweeper
     type(dp_visco_elastic_state_updater_t):: state_updater
-    type(eos_viscous_stress_particle_t):: ps_template
     type(eos_viscous_stress_ghost_state_updater_t):: ghost_state_updater
     type(eos_viscous_stress_ghost_timestep_setuper_t):: ghost_timestep_setuper
-    type(eos_viscous_stress_ghost_particle_t):: ghost_ps_template
     type(strain_rate_sweeper_t):: strain_rate_sweeper
     type(strain_rate_morris_boundary_sweeper_t):: strain_rate_boundary_sweeper
     type(sweeper_container_t):: soil_soil_sweepers(2), soil_ghost_sweepers(2), soil_virtual_sweepers(2)
@@ -40,21 +37,12 @@ program main
     state_updater%friction_angle = 19.8_fp*pi/180._fp
     allocate (soil_state_updaters(1)%updater)
     allocate (soil_state_updaters(2)%updater, source=state_updater)
-    call psys(1)%init(n=5000, name="soil", state_updaters=soil_state_updaters, particle_template=ps_template)
+    call psys(1)%init(n=5000, name="soil", state_updaters=soil_state_updaters)
 
     ! register variables for time-update
     call psys(1)%register_x%register(psys(1)%particles(1), "x", psys(1)%particles(1)%x, psys(1)%particles(1)%v)
     call psys(1)%register_v%register(psys(1)%particles(1), "v", psys(1)%particles(1)%v, psys(1)%particles(1)%dvxdt)
     call psys(1)%register_v%register(psys(1)%particles(1), "rho", psys(1)%particles(1)%rho, psys(1)%particles(1)%drhodt)
-
-    ! register variables for io
-    select type (p => psys(1)%particles)
-    class is (eos_viscous_stress_particle_t)
-        call psys(1)%register_io%register_variable(p(1), "p", p(1)%p)
-        call psys(1)%register_io%register_variable(p(1), "stress", p(1)%stress)
-    class default
-        error stop "Expected eos_viscous_stress_particle_t for psys(1)%p."
-    end select
 
     nfx = nint(soil_maxx/dx)
     nfy = nint(soil_maxy/dx)
@@ -81,7 +69,7 @@ program main
 
     nvirt = nlayer*nbx + nlayer*nlayer
     ! bottom layer and corners
-    call psys(2)%init(nvirt, name="bottom_boundary", particle_template=ps_template)
+    call psys(2)%init(nvirt, name="bottom_boundary")
     ! deregister most variables from IO for boundary
     call psys(2)%register_io%deregister("v")
     call psys(2)%register_io%deregister("rho")
@@ -110,18 +98,9 @@ program main
     call psys(3)%init( &
         n=5000, &
         name="ghost_boundary_left", &
-        particle_template=ghost_ps_template, &
         state_updaters=ghost_state_updaters &
         )
 
-    ! register variables for io
-    select type (p => psys(3)%particles)
-    class is (eos_viscous_stress_ghost_particle_t)
-        call psys(3)%register_io%register_variable(p(1), "p", p(1)%p)
-        call psys(3)%register_io%register_variable(p(1), "stress", p(1)%stress)
-    class default
-        error stop "Expected eos_ghost_particle_t for psys(4)%p."
-    end select
     ! deregister rate-of-change arrays from IO
     call psys(3)%register_io%deregister("dvxdt")
     call psys(3)%register_io%deregister("drhodt")

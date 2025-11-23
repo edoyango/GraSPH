@@ -174,7 +174,7 @@ contains
     subroutine donothing_sweep_1system(self, pairs, psys, dt)
         class(default_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys
+        type(particle_system_t), target, intent(inout):: psys
         real(fp), optional, intent(in):: dt
     end subroutine donothing_sweep_1system
 
@@ -189,7 +189,7 @@ contains
     subroutine donothing_sweep_2system(self, pairs, psys_lhs, psys_rhs, dt)
         class(default_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        type(particle_system_t), target, intent(inout):: psys_lhs, psys_rhs
         real(fp), optional, intent(in):: dt
     end subroutine donothing_sweep_2system
 
@@ -269,7 +269,7 @@ contains
 
         class(base_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys
+        type(particle_system_t), target, intent(inout):: psys
         real(fp), optional, intent(in):: dt
         character(1000):: msg
 
@@ -282,7 +282,7 @@ contains
 
         class(base_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        type(particle_system_t), target, intent(inout):: psys_lhs, psys_rhs
         real(fp), optional, intent(in):: dt
         character(1000):: msg
 
@@ -297,7 +297,7 @@ contains
 
         class(base_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        type(particle_system_t), target, intent(inout):: psys_lhs, psys_rhs
         real(fp), optional, intent(in):: dt
         character(1000):: msg
 

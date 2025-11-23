@@ -5,9 +5,7 @@
 module weakly_compressible_interactions_m
 
     use grasph_constants_m, only: fp, ndims, max_name_len
-    use grasph_particle_system_m, only: particle_system_t
-    use weakly_compressible_particles_m, only: eos_particle_t, eos_ghost_particle_t, eos_viscous_stress_particle_t, &
-                                               eos_viscous_stress_ghost_particle_t
+    use grasph_particle_system_m, only: particle_system_t, base_particle_t
     use grasph_system_interactions_m, only: base_sweeper_t
     use grasph_pairs_m, only: particle_pairs_t
     use grasph_pair_interactions_m, only: artificial_viscosity_monaghan1994, continuity_density, isotropic_pressure_force, &
@@ -147,18 +145,12 @@ contains
     subroutine fluid_sweep_1system(self, pairs, psys, dt)
         class(fluid_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys
+        type(particle_system_t), target, intent(inout):: psys
         real(fp), optional, intent(in):: dt
-        class(eos_particle_t), pointer:: fluid(:)
+        type(base_particle_t), pointer:: fluid(:)
         integer:: i, j, k
 
-        ! point to lhs particlse for access to pressure member
-        select type (ps => psys%particles)
-        class is (eos_particle_t)
-            fluid => ps
-        class default
-            error stop "Invalid type for psys"
-        end select
+        fluid => psys%particles
 
         ! intialize LHS acceleration and density rate-of-change arrays
         if (self%initialize) then
@@ -199,26 +191,13 @@ contains
     subroutine fluid_sweep_2system(self, pairs, psys_lhs, psys_rhs, dt)
         class(fluid_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        type(particle_system_t), target, intent(inout):: psys_lhs, psys_rhs
         real(fp), optional, intent(in):: dt
-        class(eos_particle_t), pointer:: fluid_lhs(:), fluid_rhs(:)
+        type(base_particle_t), pointer:: fluid_lhs(:), fluid_rhs(:)
         integer:: i, j, k
 
-        ! point to lhs particlse for access to pressure member
-        select type (ps => psys_lhs%particles)
-        class is (eos_particle_t)
-            fluid_lhs => ps
-        class default
-            error stop "Invalid type for psys_lhs"
-        end select
-
-        ! point to rhs particlse for access to pressure member
-        select type (ps => psys_rhs%particles)
-        class is (eos_particle_t)
-            fluid_rhs => ps
-        class default
-            error stop "Invalid type for psys_rhs"
-        end select
+        fluid_lhs => psys_lhs%particles
+        fluid_rhs => psys_rhs%particles
 
         ! intialize L/RHS acceleration and density rate-of-change arrays
         if (self%initialize) then
@@ -265,19 +244,14 @@ contains
     subroutine fluid_sweep_2system_norhsupdate(self, pairs, psys_lhs, psys_rhs, dt)
         class(fluid_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        type(particle_system_t), target, intent(inout):: psys_lhs, psys_rhs
         real(fp), optional, intent(in):: dt
-        class(eos_particle_t), pointer:: fluid_lhs(:), fluid_rhs(:)
+        type(base_particle_t), pointer:: fluid_lhs(:), fluid_rhs(:)
         integer:: i, j, k
         real(fp):: dummy_drhodt, dummy_dvxdt(ndims) ! dummy variables for when update_rhs is .false.
 
-        ! point to lhs particlse for access to pressure member
-        select type (ps => psys_lhs%particles)
-        class is (eos_particle_t)
-            fluid_lhs => ps
-        class default
-            error stop "Invalid type for psys_lhs"
-        end select
+        fluid_lhs => psys_lhs%particles
+        fluid_rhs => psys_rhs%particles
 
         ! intialize LHS acceleration and density rate-of-change arrays
         if (self%initialize) then
@@ -287,14 +261,6 @@ contains
                 fluid_lhs(i)%drhodt = 0._fp
             end do
         end if
-
-        ! point to rhs particlse for access to pressure member
-        select type (ps => psys_rhs%particles)
-        class is (eos_particle_t)
-            fluid_rhs => ps
-        class default
-            error stop "Invalid type for psys_rhs"
-        end select
 
         ! perform sweep
         do k = 1, pairs%npairs_total
@@ -327,7 +293,7 @@ contains
     subroutine fluid_boundary_sweep_monaghan1994_2system(self, pairs, psys_lhs, psys_rhs, dt)
         class(fluid_boundary_sweeper_monaghan1994_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        type(particle_system_t), target, intent(inout):: psys_lhs, psys_rhs
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
         real(fp):: dummy_dvxdt(2)
@@ -362,7 +328,7 @@ contains
     subroutine boundary_update_sweep_2system(self, pairs, psys_lhs, psys_rhs, dt)
         class(boundary_update_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        type(particle_system_t), target, intent(inout):: psys_lhs, psys_rhs
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
         real(fp):: mw, vw
@@ -404,26 +370,13 @@ contains
     subroutine ghost_timestep_setup_sweep_2system(self, pairs, psys_lhs, psys_rhs, dt)
         class(ghost_timestep_setuper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        type(particle_system_t), target, intent(inout):: psys_lhs, psys_rhs
         real(fp), optional, intent(in):: dt
         integer:: i
-        class(eos_particle_t), pointer:: ps_real(:)
-        class(eos_ghost_particle_t), pointer:: ps_ghost(:)
+        type(base_particle_t), pointer:: ps_real(:), ps_ghost(:)
         real(fp):: dx(ndims), dr
-
-        select type (ps => psys_lhs%particles)
-        class is (eos_particle_t)
-            ps_real => ps
-        class default
-            error stop "Expected psys_lhs to be eos_particle_t."
-        end select
-
-        select type (ps => psys_rhs%particles)
-        class is (eos_ghost_particle_t)
-            ps_ghost => ps
-        class default
-            error stop "Expected psys_rhs to be eos_ghost_particle_t."
-        end select
+        ps_real => psys_lhs%particles
+        ps_ghost => psys_rhs%particles
 
         psys_rhs%size = 0
 
@@ -452,18 +405,13 @@ contains
     subroutine morris_boundary_sweep_2system(self, pairs, psys_lhs, psys_rhs, dt)
         class(morris_boundary_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        type(particle_system_t), target, intent(inout):: psys_lhs, psys_rhs
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
-        class(eos_particle_t), pointer:: ps_fluid(:)
+        type(base_particle_t), pointer:: ps_fluid(:)
         real(fp):: dummy_drhodt, dummy_dvxdt(ndims), vb(ndims), da, db
 
-        select type (ps => psys_lhs%particles)
-        class is (eos_particle_t)
-            ps_fluid => ps
-        class default
-            error stop "Expected psys_lhs%particles to be eos_particle_t."
-        end select
+        ps_fluid => psys_lhs%particles
 
         ! perform sweep
         do k = 1, pairs%npairs_total
@@ -500,17 +448,12 @@ contains
 
         class(strain_rate_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys
+        type(particle_system_t), target, intent(inout):: psys
         real(fp), optional, intent(in):: dt
-        class(eos_viscous_stress_particle_t), pointer:: ps(:)
+        type(base_particle_t), pointer:: ps(:)
         integer:: i, j, k
 
-        select type (ps_sr => psys%particles)
-        class is (eos_viscous_stress_particle_t)
-            ps => ps_sr
-        class default
-            error stop "Expected psys%particles class to be eos_viscous_stress_particle_t."
-        end select
+        ps => psys%particles
 
         if (self%initialize) then
             do i = 1, psys%size
@@ -541,25 +484,14 @@ contains
 
         class(strain_rate_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        type(particle_system_t), target, intent(inout):: psys_lhs, psys_rhs
         real(fp), optional, intent(in):: dt
-        class(eos_viscous_stress_particle_t), pointer:: ps_lhs(:), ps_rhs(:)
+        type(base_particle_t), pointer:: ps_lhs(:), ps_rhs(:)
         real(fp):: dummy_strain_rate(ntensor_elems_voigt)
         integer:: i, j, k
 
-        select type (ps => psys_lhs%particles)
-        class is (eos_viscous_stress_particle_t)
-            ps_lhs => ps
-        class default
-            error stop "Expected psys_lhs%particles class to be eos_viscous_stress_particle_t."
-        end select
-
-        select type (ps => psys_rhs%particles)
-        class is (eos_viscous_stress_particle_t)
-            ps_rhs => ps
-        class default
-            error stop "Expected psys_rhs%particles class to be eos_viscous_stress_particle_t."
-        end select
+        ps_lhs => psys_lhs%particles
+        ps_rhs => psys_rhs%particles
 
         if (self%initialize) then
             do i = 1, psys_lhs%size
@@ -593,31 +525,20 @@ contains
 
         class(strain_rate_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        type(particle_system_t), target, intent(inout):: psys_lhs, psys_rhs
         real(fp), optional, intent(in):: dt
-        class(eos_viscous_stress_particle_t), pointer:: ps_lhs(:), ps_rhs(:)
+        type(base_particle_t), pointer:: ps_lhs(:), ps_rhs(:)
         real(fp):: dummy_strain_rate(ntensor_elems_voigt)
         integer:: i, j, k
 
-        select type (ps => psys_lhs%particles)
-        class is (eos_viscous_stress_particle_t)
-            ps_lhs => ps
-        class default
-            error stop "Expected psys_lhs%particles class to be eos_viscous_stress_particle_t."
-        end select
+        ps_lhs => psys_lhs%particles
+        ps_rhs => psys_rhs%particles
 
         if (self%initialize) then
             do i = 1, psys_lhs%size
                 ps_lhs(i)%strain_rate(:) = 0._fp
             end do
         end if
-
-        select type (ps => psys_rhs%particles)
-        class is (eos_viscous_stress_particle_t)
-            ps_rhs => ps
-        class default
-            error stop "Expected psys_rhs%particles class to be eos_viscous_stress_particle_t."
-        end select
 
         do k = 1, pairs%npairs_total
             i = pairs%pair_ij(1, k)
@@ -640,26 +561,14 @@ contains
     subroutine eos_viscous_stress_ghost_timestep_setup_sweep_2system(self, pairs, psys_lhs, psys_rhs, dt)
         class(eos_viscous_stress_ghost_timestep_setuper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        type(particle_system_t), target, intent(inout):: psys_lhs, psys_rhs
         real(fp), optional, intent(in):: dt
         integer:: i
-        class(eos_viscous_stress_particle_t), pointer:: ps_real(:)
-        class(eos_viscous_stress_ghost_particle_t), pointer:: ps_ghost(:)
+        type(base_particle_t), pointer:: ps_real(:), ps_ghost(:)
         real(fp):: dr
 
-        select type (ps => psys_lhs%particles)
-        class is (eos_viscous_stress_particle_t)
-            ps_real => ps
-        class default
-            error stop "Expected psys_lhs to be eos_viscous_stress_particle_t."
-        end select
-
-        select type (ps => psys_rhs%particles)
-        class is (eos_viscous_stress_ghost_particle_t)
-            ps_ghost => ps
-        class default
-            error stop "Expected psys_rhs to be eos_viscous_stress_ghost_particle_t."
-        end select
+        ps_real => psys_lhs%particles
+        ps_ghost => psys_rhs%particles
 
         psys_rhs%size = 0
 
@@ -686,18 +595,12 @@ contains
     subroutine viscous_stress_fluid_sweep_1system(self, pairs, psys, dt)
         class(viscous_stress_fluid_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys
-        class(eos_viscous_stress_particle_t), pointer:: fluid(:)
+        type(particle_system_t), target, intent(inout):: psys
+        type(base_particle_t), pointer:: fluid(:)
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
 
-        ! point to lhs particlse for access to pressure member
-        select type (ps => psys%particles)
-        class is (eos_viscous_stress_particle_t)
-            fluid => ps
-        class default
-            error stop "Invalid type for psys"
-        end select
+        fluid => psys%particles
 
         ! intialize LHS acceleration and density rate-of-change arrays
         if (self%initialize) then
@@ -742,26 +645,13 @@ contains
     subroutine viscous_stress_fluid_sweep_2system(self, pairs, psys_lhs, psys_rhs, dt)
         class(viscous_stress_fluid_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
-        class(eos_viscous_stress_particle_t), pointer:: fluid_lhs(:), fluid_rhs(:)
+        type(particle_system_t), target, intent(inout):: psys_lhs, psys_rhs
+        type(base_particle_t), pointer:: fluid_lhs(:), fluid_rhs(:)
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
 
-        ! point to lhs particlse for access to pressure member
-        select type (ps => psys_lhs%particles)
-        class is (eos_viscous_stress_particle_t)
-            fluid_lhs => ps
-        class default
-            error stop "Invalid type for psys_lhs"
-        end select
-
-        ! point to rhs particlse for access to pressure member
-        select type (ps => psys_rhs%particles)
-        class is (eos_viscous_stress_particle_t)
-            fluid_rhs => ps
-        class default
-            error stop "Invalid type for psys_rhs"
-        end select
+        fluid_lhs => psys_lhs%particles
+        fluid_rhs => psys_rhs%particles
 
         ! intialize L/RHS acceleration and density rate-of-change arrays
         if (self%initialize) then
@@ -813,27 +703,14 @@ contains
     subroutine viscous_stress_fluid_sweep_2system_norhsupdate(self, pairs, psys_lhs, psys_rhs, dt)
         class(viscous_stress_fluid_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
-        class(eos_viscous_stress_particle_t), pointer:: fluid_lhs(:), fluid_rhs(:)
+        type(particle_system_t), target, intent(inout):: psys_lhs, psys_rhs
+        type(base_particle_t), pointer:: fluid_lhs(:), fluid_rhs(:)
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
         real(fp):: dummy_drhodt, dummy_dvxdt(ndims) ! dummy variables for when update_rhs is .false.
 
-        ! point to lhs particlse for access to pressure member
-        select type (ps => psys_lhs%particles)
-        class is (eos_viscous_stress_particle_t)
-            fluid_lhs => ps
-        class default
-            error stop "Invalid type for psys_lhs"
-        end select
-
-        ! point to rhs particlse for access to pressure member
-        select type (ps => psys_rhs%particles)
-        class is (eos_viscous_stress_particle_t)
-            fluid_rhs => ps
-        class default
-            error stop "Invalid type for psys_rhs"
-        end select
+        fluid_lhs => psys_lhs%particles
+        fluid_rhs => psys_rhs%particles
 
         ! intialize LHS acceleration and density rate-of-change arrays
         if (self%initialize) then
@@ -881,18 +758,13 @@ contains
     subroutine viscous_stress_morris_boundary_sweep_2system(self, pairs, psys_lhs, psys_rhs, dt)
         class(eos_viscous_stress_morris_boundary_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        type(particle_system_t), target, intent(inout):: psys_lhs, psys_rhs
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
-        class(eos_viscous_stress_particle_t), pointer:: ps_fluid(:)
+        type(base_particle_t), pointer:: ps_fluid(:)
         real(fp):: dummy_drhodt, dummy_dvxdt(ndims), vb(ndims), da, db
 
-        select type (ps => psys_lhs%particles)
-        class is (eos_viscous_stress_particle_t)
-            ps_fluid => ps
-        class default
-            error stop "Expected psys_lhs%particles to be eos_viscous_stress_particle_t."
-        end select
+        ps_fluid => psys_lhs%particles
 
         ! perform sweep
         do k = 1, pairs%npairs_total
@@ -931,18 +803,13 @@ contains
 
         class(strain_rate_morris_boundary_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        type(particle_system_t), target, intent(inout):: psys_lhs, psys_rhs
         real(fp), optional, intent(in):: dt
-        class(eos_viscous_stress_particle_t), pointer:: ps_lhs(:)
+        type(base_particle_t), pointer:: ps_lhs(:)
         real(fp):: da, db, vb(ndims), dummy_strain_rate(ntensor_elems_voigt)
         integer:: i, j, k
 
-        select type (ps => psys_lhs%particles)
-        class is (eos_viscous_stress_particle_t)
-            ps_lhs => ps
-        class default
-            error stop "Expected psys_lhs%particles class to be eos_viscous_stress_particle_t."
-        end select
+        ps_lhs => psys_lhs%particles
 
         do k = 1, pairs%npairs_total
             i = pairs%pair_ij(1, k)

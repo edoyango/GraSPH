@@ -9,7 +9,7 @@ program main
 
     use grasph_constants_m, only: fp
     use grasph_particle_system_m, only: particle_system_t, base_state_updater_t, state_updater_container_t
-    use weakly_compressible_particles_m, only: tait_eos_state_updater_t, eos_particle_t, eos_ghost_particle_t, ghost_state_updater_t
+    use weakly_compressible_particles_m, only: tait_eos_state_updater_t, ghost_state_updater_t
     use grasph_system_interactions_m, only: system_interaction_t, default_sweeper_t, sweeper_container_t
     use grasph_time_integration_m, only: leap_frog_time_integration
     use grasph_kernels_m, only: cubic_bspline_kernel_t
@@ -26,10 +26,8 @@ program main
     type(morris_boundary_sweeper_t):: boundary_sweeper
     type(xsph_shifter_t):: shifter
     type(tait_eos_state_updater_t):: state_updater
-    type(eos_particle_t):: ps_template
     type(ghost_state_updater_t):: ghost_state_updater
     type(ghost_timestep_setuper_t):: ghost_timestep_setuper
-    type(eos_ghost_particle_t):: ghost_ps_template
     type(default_sweeper_t):: donothing_sweeper
     type(sweeper_container_t):: fluid_fluid_sweepers(1), fluid_left_wall_sweepers(1), fluid_right_wall_sweepers(1), &
                                 fluid_bot_wall_sweepers(1), fluid_top_wall_sweepers(1)
@@ -45,22 +43,13 @@ program main
     call psys(1)%init( &
         n=2500, &
         name="fluid", &
-        state_updaters=fluid_state_updaters, &
-        particle_template=ps_template &
+        state_updaters=fluid_state_updaters &
         )
 
     ! register variables for time-update
     call psys(1)%register_x%register(psys(1)%particles(1), "x", psys(1)%particles(1)%x, psys(1)%particles(1)%v)
     call psys(1)%register_v%register(psys(1)%particles(1), "v", psys(1)%particles(1)%v, psys(1)%particles(1)%dvxdt)
     call psys(1)%register_v%register(psys(1)%particles(1), "rho", psys(1)%particles(1)%rho, psys(1)%particles(1)%drhodt)
-
-    ! register variables for io
-    select type (p => psys(1)%particles)
-    class is (eos_particle_t)
-        call psys(1)%register_io%register_variable(p(1), "p", p(1)%p)
-    class default
-        error stop "Expected eos_particle_t for psys(1)%p."
-    end select
 
     nfx = nint(25._fp/dx)
     nfy = nint(25._fp/dx)
@@ -92,7 +81,6 @@ program main
     call psys(4)%init( &
         n=2500, & ! allocate 2500 particles of space. Realistically, only 240 is neeeded.
         name="ghost_boundary_left", &
-        particle_template=ghost_ps_template, &
         state_updaters=left_wall_state_updaters &
         )
     ghost_state_updater%surface_normal(:) = [-1._fp, 0._fp] ! point normal leftward.
@@ -100,24 +88,8 @@ program main
     call psys(5)%init( &
         n=2500, &
         name="ghost_boundary_right", &
-        particle_template=ghost_ps_template, &
         state_updaters=right_wall_state_updaters &
         )
-
-    ! register variables for io
-    select type (p => psys(4)%particles)
-    class is (eos_ghost_particle_t)
-        call psys(4)%register_io%register_variable(p(1), "p", p(1)%p)
-    class default
-        error stop "Expected eos_ghost_particle_t for psys(4)%p."
-    end select
-
-    select type (p => psys(4)%particles)
-    class is (eos_ghost_particle_t)
-        call psys(5)%register_io%register_variable(p(1), "p", p(1)%p)
-    class default
-        error stop "Expected eos_ghost_particle_t for psys(4)%p."
-    end select
 
     ! declare params used for fluid-fluid system interactions.
     sweeper%artvisc_alpha = 0.01_fp

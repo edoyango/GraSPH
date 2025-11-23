@@ -1,10 +1,10 @@
 module test_time_integration
 
     use grasph_constants_m, only: fp
-    use grasph_particle_system_m, only: particle_system_t
-    use weakly_compressible_particles_m, only: eos_particle_t, linear_eos_state_updater_t
+    use grasph_particle_system_m, only: particle_system_t, state_updater_container_t
+    use weakly_compressible_particles_m, only: linear_eos_state_updater_t
     use grasph_kernels_m, only: cubic_bspline_kernel_t
-    use grasph_system_interactions_m, only: system_interaction_t
+    use grasph_system_interactions_m, only: system_interaction_t, sweeper_container_t, default_sweeper_t
     use grasph_time_integration_m, only: leap_frog_time_integration
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
@@ -27,11 +27,17 @@ contains
         type(system_interaction_t):: wcp_interaction_pairs(1)
         type(particle_system_t):: psys(1)
         type(cubic_bspline_kernel_t):: kernel
-        type(eos_particle_t):: ps_template
-        type(linear_eos_state_updater_t):: state_updater
+        type(linear_eos_state_updater_t), pointer:: state_updater
+        type(state_updater_container_t):: updaters(1)
+        type(sweeper_container_t):: sweepers(1)
 
+        allocate (linear_eos_state_updater_t::updaters(1)%updater)
+        select type (updater => updaters(1)%updater)
+        type is (linear_eos_state_updater_t)
+            state_updater => updater
+        end select
         state_updater%rho_ref = 1000._fp
-        call psys(1)%init(n=1, name="test", particle_template=ps_template, state_updater_2=state_updater)
+        call psys(1)%init(n=1, name="test", state_updaters=updaters)
         ! call ps%register_x%register_data(ps%x, "x", ps%v, "v")
         call psys(1)%register_v%register(psys(1)%particles(1), "v", psys(1)%particles(1)%v, psys(1)%particles(1)%dvxdt)
         call psys(1)%register_v%register(psys(1)%particles(1), "rho", psys(1)%particles(1)%rho, psys(1)%particles(1)%drhodt)
@@ -45,7 +51,9 @@ contains
         psys(1)%particles(1)%drhodt = 1000._fp
         psys(1)%particles(1)%c = 2._fp
 
-        call wcp_interaction_pairs(1)%init(1, psys(1))
+        allocate (default_sweeper_t::sweepers(1)%sweeper)
+
+        call wcp_interaction_pairs(1)%init(1, psys(1), sweepers=sweepers)
 
         call kernel%init(2, 1._fp)
 
@@ -59,10 +67,7 @@ contains
         call check(is_close(psys(1)%particles(1)%x(2), 2._fp), "Incorrect value for x(2)") ! should be unchanged
         call check(is_close(psys(1)%particles(1)%drhodt, 1000._fp), "Incorrect value for drhodt") ! should be unchanged
         call check(is_close(psys(1)%particles(1)%rho, 1500._fp), "Incorrect value for rho") ! should be 1000 + (1/2)*1000
-        select type (ps => psys(1)%particles)
-        type is (eos_particle_t)
-            call check(is_close(ps(1)%p, 1000._fp), "Incorrect value for p") ! should be 2**2*((1000 + 0.5*(1/2)*1000) - 1000)
-        end select
+        call check(is_close(psys(1)%particles(1)%p, 1000._fp), "Incorrect value for p") ! should be 2**2*((1000 + 0.5*(1/2)*1000) - 1000)
 
         ! add the x-registration
         call psys(1)%register_x%register(psys(1)%particles(1), "x", psys(1)%particles(1)%x, psys(1)%particles(1)%v)
@@ -77,10 +82,7 @@ contains
         call check(is_close(psys(1)%particles(1)%x(2), 14._fp), "Incorrect value for x(2)") ! should be 2 + (1/2)*(14 + (1/2)*20)
         call check(is_close(psys(1)%particles(1)%drhodt, 1000._fp), "Incorrect value for drhodt") ! should be unchanged
         call check(is_close(psys(1)%particles(1)%rho, 2000._fp), "Incorrect value for rho") ! should be 1500 + (1/2)*1000
-        select type (ps => psys(1)%particles)
-        type is (eos_particle_t)
-            call check(is_close(ps(1)%p, 3000._fp), "Incorrect value for p") ! should be 2**2*((1500 + 0.5*(1/2)*1000) - 1000)
-        end select
+        call check(is_close(psys(1)%particles(1)%p, 3000._fp), "Incorrect value for p") ! should be 2**2*((1500 + 0.5*(1/2)*1000) - 1000)
 
     end subroutine test_LF_1particle_nointeractions
 

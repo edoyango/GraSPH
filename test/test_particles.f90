@@ -2,8 +2,8 @@ module test_particles
 
     use grasph_constants_m, only: fp, ndims
     use grasph_particle_m, only: base_particle_t
-    use grasph_particle_system_m, only: particle_system_t
-    use weakly_compressible_particles_m, only: eos_particle_t, linear_eos_state_updater_t
+    use grasph_particle_system_m, only: particle_system_t, state_updater_container_t
+    use weakly_compressible_particles_m, only: linear_eos_state_updater_t
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
     implicit none
@@ -29,9 +29,8 @@ contains
     subroutine test_particles_init()
 
         type(particle_system_t):: psys
-        type(eos_particle_t):: ps_template
 
-        call psys%init(n=16, name="test", particle_template=ps_template)
+        call psys%init(n=16, name="test")
 
         ! check name assigned correctly
         call check(psys%name == "test", "Particle set name not initialized to 'test'")
@@ -50,30 +49,30 @@ contains
     subroutine test_linear_eos_wc_particles()
 
         type(particle_system_t):: psys
-        type(eos_particle_t):: ps_template
-        type(linear_eos_state_updater_t):: state_updater
+        type(state_updater_container_t):: updaters(1)
         integer:: i
         character:: ic
 
-        state_updater%rho_ref = 1._fp
-        call psys%init(n=5, name="test", particle_template=ps_template, state_updater_2=state_updater)
+        allocate (linear_eos_state_updater_t::updaters(1)%updater)
+        select type (updater => updaters(1)%updater)
+        type is (linear_eos_state_updater_t)
+            updater%rho_ref = 1._fp
+        end select
+        call psys%init(n=5, name="test", state_updaters=updaters)
 
         do i = 1, 5
             psys%particles(i)%rho = real(i, kind=fp)
             psys%particles(i)%c = 2._fp
         end do
 
-        call psys%do_state_update_2()
+        call psys%do_state_update(1)
 
         do i = 1, 5
             write (ic, "(I1)") i
-            select type (ps => psys%particles)
-            class is (eos_particle_t)
-                call check( &
-                    is_close(ps(i)%p, 4._fp*real(i - 1, kind=fp)), &
-                    "State update function not applied correctly to particle "//ic &
-                    )
-            end select
+            call check( &
+                is_close(psys%particles(i)%p, 4._fp*real(i - 1, kind=fp)), &
+                "State update function not applied correctly to particle "//ic &
+                )
         end do
 
     end subroutine test_linear_eos_wc_particles
@@ -81,12 +80,10 @@ contains
     subroutine test_update_del_methods()
 
         type(particle_system_t):: psys
-        type(eos_particle_t):: eos_part
-        type(base_particle_t):: base_part
         integer:: i, d
         character:: dc
 
-        call psys%init(1, "test-particles", base_part)
+        call psys%init(1, "test-particles")
 
         call check(is_equal(psys%safe_size_plus_1(), 2), "safe_size_plus_1 didn't return size + 1.")
         call check(is_equal(psys%size, 2), "safe_size_plus_1 didn't update size of psys.")

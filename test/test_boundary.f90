@@ -3,8 +3,7 @@ module test_boundary
     use grasph_constants_m, only: fp, ndims
     use grasph_particle_m, only: base_particle_t
     use grasph_particle_system_m, only: particle_system_t
-    use grasph_system_interactions_m, only: system_interaction_t
-    use weakly_compressible_particles_m, only: eos_particle_t, eos_ghost_particle_t
+    use grasph_system_interactions_m, only: system_interaction_t, sweeper_container_t
     use grasph_kernels_m, only: cubic_bspline_kernel_t
     use weakly_compressible_interactions_m, only: ghost_timestep_setuper_t, morris_boundary_sweeper_t
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
@@ -13,6 +12,8 @@ module test_boundary
 
     private
     public:: tests
+
+    type(sweeper_container_t):: empty_sweepers(0)
 
 contains
 
@@ -28,8 +29,6 @@ contains
 
     subroutine test_coaxial_ghost_walls()
 
-        type(eos_particle_t):: ps_template
-        type(eos_ghost_particle_t):: ps_ghost_template
         type(particle_system_t):: psys, psys_ghost
         type(ghost_timestep_setuper_t):: ghost_setuper
         type(system_interaction_t):: interaction
@@ -45,8 +44,8 @@ contains
         !   1    x | o         |
         !   x=-2-1 0 1 2 3 4 5 6 7 8
 
-        call psys%init(5, "test_ghost_real", particle_template=ps_template)
-        call psys_ghost%init(5, "test_ghost_ghost", particle_template=ps_ghost_template)
+        call psys%init(5, "test_ghost_real")
+        call psys_ghost%init(5, "test_ghost_ghost")
 
         ! generate real particles
         do i = 1, 5
@@ -60,7 +59,7 @@ contains
         ghost_setuper%point = [0._fp, 0._fp]          ! plane/line travels through (0, 0)
 
         ! initialize system interaction with ghost setuper
-        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper)
+        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper, sweepers=empty_sweepers)
 
         call interaction%do_timestep_setup()
 
@@ -75,7 +74,7 @@ contains
         ghost_setuper%surface_normal = [-1._fp, 0._fp]
         ghost_setuper%point = [6._fp, 0._fp]
 
-        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper)
+        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper, sweepers=empty_sweepers)
 
         call interaction%do_timestep_setup()
 
@@ -91,7 +90,7 @@ contains
         ghost_setuper%surface_normal = [1._fp, 0._fp]
         ghost_setuper%point = [1.5_fp, 0._fp] ! particle at (1,1) should be in ghost region
 
-        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper)
+        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper, sweepers=empty_sweepers)
 
         call interaction%do_timestep_setup()
 
@@ -105,7 +104,7 @@ contains
         ghost_setuper%surface_normal = [-1._fp, 0._fp]
         ghost_setuper%point = [4.5_fp, 0._fp] ! particle at (5,5) should be in ghost region
 
-        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper)
+        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper, sweepers=empty_sweepers)
 
         call interaction%do_timestep_setup()
 
@@ -119,8 +118,6 @@ contains
 
     subroutine test_diagonal_ghost_walls()
 
-        type(eos_particle_t):: ps_template
-        type(eos_ghost_particle_t):: ps_ghost_template
         type(particle_system_t):: psys, psys_ghost
         type(ghost_timestep_setuper_t):: ghost_setuper
         type(system_interaction_t):: interaction
@@ -140,8 +137,8 @@ contains
         !     / x              x \
         !                          \
 
-        call psys%init(5, "test_ghost_real", particle_template=ps_template)
-        call psys_ghost%init(5, "test_ghost_ghost", particle_template=ps_ghost_template)
+        call psys%init(5, "test_ghost_real")
+        call psys_ghost%init(5, "test_ghost_ghost")
 
         ! generate real particles along x = 1
         do i = 1, 5
@@ -156,7 +153,7 @@ contains
         ghost_setuper%point = [0._fp, -1._fp]          ! plane/line travels through (0, 0)
 
         ! initialize system interaction with ghost setuper
-        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper)
+        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper, sweepers=empty_sweepers)
 
         call interaction%do_timestep_setup()
 
@@ -173,7 +170,7 @@ contains
         ! check particle in ghost region isn't mirrored
         ! move boundary to y = x + 0.5 to make particle at (1, 1) in ghost region
         ghost_setuper%point = [0._fp, 0.5_fp]
-        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper)
+        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper, sweepers=empty_sweepers)
 
         call interaction%do_timestep_setup()
 
@@ -195,7 +192,7 @@ contains
         ghost_setuper%surface_normal = [sqrt(0.5_fp), -sqrt(0.5_fp)]
         ghost_setuper%point = [0._fp, 5._fp]
 
-        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper)
+        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper, sweepers=empty_sweepers)
 
         call interaction%do_timestep_setup()
 
@@ -212,7 +209,7 @@ contains
         ! check particle in ghost region isn't mirrored
         ! move boundary to y = x + 3.5 to make particle at (5, 5) in ghost region
         ghost_setuper%point = [0._fp, 3.5_fp]
-        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper)
+        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper, sweepers=empty_sweepers)
 
         call interaction%do_timestep_setup()
 
@@ -234,7 +231,7 @@ contains
         ghost_setuper%surface_normal = [sqrt(0.5_fp), sqrt(0.5_fp)] ! normal vector pointing top-right
         ghost_setuper%point = [0._fp, 1._fp]                        ! plane/line travels through (0, 5)
 
-        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper)
+        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper, sweepers=empty_sweepers)
 
         call interaction%do_timestep_setup()
 
@@ -251,7 +248,7 @@ contains
         ! check particle in ghost region isn't mirrored
         ! move boundary to y = 2.5 - x to make particle at (1, 1) in ghost region
         ghost_setuper%point = [0._fp, 2.5_fp]
-        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper)
+        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper, sweepers=empty_sweepers)
 
         call interaction%do_timestep_setup()
 
@@ -274,7 +271,7 @@ contains
         ghost_setuper%surface_normal = [-sqrt(0.5_fp), -sqrt(0.5_fp)] ! normal vector pointing top-right
         ghost_setuper%point = [0._fp, 7._fp]                          ! plane/line travels through (0, 8)
 
-        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper)
+        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper, sweepers=empty_sweepers)
 
         call interaction%do_timestep_setup()
 
@@ -291,7 +288,7 @@ contains
         ! check particle in ghost region isn't mirrored
         ! move boundary to y = 5.5 - x to make particle at (5, 5) in ghost region
         ghost_setuper%point = [0._fp, 5.5_fp]
-        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper)
+        call interaction%init(1, psys, psys_ghost, timestep_setuper=ghost_setuper, sweepers=empty_sweepers)
 
         call interaction%do_timestep_setup()
 
@@ -314,23 +311,20 @@ contains
     subroutine test_morris_walls()
 
         type(particle_system_t):: fluid_psys, wall_psys
-        type(eos_particle_t):: fluid_template
         type(system_interaction_t):: interaction
-        type(morris_boundary_sweeper_t):: sweeper
+        type(sweeper_container_t):: sweepers(1)
         type(cubic_bspline_kernel_t):: kernel
+        type(morris_boundary_sweeper_t), pointer:: sweeper
         integer:: i
 
         ! position fluid particle
-        call fluid_psys%init(1, "fluid", fluid_template)
+        call fluid_psys%init(1, "fluid")
         fluid_psys%particles(1)%x(:) = [(real(i, kind=fp)/10._fp, i=1, ndims)] ! [0.1, 0.2, 0.3]
         fluid_psys%particles(1)%v(:) = [(2._fp*real(i, kind=fp), i=1, ndims)] ! [2, 4, 6]
         fluid_psys%particles(1)%rho = 1000._fp
         fluid_psys%particles(1)%mass = 10._fp
         fluid_psys%particles(1)%c = 200._fp
-        select type (ps => fluid_psys%particles)
-        class is (eos_particle_t)
-            ps(1)%p = 5._fp
-        end select
+        fluid_psys%particles(1)%p = 5._fp
 
         ! position wall particles
         call wall_psys%init(1, "wall")
@@ -339,13 +333,18 @@ contains
         call kernel%init(ndims, 1.2_fp)
 
         ! test horizontal wall
+        allocate (morris_boundary_sweeper_t::sweepers(1)%sweeper)
+        select type (s => sweepers(1)%sweeper)
+        type is (morris_boundary_sweeper_t)
+            sweeper => s
+        end select
         sweeper%h = kernel%h
         sweeper%artvisc_alpha = 0.1_fp
         sweeper%artvisc_beta = 0.1_fp
         sweeper%normal(:) = 0._fp
         sweeper%normal(ndims) = 1._fp
         sweeper%point(:) = 0._fp
-        call interaction%init(1, fluid_psys, wall_psys, sweeper=sweeper)
+        call interaction%init(1, fluid_psys, wall_psys, sweepers=sweepers)
 
         call run_check(interaction, kernel, 1._fp, sweeper, "")
 
@@ -363,7 +362,7 @@ contains
         sweeper%normal(ndims) = -sweeper%normal(ndims)
         sweeper%point(ndims) = 40._fp
 
-        call interaction%init(1, fluid_psys, wall_psys, sweeper=sweeper)
+        call interaction%init(1, fluid_psys, wall_psys, sweepers=sweepers)
 
         call run_check(interaction, kernel, 1._fp, sweeper, "for horizontal upper wall.")
 
@@ -380,7 +379,7 @@ contains
         sweeper%normal(1) = 1._fp
         sweeper%point(:) = 0._fp
 
-        call interaction%init(1, fluid_psys, wall_psys, sweeper=sweeper)
+        call interaction%init(1, fluid_psys, wall_psys, sweepers=sweepers)
 
         call run_check(interaction, kernel, 1._fp, sweeper, "for vertical lower wall.")
 
@@ -395,7 +394,7 @@ contains
         sweeper%point(:) = 0._fp
         sweeper%point(1) = 40._fp
 
-        call interaction%init(1, fluid_psys, wall_psys, sweeper=sweeper)
+        call interaction%init(1, fluid_psys, wall_psys, sweepers=sweepers)
 
         call run_check(interaction, kernel, 1._fp, sweeper, "for vertical upper wall.")
 
@@ -408,7 +407,7 @@ contains
 
         sweeper%point(:) = 0._fp
 
-        call interaction%init(1, fluid_psys, wall_psys, sweeper=sweeper)
+        call interaction%init(1, fluid_psys, wall_psys, sweepers=sweepers)
 
         call run_check(interaction, kernel, 1._fp, sweeper, "for vertical upper wall.")
 
@@ -428,8 +427,7 @@ contains
         real(fp), intent(in):: expected_dbda
         class(morris_boundary_sweeper_t), intent(in):: sweeper
         character(*), intent(in):: msg_suffix
-        class(eos_particle_t), pointer:: p_fluid
-        class(base_particle_t), pointer:: p_wall
+        class(base_particle_t), pointer:: p_fluid, p_wall
         real(fp):: w, dwdx(ndims), expected_wall_v(ndims), expected_wall_rho, expected_wall_mass, expected_wall_p, &
                    expected_wall_c, expected_drhodt, expected_dvxdt(ndims), dummy_dvxdt(ndims), dummy_drhodt
         integer:: d
@@ -439,12 +437,7 @@ contains
         if (interaction%psys_lhs%size /= 1) error stop "Too many particles in psys_lhs"
         if (interaction%psys_rhs%size /= 1) error stop "Too many particles in psys_rhs"
 
-        select type (ps => interaction%psys_lhs%particles)
-        class is (eos_particle_t)
-            p_fluid => ps(1)
-        class default
-            error stop "interaction%psys_lhs%particles is not class eos_particle_t"
-        end select
+        p_fluid => interaction%psys_lhs%particles(1)
         p_wall => interaction%psys_rhs%particles(1)
 
         call kernel%values( &
@@ -466,7 +459,7 @@ contains
         call interaction%find_pairs(kernel%cutoff, kernel)
 
         call check(is_equal(interaction%pairs%npairs_total, 1))
-        call interaction%do_sweep()
+        call interaction%do_sweep(1)
 
         call continuity_density( &
             p_fluid%v(:), &

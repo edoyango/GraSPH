@@ -31,4 +31,11 @@ module grasph_constants_m
 
     integer, parameter:: max_name_len = 30
 
+    !> @brief Number of elements in the cauchy stress matrix.
+    integer, parameter:: ntensor_elems = ndims*ndims
+    !> @brief Number of off-axis elements in the cauchy stress matrix.
+    integer, parameter:: ntensor_offaxis_elems = (ntensor_elems - ndims)/2
+    !> @brief Number of elements in the cauchy stress matrix in Voigt notation.
+    integer, parameter:: ntensor_elems_voigt = ndims + ntensor_offaxis_elems
+
 end module grasph_constants_m

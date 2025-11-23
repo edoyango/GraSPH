@@ -8,7 +8,7 @@ program main
 
     use grasph_constants_m, only: fp
     use grasph_particle_system_m, only: particle_system_t, state_updater_container_t
-    use weakly_compressible_particles_m, only: eos_particle_t, tait_eos_state_updater_t
+    use weakly_compressible_particles_m, only: tait_eos_state_updater_t
     use weakly_compressible_interactions_m, only: fluid_sweeper_t, fluid_boundary_sweeper_monaghan1994_t
     use grasph_system_interactions_m, only: system_interaction_t, sweeper_container_t, default_sweeper_t
     use grasph_time_integration_m, only: leap_frog_time_integration
@@ -25,7 +25,6 @@ program main
     type(fluid_sweeper_t):: self_sweeper
     type(fluid_boundary_sweeper_monaghan1994_t):: boundary_sweeper
     type(xsph_shifter_t):: shifter
-    type(eos_particle_t):: ps_template
     type(tait_eos_state_updater_t):: state_updater
     type(sweeper_container_t):: fluid_fluid_sweepers(1), fluid_boundary_sweepers(1)
     type(default_sweeper_t):: donothing_sweeper
@@ -38,22 +37,13 @@ program main
     call psys(1)%init( &
         n=2500, &
         name="fluid", &
-        state_updaters=fluid_state_updaters, &
-        particle_template=ps_template &
+        state_updaters=fluid_state_updaters &
         )
 
     ! register variables for time-update
     call psys(1)%register_x%register(psys(1)%particles(1), "x", psys(1)%particles(1)%x, psys(1)%particles(1)%v)
     call psys(1)%register_v%register(psys(1)%particles(1), "v", psys(1)%particles(1)%v, psys(1)%particles(1)%dvxdt)
     call psys(1)%register_v%register(psys(1)%particles(1), "rho", psys(1)%particles(1)%rho, psys(1)%particles(1)%drhodt)
-
-    ! register variables for io
-    select type (p => psys(1)%particles)
-    class is (eos_particle_t)
-        call psys(1)%register_io%register_variable(p(1), "p", p(1)%p)
-    class default
-        error stop "Expected eos_particle_t for psys(1)%p."
-    end select
 
     ! number of fluid particles in the x/y direction
     nfx = nint(25._fp/dx)
@@ -70,6 +60,7 @@ program main
             psys(1)%particles(k)%rho = rho0 ! in the paper eqn 5.1 is used to initialize density, but doesn't seem to improve results.
             psys(1)%particles(k)%mass = rho0*dx*dx
             psys(1)%particles(k)%v(:) = 0._fp
+            psys(1)%particles(k)%p = 0._fp
         end do
     end do
 
@@ -167,6 +158,9 @@ contains
         call psys_boundary%register_io%deregister("c")
         call psys_boundary%register_io%deregister("dvxdt")
         call psys_boundary%register_io%deregister("drhodt")
+        call psys_boundary%register_io%deregister("p")
+        call psys_boundary%register_io%deregister("stress")
+        call psys_boundary%register_io%deregister("strain_rate")
 
         k = 0
         ! bottom layer and corners

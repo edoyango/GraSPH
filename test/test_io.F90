@@ -1,8 +1,7 @@
 module test_io
 
     use grasph_constants_m, only: fp, ndims
-    use grasph_particle_system_m, only: particle_system_t
-    use weakly_compressible_particles_m, only: eos_particle_t
+    use grasph_particle_system_m, only: particle_system_t, base_particle_t
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
     implicit none
@@ -88,30 +87,24 @@ contains
 
     subroutine test_wcp_dump()
 
-        type(particle_system_t):: psys, psys2
+        type(particle_system_t), target:: psys, psys2
         integer:: i, d
         character(2):: ic
         character:: dc
-        type(eos_particle_t), pointer:: ps_lhs(:), ps_rhs(:)
-        type(eos_particle_t):: ps_template
+        type(base_particle_t), pointer:: ps_lhs(:), ps_rhs(:)
         character(*), parameter:: name = "test_wcp_particles"
 
-        call psys%init(n=10, name=name, particle_template=ps_template)
+        call psys%init(n=10, name=name)
 
-        select type (psf => psys%particles)
-        class is (eos_particle_t)
-            ps_lhs => psf
-            call psys%register_io%register_variable(psf(1), "x", psf(1)%x)
-            call psys%register_io%register_variable(psf(1), "v", psf(1)%v)
-            call psys%register_io%register_variable(psf(1), "rho", psf(1)%rho)
-            call psys%register_io%register_variable(psf(1), "mass", psf(1)%mass)
-            call psys%register_io%register_variable(psf(1), "c", psf(1)%c)
-            call psys%register_io%register_variable(psf(1), "dvxdt", psf(1)%dvxdt)
-            call psys%register_io%register_variable(psf(1), "drhodt", psf(1)%drhodt)
-            call psys%register_io%register_variable(psf(1), "p", psf(1)%p)
-        class default
-            error stop "Expected eos_particle_t for psys%particles."
-        end select
+        ps_lhs => psys%particles
+        call psys%register_io%register_variable(ps_lhs(1), "x", ps_lhs(1)%x)
+        call psys%register_io%register_variable(ps_lhs(1), "v", ps_lhs(1)%v)
+        call psys%register_io%register_variable(ps_lhs(1), "rho", ps_lhs(1)%rho)
+        call psys%register_io%register_variable(ps_lhs(1), "mass", ps_lhs(1)%mass)
+        call psys%register_io%register_variable(ps_lhs(1), "c", ps_lhs(1)%c)
+        call psys%register_io%register_variable(ps_lhs(1), "dvxdt", ps_lhs(1)%dvxdt)
+        call psys%register_io%register_variable(ps_lhs(1), "drhodt", ps_lhs(1)%drhodt)
+        call psys%register_io%register_variable(ps_lhs(1), "p", ps_lhs(1)%p)
 
         do i = 1, 10
             do d = 1, ndims
@@ -130,22 +123,17 @@ contains
 
         call psys%dump(1, "/tmp")
 
-        call psys2%init(n=10, name=name, particle_template=ps_template)
+        call psys2%init(n=10, name=name)
 
-        select type (psf => psys2%particles)
-        class is (eos_particle_t)
-            ps_rhs => psf
-            call psys2%register_io%register_variable(psf(1), "x", psf(1)%x)
-            call psys2%register_io%register_variable(psf(1), "v", psf(1)%v)
-            call psys2%register_io%register_variable(psf(1), "rho", psf(1)%rho)
-            call psys2%register_io%register_variable(psf(1), "mass", psf(1)%mass)
-            call psys2%register_io%register_variable(psf(1), "c", psf(1)%c)
-            call psys2%register_io%register_variable(psf(1), "dvxdt", psf(1)%dvxdt)
-            call psys2%register_io%register_variable(psf(1), "drhodt", psf(1)%drhodt)
-            call psys2%register_io%register_variable(psf(1), "p", psf(1)%p)
-        class default
-            error stop "Expected eos_particle_t for psys2%particles."
-        end select
+        ps_rhs => psys2%particles
+        call psys2%register_io%register_variable(ps_rhs(1), "x", ps_rhs(1)%x)
+        call psys2%register_io%register_variable(ps_rhs(1), "v", ps_rhs(1)%v)
+        call psys2%register_io%register_variable(ps_rhs(1), "rho", ps_rhs(1)%rho)
+        call psys2%register_io%register_variable(ps_rhs(1), "mass", ps_rhs(1)%mass)
+        call psys2%register_io%register_variable(ps_rhs(1), "c", ps_rhs(1)%c)
+        call psys2%register_io%register_variable(ps_rhs(1), "dvxdt", ps_rhs(1)%dvxdt)
+        call psys2%register_io%register_variable(ps_rhs(1), "drhodt", ps_rhs(1)%drhodt)
+        call psys2%register_io%register_variable(ps_rhs(1), "p", ps_rhs(1)%p)
 
         call psys2%read("/tmp/grasph_particles_0000000001.h5", name)
 

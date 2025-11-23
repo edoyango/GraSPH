@@ -3,9 +3,8 @@ module test_interactions
     use grasph_constants_m, only: fp, max_name_len
     use grasph_kernels_m, only: base_kernel_t, cubic_bspline_kernel_t
     use grasph_pairs_m, only: particle_pairs_t, cell_list_search
-    use grasph_particle_system_m, only: particle_system_t
-    use weakly_compressible_particles_m, only: eos_particle_t
-    use grasph_system_interactions_m, only: system_interaction_t, base_sweeper_t
+    use grasph_particle_system_m, only: particle_system_t, base_particle_t
+    use grasph_system_interactions_m, only: system_interaction_t, base_sweeper_t, sweeper_container_t
     use fortuno_serial, only: is_equal, is_close, test => serial_case_item, check => serial_check, test_list
 
     implicit none
@@ -43,7 +42,7 @@ contains
 
         class(example_real_virt_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys
+        type(particle_system_t), target, intent(inout):: psys
         real(fp), optional, intent(in):: dt
 
         error stop "Cannot perform sweep with only 1 particle system. Ensure that both psys_lhs and psys_rhs are associated."
@@ -53,25 +52,13 @@ contains
     subroutine example_real_virt_sweep_2system(self, pairs, psys_lhs, psys_rhs, dt)
         class(example_real_virt_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(particle_system_t), intent(inout):: psys_lhs, psys_rhs
+        type(particle_system_t), target, intent(inout):: psys_lhs, psys_rhs
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
-        class(eos_particle_t), pointer:: ps_real(:), ps_virt(:)
+        type(base_particle_t), pointer:: ps_real(:), ps_virt(:)
 
-        ! assign pointers to ps_lhs/rhs for access to pressure
-        select type (ps => psys_lhs%particles)
-        class is (eos_particle_t)
-            ps_real => ps
-        class default
-            error stop "Invalid class for psys_lhs"
-        end select
-
-        select type (ps => psys_rhs%particles)
-        class is (eos_particle_t)
-            ps_virt => ps
-        class default
-            error stop "Invalid class for psys_rhs"
-        end select
+        ps_real => psys_lhs%particles
+        ps_virt => psys_rhs%particles
 
         ! perform sweep
         do k = 1, pairs%npairs_total
@@ -85,36 +72,27 @@ contains
     subroutine test_set_pair_setup()
 
         type(system_interaction_t):: real_virt_set
-        type(example_real_virt_sweeper_t):: rv_sweeper
         type(particle_system_t), target:: psys_real, psys_virt
         type(cubic_bspline_kernel_t):: kernel
         integer:: ii, j, i
         character:: ic
         integer, parameter:: nd = 2, nxr = 2, nr = nxr**nd, nxv = 3, nv = nxv**nd
-        class(eos_particle_t), pointer:: ps_lhs(:), ps_rhs(:)
-        type(eos_particle_t):: ps_template
+        type(base_particle_t), pointer:: ps_lhs(:), ps_rhs(:)
+        type(sweeper_container_t):: sweepers(1)
+
+        allocate (example_real_virt_sweeper_t::sweepers(1)%sweeper)
 
 #ifndef THREED
-        call psys_real%init(n=nr, name="test", particle_template=ps_template)
-        call psys_virt%init(n=nv, name="test", particle_template=ps_template)
-        select type (ps => psys_real%particles)
-        class is (eos_particle_t)
-            ps_lhs => ps
-        class default
-            error stop "Expected eos_particle_t for psys_real%particles."
-        end select
+        call psys_real%init(n=nr, name="test")
+        call psys_virt%init(n=nv, name="test")
+        ps_lhs => psys_real%particles
         do concurrent(i=0:nxr - 1, j=0:nxr - 1)
             ii = i*nxr + j + 1
             ps_lhs(ii)%x(1) = (i + 0.5_fp)*dx
             ps_lhs(ii)%x(2) = (j + 0.5_fp)*dx
             ps_lhs(ii)%p = real(ii, kind=fp)
         end do
-        select type (ps => psys_virt%particles)
-        class is (eos_particle_t)
-            ps_rhs => ps
-        class default
-            error stop "Expected eos_particle_t for virt%particles."
-        end select
+        ps_rhs => psys_virt%particles
         do concurrent(i=0:nxv - 1, j=0:nxv - 1)
             ii = i*nxv + j + 1
             ps_rhs(ii)%x(1) = i*dx
@@ -123,9 +101,9 @@ contains
         end do
 
         ! manual init
-        call real_virt_set%init(nv, psys_real, psys_virt, sweeper=rv_sweeper)
+        call real_virt_set%init(nv, psys_real, psys_virt, sweepers=sweepers)
         call real_virt_set%find_pairs(1._fp, kernel)
-        call real_virt_set%do_sweep()
+        call real_virt_set%do_sweep(1)
 
         do i = 1, 4
             write (ic, "(I1)") i
@@ -144,7 +122,7 @@ contains
         end do
 
         call real_virt_set%find_pairs(0.75_fp*dx, kernel)
-        call real_virt_set%do_sweep()
+        call real_virt_set%do_sweep(1)
 
         call check( &
             is_close(ps_lhs(1)%p, 13._fp), &
@@ -172,16 +150,11 @@ contains
         type(cubic_bspline_kernel_t):: kernel
         type(system_interaction_t):: ps_set
         integer:: i, j, k, ii
-        class(eos_particle_t), pointer:: ps_real(:)
+        type(base_particle_t), pointer:: ps_real(:)
 
 #ifdef THREED
 
-        select type (ps => psys%particles)
-        class is (eos_particle_t)
-            ps_real => ps
-        class default
-            error stop "Expected eos_particle_t for psys%particles"
-        end select
+        ps_real => psys%particles
 
         call psys%init(27, "test", 0._fp)
 
