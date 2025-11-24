@@ -147,7 +147,7 @@ contains
         type(cubic_bspline_kernel_t), intent(in):: kernel
         integer:: n, i, j, k, jj, ii
         character(3):: c, ic, jc
-        real(fp):: w, dwdx(kernel%d)
+        real(fp):: w, dwdx(ndims)
 
         call check( &
             is_equal(pairs%npairs_total, ncorrect_pairs), &
@@ -186,7 +186,7 @@ contains
 
 #ifdef THREED
 
-        call kernel%init(3, 1._fp)
+        call kernel%init(1._fp)
         call pairs%init(27, 26)
 
         ! 3d - cutoff selected for all particles to be paired with eachother
@@ -199,7 +199,7 @@ contains
 
 #else
 
-        call kernel%init(2, 1._fp)
+        call kernel%init(1._fp)
         call pairs%init(16, 15)
 
         ! 2d - cutoff selected for all particles to be paired with eachother
@@ -218,13 +218,13 @@ contains
         type(particle_pairs_t):: pairs
         type(cubic_bspline_kernel_t):: kernel
 #ifdef THREED
-        call kernel%init(3, 1._fp)
+        call kernel%init(1._fp)
         call pairs%init(27, 8)
 
         call dsearch(27, x, 64, x_other, dx, kernel, pairs)
         call check_pairs(pairs, x, x_other, pairs3d_other, 216, "brute-force (3d - 2sets)", kernel)
 #else
-        call kernel%init(2, 1._fp)
+        call kernel%init(1._fp)
         call pairs%init(16, 4)
 
         call dsearch(16, x, 25, x_other, dx, kernel, pairs)
@@ -237,7 +237,7 @@ contains
         type(particle_pairs_t):: pairs
         type(cubic_bspline_kernel_t):: kernel
 #ifdef THREED
-        call kernel%init(3, 1._fp)
+        call kernel%init(1._fp)
         call pairs%init(27, 27)
 
         ! 3d - cutoff selected for all particles to be paired with eachother
@@ -248,7 +248,7 @@ contains
         call cell_list_search(27, x, dx*1.8_fp, kernel, pairs)
         call check_pairs(pairs, x, x, pairs3d_2, 158, "cell-lists (3d - adj pairs)", kernel)
 #else
-        call kernel%init(2, 1._fp)
+        call kernel%init(1._fp)
         call pairs%init(16, 16)
 
         ! 2d - cutoff selected for all particles to be paired with eachother
@@ -266,13 +266,13 @@ contains
         type(particle_pairs_t):: pairs
         type(cubic_bspline_kernel_t):: kernel
 #ifdef THREED
-        call kernel%init(3, 1._fp)
+        call kernel%init(1._fp)
         call pairs%init(27, 8)
 
         call cell_list_search(27, x, 64, x_other, dx, kernel, pairs)
         call check_pairs(pairs, x, x_other, pairs3d_other, 216, "cell-lists (3d - 2sets)", kernel)
 #else
-        call kernel%init(2, 1._fp)
+        call kernel%init(1._fp)
         call pairs%init(16, 4)
 
         call cell_list_search(16, x, 25, x_other, sqrt(0.6_fp)*dx, kernel, pairs)

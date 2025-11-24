@@ -33,7 +33,7 @@ program main
     integer:: i, j, k, nlayer, nvirt, nfx, nfy, nbx
 
     ! init kernel
-    call kernel%init(2, 1.2_fp*dx)
+    call kernel%init(1.2_fp*dx)
 
     ! init fluid particles
     state_updater%rho_ref = rho0

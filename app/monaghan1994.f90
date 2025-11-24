@@ -108,7 +108,7 @@ program main
         )
 
     ! init kernel
-    call kernel%init(2, 1.2_fp*dx)
+    call kernel%init(1.2_fp*dx)
 
     ! start time-evolution with damping for setting up of initial conditions for fluid.
     call leap_frog_time_integration( &

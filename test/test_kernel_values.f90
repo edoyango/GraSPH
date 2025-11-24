@@ -23,14 +23,11 @@ contains
         integer:: d
         real(fp), parameter:: h = 1.2_fp, alpha2d = 10._fp/(7._fp*pi*h*h), alpha3d = 1._fp/(pi*h*h*h)
 
+#ifndef THREED
         ! start off with 2D tests
         ! test correct initialization
-        call my_kernel%init(2, 1.2_fp)
+        call my_kernel%init(1.2_fp)
 
-        call check( &
-            is_equal(my_kernel%d, 2), &
-            "Cubic spline kernel dimension not correctly initialized!" &
-            )
         call check( &
             is_close(my_kernel%h, h), &
             "Cubic spline kernel smoothing length not correctly initialized!" &
@@ -122,15 +119,11 @@ contains
             is_close(dwdx(2), alpha2d*0.75_fp/(h*sqrt(2._fp))), &
             "Cubic spline kernel y-gradient incorrect at 1h!" &
             )
-
+#else
         ! do 3d tests
         ! test correct initialization
-        call my_kernel%init(3, 1.2_fp)
+        call my_kernel%init(1.2_fp)
 
-        call check( &
-            is_equal(my_kernel%d, 3), &
-            "Cubic spline kernel dimension not correctly initialized!" &
-            )
         call check( &
             is_close(my_kernel%h, h), &
             "Cubic spline kernel smoothing length not correctly initialized!" &
@@ -153,7 +146,7 @@ contains
                 "Cubic spline kernel gradient incorrect at 1h!" &
                 )
         end do
-
+#endif
     end subroutine test_cubic_spline_values
 
 end module test_kernel_values

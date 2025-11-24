@@ -339,7 +339,7 @@ contains
         call wall_psys%init(1, "wall")
         wall_psys%particles%x(:, 1) = -fluid_psys%particles%x(:, 1) ! [-0.1, -0.2, -0.3]
 
-        call kernel%init(ndims, 1.2_fp)
+        call kernel%init(1.2_fp)
 
         allocate (morris_boundary_sweeper_t::sweepers(1)%sweeper)
         select type (s => sweepers(1)%sweeper)

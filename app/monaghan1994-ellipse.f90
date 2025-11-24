@@ -85,7 +85,7 @@ program main
     call psys_interactions(1)%init(30, psys(1), sweepers=sweepers, shifter=shifter)
 
     ! init kernel
-    call kernel%init(2, 1.2_fp*dx)
+    call kernel%init(1.2_fp*dx)
 
     call leap_frog_time_integration( &
         maxtimestep=5000, &

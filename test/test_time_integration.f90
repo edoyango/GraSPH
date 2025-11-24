@@ -55,7 +55,7 @@ contains
 
         call wcp_interaction_pairs(1)%init(1, psys(1), sweepers=sweepers)
 
-        call kernel%init(2, 1._fp)
+        call kernel%init(1._fp)
 
         call leap_frog_time_integration(1, 1, 1, psys, wcp_interaction_pairs, 1._fp, kernel, "/tmp", "test-", 4)
 

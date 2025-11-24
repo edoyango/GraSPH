@@ -4,7 +4,7 @@
 !> @date 2025-06-01
 module grasph_kernels_m
 
-    use grasph_constants_m, only: fp, pi
+    use grasph_constants_m, only: fp, pi, ndims
 
     implicit none
 
@@ -12,8 +12,6 @@ module grasph_kernels_m
 
     !> @brief base kernel which describes required members and methods of a kernel
     type, abstract:: base_kernel_t
-        !> @brief Number of spatial dimensions
-        integer:: d = 0
         !> @brief Normalization factor base on kernel and spatial dimension.
         real(fp):: alpha = 0._fp
         !> @brief Smoothing length to be used in calculations (will need to be changed in the future when particles have variable
@@ -46,12 +44,10 @@ module grasph_kernels_m
         end function w_interface
         !> @brief The kernel initializer interface.
         !> @param self The kernel to be initialized.
-        !> @param d The spatial dimension.
         !> @param h The constant smoothing length.
-        subroutine kernel_init_interface(self, d, h)
+        subroutine kernel_init_interface(self, h)
             import:: fp, base_kernel_t
             class(base_kernel_t), intent(inout):: self
-            integer, intent(in):: d
             real(fp), intent(in):: h
         end subroutine kernel_init_interface
     end interface
@@ -77,8 +73,8 @@ contains
     !> @param dwdx The return kernel gradient values.
     pure subroutine values(self, dx, w, dwdx)
         class(base_kernel_t), intent(in):: self
-        real(fp), intent(in):: dx(self%d)
-        real(fp), intent(out):: w, dwdx(self%d)
+        real(fp), intent(in):: dx(ndims)
+        real(fp), intent(out):: w, dwdx(ndims)
         real(fp):: q, r
         r = sqrt(sum(dx**2))
         q = r/self%h
@@ -88,18 +84,15 @@ contains
 
     !> @brief The implementation of the kernel initializer for cubic B-spline.
     !> @param self The cubic B-spline kernel to initialize.
-    !> @param d The spatial dimension.
     !> @param h The smoothing length to use.
-    subroutine init_cubic_bspline(self, d, h)
+    subroutine init_cubic_bspline(self, h)
         class(cubic_bspline_kernel_t), intent(inout):: self
-        integer, intent(in):: d
         real(fp), intent(in):: h
-        self%d = d
         self%h = h
         self%cutoff = 2._fp*h
-        if (d == 2) then
+        if (ndims == 2) then
             self%alpha = 10._fp/(7._fp*pi*h*h)
-        elseif (d == 3) then
+        elseif (ndims == 3) then
             self%alpha = 1._fp/(pi*h*h*h)
         end if
         self%initialized = .true.
