@@ -74,6 +74,8 @@ module grasph_particle_system_m
 
 contains
 
+    !> @brief Getter for particle system size (in number of particles).
+    !> @param self The particle system to get the size of.
     pure integer function psystem_size(self)
         class(particle_system_t), intent(in):: self
         if (allocated(self%particles)) then
@@ -144,7 +146,6 @@ contains
     !> @brief A do-nothing placeholder subroutine used in time-integration. Extend this with particles' internal state update code e.g. updating pressure, stress.
     !> @param self Particles whose state is to be updated.
     !> @param ps Particles whose state is to be updated.
-    !> @param n Number of particles in ps.
     !> @param dt A time-increment which may be used to update particles' state.
     subroutine base_update_state(self, ps, dt)
         class(base_state_updater_t), intent(in):: self
@@ -362,6 +363,8 @@ contains
 
     end subroutine base_generate_summary
 
+    !> @brief Getter for whether the particle system has been initialised.
+    !> @param self The particle system to check initialisation of.
     pure logical function initialised(self)
         class(particle_system_t), intent(in):: self
         initialised = self%initialised_

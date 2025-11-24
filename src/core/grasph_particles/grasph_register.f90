@@ -21,15 +21,16 @@ module grasph_register_m
         integer:: nregistrations = 0
         !> @brief Dimension of each variable registered.
         integer, allocatable:: dims(:)
-        !> @brief Name of variables registere. Used in IO.
+        !> @brief Name of variables registered. Used in IO.
         character(max_variable_name), allocatable:: names(:)
+        !> @brief The variables that have been registered.
         type(array_pointer_container_t), allocatable:: variables(:)
     contains
-        !> @brief Registers a scalar member of a particle e.g. density.
+        !> @brief Registers a scalar particle variable array e.g. density.
         procedure, private:: register_variable_vector
-        !> @brief Registers a vector member of a particle e.g. position.
+        !> @brief Registers a vector particle variable array e.g. position.
         procedure, private:: register_variable_scalar
-        !> @brief Registers a member of a particle.
+        !> @brief Registers a particle variable array.
         generic, public:: register_variable => register_variable_vector, register_variable_scalar
         !> @brief Utility to automatically resize internal arrays and return a "safe" last index.
         procedure, private:: safe_size_plus_1 => variable_register_safe_size_plus_1
@@ -42,11 +43,11 @@ module grasph_register_m
         !> @brief Offset in memory of registered derivative variables.
         type(array_pointer_container_t), allocatable:: derivatives(:)
     contains
-        !> @brief Registers a scalar member of a particle and its derivative e.g. rho and drhodt.
+        !> @brief Registers a particle scalar variable array and its derivative e.g. rho and drhodt.
         procedure, private:: register_variable_deriv_vector
-        !> @brief Registers a vector member of a particle and its derivative e.g. v and dvxdt.
+        !> @brief Registers a particle vector variable array and its derivative e.g. v and dvxdt.
         procedure, private:: register_variable_deriv_scalar
-        !> @brief Registers a member of particle and its derivative.
+        !> @brief Registers a particle variable array and its derivative.
         generic, public:: register => register_variable_deriv_vector, register_variable_deriv_scalar
         !> @brief Utility to automatically resize internal arrays and return a "safe" last index.
         procedure, private:: safe_size_plus_1 => deriv_register_safe_size_plus_1
@@ -58,91 +59,87 @@ module grasph_register_m
 
 contains
 
-    !> @brief Register vector member of base and its derivative.
+    !> @brief Register vector variable and its derivative.
     !> @param self The register.
-    !> @param base The particle who's member is being registered.
     !> @param name The name of the variable being registered.
-    !> @param member The member variable of "base" being registered.
-    !> @param member_deriv The derivative of the member being registered. Should also be a member of "base".
-    subroutine register_variable_deriv_vector(self, name, member, member_deriv)
+    !> @param variable The variable being registered.
+    !> @param derivative The derivative of the variable being registered.
+    subroutine register_variable_deriv_vector(self, name, variable, derivative)
         class(variable_deriv_register_t), intent(inout):: self
         character(*), intent(in):: name
-        real(fp), target, intent(in):: member(:, :), member_deriv(:, :)
+        real(fp), target, intent(in):: variable(:, :), derivative(:, :)
         integer:: nregs
 
-        if (size(member) == 0) error stop "Cannot register 0-size member variable."
-        if (size(member_deriv) == 0) error stop "Cannot register 0-size member derivative variable."
-        if (size(member) /= size(member_deriv)) error stop "member and member_deriv are not same size."
+        if (size(variable) == 0) error stop "Cannot register 0-size variable."
+        if (size(derivative) == 0) error stop "Cannot register 0-size derivative."
+        if (size(variable) /= size(derivative)) error stop "variable and derivative are not same size."
 
         nregs = self%safe_size_plus_1()
         self%names(nregs) = name
-        self%dims(nregs) = size(member, dim=1)
-        self%variables(nregs)%p => member
-        self%derivatives(nregs)%p => member_deriv
+        self%dims(nregs) = size(variable, dim=1)
+        self%variables(nregs)%p => variable
+        self%derivatives(nregs)%p => derivative
 
     end subroutine register_variable_deriv_vector
 
-    !> @brief Register scalar member of base and its derivative.
+    !> @brief Register scalar variable and its derivative.
     !> @param self The register.
-    !> @param base The particle who's member is being registered.
     !> @param name The name of the variable being registered.
-    !> @param member The member variable of "base" being registered.
-    !> @param member_deriv The derivative of the member being registered. Should also be a member of "base".
-    subroutine register_variable_deriv_scalar(self, name, member, member_deriv)
+    !> @param variable The variable being registered.
+    !> @param derivative The derivative of the variable being registered.
+    subroutine register_variable_deriv_scalar(self, name, variable, derivative)
         class(variable_deriv_register_t), intent(inout):: self
         character(*), intent(in):: name
-        real(fp), target, intent(in):: member(:), member_deriv(:)
+        real(fp), target, intent(in):: variable(:), derivative(:)
         integer:: nregs
 
-        if (size(member) == 0) error stop "Cannot register 0-size member variable."
-        if (size(member_deriv) == 0) error stop "Cannot register 0-size member derivative variable."
-        if (size(member) /= size(member_deriv)) error stop "member and member_deriv are not same size."
+        if (size(variable) == 0) error stop "Cannot register 0-size variable."
+        if (size(derivative) == 0) error stop "Cannot register 0-size derivative."
+        if (size(variable) /= size(derivative)) error stop "variable and derivative are not same size."
 
         nregs = self%safe_size_plus_1()
         self%names(nregs) = name
-        self%variables(nregs)%p(1:size(member), 1:1) => member
-        self%derivatives(nregs)%p(1:size(member_deriv), 1:1) => member_deriv
+        self%variables(nregs)%p(1:size(variable), 1:1) => variable
+        self%derivatives(nregs)%p(1:size(derivative), 1:1) => derivative
         self%dims(nregs) = 1
 
     end subroutine register_variable_deriv_scalar
 
-    !> @brief Register vector member of base.
+    !> @brief Register vector variable.
     !> @param self The register.
-    !> @param base The particle who's member is being registered.
     !> @param name The name of the variable being registered.
-    !> @param member The member variable of "base" being registered.
-    subroutine register_variable_vector(self, name, member)
+    !> @param variable The variable being registered.
+    subroutine register_variable_vector(self, name, variable)
         class(variable_register_t), intent(inout):: self
         character(*), intent(in):: name
-        real(fp), target, intent(in):: member(:, :)
+        real(fp), target, intent(in):: variable(:, :)
         integer:: nregs
 
-        if (size(member) == 0) error stop "Cannot register 0-size member variable."
+        if (size(variable) == 0) error stop "Cannot register 0-size variable."
 
         nregs = self%safe_size_plus_1()
         self%names(nregs) = name
-        self%dims(nregs) = size(member, dim=1)
-        self%variables(nregs)%p => member
+        self%dims(nregs) = size(variable, dim=1)
+        self%variables(nregs)%p => variable
         self%nregistrations = nregs
 
     end subroutine register_variable_vector
 
-    !> @brief Register scalar member of base.
+    !> @brief Register scalar variable.
     !> @param self The register.
-    !> @param base The particle who's member is being registered.
     !> @param name The name of the variable being registered.
-    !> @param member The member variable of "base" being registered.
-    subroutine register_variable_scalar(self, name, member)
+    !> @param variable The variable being registered.
+    subroutine register_variable_scalar(self, name, variable)
         class(variable_register_t), intent(inout):: self
         character(*), intent(in):: name
-        real(fp), target, intent(in):: member(:)
+        real(fp), target, intent(in):: variable(:)
         integer:: nregs
 
-        if (size(member) == 0) error stop "Cannot register 0-size member variable."
+        if (size(variable) == 0) error stop "Cannot register 0-size variable."
 
         nregs = self%safe_size_plus_1()
         self%names(nregs) = name
-        self%variables(nregs)%p(1:size(member), 1:1) => member
+        self%variables(nregs)%p(1:size(variable), 1:1) => variable
         self%dims(nregs) = 1
         self%nregistrations = nregs
 

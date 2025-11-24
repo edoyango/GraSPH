@@ -25,6 +25,7 @@ module grasph_particle_shifting_m
         procedure:: sweep_2system => xsph_shift_2system
         !> @brief Performs XSPH particle shifting for two particle systems, as described in Monaghan 1994.
         procedure:: sweep_2system_norhsupdate => xsph_shift_2system_norhsupdate
+        !> @brief Readonly name of the shifter.
         procedure, nopass:: name => xsph_shifter_name
     end type xsph_shifter_t
 
@@ -59,7 +60,7 @@ contains
     !> @brief Performs XSPH particle shifting on particles within a single particle system, as described in Monaghan 1994.
     !> @param self The shifter class. Used to access epsilon.
     !> @param pairs The class storing particle pair index information.
-    !> @param psys the particles involved in the interactions.
+    !> @param ps the particles involved in the interactions.
     !> @param dt The time-step increment.
     subroutine xsph_shift_1system(self, pairs, ps, dt)
         class(xsph_shifter_t), intent(in):: self
@@ -83,9 +84,8 @@ contains
     !> @brief Performs XSPH particle shifting on particles within two particle systems, as described in Monaghan 1994.
     !> @param self The shifter class. Used to access epsilon.
     !> @param pairs The class storing particle pair index information.
-    !> @param psys_lhs the LHS particles involved in the interactions.
-    !> @param psys_rhs The RHS particles involved in the interactions. psys_rhs will not be passed in if not associated in the
-    !>        owning particle_interactions class.
+    !> @param ps_lhs the LHS particles involved in the interactions.
+    !> @param ps_rhs The RHS particles involved in the interactions.
     !> @param dt The time-step increment.
     subroutine xsph_shift_2system(self, pairs, ps_lhs, ps_rhs, dt)
         class(xsph_shifter_t), intent(in):: self
@@ -108,9 +108,8 @@ contains
     !> @brief Performs XSPH particle shifting on particles within two particle systems, as described in Monaghan 1994.
     !> @param self The shifter class. Used to access epsilon.
     !> @param pairs The class storing particle pair index information.
-    !> @param psys_lhs the LHS particles involved in the interactions.
-    !> @param psys_rhs The RHS particles involved in the interactions. psys_rhs will not be passed in if not associated in the
-    !>        owning particle_interactions class.
+    !> @param ps_lhs the LHS particles involved in the interactions.
+    !> @param ps_rhs The RHS particles involved in the interactions.
     !> @param dt The time-step increment.
     subroutine xsph_shift_2system_norhsupdate(self, pairs, ps_lhs, ps_rhs, dt)
         class(xsph_shifter_t), intent(in):: self
@@ -131,6 +130,8 @@ contains
 
     end subroutine xsph_shift_2system_norhsupdate
 
+    !> @brief Read-only name of the shifter.
+    !> @returns The name of the shifter.
     pure character(max_name_len) function xsph_shifter_name()
         xsph_shifter_name = "xsph_shifter_t"
     end function xsph_shifter_name

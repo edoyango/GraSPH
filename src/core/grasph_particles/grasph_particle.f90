@@ -10,27 +10,27 @@ module grasph_particle_m
 
     private
 
-    !> @brief base particle type.
+    !> @brief Base particles type. Holds particle properties for a set of particles.
     type:: base_particles_t
-        !> @brief the ID of the particle.
+        !> @brief the ID of the particles.
         integer, dimension(:), allocatable:: id
-        !> @brief An integer indicating the "type" of the particle. Not currently used for anything and may be removed.
+        !> @brief An integer indicating the "type" of the particles. Not currently used for anything and may be removed.
         integer, dimension(:), allocatable:: type
-        !> @brief The particle's position.
+        !> @brief The particles' position.
         real(fp), dimension(:, :), allocatable:: x
-        !> @brief Lagrangian velocity of the particle.
+        !> @brief Lagrangian velocity of the particles.
         real(fp), dimension(:, :), allocatable:: v
-        !> @brief The density of the particle.
+        !> @brief The density of the particles.
         real(fp), dimension(:), allocatable:: rho
-        !> @brief The mass of the particle.
+        !> @brief The mass of the particles.
         real(fp), dimension(:), allocatable:: mass
-        !> @brief The local speed of sound associated with the particle.
+        !> @brief The local speed of sound associated with the particles.
         real(fp), dimension(:), allocatable:: c
-        !> @brief The acceleration of the particle.
+        !> @brief The acceleration of the particles.
         real(fp), dimension(:, :), allocatable:: dvxdt
-        !> @brief The density rate-of-change of the particle.
+        !> @brief The density rate-of-change of the particles.
         real(fp), dimension(:), allocatable:: drhodt
-        !> @brief The allocated size of the particle data.
+        !> @brief The allocated size of the particles' data.
         integer:: size = 0
         !> @brief Whether the particles have been allocated.
         logical, private:: allocated_ = .false.
@@ -44,6 +44,9 @@ module grasph_particle_m
 
 contains
 
+    !> @brief Allocates particle data arrays and initialises everything to zero.
+    !> @param self The particles to initialise.
+    !> @param n The number of particles to allocate.
     subroutine base_particles_init(self, n)
         class(base_particles_t), intent(inout):: self
         integer, intent(in):: n
@@ -75,6 +78,8 @@ contains
 
     end subroutine base_particles_init
 
+    !> @brief Deallocates all the arrays in the base_particles_t class.
+    !> @param self The class to deallocate members of.
     subroutine base_particles_deallocate(self)
         class(base_particles_t), intent(inout):: self
 

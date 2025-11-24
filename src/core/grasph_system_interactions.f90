@@ -20,7 +20,7 @@ module grasph_system_interactions_m
     type, abstract:: base_sweeper_t
         !> @brief Controls whether to update the RHS particles (if they're associated).
         logical:: update_rhs = .true.
-        !> @brief Controls whether the sweep initializes particles' rate-of-change data.
+        !> @brief Controls whether the sweep initialises particles' rate-of-change data.
         logical:: initialise = .true.
     contains
         !> @brief Procedure for when only psys_lhs is associated. Default produces runtime error.
@@ -30,7 +30,7 @@ module grasph_system_interactions_m
         !> @brief Procedure for when both psys_lhs and psys_rhs are associated, but psys_rhs is not updated. Called when
         !>        update_rhs == .false..
         procedure:: sweep_2system_norhsupdate => notimplemented_sweep_2system_norhsupdate
-        !> @brief Function to get the name of this sweeper. Mainly intended for error messages.
+        !> @brief Readonly name of the sweeper.
         procedure(sweeper_name), deferred, nopass:: name
     end type base_sweeper_t
 
@@ -206,7 +206,7 @@ contains
     !> @brief A do-nothing placeholder subroutine.
     !> @param self The sweeper class. Used to access constants.
     !> @param pairs The class storing particle pair index information.
-    !> @param psys the particles involved in the interactions.
+    !> @param ps the particles involved in the interactions.
     !> @param dt The time-step size.
     subroutine donothing_sweep_1system(self, pairs, ps, dt)
         class(default_sweeper_t), intent(in):: self
@@ -219,8 +219,8 @@ contains
     !>        meaningful sweeps to perform.
     !> @param self The sweeper class. Used to access constants.
     !> @param pairs The class storing particle pair index information.
-    !> @param psys_lhs the LHS particles involved in the interactions.
-    !> @param psys_rhs The RHS particles involved in the interactions. psys_rhs will not be passed in if not associated in the
+    !> @param ps_lhs the LHS particles involved in the interactions.
+    !> @param ps_rhs The RHS particles involved in the interactions.
     !>        owning system_interaction_t class.
     !> @param dt The time-step size.
     subroutine donothing_sweep_2system(self, pairs, ps_lhs, ps_rhs, dt)

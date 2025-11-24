@@ -23,7 +23,9 @@ module weakly_compressible_particles_m
 
     !> @brief Weakly compressible ghost particle type.
     type, extends(eos_particles_t):: eos_ghost_particles_t
+        !> @brief Pointer to the original particles the ghost particles are based on.
         class(eos_particles_t), pointer:: ps_original => null()
+        !> @brief The index in ps_original that the given ghost particle is based on.
         integer, allocatable:: idx_original(:)
     contains
         procedure:: init => eos_ghost_particles_init
@@ -77,7 +79,9 @@ module weakly_compressible_particles_m
 
     !> @brief Weakly compressible ghost particle type with stress and strain rate tensors in voigt notation.
     type, extends(eos_viscous_stress_particles_t):: eos_viscous_stress_ghost_particles_t
+        !> @brief Pointer to the original particles the ghost particles are based on.
         class(eos_viscous_stress_particles_t), pointer:: ps_original
+        !> @brief The index in ps_original that the given ghost particle is based on.
         integer, allocatable:: idx_original(:)
     contains
         procedure:: init => eos_viscous_stress_ghost_particles_init
@@ -112,12 +116,17 @@ module weakly_compressible_particles_m
 
 contains
 
+    !> @brief Deallocates all the arrays in the eos_particles_t class.
+    !> @param self The class to deallocate members of.
     subroutine eos_particles_deallocate(self)
         class(eos_particles_t), intent(inout):: self
         call base_particles_deallocate(self)
         if (allocated(self%p)) deallocate (self%p)
     end subroutine eos_particles_deallocate
 
+    !> @brief Allocates particle data arrays and initialises everything to zero.
+    !> @param self The particles to initialise.
+    !> @param n The number of particles to allocate.
     subroutine eos_particles_init(self, n)
         class(eos_particles_t), intent(inout):: self
         integer, intent(in):: n
@@ -126,6 +135,8 @@ contains
         allocate (self%p(n), source=0._fp)
     end subroutine eos_particles_init
 
+    !> @brief Deallocates all the arrays in the eos_ghost_particles_t class.
+    !> @param self The class to deallocate members of.
     subroutine eos_ghost_particles_deallocate(self)
         class(eos_ghost_particles_t), intent(inout):: self
         call eos_particles_deallocate(self)
@@ -133,6 +144,9 @@ contains
         if (allocated(self%idx_original)) deallocate (self%idx_original)
     end subroutine eos_ghost_particles_deallocate
 
+    !> @brief Allocates particle data arrays and initialises everything to zero.
+    !> @param self The particles to initialise.
+    !> @param n The number of particles to allocate.
     subroutine eos_ghost_particles_init(self, n)
         class(eos_ghost_particles_t), intent(inout):: self
         integer, intent(in):: n
@@ -141,6 +155,8 @@ contains
         allocate (self%idx_original(n), source=0)
     end subroutine eos_ghost_particles_init
 
+    !> @brief Deallocates all the arrays in the eos_viscous_stress_particles_t class.
+    !> @param self The class to deallocate members of.
     subroutine eos_viscous_stress_particles_deallocate(self)
         class(eos_viscous_stress_particles_t), intent(inout):: self
         call eos_particles_deallocate(self)
@@ -148,6 +164,9 @@ contains
         if (allocated(self%stress)) deallocate (self%stress)
     end subroutine eos_viscous_stress_particles_deallocate
 
+    !> @brief Allocates particle data arrays and initialises everything to zero.
+    !> @param self The particles to initialise.
+    !> @param n The number of particles to allocate.
     subroutine eos_viscous_stress_particles_init(self, n)
         class(eos_viscous_stress_particles_t), intent(inout):: self
         integer, intent(in):: n
@@ -156,6 +175,8 @@ contains
         allocate (self%stress(ntensor_elems_voigt, n), source=0._fp)
     end subroutine eos_viscous_stress_particles_init
 
+    !> @brief Deallocates all the arrays in the eos_viscous_stress_ghost_particles_t class.
+    !> @param self The class to deallocate members of.
     subroutine eos_viscous_stress_ghost_particles_deallocate(self)
         class(eos_viscous_stress_ghost_particles_t), intent(inout):: self
         call eos_viscous_stress_particles_deallocate(self)
@@ -163,6 +184,9 @@ contains
         if (allocated(self%idx_original)) deallocate (self%idx_original)
     end subroutine eos_viscous_stress_ghost_particles_deallocate
 
+    !> @brief Allocates particle data arrays and initialises everything to zero.
+    !> @param self The particles to initialise.
+    !> @param n The number of particles to allocate.
     subroutine eos_viscous_stress_ghost_particles_init(self, n)
         class(eos_viscous_stress_ghost_particles_t), intent(inout):: self
         integer, intent(in):: n
@@ -175,7 +199,6 @@ contains
     !>        subroutine.
     !> @param self The state updater holding reference density constant.
     !> @param ps The particles who's pressure are to be updated.
-    !> @param n The number of particles who's pressure needs updating.
     !> @param dt The input time-increment (unused - included to match the overriden method).
     subroutine linear_eos_update_state(self, ps, dt)
         class(linear_eos_state_updater_t), intent(in):: self
@@ -196,8 +219,7 @@ contains
     !>        density (rho), and reference density (rho_ref). Overrides particle system's state_update
     !>        subroutine.
     !> @param self The state updater holding reference density and gamma constants.
-    !> @param ps The particle system with particles who's pressure is to be updated.
-    !> @param n The number of particles who's state needs updating.
+    !> @param ps The particles who's pressure is to be updated.
     !> @param dt The input time-increment (unused - included to match the overriden method).
     subroutine tait_eos_update_state(self, ps, dt)
         class(tait_eos_state_updater_t), intent(in):: self
@@ -217,8 +239,7 @@ contains
 
     !> @brief Updates ghost particles' state using its original particles' properties and the boundary surface unit normal vector.
     !> @param self The state updater holding boundary surface normal.
-    !> @param ps The particle system with ghost particles who's state is to be updated.
-    !> @param n Number of particles in ps.
+    !> @param ps The ghost particles who's state is to be updated.
     !> @param dt The input time-increment (unused - included to match the overriden method).
     subroutine ghost_state_update(self, ps, dt)
         class(ghost_state_updater_t), intent(in):: self
@@ -248,8 +269,7 @@ contains
     !> @brief Updates stress of weakly-compressible particles with stress using a visco-plastic stress-strain relation with DP-like
     !> @brief yield criterion and linear equation of state.
     !> @param self The state updater holding reference density, friction angle, and cohesion.
-    !> @param ps The particle system with particles who's stress is to be updated.
-    !> @param n Number of particles in ps.
+    !> @param ps The particles who's stress is to be updated.
     !> @param dt The input time-increment (unused - included to match the overriden method).
     subroutine dp_visco_elastic_state_update(self, ps, dt)
         class(dp_visco_elastic_state_updater_t), intent(in):: self
@@ -290,8 +310,7 @@ contains
 
     !> @brief Updates ghost particles' state using its original particles' properties and the boundary surface unit normal vector.
     !> @param self The state updater holding boundary surface normal.
-    !> @param ps The particle system with ghost particles who's state is to be updated.
-    !> @param n Number of particles in ps.
+    !> @param ps The ghost particles who's state is to be updated.
     !> @param dt The input time-increment (unused - included to match the overriden method).
     subroutine eos_viscous_stress_ghost_state_update(self, ps, dt)
         class(eos_viscous_stress_ghost_state_updater_t), intent(in):: self

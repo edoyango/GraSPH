@@ -24,6 +24,7 @@ module grasph_pairs_m
         integer:: ndims = 0
         !> @brief ij particle pair indices.
         integer, allocatable:: pair_ij(:, :)
+        !> @brief The kernel weights calculated for the given pair.
         real(fp), allocatable:: w(:)
         !> @brief The kernel gradients calculated for the given pair.
         real(fp), allocatable:: dwdx(:, :)
@@ -78,6 +79,7 @@ contains
 
     !> @brief The direct-search fixed-radius neighbour search algorithm. Finds pairs within a single
     !>        set of particles.
+    !> @param n The number of particles.
     !> @param x The positions of the particles.
     !> @param cutoff The cutoff distance to find pairs of particles within.
     !> @param kernel The SPH kernel to calculate values and gradient values with.
@@ -110,7 +112,9 @@ contains
     !> @brief The direct-search fixed-radius neighbour search algorithm. Finds pairs between two
     !>        distinct sets of particles. Kernel values and gradients are always calculated with
     !>        respect to the LHS particles.
+    !> @param n_lhs The number of LHS particles.
     !> @param x_lhs The positions of the LHS particles.
+    !> @param n_rhs The number of RHS particles.
     !> @param x_rhs The positions of the RHS particles.
     !> @param n_rhs The number of RHS particles.
     !> @param cutoff The cutoff distance to find pairs of particles within.
@@ -143,6 +147,7 @@ contains
 
     !> @brief The cell-lists fixed-radius neighbour search algorithm. Finds pairs within a single
     !>        set of particles.
+    !> @param n The number of particles.
     !> @param x The positions of the particles.
     !> @param cutoff The cutoff distance to find pairs of particles within.
     !> @param kernel The SPH kernel to calculate values and gradient values with.
@@ -185,6 +190,7 @@ contains
     !> @param cutoff The cutoff distance to find pairs of particles within.
     !> @param kernel The SPH kernel to calculate values and gradient values with.
     !> @param ngridx The number of grid cells in each dimension.
+    !> @param n The number of particles.
     !> @param grid_idx The grid cells that each particle in the set belongs to.
     !> @param x The positions of the particles.
     !> @param pairs The particle_pairs_t instance to populate with the search.
@@ -307,7 +313,9 @@ contains
     !> @brief The cell-lists fixed-radius neighbour search algorithm. Finds pairs between two
     !>        distinct sets of particles. Kernel values and gradients are always calculated with
     !>        respect to the LHS particles.
+    !> @param n_lhs The number of LHS partices.
     !> @param x_lhs The positions of the LHS particles.
+    !> @param n_rhs The number of RHS particles.
     !> @param x_rhs The positions of the RHS particles.
     !> @param n_rhs The number of RHS particles.
     !> @param cutoff The cutoff distance to find pairs of particles within.
@@ -353,12 +361,15 @@ contains
 
     !> @brief The 3d version of the grid sweep in the cell-lists pair-finding two particle set
     !>        pair search.
+    !> @param cutoff The cutoff distance to find pairs of particles within.
     !> @param kernel The SPH kernel to calculate values and gradient values with.
     !> @param minextents The minimum coordinates of the grid (corresponding to the
     !>                   left-/south-/bottom-most coordinate)
     !> @param ngridx The number of grid cells in each dimension.
     !> @param grid_idx The grid cells that each particle in the RHS set belongs to.
+    !> @param n_lhs The number of LHS particles.
     !> @param x_lhs The positions of the LHS particles.
+    !> @param n_rhs The number of RHS particles.
     !> @param x_rhs The positions of the RHS particles.
     !> @param n_rhs The number of RHS particles.
     !> @param pairs The particle_pairs_t instance to populate with the search.
@@ -433,7 +444,6 @@ contains
 
     !> @brief A helper subroutine to perform a pair search within a cell.
     !> @param cutoff The cutoff distance to find pairs of particles within.
-    !> @param ndims The number of spatial dimensions. Used to size input and tmp arrays.
     !> @param xi The LHS particle's coordinates.
     !> @param n The number of RHS particles. Used to size input arrays.
     !> @param x_rhs The RHS particles' coordinates.

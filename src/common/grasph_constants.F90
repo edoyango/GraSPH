@@ -29,6 +29,7 @@ module grasph_constants_m
     integer, parameter:: ndims = 2
 #endif
 
+    !> @brief Maximum allowable characters for a variable name.
     integer, parameter:: max_name_len = 30
 
 end module grasph_constants_m
