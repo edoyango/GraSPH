@@ -318,7 +318,7 @@ contains
         type(particle_system_t):: fluid_psys, wall_psys
         type(eos_particles_t):: fluid_template
         type(system_interaction_t):: interaction
-        type(sweeper_container_t):: sweepers(1)
+        type(sweeper_container_t), target:: sweepers(1)
         type(cubic_bspline_kernel_t):: kernel
         type(morris_boundary_sweeper_t), pointer:: sweeper
         integer:: i

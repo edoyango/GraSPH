@@ -179,7 +179,7 @@ contains
     !> @param dt The input time-increment (unused - included to match the overriden method).
     subroutine linear_eos_update_state(self, ps, dt)
         class(linear_eos_state_updater_t), intent(in):: self
-        class(base_particles_t), intent(inout):: ps
+        class(base_particles_t), target, intent(inout):: ps
         real(fp), intent(in), optional:: dt
         integer:: i
         select type (ps_eos => ps)
@@ -201,7 +201,7 @@ contains
     !> @param dt The input time-increment (unused - included to match the overriden method).
     subroutine tait_eos_update_state(self, ps, dt)
         class(tait_eos_state_updater_t), intent(in):: self
-        class(base_particles_t), intent(inout):: ps
+        class(base_particles_t), target, intent(inout):: ps
         real(fp), intent(in), optional:: dt
         integer:: i
         select type (ps_eos => ps)
@@ -222,7 +222,7 @@ contains
     !> @param dt The input time-increment (unused - included to match the overriden method).
     subroutine ghost_state_update(self, ps, dt)
         class(ghost_state_updater_t), intent(in):: self
-        class(base_particles_t), intent(inout):: ps
+        class(base_particles_t), target, intent(inout):: ps
         real(fp), optional, intent(in):: dt
         integer:: i, i_original
         real(fp):: projection(ndims), v_original(ndims)
@@ -253,7 +253,7 @@ contains
     !> @param dt The input time-increment (unused - included to match the overriden method).
     subroutine dp_visco_elastic_state_update(self, ps, dt)
         class(dp_visco_elastic_state_updater_t), intent(in):: self
-        class(base_particles_t), intent(inout):: ps
+        class(base_particles_t), target, intent(inout):: ps
         real(fp), intent(in), optional:: dt
         integer:: i, d
         real(fp):: mag_strain_rate
@@ -295,7 +295,7 @@ contains
     !> @param dt The input time-increment (unused - included to match the overriden method).
     subroutine eos_viscous_stress_ghost_state_update(self, ps, dt)
         class(eos_viscous_stress_ghost_state_updater_t), intent(in):: self
-        class(base_particles_t), intent(inout):: ps
+        class(base_particles_t), target, intent(inout):: ps
         real(fp), optional, intent(in):: dt
         integer:: i, i_original
         real(fp):: projection(ndims), v_original(ndims)

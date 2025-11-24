@@ -43,7 +43,7 @@ contains
 
         class(example_real_virt_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(base_particles_t), intent(inout):: ps
+        class(base_particles_t), target, intent(inout):: ps
         real(fp), optional, intent(in):: dt
 
         error stop "Cannot perform sweep with only 1 particle system. Ensure that both ps_lhs and ps_rhs are associated."
@@ -53,7 +53,7 @@ contains
     subroutine example_real_virt_sweep_2system(self, pairs, ps_lhs, ps_rhs, dt)
         class(example_real_virt_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(base_particles_t), intent(inout):: ps_lhs, ps_rhs
+        class(base_particles_t), target, intent(inout):: ps_lhs, ps_rhs
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
         class(eos_particles_t), pointer:: ps_real, ps_virt

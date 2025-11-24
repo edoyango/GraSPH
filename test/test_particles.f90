@@ -51,7 +51,7 @@ contains
 
         type(particle_system_t):: psys
         type(eos_particles_t):: ps_template
-        type(state_updater_container_t):: state_updaters(1)
+        type(state_updater_container_t), target:: state_updaters(1)
         type(linear_eos_state_updater_t), pointer:: state_updater
         integer:: i
         character:: ic

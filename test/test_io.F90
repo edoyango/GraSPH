@@ -88,7 +88,7 @@ contains
 
     subroutine test_wcp_dump()
 
-        type(particle_system_t):: psys, psys2
+        type(particle_system_t), target:: psys, psys2
         integer:: i, d
         character(2):: ic
         character:: dc

@@ -30,7 +30,7 @@ contains
         type(eos_particles_t):: ps_template
         type(linear_eos_state_updater_t), pointer:: state_updater
         type(sweeper_container_t):: sweepers(1)
-        type(state_updater_container_t):: state_updaters(1)
+        type(state_updater_container_t), target:: state_updaters(1)
 
         allocate (default_sweeper_t::sweepers(1)%sweeper)
         allocate (linear_eos_state_updater_t::state_updaters(1)%updater)

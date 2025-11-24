@@ -147,7 +147,7 @@ contains
     subroutine fluid_sweep_1system(self, pairs, ps, dt)
         class(fluid_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(base_particles_t), intent(inout):: ps
+        class(base_particles_t), target, intent(inout):: ps
         real(fp), optional, intent(in):: dt
         class(eos_particles_t), pointer:: fluid
         integer:: i, j, k
@@ -199,7 +199,7 @@ contains
     subroutine fluid_sweep_2system(self, pairs, ps_lhs, ps_rhs, dt)
         class(fluid_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(base_particles_t), intent(inout):: ps_lhs, ps_rhs
+        class(base_particles_t), target, intent(inout):: ps_lhs, ps_rhs
         real(fp), optional, intent(in):: dt
         class(eos_particles_t), pointer:: fluid_lhs, fluid_rhs
         integer:: i, j, k
@@ -265,7 +265,7 @@ contains
     subroutine fluid_sweep_2system_norhsupdate(self, pairs, ps_lhs, ps_rhs, dt)
         class(fluid_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(base_particles_t), intent(inout):: ps_lhs, ps_rhs
+        class(base_particles_t), target, intent(inout):: ps_lhs, ps_rhs
         real(fp), optional, intent(in):: dt
         class(eos_particles_t), pointer:: fluid_lhs, fluid_rhs
         integer:: i, j, k
@@ -327,7 +327,7 @@ contains
     subroutine fluid_boundary_sweep_monaghan1994_2system(self, pairs, ps_lhs, ps_rhs, dt)
         class(fluid_boundary_sweeper_monaghan1994_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(base_particles_t), intent(inout):: ps_lhs, ps_rhs
+        class(base_particles_t), target, intent(inout):: ps_lhs, ps_rhs
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
         real(fp):: dummy_dvxdt(2)
@@ -358,7 +358,7 @@ contains
     subroutine boundary_update_sweep_2system(self, pairs, ps_lhs, ps_rhs, dt)
         class(boundary_update_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(base_particles_t), intent(inout):: ps_lhs, ps_rhs
+        class(base_particles_t), target, intent(inout):: ps_lhs, ps_rhs
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
         real(fp):: mw, vw
@@ -398,7 +398,7 @@ contains
     subroutine ghost_timestep_setup_sweep_2system(self, pairs, ps_lhs, ps_rhs, dt)
         class(ghost_timestep_setuper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(base_particles_t), intent(inout):: ps_lhs, ps_rhs
+        class(base_particles_t), target, intent(inout):: ps_lhs, ps_rhs
         real(fp), optional, intent(in):: dt
         integer:: i
         class(eos_particles_t), pointer:: ps_real
@@ -448,7 +448,7 @@ contains
     subroutine morris_boundary_sweep_2system(self, pairs, ps_lhs, ps_rhs, dt)
         class(morris_boundary_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(base_particles_t), intent(inout):: ps_lhs, ps_rhs
+        class(base_particles_t), target, intent(inout):: ps_lhs, ps_rhs
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
         class(eos_particles_t), pointer:: ps_fluid
@@ -496,7 +496,7 @@ contains
 
         class(strain_rate_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(base_particles_t), intent(inout):: ps
+        class(base_particles_t), target, intent(inout):: ps
         real(fp), optional, intent(in):: dt
         class(eos_viscous_stress_particles_t), pointer:: ps_vs
         integer:: i, j, k
@@ -535,7 +535,7 @@ contains
 
         class(strain_rate_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(base_particles_t), intent(inout):: ps_lhs, ps_rhs
+        class(base_particles_t), target, intent(inout):: ps_lhs, ps_rhs
         real(fp), optional, intent(in):: dt
         class(eos_viscous_stress_particles_t), pointer:: ps_vs_lhs, ps_vs_rhs
         real(fp):: dummy_strain_rate(ntensor_elems_voigt)
@@ -583,7 +583,7 @@ contains
 
         class(strain_rate_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(base_particles_t), intent(inout):: ps_lhs, ps_rhs
+        class(base_particles_t), target, intent(inout):: ps_lhs, ps_rhs
         real(fp), optional, intent(in):: dt
         class(eos_viscous_stress_particles_t), pointer:: ps_vs_lhs, ps_vs_rhs
         real(fp):: dummy_strain_rate(ntensor_elems_voigt)
@@ -630,7 +630,7 @@ contains
     subroutine eos_viscous_stress_ghost_timestep_setup_sweep_2system(self, pairs, ps_lhs, ps_rhs, dt)
         class(eos_viscous_stress_ghost_timestep_setuper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(base_particles_t), intent(inout):: ps_lhs, ps_rhs
+        class(base_particles_t), target, intent(inout):: ps_lhs, ps_rhs
         real(fp), optional, intent(in):: dt
         integer:: i
         class(eos_viscous_stress_particles_t), pointer:: ps_real
@@ -678,7 +678,7 @@ contains
     subroutine viscous_stress_fluid_sweep_1system(self, pairs, ps, dt)
         class(viscous_stress_fluid_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(base_particles_t), intent(inout):: ps
+        class(base_particles_t), target, intent(inout):: ps
         class(eos_viscous_stress_particles_t), pointer:: fluid
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
@@ -734,7 +734,7 @@ contains
     subroutine viscous_stress_fluid_sweep_2system(self, pairs, ps_lhs, ps_rhs, dt)
         class(viscous_stress_fluid_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(base_particles_t), intent(inout):: ps_lhs, ps_rhs
+        class(base_particles_t), target, intent(inout):: ps_lhs, ps_rhs
         class(eos_viscous_stress_particles_t), pointer:: fluid_lhs, fluid_rhs
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
@@ -805,7 +805,7 @@ contains
     subroutine viscous_stress_fluid_sweep_2system_norhsupdate(self, pairs, ps_lhs, ps_rhs, dt)
         class(viscous_stress_fluid_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(base_particles_t), intent(inout):: ps_lhs, ps_rhs
+        class(base_particles_t), target, intent(inout):: ps_lhs, ps_rhs
         class(eos_viscous_stress_particles_t), pointer:: fluid_lhs, fluid_rhs
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
@@ -873,7 +873,7 @@ contains
     subroutine viscous_stress_morris_boundary_sweep_2system(self, pairs, ps_lhs, ps_rhs, dt)
         class(eos_viscous_stress_morris_boundary_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(base_particles_t), intent(inout):: ps_lhs, ps_rhs
+        class(base_particles_t), target, intent(inout):: ps_lhs, ps_rhs
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
         class(eos_viscous_stress_particles_t), pointer:: ps_fluid
@@ -923,7 +923,7 @@ contains
 
         class(strain_rate_morris_boundary_sweeper_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(base_particles_t), intent(inout):: ps_lhs, ps_rhs
+        class(base_particles_t), target, intent(inout):: ps_lhs, ps_rhs
         real(fp), optional, intent(in):: dt
         class(eos_viscous_stress_particles_t), pointer:: ps_real
         real(fp):: da, db, vb(ndims), dummy_strain_rate(ntensor_elems_voigt)

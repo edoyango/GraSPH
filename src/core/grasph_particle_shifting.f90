@@ -64,7 +64,7 @@ contains
     subroutine xsph_shift_1system(self, pairs, ps, dt)
         class(xsph_shifter_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(base_particles_t), intent(inout):: ps
+        class(base_particles_t), target, intent(inout):: ps
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
         real(fp):: dummyx(ndims)
@@ -90,7 +90,7 @@ contains
     subroutine xsph_shift_2system(self, pairs, ps_lhs, ps_rhs, dt)
         class(xsph_shifter_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(base_particles_t), intent(inout):: ps_lhs, ps_rhs
+        class(base_particles_t), target, intent(inout):: ps_lhs, ps_rhs
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
 
@@ -115,7 +115,7 @@ contains
     subroutine xsph_shift_2system_norhsupdate(self, pairs, ps_lhs, ps_rhs, dt)
         class(xsph_shifter_t), intent(in):: self
         type(particle_pairs_t), intent(in):: pairs
-        class(base_particles_t), intent(inout):: ps_lhs, ps_rhs
+        class(base_particles_t), target, intent(inout):: ps_lhs, ps_rhs
         real(fp), optional, intent(in):: dt
         integer:: i, j, k
         real(fp):: dummyx(ndims)

@@ -148,7 +148,7 @@ contains
     !> @param dt A time-increment which may be used to update particles' state.
     subroutine base_update_state(self, ps, dt)
         class(base_state_updater_t), intent(in):: self
-        class(base_particles_t), intent(inout):: ps
+        class(base_particles_t), target, intent(inout):: ps
         real(fp), intent(in), optional:: dt
         ! do nothing e.g. when using static repulsive boundaries that have no state
     end subroutine base_update_state
